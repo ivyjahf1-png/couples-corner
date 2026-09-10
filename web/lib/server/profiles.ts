@@ -1,7 +1,6 @@
 import "server-only";
 
-import { getAdminFirestore, getAdminStorage } from "@/lib/firebase/admin";
-import { adminRefs } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "./audit";
 import { scanMessage, addRiskSignal } from "./safety";
 import type { UserProfile, User } from "@/lib/models/user";
@@ -27,21 +26,74 @@ import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 export type { ProfileCompletion } from "@/lib/utils/profile-completion";
 export { computeProfileCompletion };
 
+/** Convert snake_case DB row to camelCase UserProfile */
+function dbToUserProfile(row: Record<string, unknown>): UserProfile {
+  return {
+    id: row.id as string,
+    userId: row.user_id as string,
+    displayName: row.display_name as string,
+    visibility: row.visibility as ProfileVisibility,
+    discoverable: row.discoverable as boolean,
+    photos: (row.photos as UserProfile["photos"]) ?? [],
+    lookingFor: row.looking_for as string | null,
+    interests: (row.interests as string[]) ?? [],
+    bio: row.bio as string | null,
+    location: row.location as string | null,
+    gender: row.gender as string | null,
+    orientation: row.orientation as string | null,
+    dateOfBirth: row.date_of_birth as string | null,
+    relationshipStatus: row.relationship_status as string | null,
+    profileType: row.profile_type as UserProfile["profileType"],
+    preferences: row.preferences as UserProfile["preferences"],
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
+
+/** Convert snake_case DB row to camelCase User */
+function dbToUser(row: Record<string, unknown>): User {
+  return {
+    id: row.id as string,
+    authUid: row.id as string,
+    email: row.email as string,
+    emailVerified: row.email_verified as boolean,
+    username: row.username as string,
+    displayName: row.display_name as string,
+    avatarUrl: row.avatar_url as string | null,
+    dateOfBirth: row.date_of_birth as string | null,
+    gender: row.gender as string | null,
+    orientation: row.orientation as string | null,
+    bio: row.bio as string | null,
+    location: row.location as string | null,
+    locationPoint: row.location_point as User["locationPoint"],
+    interests: (row.interests as string[]) ?? [],
+    relationshipStatus: row.relationship_status as string | null,
+    profileType: row.profile_type as User["profileType"],
+    onboardingCompleted: row.onboarding_completed as boolean,
+    role: row.role as User["role"],
+    status: row.status as User["status"],
+    lastActiveAt: row.last_active_at as string | null,
+    photos: (row.photos as User["photos"]) ?? [],
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+  };
+}
 
 /** Get a user's own profile + user doc. */
 export async function getOwnProfile(uid: string): Promise<{
   user: User | null;
   profile: UserProfile | null;
 }> {
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
-  const [userSnap, profileSnap] = await Promise.all([
-    refs.users.doc(uid).get(),
-    refs.userProfiles.doc(uid).get(),
+  const supabase = getSupabaseServerClient();
+
+  const [{ data: userRow }, { data: profileRow }] = await Promise.all([
+    supabase.from("users").select("*").eq("id", uid).single(),
+    supabase.from("profiles").select("*").eq("user_id", uid).single(),
   ]);
+
   return {
-    user: (userSnap.data() as User | undefined) ?? null,
-    profile: (profileSnap.data() as UserProfile | undefined) ?? null,
+    user: userRow ? dbToUser(userRow) : null,
+    profile: profileRow ? dbToUserProfile(profileRow) : null,
   };
 }
 
@@ -50,18 +102,31 @@ export async function getVisibleProfile(
   targetUid: string,
   viewerUid: string | null
 ): Promise<UserProfile | null> {
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
-  const profileSnap = await refs.userProfiles.doc(targetUid).get();
-  const profile = (profileSnap.data() as UserProfile | undefined) ?? null;
-  if (!profile) return null;
+  const supabase = getSupabaseServerClient();
+
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", targetUid)
+    .single();
+
+  if (!profileRow) return null;
+
+  const profile = dbToUserProfile(profileRow);
+
   if (profile.visibility === "private" && viewerUid !== targetUid) return null;
+
   if (viewerUid && viewerUid !== targetUid) {
     const pairId = viewerUid < targetUid ? `${viewerUid}_${targetUid}` : `${targetUid}_${viewerUid}`;
-    const blockSnap = await refs.blocks.doc(pairId).get();
-    if (blockSnap.exists) return null;
+    const { data: blockRow } = await supabase
+      .from("blocks")
+      .select("id")
+      .eq("id", pairId)
+      .single();
+    if (blockRow) return null;
   }
-    return profile;
+
+  return profile;
 }
 
 /**
@@ -91,48 +156,49 @@ export async function createProfile(
   uid: string,
   input: ProfileUpdateInput
 ): Promise<UserProfile> {
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
+  const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
-  const profile: UserProfile = {
-    id: refs.userProfiles.doc(uid).id,
-    userId: uid,
-    displayName: input.displayName?.trim() || "",
+  const profileData = {
+    user_id: uid,
+    display_name: input.displayName?.trim() || "",
     bio: input.bio?.trim() || null,
     interests: input.interests ?? [],
-    photos: [],
+    location: input.location?.trim() || null,
+    gender: input.gender?.trim() || null,
+    orientation: input.orientation?.trim() || null,
+    date_of_birth: input.dateOfBirth || null,
+    relationship_status: input.relationshipStatus || null,
+    profile_type: input.profileType || null,
     visibility: input.visibility ?? "public",
     discoverable: input.discoverable ?? true,
-    lookingFor: input.lookingFor ?? null,
-    location: input.location?.trim() || null,
-    gender: input.gender ?? null,
-    orientation: input.orientation ?? null,
-    dateOfBirth: input.dateOfBirth ?? null,
-    relationshipStatus: input.relationshipStatus ?? null,
-    profileType: input.profileType ?? null,
     preferences: {
-      notifyOnConnection: true,
-      notifyOnMessages: true,
-      showOnlineStatus: true,
+      notify_on_connection: true,
+      notify_on_messages: true,
+      show_online_status: true,
     },
-    createdAt: now,
-    updatedAt: now,
+    photos: [],
+    created_at: now,
+    updated_at: now,
   };
 
-  await refs.userProfiles.doc(uid).set(profile, { merge: true });
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .insert(profileData)
+    .select()
+    .single();
 
   await recordAudit({
     adminUserId: uid,
     action: "create",
     targetRef: { type: "profile", id: uid },
     reason: "profile creation",
-    after: { visibility: profile.visibility, discoverable: profile.discoverable },
+    after: { visibility: profileData.visibility, discoverable: profileData.discoverable },
   });
 
   await scanProfileForRisk(uid, input);
 
-  return profile;
+  return dbToUserProfile(profileRow);
 }
 
 /**
@@ -143,46 +209,53 @@ export async function updateOwnProfile(
   uid: string,
   input: ProfileUpdateInput
 ): Promise<UserProfile> {
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
+  const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
-  const updates: Record<string, unknown> = { updatedAt: now };
-  if (input.displayName !== undefined) updates.displayName = input.displayName.trim();
+  const updates: Record<string, unknown> = { updated_at: now };
+  if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
   if (input.bio !== undefined) updates.bio = input.bio?.trim() || null;
   if (input.interests !== undefined) updates.interests = input.interests;
   if (input.location !== undefined) updates.location = input.location?.trim() || null;
   if (input.gender !== undefined) updates.gender = input.gender?.trim() || null;
   if (input.orientation !== undefined) updates.orientation = input.orientation?.trim() || null;
-  if (input.dateOfBirth !== undefined) updates.dateOfBirth = input.dateOfBirth;
-  if (input.relationshipStatus !== undefined) updates.relationshipStatus = input.relationshipStatus;
-  if (input.profileType !== undefined) updates.profileType = input.profileType;
+  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth;
+  if (input.relationshipStatus !== undefined) updates.relationship_status = input.relationshipStatus;
+  if (input.profileType !== undefined) updates.profile_type = input.profileType;
   if (input.visibility !== undefined) updates.visibility = input.visibility;
   if (input.discoverable !== undefined) updates.discoverable = input.discoverable;
 
-  const ref = refs.userProfiles.doc(uid);
-  const beforeSnap = await ref.get();
-  const before = beforeSnap.exists ? beforeSnap.data() : undefined;
+  // Get before state for audit
+  const { data: beforeRow } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("user_id", uid)
+    .single();
 
-  await ref.set(updates, { merge: true });
+  const { data: updatedRow } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("user_id", uid)
+    .select()
+    .single();
 
   await recordAudit({
     adminUserId: uid,
     action: "update",
     targetRef: { type: "profile", id: uid },
     reason: "profile edit",
-    before,
-    after: { ...before, ...updates, id: uid, userId: uid },
+    before: beforeRow,
+    after: { ...beforeRow, ...updates, id: uid, user_id: uid },
   });
 
-    await scanProfileForRisk(uid, input);
+  await scanProfileForRisk(uid, input);
 
-  return (await ref.get()).data() as UserProfile;
+  return dbToUserProfile(updatedRow);
 }
 
 /**
- * Upload a profile photo via the Admin SDK.
- * Only the owner's uid may write to their folder (Storage rules + server check).
+ * Upload a profile photo via Supabase Storage.
+ * Only the owner's uid may write to their folder (RLS + server check).
  */
 export async function uploadProfilePhoto(
   uid: string,
@@ -201,15 +274,34 @@ export async function uploadProfilePhoto(
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
   const path = `profiles/${uid}/${timestamp}_${safeName}`;
 
-  const bucket = getAdminStorage().bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const fileRef = bucket.file(path);
-  await fileRef.save(buffer, { metadata: { contentType: file.type } });
+  const supabase = getSupabaseServerClient();
 
-  await adminRefs(getAdminFirestore()).userProfiles.doc(uid).set(
-    { photos: [{ id: path, storagePath: path, isPrimary: true }] },
-    { merge: true }
-  );
+  const buffer = await file.arrayBuffer();
+  const { error: uploadError } = await supabase.storage
+    .from("photos")
+    .upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload photo: ${uploadError.message}`);
+  }
+
+  // Update profile with new photo
+  const { data: profileRow } = await supabase
+    .from("profiles")
+    .select("photos")
+    .eq("user_id", uid)
+    .single();
+
+  const photos = (profileRow?.photos as UserProfile["photos"]) ?? [];
+  photos.push({ id: path, storagePath: path, isPrimary: photos.length === 0 });
+
+  await supabase
+    .from("profiles")
+    .update({ photos, updated_at: new Date().toISOString() })
+    .eq("user_id", uid);
 
   await recordAudit({
     adminUserId: uid,
@@ -218,7 +310,7 @@ export async function uploadProfilePhoto(
     reason: "profile photo upload",
   });
 
-  return { url: `/api/photos/${uid}/${fileRef.name.split("/").pop()}`, path };
+  return { url: `/api/photos/${uid}/${safeName}`, path };
 }
 
 

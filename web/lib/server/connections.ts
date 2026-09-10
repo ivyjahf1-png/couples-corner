@@ -1,17 +1,16 @@
 import "server-only";
 
-import { getAdminFirestore } from "@/lib/firebase/admin";
-import { adminRefs } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ConnectionRequest, Connection } from "@/lib/models/connections";
 import { createNotification } from "./notifications";
 
 /**
  * Connection request/response mutations.
  *
- * SECURITY BOUNDARY: all writes run through the Admin SDK (rules-bypassing),
+ * SECURITY BOUNDARY: all writes run through the Supabase server client (bypasses RLS),
  * so every function authorizes explicitly — actor uid comes from the server
  * session, never the client; duplicate requests, self-requests, and requests
- * involving a block in either direction are rejected here AND by firestore.rules.
+ * involving a block in either direction are rejected here AND by RLS policies.
  */
 
 /** Max connection requests one account may send per rolling hour. */
@@ -22,18 +21,24 @@ function pairIdOf(a: string, b: string): string {
 }
 
 async function assertNotBlocked(a: string, b: string): Promise<void> {
-  const snap = await adminRefs(getAdminFirestore()).blocks.doc(pairIdOf(a, b)).get();
-  if (snap.exists) throw new Error("You can't connect with this person");
+  const supabase = getSupabaseServerClient();
+  const { data } = await supabase
+    .from("blocks")
+    .select("id")
+    .eq("id", pairIdOf(a, b))
+    .single();
+  if (data) throw new Error("You can't connect with this person");
 }
 
 async function assertUnderRateLimit(fromUid: string): Promise<void> {
+  const supabase = getSupabaseServerClient();
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-  const snap = await adminRefs(getAdminFirestore())
-    .connectionRequests.where("fromUserId", "==", fromUid)
-    .where("createdAt", ">", since)
-    .limit(REQUESTS_PER_HOUR + 1)
-    .get();
-  if (snap.size >= REQUESTS_PER_HOUR) {
+  const { count } = await supabase
+    .from("connection_requests")
+    .select("*", { count: "exact", head: true })
+    .eq("from_user_id", fromUid)
+    .gt("created_at", since);
+  if (count && count >= REQUESTS_PER_HOUR) {
     throw new Error("You're sending requests too quickly — try again later");
   }
 }
@@ -42,57 +47,73 @@ async function assertUnderRateLimit(fromUid: string): Promise<void> {
 export async function sendConnectionRequest(fromUid: string, toUid: string): Promise<void> {
   if (fromUid === toUid) throw new Error("You can't connect with yourself");
 
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
+  const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
   await assertNotBlocked(fromUid, toUid);
   await assertUnderRateLimit(fromUid);
 
   // Duplicate guard: any pending request in either direction.
-  const [outgoing, incoming] = await Promise.all([
-    refs.connectionRequests
-      .where("fromUserId", "==", fromUid)
-      .where("toUserId", "==", toUid)
-      .where("status", "==", "pending")
+  const [{ data: outgoing }, { data: incoming }] = await Promise.all([
+    supabase
+      .from("connection_requests")
+      .select("id")
+      .eq("from_user_id", fromUid)
+      .eq("to_user_id", toUid)
+      .eq("status", "pending")
       .limit(1)
-      .get(),
-    refs.connectionRequests
-      .where("fromUserId", "==", toUid)
-      .where("toUserId", "==", fromUid)
-      .where("status", "==", "pending")
+      .single(),
+    supabase
+      .from("connection_requests")
+      .select("id")
+      .eq("from_user_id", toUid)
+      .eq("to_user_id", fromUid)
+      .eq("status", "pending")
       .limit(1)
-      .get(),
+      .single(),
   ]);
-  if (!outgoing.empty) throw new Error("Request already sent");
-  if (!incoming.empty) throw new Error("This person already sent you a request — check Matches");
 
-  const existingConnection = await refs.connections.doc(pairIdOf(fromUid, toUid)).get();
-  if (existingConnection.exists) throw new Error("You're already connected");
+  if (outgoing) throw new Error("Request already sent");
+  if (incoming) throw new Error("This person already sent you a request — check Matches");
 
-  const targetProfile = await refs.userProfiles.doc(toUid).get();
-  const targetData = targetProfile.data() as
-    | { preferences?: { notifyOnConnection?: boolean } }
-    | undefined;
+  const { data: existingConnection } = await supabase
+    .from("connections")
+    .select("id")
+    .eq("id", pairIdOf(fromUid, toUid))
+    .single();
 
-  const requestRef = await refs.connectionRequests.add({
-    fromUserId: fromUid,
-    toUserId: toUid,
-    status: "pending",
-    note: null,
-    respondedAt: null,
-    connectionId: null,
-    createdAt: now,
-    updatedAt: now,
-  } satisfies Omit<ConnectionRequest, "id">);
+  if (existingConnection) throw new Error("You're already connected");
 
-  if (targetData?.preferences?.notifyOnConnection !== false) {
+  const { data: targetProfile } = await supabase
+    .from("profiles")
+    .select("preferences")
+    .eq("user_id", toUid)
+    .single();
+
+  const targetData = targetProfile as { preferences?: { notify_on_connection?: boolean } } | null;
+
+  const { data: created } = await supabase
+    .from("connection_requests")
+    .insert({
+      from_user_id: fromUid,
+      to_user_id: toUid,
+      status: "pending",
+      note: null,
+      responded_at: null,
+      connection_id: null,
+      created_at: now,
+      updated_at: now,
+    })
+    .select("id")
+    .single();
+
+  if (targetData?.preferences?.notify_on_connection !== false) {
     await createNotification({
       recipientId: toUid,
       type: "connection_request",
       actorId: fromUid,
       entityType: "connectionRequest",
-      entityId: requestRef.id,
+      entityId: created!.id,
       title: "New connection request",
       body: "Someone would like to connect with you.",
     });
@@ -101,69 +122,77 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
 
 /** Cancel an outgoing pending request. Only the sender may cancel. */
 export async function cancelConnectionRequest(uid: string, requestId: string): Promise<void> {
-  const ref = adminRefs(getAdminFirestore()).connectionRequests.doc(requestId);
-  const snap = await ref.get();
-  const data = snap.data() as ConnectionRequest | undefined;
-  if (!data) throw new Error("Request not found");
-  if (data.fromUserId !== uid) throw new Error("Not authorized");
-  if (data.status !== "pending") throw new Error("Request already handled");
+  const supabase = getSupabaseServerClient();
+
+  const { data: request } = await supabase
+    .from("connection_requests")
+    .select("*")
+    .eq("id", requestId)
+    .single();
+
+  if (!request) throw new Error("Request not found");
+  if (request.from_user_id !== uid) throw new Error("Not authorized");
+  if (request.status !== "pending") throw new Error("Request already handled");
 
   const now = new Date().toISOString();
-  await ref.update({ status: "canceled", respondedAt: now, updatedAt: now });
+  await supabase
+    .from("connection_requests")
+    .update({ status: "canceled", responded_at: now, updated_at: now })
+    .eq("id", requestId);
 }
 
 /**
  * Accept or decline an incoming request. Only the recipient may respond.
- * Accepting creates the canonical Connection (doc id = ordered pair) in the
- * same transaction as the status change, so no fake connections can exist.
+ * Accepting creates the canonical Connection (id = ordered pair).
  */
 export async function respondToConnectionRequest(
   uid: string,
   requestId: string,
   accept: boolean
 ): Promise<void> {
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
-  const ref = refs.connectionRequests.doc(requestId);
+  const supabase = getSupabaseServerClient();
 
-  // Pre-read for authorization + notification targeting (re-validated in tx).
-  const pre = await ref.get();
-  const preData = pre.data() as ConnectionRequest | undefined;
-  if (!preData) throw new Error("Request not found");
-  if (preData.toUserId !== uid) throw new Error("Not authorized");
-  if (preData.status !== "pending") throw new Error("Request already handled");
-  await assertNotBlocked(preData.fromUserId, uid);
-  const fromUserId = preData.fromUserId;
+  // Pre-read for authorization + notification targeting.
+  const { data: pre } = await supabase
+    .from("connection_requests")
+    .select("*")
+    .eq("id", requestId)
+    .single();
 
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    const data = snap.data() as ConnectionRequest | undefined;
-    if (!data) throw new Error("Request not found");
-    if (data.toUserId !== uid) throw new Error("Not authorized");
-    if (data.status !== "pending") throw new Error("Request already handled");
+  if (!pre) throw new Error("Request not found");
+  if (pre.to_user_id !== uid) throw new Error("Not authorized");
+  if (pre.status !== "pending") throw new Error("Request already handled");
+  await assertNotBlocked(pre.from_user_id, uid);
+  const fromUserId = pre.from_user_id;
 
-    const now = new Date().toISOString();
-    if (!accept) {
-      tx.update(ref, { status: "declined", respondedAt: now, updatedAt: now });
-      return;
-    }
-
-    tx.set(refs.connections.doc(pairIdOf(data.fromUserId, data.toUserId)), {
-      id: pairIdOf(data.fromUserId, data.toUserId),
-      user1Id: data.fromUserId < data.toUserId ? data.fromUserId : data.toUserId,
-      user2Id: data.fromUserId < data.toUserId ? data.toUserId : data.fromUserId,
-      connectedAt: now,
-      sourceRequestId: requestId,
-      createdAt: now,
-      updatedAt: now,
-    } satisfies Connection);
-    tx.update(ref, {
-      status: "accepted",
-      respondedAt: now,
-      connectionId: pairIdOf(data.fromUserId, data.toUserId),
-      updatedAt: now,
+  const now = new Date().toISOString();
+  if (!accept) {
+    await supabase
+      .from("connection_requests")
+      .update({ status: "declined", responded_at: now, updated_at: now })
+      .eq("id", requestId);
+  } else {
+    // Create connection and update request
+    await supabase.from("connections").insert({
+      id: pairIdOf(pre.from_user_id, pre.to_user_id),
+      user1_id: pre.from_user_id < pre.to_user_id ? pre.from_user_id : pre.to_user_id,
+      user2_id: pre.from_user_id < pre.to_user_id ? pre.to_user_id : pre.from_user_id,
+      connected_at: now,
+      source_request_id: requestId,
+      created_at: now,
+      updated_at: now,
     });
-  });
+
+    await supabase
+      .from("connection_requests")
+      .update({
+        status: "accepted",
+        responded_at: now,
+        connection_id: pairIdOf(pre.from_user_id, pre.to_user_id),
+        updated_at: now,
+      })
+      .eq("id", requestId);
+  }
 
   if (accept) {
     await createNotification({
@@ -188,10 +217,16 @@ export async function respondToConnectionRequest(
 
 /** Remove an accepted connection. Either participant may remove. */
 export async function removeConnection(uid: string, connectionId: string): Promise<void> {
-  const ref = adminRefs(getAdminFirestore()).connections.doc(connectionId);
-  const snap = await ref.get();
-  const data = snap.data() as Connection | undefined;
-  if (!data) throw new Error("Connection not found");
-  if (data.user1Id !== uid && data.user2Id !== uid) throw new Error("Not authorized");
-  await ref.delete();
+  const supabase = getSupabaseServerClient();
+
+  const { data: connection } = await supabase
+    .from("connections")
+    .select("*")
+    .eq("id", connectionId)
+    .single();
+
+  if (!connection) throw new Error("Connection not found");
+  if (connection.user1_id !== uid && connection.user2_id !== uid) throw new Error("Not authorized");
+
+  await supabase.from("connections").delete().eq("id", connectionId);
 }

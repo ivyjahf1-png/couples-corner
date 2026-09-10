@@ -2,7 +2,7 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { getAdminStorage } from "@/lib/firebase/admin";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ContentItem, ContentPlacement, ContentStatus } from "@/lib/models";
 import { CONTENT_UPLOAD } from "@/lib/models/content";
 import {
@@ -106,7 +106,7 @@ export async function archiveContentAction(id: string, adminUid: string) {
 }
 
 /**
- * Upload media to Firebase Storage. Returns the download URL.
+ * Upload media to Supabase Storage. Returns the public URL.
  * Path: content/{contentId}/{filename} — isolated per content item.
  */
 export async function uploadContentMedia(
@@ -131,28 +131,25 @@ export async function uploadContentMedia(
     );
   }
 
-  const storage = getAdminStorage();
-  const bucket = storage.bucket();
+  const supabase = getSupabaseServerClient();
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
   const path = `content/${contentId}/${new Date().getTime()}_${sanitizedName}`;
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const buffer = await file.arrayBuffer();
 
-  const fileRef = bucket.file(path);
-  await fileRef.save(buffer, {
-    contentType: file.type,
-    metadata: {
-      metadata: {
-        uploadedBy: "admin",
-        contentId,
-      },
-    },
-  });
+  const { error: uploadError } = await supabase.storage
+    .from("media")
+    .upload(path, buffer, {
+      contentType: file.type,
+      upsert: false,
+    });
 
-  // Make the file publicly readable (for display purposes)
-  await fileRef.makePublic();
+  if (uploadError) {
+    throw new Error(`Failed to upload media: ${uploadError.message}`);
+  }
 
-  const mediaUrl = `https://storage.googleapis.com/${bucket.name}/${path}`;
+  // Get public URL
+  const { data: urlData } = supabase.storage.from("media").getPublicUrl(path);
 
-  return { mediaUrl };
+  return { mediaUrl: urlData.publicUrl };
 }

@@ -1,13 +1,12 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminStorage, getAdminFirestore } from "@/lib/firebase/admin";
-import { adminRefs } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentSessionUser } from "@/lib/server/session";
 
 /**
  * GET /api/photos/{uid}/{fileName}
  *
- * Serves a profile photo from Cloud Storage through the Admin SDK.
+ * Serves a profile photo from Supabase Storage through the server client.
  * This avoids signed-URL expiration issues while still letting us gate
  * access server-side if needed (e.g. private profiles in the future).
  */
@@ -18,21 +17,22 @@ export async function GET(
   const { uid, fileName } = await params;
 
   try {
-    const bucket = getAdminStorage().bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
-    const file = bucket.file(`profiles/${uid}/${fileName}`);
+    const supabase = getSupabaseServerClient();
+    const path = `profiles/${uid}/${fileName}`;
 
-    const [exists] = await file.exists();
-    if (!exists) {
+    const { data, error } = await supabase.storage.from("photos").download(path);
+
+    if (error || !data) {
       return NextResponse.json({ error: "Photo not found" }, { status: 404 });
     }
 
-    const [buffer] = await file.download();
-    const [metadata] = await file.getMetadata();
+    const buffer = await data.arrayBuffer();
+    const contentType = data.type || "image/jpeg";
 
     return new Response(new Uint8Array(buffer), {
       status: 200,
       headers: {
-        "Content-Type": (metadata as { contentType?: string }).contentType ?? "image/jpeg",
+        "Content-Type": contentType,
         "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
@@ -47,7 +47,7 @@ export async function GET(
 /**
  * DELETE /api/photos/{uid}/{fileName}
  *
- * Removes a profile photo from Cloud Storage and clears it from the user's
+ * Removes a profile photo from Supabase Storage and clears it from the user's
  * profile document. Only the photo owner may delete their own photo.
  */
 export async function DELETE(
@@ -67,22 +67,29 @@ export async function DELETE(
   }
 
   try {
-    const bucket = getAdminStorage().bucket(process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    const supabase = getSupabaseServerClient();
     const path = `profiles/${uid}/${fileName}`;
-    const file = bucket.file(path);
 
-    const [exists] = await file.exists();
-    if (exists) {
-      await file.delete();
+    // Delete from storage
+    const { error: deleteError } = await supabase.storage.from("photos").remove([path]);
+    if (deleteError) {
+      throw deleteError;
     }
 
     // Remove the photo from the user's profile document.
-    const profileRef = adminRefs(getAdminFirestore()).userProfiles.doc(uid);
-    const profileSnap = await profileRef.get();
-    if (profileSnap.exists) {
-      const profile = profileSnap.data() as { photos?: Array<{ storagePath: string }> };
-      const updatedPhotos = (profile.photos ?? []).filter((p) => p.storagePath !== path);
-      await profileRef.set({ photos: updatedPhotos }, { merge: true });
+    const { data: profileRow } = await supabase
+      .from("profiles")
+      .select("photos")
+      .eq("user_id", uid)
+      .single();
+
+    if (profileRow) {
+      const photos = (profileRow.photos as Array<{ storagePath: string }>) ?? [];
+      const updatedPhotos = photos.filter((p) => p.storagePath !== path);
+      await supabase
+        .from("profiles")
+        .update({ photos: updatedPhotos })
+        .eq("user_id", uid);
     }
 
     return NextResponse.json({ success: true });
@@ -93,4 +100,5 @@ export async function DELETE(
     );
   }
 }
+
 

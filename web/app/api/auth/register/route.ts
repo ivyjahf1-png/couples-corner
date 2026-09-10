@@ -1,35 +1,39 @@
 /**
  * POST /api/auth/register
  *
- * Called by the client immediately after Firebase Auth account creation.
- * Verifies the caller's ID token with the Admin SDK, then provisions
- * users/{uid} + profiles/{uid}. Deliberately thin: no client-supplied role,
+ * Called by the client immediately after Supabase Auth account creation.
+ * Verifies the caller's access token with the Supabase server client, then
+ * provisions users/{uid} + profiles/{uid}. Deliberately thin: no client-supplied role,
  * status, or any other privileged field is ever accepted.
  */
 
 import { NextResponse } from "next/server";
-import { getAdminAuth, getAdminFirestore } from "@/lib/firebase/admin";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { provisionUser } from "@/lib/server/users";
 
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
-      idToken?: string;
+      accessToken?: string;
       displayName?: string;
     };
-    if (!body.idToken || typeof body.idToken !== "string") {
-      return NextResponse.json({ error: "idToken is required" }, { status: 400 });
+    if (!body.accessToken || typeof body.accessToken !== "string") {
+      return NextResponse.json({ error: "accessToken is required" }, { status: 400 });
     }
     if (body.displayName !== undefined && (typeof body.displayName !== "string" || body.displayName.length > 60)) {
       return NextResponse.json({ error: "Invalid display name" }, { status: 400 });
     }
 
-    // Verify the token (not revocation-checked here — the account was just created).
-    const decoded = await getAdminAuth().verifyIdToken(body.idToken);
+    // Verify the token and get the user
+    const supabase = getSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser(body.accessToken);
+    if (error || !data.user) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
 
-    await provisionUser(getAdminFirestore(), {
-      uid: decoded.uid,
-      email: decoded.email ?? "",
+    await provisionUser({
+      uid: data.user.id,
+      email: data.user.email ?? "",
       displayName: typeof body.displayName === "string" ? body.displayName : undefined,
     });
 
@@ -43,3 +47,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create your account record" }, { status: 500 });
   }
 }
+

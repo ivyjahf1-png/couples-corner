@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { AuthShell, Field, FormAlert, FormSuccess } from "@/components/auth/AuthUI";
 import { Button } from "@/components/ui/Button";
-import { requestPasswordReset } from "@/lib/firebase/auth-client";
-import { authErrorMessage } from "@/lib/firebase/auth-errors";
+import { requestPasswordReset } from "@/lib/supabase/auth-client";
+import { authErrorMessage } from "@/lib/supabase/auth-errors";
 
 export default function ForgotPasswordPage() {
   const [submitting, setSubmitting] = useState(false);

@@ -1,8 +1,7 @@
 "use server";
 
 import "server-only";
-import { getAdminFirestore } from "@/lib/firebase/admin";
-import { adminRefs, canonicalPairId } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { RiskSignalType } from "@/lib/models";
 import { scanMessage, addRiskSignal } from "@/lib/server/safety";
 
@@ -29,82 +28,93 @@ export async function sendMessageWithScan(args: {
   body: string;
 }): Promise<{ id: string }> {
   const { conversationId, senderId, recipientId, body } = args;
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
+  const supabase = getSupabaseServerClient();
 
   // Block check: sender must not be blocked by recipient.
-  const pairId = canonicalPairId(senderId, recipientId);
-  const [blockSnap] = await Promise.all([refs.blocks.doc(pairId).get()]);
-  const blockData = blockSnap.exists
-    ? (blockSnap.data() as { blockedId: string; blockerId: string })
-    : null;
+  const pairId = senderId < recipientId ? `${senderId}_${recipientId}` : `${recipientId}_${senderId}`;
+  const { data: blockRow } = await supabase
+    .from("blocks")
+    .select("blocked_id, blocker_id")
+    .eq("id", pairId)
+    .single();
+
   const isBlocked = !!(
-    blockData &&
-    ((blockData.blockerId === recipientId && blockData.blockedId === senderId) ||
-      (blockData.blockerId === senderId && blockData.blockedId === recipientId))
+    blockRow &&
+    ((blockRow.blocker_id === recipientId && blockRow.blocked_id === senderId) ||
+      (blockRow.blocker_id === senderId && blockRow.blocked_id === recipientId))
   );
   if (isBlocked) throw new Error("Cannot message a blocked user");
 
   const now = new Date().toISOString();
-  const messageRef = refs.messages(conversationId).doc();
   const signal = scanMessage(body);
-  const batch = db.batch();
 
-  batch.set(messageRef, {
-    id: messageRef.id,
-    conversationId,
-    senderId,
-    body,
-    createdAt: now,
-    status: "sent",
-  });
+  // Insert message
+  const { data: messageRow } = await supabase
+    .from("messages")
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      body,
+      created_at: now,
+      status: "sent",
+    })
+    .select("id")
+    .single();
 
-  batch.update(refs.conversations.doc(conversationId), {
-    lastMessageAt: now,
-    lastMessageId: messageRef.id,
-    updatedAt: now,
-  });
+  // Update conversation
+  await supabase
+    .from("conversations")
+    .update({
+      last_message_at: now,
+      last_message_id: messageRow!.id,
+      updated_at: now,
+    })
+    .eq("id", conversationId);
 
-  // Risk signal is written separately; a future Cloud Function will aggregate.
+  // Risk signal is written separately; a future background job will aggregate.
   if (signal) {
     void addRiskSignal({
       targetUserId: senderId,
       type: signal,
-      context: `message:${messageRef.id}`,
+      context: `message:${messageRow!.id}`,
       source: "client_message_send",
       score: signalScore(signal),
     });
   }
 
-  await batch.commit();
-  return { id: messageRef.id };
+  return { id: messageRow!.id };
 }
 
 /**
  * Connection-request gate: enforces re-request prevention and block checks.
- * Rate limiting is the Cloud Function's job — this guard keeps the data honest.
+ * Rate limiting is the background job's responsibility — this guard keeps the data honest.
  */
 export async function canSendConnectionRequest(fromUid: string, toUid: string): Promise<boolean> {
   if (fromUid === toUid) return false;
 
-  const db = getAdminFirestore();
-  const refs = adminRefs(db);
+  const supabase = getSupabaseServerClient();
 
-  const [existing, blockSnap] = await Promise.all([
-    refs
-      .connectionRequests.where("fromUserId", "==", fromUid)
-      .where("toUserId", "==", toUid)
+  const [{ data: existing }, { data: blockRow }] = await Promise.all([
+    supabase
+      .from("connection_requests")
+      .select("id")
+      .eq("from_user_id", fromUid)
+      .eq("to_user_id", toUid)
       .limit(1)
-      .get(),
-    refs.blocks.doc(canonicalPairId(fromUid, toUid)).get(),
+      .single(),
+    supabase
+      .from("blocks")
+      .select("id")
+      .eq("id", fromUid < toUid ? `${fromUid}_${toUid}` : `${toUid}_${fromUid}`)
+      .single(),
   ]);
 
-  const blocked = blockSnap.exists;
-  const alreadyRequested = !existing.empty;
+  const blocked = !!blockRow;
+  const alreadyRequested = !!existing;
   return !blocked && !alreadyRequested;
 }
 
-/** Per-signal risk scores (additive; capped server-side by rules). */
+/** Per-signal risk scores (additive; capped server-side by RLS). */
 function signalScore(type: RiskSignalType): number {
   switch (type) {
     case "suspicious_link":
@@ -115,3 +125,4 @@ function signalScore(type: RiskSignalType): number {
       return 10;
   }
 }
+

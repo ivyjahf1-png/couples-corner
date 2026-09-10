@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, Field, FormAlert } from "@/components/auth/AuthUI";
 import { Button } from "@/components/ui/Button";
-import { registerAndProvision } from "@/lib/firebase/auth-client";
-import { authErrorMessage } from "@/lib/firebase/auth-errors";
+import { registerAndProvision } from "@/lib/supabase/auth-client";
+import { authErrorMessage } from "@/lib/supabase/auth-errors";
 
 interface FieldErrors {
   displayName?: string;

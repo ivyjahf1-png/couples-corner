@@ -1,59 +1,64 @@
 /**
  * Couples Corner — client-side authentication helpers.
  *
- * Thin wrappers around Firebase Auth for the browser. The returned ID token
+ * Thin wrappers around Supabase Auth for the browser. The returned access token
  * must be exchanged for an httpOnly session cookie via POST /api/auth/session
  * before any server-side surface treats the user as signed in (see
  * `lib/server/session.ts`). Passwordless email-link sign-in is included per
- * the approved architecture; enable the "Email link" provider in Firebase
+ * the approved architecture; enable the "Email link" provider in Supabase
  * Console before using it.
  */
 
-import {
-  createUserWithEmailAndPassword,
-  isSignInWithEmailLink,
-  onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  sendSignInLinkToEmail,
-  signInWithEmailAndPassword,
-  signInWithEmailLink,
-  signOut,
-  type User,
-} from "firebase/auth";
-import { getFirebaseAuth } from "@/lib/firebase/client";
+import { getSupabaseClient } from "./client";
+import type { User, AuthError } from "@supabase/supabase-js";
 
 /** Register with email + password, then trigger the verification email. */
 export async function registerWithEmail(
   email: string,
   password: string
 ): Promise<User> {
-  const auth = getFirebaseAuth();
-  const credential = await createUserWithEmailAndPassword(auth, email, password);
-  await sendEmailVerification(credential.user);
-  return credential.user;
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/verify-email`,
+    },
+  });
+  if (error) throw error;
+  if (!data.user) throw new Error("Registration failed");
+  return data.user;
 }
 
 /** Sign in with email + password and exchange the token for a session cookie. */
 export async function signInWithEmail(email: string, password: string): Promise<User> {
-  const auth = getFirebaseAuth();
-  const credential = await signInWithEmailAndPassword(auth, email, password);
-  await exchangeSessionCookie(credential.user);
-  return credential.user;
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+  if (error) throw error;
+  if (!data.user) throw new Error("Sign-in failed");
+  await exchangeSessionCookie(data.session.access_token);
+  return data.user;
 }
 
-/** Register, provision the Firestore user record, and start a session. */
+/** Register, provision the user record, and start a session. */
 export async function registerAndProvision(
   email: string,
   password: string,
   displayName?: string
 ): Promise<User> {
   const user = await registerWithEmail(email, password);
-  const idToken = await user.getIdToken();
+  const supabase = getSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
   const response = await fetch("/api/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken, displayName }),
+    body: JSON.stringify({ accessToken: session?.access_token, displayName }),
   });
   if (!response.ok) {
     let detail = "";
@@ -69,59 +74,87 @@ export async function registerAndProvision(
         : "Registration failed. Please check your connection and try again."
     );
   }
-  await exchangeSessionCookie(user);
+  await exchangeSessionCookie(session?.access_token ?? "");
   return user;
 }
 
 /** Send a passwordless sign-in link to the given email. */
 export async function sendEmailSignInLink(email: string): Promise<void> {
-  const auth = getFirebaseAuth();
-  await sendSignInLinkToEmail(auth, email, {
-    url: `${window.location.origin}/verify-email`,
-    handleCodeInApp: true,
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: `${window.location.origin}/verify-email`,
+      shouldCreateUser: true,
+    },
   });
+  if (error) throw error;
 }
 
 /** Complete a passwordless sign-in from the email link, then start a session. */
 export async function completeEmailSignInLink(email: string): Promise<User | null> {
-  const auth = getFirebaseAuth();
-  if (!isSignInWithEmailLink(auth, window.location.href)) return null;
-  const credential = await signInWithEmailLink(auth, email, window.location.href);
-  await exchangeSessionCookie(credential.user);
-  return credential.user;
+  const supabase = getSupabaseClient();
+  // Supabase handles the URL hash automatically when signInWithOtp is called
+  // For email link completion, we verify the token from the URL
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error || !session) return null;
+
+  await exchangeSessionCookie(session.access_token);
+  return session.user;
 }
 
 /** Send a password-reset email. */
-export function requestPasswordReset(email: string): Promise<void> {
-  return sendPasswordResetEmail(getFirebaseAuth(), email);
+export async function requestPasswordReset(email: string): Promise<void> {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${window.location.origin}/forgot-password`,
+  });
+  if (error) throw error;
 }
 
 /** Re-send the email-verification message to the currently signed-in user. */
 export async function resendEmailVerification(): Promise<void> {
-  const auth = getFirebaseAuth();
-  const user = auth.currentUser;
+  const supabase = getSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("You need to be signed in to resend the verification email.");
-  await sendEmailVerification(user);
+
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email: user.email!,
+  });
+  if (error) throw error;
 }
 
-/** Sign out everywhere: Firebase session, cookie, and revoked refresh tokens. */
+/** Sign out everywhere: Supabase session, cookie. */
 export async function signOutEverywhere(): Promise<void> {
-  await signOut(getFirebaseAuth());
+  const supabase = getSupabaseClient();
+  await supabase.auth.signOut();
   await fetch("/api/auth/logout", { method: "POST" });
 }
 
 /** Subscribe to auth state (UI convenience only — never authorize on this). */
 export function observeAuthState(callback: (user: User | null) => void): () => void {
-  return onAuthStateChanged(getFirebaseAuth(), callback);
+  const supabase = getSupabaseClient();
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session?.user ?? null);
+  });
+  return () => subscription.unsubscribe();
 }
 
-/** Exchange the current ID token for an httpOnly session cookie (server trust). */
-export async function exchangeSessionCookie(user: User): Promise<void> {
-  const idToken = await user.getIdToken();
+/** Exchange the current access token for an httpOnly session cookie (server trust). */
+export async function exchangeSessionCookie(accessToken: string): Promise<void> {
   const response = await fetch("/api/auth/session", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ accessToken }),
   });
   if (!response.ok) {
     let detail = "";

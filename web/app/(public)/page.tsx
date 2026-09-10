@@ -149,6 +149,20 @@ export default function Home() {
             </div>
             <HeroArt />
           </div>
+
+          {/* Couple's Corner Lifestyle Card */}
+          <div className="mt-16 flex justify-center">
+            <div className="dating-card">
+              <div className="card-image">
+                <img src="/couple-date.jpg" alt="Couple sharing a moment on a date" />
+              </div>
+              <div className="card-content">
+                <h3>Couple's Corner</h3>
+                <p>Find genuine connections and real stories in settings designed for authentic moments.</p>
+                <a href="/join" className="card-btn">Explore Matches</a>
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* What we offer */}

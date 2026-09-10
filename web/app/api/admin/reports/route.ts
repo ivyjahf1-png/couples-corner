@@ -1,39 +1,39 @@
 import "server-only";
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/authorization";
-import { getAdminFirestore } from "@/lib/firebase/admin";
-import { adminRefs } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Report } from "@/lib/models";
 
 /**
  * Admin moderation: list open/reviewed reports, highest priority first.
- * Admin only — requires verified custom claim via requireAdmin().
+ * Admin only — requires verified role via requireAdmin().
  */
 export async function GET() {
   const admin = await requireAdmin();
-  const refs = adminRefs(getAdminFirestore());
-  const snap = await refs.reports
-    .where("status", "in", ["open", "reviewed"])
-    .orderBy("priority", "desc")
-    .orderBy("createdAt", "desc")
-    .limit(100)
-    .get();
+  const supabase = getSupabaseServerClient();
 
-  const reports = snap.docs.map((doc) => ({
-    id: doc.id,
-    ...(doc.data() as Omit<Report, "id"> & { priority: string }),
+  const { data: reportRows } = await supabase
+    .from("reports")
+    .select("*")
+    .in("status", ["open", "reviewed"])
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  const reports = (reportRows ?? []).map((row) => ({
+    id: row.id,
+    ...(row as unknown as Omit<Report, "id">),
   }));
 
   return NextResponse.json({ adminId: admin.uid, reports });
 }
 
 /**
- * Admin moderation: triage a report (dismiss / warn / restrict / suspend / ban).
- * The decision AND its audit-log entry are written in the SAME transaction, so
- * a moderation action can never commit without its audit record.
+ * Admin moderation: triage a report (dismiss / warn / restrict / suspend / ban / remove-content).
+ * The decision AND its audit-log entry are written together.
  */
 export async function POST(request: Request) {
   const admin = await requireAdmin();
+  const supabase = getSupabaseServerClient();
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -47,35 +47,42 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "reportId and action are required" }, { status: 400 });
     }
 
-    const db = getAdminFirestore();
-    const refs = adminRefs(db);
-    const now = new Date().toISOString();
+    // Get report
+    const { data: reportRow } = await supabase
+      .from("reports")
+      .select("*")
+      .eq("id", reportId)
+      .single();
 
-    const reportDoc = await refs.reports.doc(reportId).get();
-    if (!reportDoc.exists) {
+    if (!reportRow) {
       return NextResponse.json({ error: "Report not found" }, { status: 404 });
     }
-    const report = reportDoc.data() as Report;
 
+    const report = reportRow as unknown as Report;
     const newStatus = action === "dismiss" ? "dismissed" : "resolved";
+    const now = new Date().toISOString();
 
-    await db.runTransaction(async (tx) => {
-      tx.update(refs.reports.doc(reportId), {
+    // Update report status
+    await supabase
+      .from("reports")
+      .update({
         status: newStatus,
-        handledByAdminId: admin.uid,
-        resolutionNote: note?.trim() || null,
-        updatedAt: now,
-      });
+        handled_by_admin_id: admin.uid,
+        resolution_note: note?.trim() || null,
+        updated_at: now,
+      })
+      .eq("id", reportId);
 
-      tx.set(refs.auditLogs.doc(), {
-        adminUserId: admin.uid,
-        entityType: report.entityType,
-        entityId: report.entityId,
-        action,
+    // Write audit log
+    await supabase.from("audit_logs").insert({
+      admin_user_id: admin.uid,
+      action,
+      target_ref: { type: report.entityType, id: report.entityId },
+      details: {
         note: note?.trim() || null,
-        resolvedReportId: reportId,
-        createdAt: now,
-      });
+        resolved_report_id: reportId,
+      },
+      created_at: now,
     });
 
     return NextResponse.json({ success: true, status: newStatus });
@@ -84,3 +91,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
+

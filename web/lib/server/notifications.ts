@@ -1,12 +1,11 @@
 import "server-only";
 
-import { getAdminFirestore } from "@/lib/firebase/admin";
-import { adminRefs } from "@/lib/firebase/collections";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { NotificationType } from "@/lib/models/notifications";
 
 /**
  * Create a notification for a recipient (server-side only — clients can never
- * write notifications, see firestore.rules). Notification creation respects
+ * write notifications, see RLS policies). Notification creation respects
  * nothing else; preference filtering (notifyOnConnection etc.) happens at the
  * call site where the preference is already loaded.
  */
@@ -20,17 +19,25 @@ export async function createNotification(input: {
   body?: string | null;
 }): Promise<string> {
   const now = new Date().toISOString();
-  const ref = await adminRefs(getAdminFirestore()).notifications.add({
-    recipientId: input.recipientId,
-    type: input.type,
-    actorId: input.actorId ?? null,
-    entityType: input.entityType ?? null,
-    entityId: input.entityId ?? null,
-    title: input.title,
-    body: input.body ?? null,
-    readAt: null,
-    createdAt: now,
-    updatedAt: now,
-  });
-  return ref.id;
+  const supabase = getSupabaseServerClient();
+
+  const { data } = await supabase
+    .from("notifications")
+    .insert({
+      recipient_id: input.recipientId,
+      type: input.type,
+      actor_id: input.actorId ?? null,
+      entity_type: input.entityType ?? null,
+      entity_id: input.entityId ?? null,
+      title: input.title,
+      body: input.body ?? null,
+      read_at: null,
+      created_at: now,
+      updated_at: now,
+    })
+    .select("id")
+    .single();
+
+  return data!.id;
 }
+

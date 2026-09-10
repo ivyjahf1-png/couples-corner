@@ -5,12 +5,13 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AuthShell, Field, FormAlert, FormSuccess } from "@/components/auth/AuthUI";
 import { Button } from "@/components/ui/Button";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   completeEmailSignInLink,
   observeAuthState,
   resendEmailVerification,
-} from "@/lib/firebase/auth-client";
-import { authErrorMessage } from "@/lib/firebase/auth-errors";
+} from "@/lib/supabase/auth-client";
+import { authErrorMessage } from "@/lib/supabase/auth-errors";
 
 type Mode = "checking" | "link" | "done" | "verify";
 
@@ -30,52 +31,30 @@ export default function VerifyEmailPage() {
     let cancelled = false;
 
     async function run() {
-      const isEmailLink =
-        typeof window !== "undefined" &&
-        (await import("firebase/auth")).isSignInWithEmailLink(
-          (await import("@/lib/firebase/client")).getFirebaseAuth(),
-          window.location.href
-        );
+      // For Supabase, we check if there's a valid session on mount
+      const supabase = getSupabaseClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      if (isEmailLink) {
-        setMode("link");
-        const stored = window.localStorage.getItem("ccEmailForSignIn");
-        if (stored) {
-          try {
-            await completeEmailSignInLink(stored);
-            window.localStorage.removeItem("ccEmailForSignIn");
-            if (!cancelled) {
-              setMode("done");
-              router.push("/dashboard");
-              router.refresh();
-            }
-          } catch (err) {
-            if (!cancelled) {
-              setError(authErrorMessage(err));
-              setMode("link");
-            }
-          }
-        }
+      if (session) {
+        setVerified(session.user.email_confirmed_at != null);
+        setMode("verify");
         return;
       }
 
-      // Not an email link — show verification status if signed in.
-      const unsubscribe = observeAuthState((user) => {
-        if (cancelled) return;
-        if (user) {
-          setVerified(user.emailVerified);
-          setMode("verify");
-        } else {
-          setMode("link");
-        }
-      });
-      return unsubscribe;
+      // Not signed in — show verification status if email is stored
+      const stored = window.localStorage.getItem("ccEmailForSignIn");
+      if (stored) {
+        setMode("link");
+      } else {
+        setMode("verify");
+      }
     }
 
     const cleanup = run();
     return () => {
       cancelled = true;
-      void Promise.resolve(cleanup).then((fn) => typeof fn === "function" && fn());
     };
   }, [router]);
 
@@ -86,11 +65,15 @@ export default function VerifyEmailPage() {
     const data = new FormData(event.currentTarget);
     const entered = String(data.get("email") ?? "").trim();
     try {
-      await completeEmailSignInLink(entered);
-      window.localStorage.removeItem("ccEmailForSignIn");
-      setMode("done");
-      router.push("/dashboard");
-      router.refresh();
+      const user = await completeEmailSignInLink(entered);
+      if (user) {
+        window.localStorage.removeItem("ccEmailForSignIn");
+        setMode("done");
+        router.push("/dashboard");
+        router.refresh();
+      } else {
+        setError("Could not complete sign-in. Please try again.");
+      }
     } catch (err) {
       setError(authErrorMessage(err));
     } finally {
