@@ -1,0 +1,27 @@
+# Couples Corner — Netlify configuration
+#
+# This app is a server-rendered Next.js application (App Router, server
+# actions, Supabase auth cookies). It is NOT a static export, so a blanket
+# `/* -> /index.html` SPA fallback would break every route (index.html does
+# not exist for SSR output). The @netlify/plugin-nextjs runtime handles
+# all routes — pages, dynamic segments, /admin/*, server actions, and
+# image optimization — with no manual redirects required.
+
+[build]
+  base = "web"
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Friendly 404 handling: unmatched routes render the Next.js 404 page
+# (served by the Next runtime itself — no config needed).
+#
+# If you ever migrate this app to a static export (next.config.ts with
+# `output: "export"`), replace the plugin with:
+#
+#   [[redirects]]
+#     from = "/*"
+#     to = "/index.html"
+#     status = 200
