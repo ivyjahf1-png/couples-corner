@@ -44,6 +44,8 @@ function dbToContentItem(row: Record<string, unknown>): ContentItem {
 
 export async function listContent(filters: ContentFilters = {}): Promise<ContentItem[]> {
   const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
   let query = supabase.from("content").select("*").order("created_at", { ascending: false });
 
   if (filters.category) query = query.eq("category", filters.category);
@@ -58,6 +60,8 @@ export async function listContent(filters: ContentFilters = {}): Promise<Content
 
 export async function getContent(id: string): Promise<ContentItem | null> {
   const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
   const { data } = await supabase.from("content").select("*").eq("id", id).single();
   return data ? dbToContentItem(data) : null;
 }
@@ -68,6 +72,10 @@ export async function createContent(
 ): Promise<string> {
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const { data: created } = await supabase
     .from("content")
@@ -114,6 +122,10 @@ export async function updateContent(
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const updates: Record<string, unknown> = { updated_at: now, updated_by: adminUid };
   if (data.category !== undefined) updates.category = data.category;
   if (data.title !== undefined) updates.title = data.title;
@@ -145,6 +157,10 @@ export async function updateContent(
 export async function deleteContent(id: string, adminUid: string): Promise<void> {
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   // Get content info before deletion for audit
   const { data: content } = await supabase
@@ -186,6 +202,8 @@ export async function getPublishedForPlacement(
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
+  if (!supabase) return [];
+
   const { data } = await supabase
     .from("content")
     .select("*")
@@ -209,9 +227,11 @@ export interface ContentStats {
 
 export async function getContentStats(): Promise<ContentStats> {
   const supabase = getSupabaseServerClient();
-  const { data } = await supabase.from("content").select("status");
-
   const stats: ContentStats = { total: 0, published: 0, scheduled: 0, draft: 0, archived: 0 };
+
+  if (!supabase) return stats;
+
+  const { data } = await supabase.from("content").select("status");
   if (!data) return stats;
 
   data.forEach((item) => {

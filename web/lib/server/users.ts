@@ -21,6 +21,11 @@ export async function provisionUser(
   { uid, email, displayName }: ProvisionUserInput
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const now = new Date().toISOString();
 
   // Check if user already exists

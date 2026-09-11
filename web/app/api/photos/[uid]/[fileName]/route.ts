@@ -18,6 +18,9 @@ export async function GET(
 
   try {
     const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
     const path = `profiles/${uid}/${fileName}`;
 
     const { data, error } = await supabase.storage.from("photos").download(path);
@@ -68,6 +71,9 @@ export async function DELETE(
 
   try {
     const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
     const path = `profiles/${uid}/${fileName}`;
 
     // Delete from storage

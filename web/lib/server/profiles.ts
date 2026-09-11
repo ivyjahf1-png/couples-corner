@@ -86,6 +86,10 @@ export async function getOwnProfile(uid: string): Promise<{
 }> {
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const [{ data: userRow }, { data: profileRow }] = await Promise.all([
     supabase.from("users").select("*").eq("id", uid).single(),
     supabase.from("profiles").select("*").eq("user_id", uid).single(),
@@ -103,6 +107,8 @@ export async function getVisibleProfile(
   viewerUid: string | null
 ): Promise<UserProfile | null> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) return null;
 
   const { data: profileRow } = await supabase
     .from("profiles")
@@ -159,6 +165,10 @@ export async function createProfile(
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const profileData = {
     user_id: uid,
     display_name: input.displayName?.trim() || "",
@@ -211,6 +221,10 @@ export async function updateOwnProfile(
 ): Promise<UserProfile> {
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const updates: Record<string, unknown> = { updated_at: now };
   if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
@@ -275,6 +289,10 @@ export async function uploadProfilePhoto(
   const path = `profiles/${uid}/${timestamp}_${safeName}`;
 
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const buffer = await file.arrayBuffer();
   const { error: uploadError } = await supabase.storage

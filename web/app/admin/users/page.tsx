@@ -1,11 +1,20 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { requireAdmin } from "@/lib/auth/authorization";
+import { getUsersForModerationAction } from "@/lib/actions/admin";
+import { PageHeader } from "@/components/app/PageHeader";
+import { AdminUsersClient } from "@/components/admin/AdminUsersClient";
 
-export default function AdminUsersPage() {
+export default async function AdminUsersPage() {
+  await requireAdmin();
+  const users = await getUsersForModerationAction();
+
   return (
-    <PlaceholderPage title="Users">
-      <p className="max-w-lg text-ink-500 text-lg leading-8">
-        Manage user accounts. Admins only. Not built yet.
-      </p>
-    </PlaceholderPage>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Users"
+        title="User Moderation & Safety"
+        subtitle="Manage user accounts, apply bans, and review safety risk signals."
+      />
+      <AdminUsersClient initialUsers={users} />
+    </div>
   );
 }

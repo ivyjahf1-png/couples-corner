@@ -79,24 +79,44 @@ export function ContentRow({ item, onEdit, adminUid }: ContentRowProps) {
       <td className="px-4 py-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {item.status !== "published" && item.status !== "archived" && (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => handleAction(() => publishContentAction(item.id, adminUid))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => handleAction(() => publishContentAction(item.id, adminUid))}
+            >
               Publish
             </Button>
           )}
           {item.status === "published" && (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => handleAction(() => unpublishContentAction(item.id, adminUid))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => handleAction(() => unpublishContentAction(item.id, adminUid))}
+            >
               Unpublish
             </Button>
           )}
           {item.status !== "archived" && (
-            <Button size="sm" variant="ghost" disabled={busy} onClick={() => handleAction(() => archiveContentAction(item.id, adminUid))}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => handleAction(() => archiveContentAction(item.id, adminUid))}
+            >
               Archive
             </Button>
           )}
           <Button size="sm" variant="secondary" onClick={() => onEdit(item)} disabled={busy}>
             Edit
           </Button>
-          <Button size="sm" variant="danger" disabled={busy} onClick={() => handleAction(() => deleteContentAction(item.id, adminUid))}>
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={busy}
+            onClick={() => handleAction(() => deleteContentAction(item.id, adminUid))}
+          >
             Delete
           </Button>
         </div>

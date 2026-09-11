@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { IncomingRequestActions } from "@/components/app/IncomingRequestActions";
 import { OutgoingRequestRow } from "./OutgoingRequestRow";
 import { getMatchesData } from "@/lib/server/discovery";
+import { ContentSlot } from "@/components/content/ContentSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,11 @@ export default async function MatchesPage() {
           title="Matches"
           subtitle="Requests you've received, requests you've sent, and people you're connected with."
         />
+
+        {/* Promotional slot — admins place banner ads here (placement "matches"). */}
+        <div>
+          <ContentSlot placement="matches" />
+        </div>
 
         {/* Incoming requests */}
         <section aria-labelledby="incoming-heading" className="flex flex-col gap-4">

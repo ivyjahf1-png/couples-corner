@@ -22,7 +22,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#faf7f4",
+  themeColor: "#14110e",
+  // Permanent dark theme: browsers must never apply a light color scheme
+  // (affects form controls, scrollbars, and default backgrounds).
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

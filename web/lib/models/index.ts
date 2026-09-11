@@ -83,5 +83,23 @@ export type {
   MediaType,
 } from "./content";
 
+export type {
+  Broadcast,
+  BroadcastAudience,
+  BroadcastStatus,
+  BroadcastType,
+  SupportTicket,
+  SupportTicketCategory,
+  SupportTicketStatus,
+} from "./admin";
+
+// Value exports (the option arrays) used by admin UI.
+export {
+  BROADCAST_AUDIENCES,
+  BROADCAST_TYPES,
+  SUPPORT_CATEGORIES,
+  SUPPORT_STATUSES,
+} from "./admin";
+
 // ProfileVisibility/ProfilePhoto are re-exported from ./user (above).
 export { VISIBILITY_OPTIONS } from "./profile";

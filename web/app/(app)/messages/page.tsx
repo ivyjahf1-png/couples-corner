@@ -1,18 +1,37 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
-import { ConversationItem } from "@/components/app/ConversationItem";
 import { Card } from "@/components/ui/Card";
 import { Icon } from "@/components/landing/Icon";
-import { demoConversationViews } from "@/lib/demo/demo-data";
 import { ContentSlot } from "@/components/content/ContentSlot";
+import { getConversationsAction } from "@/lib/actions/messaging";
+
+interface ConversationView {
+  id: string;
+  name: string;
+  kind: "person" | "couple";
+  lastMessage: string;
+  lastMessageAt: string | null;
+  unread: number;
+}
 
 /**
  * Private-messaging inbox. Conversation list (desktop) with search + unread
- * badges; selecting a conversation opens the thread at /messages/[id]. All
- * conversations are clearly-labeled structural demo data until Firestore lands.
+ * badges; selecting a conversation opens the thread at /messages/[id].
  */
-export default function MessagesPage() {
+export default async function MessagesPage() {
+  const conversations = await getConversationsAction();
+
+  // Map DB rows to view model (simplified — in production, resolve participant names)
+  const views: ConversationView[] = conversations.map((c) => ({
+    id: c.id,
+    name: `Conversation`,
+    kind: c.type === "couple" ? "couple" : "person",
+    lastMessage: "",
+    lastMessageAt: c.last_message_at,
+    unread: 0,
+  }));
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -21,7 +40,7 @@ export default function MessagesPage() {
         subtitle="Private chats with your connections. Only you and the other participant can read them."
       />
 
-      {demoConversationViews.length === 0 ? (
+      {views.length === 0 ? (
         <EmptyState
           icon="chat"
           title="No conversations yet"
@@ -53,8 +72,27 @@ export default function MessagesPage() {
             </div>
 
             <Card padding="none" className="divide-y divide-ink-200 overflow-hidden">
-              {demoConversationViews.map((conversation) => (
-                <ConversationItem key={conversation.id} conversation={conversation} />
+              {views.map((conversation) => (
+                <Link
+                  key={conversation.id}
+                  href={`/messages/${conversation.id}`}
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-surface-muted"
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+                    {conversation.name.charAt(0)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-ink-900">{conversation.name}</p>
+                    <p className="truncate text-xs text-ink-500">
+                      {conversation.lastMessage ?? "No messages yet"}
+                    </p>
+                  </div>
+                  {conversation.lastMessageAt && (
+                    <span className="shrink-0 text-[11px] text-ink-400">
+                      {new Date(conversation.lastMessageAt).toLocaleDateString()}
+                    </span>
+                  )}
+                </Link>
               ))}
             </Card>
           </div>

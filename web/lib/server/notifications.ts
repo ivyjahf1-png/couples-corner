@@ -21,6 +21,10 @@ export async function createNotification(input: {
   const now = new Date().toISOString();
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const { data } = await supabase
     .from("notifications")
     .insert({

@@ -22,6 +22,7 @@ export type MediaType = "image" | "video";
 
 /** Where on the site a piece of content may appear. */
 export type ContentPlacement =
+  | "hero"
   | "homepage"
   | "dashboard"
   | "discover"
@@ -45,6 +46,7 @@ export const CONTENT_STATUSES: ContentStatus[] = [
 ];
 
 export const CONTENT_PLACEMENTS: ContentPlacement[] = [
+  "hero",
   "homepage",
   "dashboard",
   "discover",

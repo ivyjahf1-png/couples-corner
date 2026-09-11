@@ -7,16 +7,37 @@
  * `lib/server/session.ts`). Passwordless email-link sign-in is included per
  * the approved architecture; enable the "Email link" provider in Supabase
  * Console before using it.
+ *
+ * IMPORTANT: All functions check Supabase configuration before making network
+ * calls. If NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY are
+ * missing, functions throw descriptive errors instead of generic "Failed to
+ * fetch" TypeErrors from the browser's fetch API.
  */
 
-import { getSupabaseClient } from "./client";
+import { getSupabaseClient, validateSupabaseConfig, isSupabaseConfigured } from "./client";
 import type { User, AuthError } from "@supabase/supabase-js";
+
+/**
+ * Check if Supabase is properly configured and throw a helpful error if not.
+ *
+ * This prevents generic "Failed to fetch" errors by failing fast with a
+ * clear message about what's missing.
+ */
+function ensureSupabaseConfigured(): void {
+  const error = validateSupabaseConfig();
+  if (error) {
+    throw new Error(
+      error + ". Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local file."
+    );
+  }
+}
 
 /** Register with email + password, then trigger the verification email. */
 export async function registerWithEmail(
   email: string,
   password: string
 ): Promise<User> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -32,6 +53,7 @@ export async function registerWithEmail(
 
 /** Sign in with email + password and exchange the token for a session cookie. */
 export async function signInWithEmail(email: string, password: string): Promise<User> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -43,43 +65,45 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return data.user;
 }
 
-/** Register, provision the user record, and start a session. */
+/**
+ * Register with email + password. The Postgres trigger `handle_new_user`
+ * automatically creates the profile row in `public.users` — no separate
+ * client-side insert required, so RLS permission failures are avoided.
+ */
 export async function registerAndProvision(
   email: string,
   password: string,
   displayName?: string
 ): Promise<User> {
-  const user = await registerWithEmail(email, password);
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      emailRedirectTo: `${window.location.origin}/verify-email`,
+      // Pass display_name in user_metadata so the trigger can populate the
+      // public.users row automatically.
+      data: displayName != null ? { display_name: displayName } : undefined,
+    },
+  });
+  if (error) throw error;
+  if (!data.user) throw new Error("Registration failed");
+
+  // Exchange the access token for an httpOnly session cookie so the server
+  // treats the user as signed in.
   const {
     data: { session },
   } = await supabase.auth.getSession();
-
-  const response = await fetch("/api/auth/register", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken: session?.access_token, displayName }),
-  });
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const body = (await response.json()) as { error?: string };
-      detail = body.error ?? "";
-    } catch {
-      // ignore JSON parse errors
-    }
-    throw new Error(
-      detail === "Could not create your account record"
-        ? "Your account was created, but setting it up failed. Please try signing in."
-        : "Registration failed. Please check your connection and try again."
-    );
+  if (session?.access_token) {
+    await exchangeSessionCookie(session.access_token);
   }
-  await exchangeSessionCookie(session?.access_token ?? "");
-  return user;
+  return data.user;
 }
 
 /** Send a passwordless sign-in link to the given email. */
 export async function sendEmailSignInLink(email: string): Promise<void> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
@@ -93,9 +117,8 @@ export async function sendEmailSignInLink(email: string): Promise<void> {
 
 /** Complete a passwordless sign-in from the email link, then start a session. */
 export async function completeEmailSignInLink(email: string): Promise<User | null> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
-  // Supabase handles the URL hash automatically when signInWithOtp is called
-  // For email link completion, we verify the token from the URL
   const {
     data: { session },
     error,
@@ -109,6 +132,7 @@ export async function completeEmailSignInLink(email: string): Promise<User | nul
 
 /** Send a password-reset email. */
 export async function requestPasswordReset(email: string): Promise<void> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/forgot-password`,
@@ -118,6 +142,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
 /** Re-send the email-verification message to the currently signed-in user. */
 export async function resendEmailVerification(): Promise<void> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const {
     data: { user },
@@ -133,6 +158,7 @@ export async function resendEmailVerification(): Promise<void> {
 
 /** Sign out everywhere: Supabase session, cookie. */
 export async function signOutEverywhere(): Promise<void> {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   await supabase.auth.signOut();
   await fetch("/api/auth/logout", { method: "POST" });
@@ -140,6 +166,7 @@ export async function signOutEverywhere(): Promise<void> {
 
 /** Subscribe to auth state (UI convenience only — never authorize on this). */
 export function observeAuthState(callback: (user: User | null) => void): () => void {
+  ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
   const {
     data: { subscription },

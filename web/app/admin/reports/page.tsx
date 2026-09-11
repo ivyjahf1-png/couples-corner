@@ -1,11 +1,20 @@
-import { PlaceholderPage } from "@/components/PlaceholderPage";
+import { requireAdmin } from "@/lib/auth/authorization";
+import { getReportsAction } from "@/lib/actions/admin";
+import { PageHeader } from "@/components/app/PageHeader";
+import { AdminReportsClient } from "@/components/admin/AdminReportsClient";
 
-export default function AdminReportsPage() {
+export default async function AdminReportsPage() {
+  await requireAdmin();
+  const reports = await getReportsAction();
+
   return (
-    <PlaceholderPage title="Reports">
-      <p className="max-w-lg text-ink-500 text-lg leading-8">
-        Review and resolve reports. Admins only. Not built yet.
-      </p>
-    </PlaceholderPage>
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Moderation"
+        title="Reports"
+        subtitle="Review reported profiles, posts, and messages. Resolve or dismiss each report to keep the community safe."
+      />
+      <AdminReportsClient initialReports={reports} />
+    </div>
   );
 }

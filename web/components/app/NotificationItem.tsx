@@ -12,9 +12,21 @@ const kindIcon: Record<NotificationView["kind"], IconName> = {
   system: "bell",
 };
 
+/** Fallback destination when a notification carries no explicit href. */
+const kindFallbackHref: Record<NotificationView["kind"], string> = {
+  connection_request: "/matches",
+  connection_accepted: "/matches",
+  connection_declined: "/discover",
+  message: "/messages",
+  reaction: "/feed",
+  comment: "/feed",
+  system: "/notifications",
+};
+
 /**
  * One row in /notifications. Unread rows get the brand wash + "New" dot;
- * the whole row navigates to the notification's target when provided.
+ * the whole row navigates to the notification's target (explicit href, or
+ * a sensible per-kind fallback so every notification is tappable).
  */
 export function NotificationItem({ notification }: { notification: NotificationView }) {
   const content = (
@@ -32,24 +44,15 @@ export function NotificationItem({ notification }: { notification: NotificationV
     </>
   );
 
-  if (notification.href) {
-    return (
-      <Link
-        href={notification.href}
-        aria-current={notification.unread ? "true" : undefined}
-        className={["flex items-start gap-3 px-5 py-4 transition hover:bg-surface-muted", notification.unread ? "bg-brand-50" : ""].join(" ").trim()}
-      >
-        {content}
-      </Link>
-    );
-  }
+  const href = notification.href ?? kindFallbackHref[notification.kind] ?? "/notifications";
 
   return (
-    <div
+    <Link
+      href={href}
       aria-current={notification.unread ? "true" : undefined}
-      className={["flex items-start gap-3 px-5 py-4", notification.unread ? "bg-brand-50" : ""].join(" ").trim()}
+      className={["flex items-start gap-3 px-5 py-4 transition hover:bg-surface-muted focus-visible:bg-surface-muted", notification.unread ? "bg-brand-50" : ""].join(" ").trim()}
     >
       {content}
-    </div>
+    </Link>
   );
 }

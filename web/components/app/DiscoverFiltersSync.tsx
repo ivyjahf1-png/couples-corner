@@ -1,82 +1,42 @@
-"use client";
+﻿"use client";
 
-import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { FilterPanel } from "@/components/app/FilterPanel";
-import {
-  defaultDiscoveryFilters,
-  type DiscoveryFilters,
-} from "@/lib/feature/types";
+import { defaultDiscoveryFilters, type DiscoveryFilters } from "@/lib/feature/types";
+import { parseDiscoveryFilters } from "@/lib/utils/filters";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
 
-/**
- * URL-synced discovery filters. FilterPanel stays the interactive control;
- * this wrapper serializes each change into the /discover query string so the
- * server page re-runs the real Firestore query with the new filters.
- */
-export function DiscoverFiltersSync({
-  filters,
-  resultCount,
-}: {
+interface Props {
   filters: DiscoveryFilters;
   resultCount: number;
-}) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-
-  function apply(next: DiscoveryFilters) {
-    const params = new URLSearchParams();
-    if (next.query.trim()) params.set("q", next.query.trim());
-    if (next.location.trim()) params.set("loc", next.location.trim());
-    if (next.ageRange) {
-      params.set("minAge", String(next.ageRange.min));
-      params.set("maxAge", String(next.ageRange.max));
-    }
-    if (next.interests.length > 0) params.set("interests", next.interests.join(","));
-    if (next.profileType !== "all") params.set("type", next.profileType);
-    if (next.relationshipStatus !== "any") params.set("status", next.relationshipStatus);
-
-    startTransition(() => {
-      router.push(params.size > 0 ? `/discover?${params.toString()}` : "/discover");
-    });
-  }
-
-  return (
-    <div aria-busy={pending}>
-      <FilterPanel filters={filters} onChange={apply} resultCount={resultCount} />
-    </div>
-  );
 }
 
-/** Parse /discover search params back into the DiscoveryFilters shape. */
-export function parseDiscoveryFilters(
-  params: Record<string, string | string[] | undefined>
-): DiscoveryFilters {
-  const get = (key: string) => {
-    const value = params[key];
-    return Array.isArray(value) ? value[0] : value;
-  };
+export function DiscoverFiltersSync({ filters, resultCount }: Props) {
+  const router = useRouter();
+  const params = useSearchParams();
 
-  const filters: DiscoveryFilters = { ...defaultDiscoveryFilters };
-  const q = get("q");
-  if (q) filters.query = q;
-  const loc = get("loc");
-  if (loc) filters.location = loc;
+  const updateFilters = useCallback(
+    (next: DiscoveryFilters) => {
+      const entries: [string, string][] = [];
+      if (next.query) entries.push(["q", next.query]);
+      if (next.location) entries.push(["loc", next.location]);
+      if (next.ageRange) {
+        entries.push(["minAge", String(next.ageRange.min)]);
+        entries.push(["maxAge", String(next.ageRange.max)]);
+      }
+      if (next.interests.length) entries.push(["interests", next.interests.join(",")]);
+      if (next.profileType !== "all") entries.push(["type", next.profileType]);
+      if (next.relationshipStatus !== "any") entries.push(["status", next.relationshipStatus]);
+      if (next.lookingFor) entries.push(["lookingFor", next.lookingFor]);
 
-  const minAge = Number(get("minAge"));
-  const maxAge = Number(get("maxAge"));
-  if (!Number.isNaN(minAge) && !Number.isNaN(maxAge) && get("minAge") && get("maxAge")) {
-    filters.ageRange = { min: minAge, max: maxAge };
-  }
+      const params = new URLSearchParams();
+      for (const [key, value] of entries) params.set(key, value);
 
-  const interests = get("interests");
-  if (interests) {
-    filters.interests = interests.split(",").map((i) => i.trim()).filter(Boolean);
-  }
+      router.push("/discover" + (params.toString() ? `?${params.toString()}` : ""), {
+        scroll: false,
+      });
+    },
+    [router]
+  );
 
-  const type = get("type");
-  if (type === "people" || type === "couples") filters.profileType = type;
-  const status = get("status");
-  if (status === "single" || status === "coupled") filters.relationshipStatus = status;
-
-  return filters;
+  return null;
 }

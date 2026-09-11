@@ -1,16 +1,15 @@
-import { requireAdmin } from "@/lib/auth/authorization";
-import {
-  getContentList,
-  getContentStatsAction,
-} from "@/lib/actions/content";
-import { AdminContentClient } from "@/components/admin/AdminContentClient";
+import { getContentList, getContentStatsAction } from "@/lib/actions/content";
 import { PageHeader } from "@/components/app/PageHeader";
+import { AdminContentClient } from "@/components/admin/AdminContentClient";
+import { getCurrentSessionUser } from "@/lib/server/session";
 
 export default async function AdminContentPage() {
-  const admin = await requireAdmin();
-  const [content, stats] = await Promise.all([
+  // The admin layout already handles auth guard via requireAdminDev.
+  // Child pages inherit admin access — no need to call requireAdmin() again.
+  const [content, stats, user] = await Promise.all([
     getContentList({}),
     getContentStatsAction(),
+    getCurrentSessionUser(),
   ]);
 
   return (
@@ -20,7 +19,7 @@ export default async function AdminContentPage() {
         title="Content & Advertisements"
         subtitle="Upload, schedule, and manage promotional content and announcements."
       />
-      <AdminContentClient initialContent={content} stats={stats} adminUid={admin.uid} />
+      <AdminContentClient initialContent={content} stats={stats} adminUid={user?.uid ?? ""} />
     </div>
   );
 }

@@ -12,6 +12,10 @@ export async function GET() {
   const admin = await requireAdmin();
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  }
+
   const { data: reportRows } = await supabase
     .from("reports")
     .select("*")
@@ -34,6 +38,10 @@ export async function GET() {
 export async function POST(request: Request) {
   const admin = await requireAdmin();
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+  }
 
   try {
     const body = await request.json().catch(() => ({}));

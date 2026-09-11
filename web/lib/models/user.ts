@@ -41,6 +41,12 @@ export interface User extends AuditableDocument {
    * resolve the URL via the Storage rules (read-only, authenticated).
    */
   photos: ProfilePhoto[];
+  /**
+   * True when this is a demo/preview account. Demo accounts are excluded from
+   * public feeds, real matches, production metrics, and cannot write production
+   * data or send messages to real users. They exist purely for UI exploration.
+   */
+  isDemo?: boolean;
 }
 
 /** How discoverable / readable a profile is. */

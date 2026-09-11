@@ -23,11 +23,9 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 let cachedClient: SupabaseClient | null = null;
 
 /** Lazily-initialized Supabase server client (service role, bypasses RLS). */
-export function getSupabaseServerClient(): SupabaseClient {
+export function getSupabaseServerClient(): SupabaseClient | null {
   if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error(
-      "Supabase server client is not configured: set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables. Without them, sign-in and registration will fail."
-    );
+    return null;
   }
   if (!cachedClient) {
     cachedClient = createClient(supabaseUrl, supabaseServiceRoleKey, {

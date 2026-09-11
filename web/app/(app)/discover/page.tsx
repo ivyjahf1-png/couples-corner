@@ -3,8 +3,10 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
 import { ProfileCard } from "@/components/app/ProfileCard";
-import { DiscoverFiltersSync, parseDiscoveryFilters } from "@/components/app/DiscoverFiltersSync";
+import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
+import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
+import { ContentSlot } from "@/components/content/ContentSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +32,11 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
         />
 
         <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />
+
+        {/* Promotional slot — admins place banner ads here (placement "discover"). */}
+        <div className="mt-8">
+          <ContentSlot placement="discover" />
+        </div>
 
         {profiles.length === 0 ? (
           <EmptyState

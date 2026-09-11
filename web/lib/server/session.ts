@@ -12,9 +12,13 @@
 
 import { cookies } from "next/headers";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { SessionUser } from "@/lib/auth/authorization";
+import {
+  resolveAdminAccess,
+  type SessionUser,
+} from "@/lib/auth/authorization";
+import { isDemoEmail } from "@/lib/auth/demo-guard";
 
-export const SESSION_COOKIE_NAME = "cc_session";
+export const SESSION_COOKIE_NAME = "couples_corner_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
 
 /**
@@ -23,6 +27,10 @@ export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
  */
 export async function createSessionFromIdToken(accessToken: string): Promise<void> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   // Verify the access token and get the user
   const { data, error } = await supabase.auth.getUser(accessToken);
@@ -60,7 +68,7 @@ export async function destroySession(): Promise<void> {
   if (cookie) {
     try {
       const supabase = getSupabaseServerClient();
-      await supabase.auth.admin.signOut(cookie.value);
+      await supabase?.auth.admin.signOut(cookie.value);
     } catch {
       // Cookie already invalid — clearing it is still correct.
     }
@@ -74,24 +82,38 @@ export async function getCurrentSessionUser(): Promise<SessionUser | null> {
   const cookie = cookieStore.get(SESSION_COOKIE_NAME);
   if (!cookie) return null;
 
+  let supabase = getSupabaseServerClient();
+  if (!supabase) {
+    // Supabase server client not configured — fail closed, no private data leaked.
+    return null;
+  }
+
   try {
-    const supabase = getSupabaseServerClient();
     const { data, error } = await supabase.auth.getUser(cookie.value);
     if (error || !data.user) return null;
 
-    // Get the user's role from the users table
+    // Get the user's role and demo flag from the users table
     const { data: userRecord } = await supabase
       .from("users")
-      .select("role")
+      .select("role, is_demo")
       .eq("id", data.user.id)
       .single();
 
+    const email = data.user.email ?? "";
+    const dbRole: SessionUser["role"] =
+      userRecord?.role === "admin" ? "admin" : "user";
+
+    // Determine demo status: DB flag OR email pattern match
+    const isDemo = (userRecord?.is_demo as boolean) ?? isDemoEmail(email);
+
     return {
       uid: data.user.id,
-      email: data.user.email ?? "",
+      email,
       emailVerified: data.user.email_confirmed_at != null,
-      // Role is read from the users table — the only sanctioned source of admin privilege.
-      role: userRecord?.role === "admin" ? "admin" : "user",
+      // Source of truth is the users table; `resolveAdminAccess` additionally
+      // grants admin in local development and for allowlisted owner emails.
+      role: resolveAdminAccess(dbRole, email) ? "admin" : dbRole,
+      isDemo,
     };
   } catch {
     return null; // invalid/expired/revoked cookie

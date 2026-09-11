@@ -94,6 +94,10 @@ export async function getDiscoverProfiles(
 ): Promise<ProfileCardView[]> {
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   // Get viewer profile for interest matching
   const { data: viewerProfileRow } = await supabase
     .from("profiles")
@@ -236,6 +240,8 @@ async function displayNamesFor(
   if (uids.length === 0) return map;
 
   const supabase = getSupabaseServerClient();
+  if (!supabase) return map;
+
   const { data: profileRows } = await supabase
     .from("profiles")
     .select("user_id, display_name, profile_type")
@@ -262,6 +268,10 @@ export interface MatchesData {
  */
 export async function getMatchesData(uid: string): Promise<MatchesData> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const [incomingResult, outgoingResult, conn1Result, conn2Result] = await Promise.all([
     supabase

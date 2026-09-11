@@ -76,6 +76,10 @@ export async function createReport(input: {
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const { data } = await supabase
     .from("reports")
     .insert({
@@ -106,6 +110,10 @@ export async function blockUser(blockerId: string, blockedId: string): Promise<v
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   await supabase.from("blocks").insert({
     id: canonicalPairId(blockerId, blockedId),
     blocker_id: blockerId,
@@ -118,6 +126,10 @@ export async function blockUser(blockerId: string, blockedId: string): Promise<v
 export async function unblockUser(blockerId: string, blockedId: string): Promise<void> {
   const supabase = getSupabaseServerClient();
   const pairId = canonicalPairId(blockerId, blockedId);
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const { data: blockRow } = await supabase
     .from("blocks")
@@ -135,6 +147,8 @@ export async function unblockUser(blockerId: string, blockedId: string): Promise
 /** List the signed-in user's blocked targets (server query). */
 export async function listBlocked(blockerId: string): Promise<BlockedUser[]> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) return [];
 
   const { data: blocks } = await supabase
     .from("blocks")
@@ -188,6 +202,10 @@ export async function addRiskSignal(signal: {
 }): Promise<void> {
   const supabase = getSupabaseServerClient();
   const now = new Date().toISOString();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   await supabase.from("risk_flags").insert({
     target_user_id: signal.targetUserId,

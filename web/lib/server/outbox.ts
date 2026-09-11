@@ -30,6 +30,10 @@ export async function sendMessageWithScan(args: {
   const { conversationId, senderId, recipientId, body } = args;
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   // Block check: sender must not be blocked by recipient.
   const pairId = senderId < recipientId ? `${senderId}_${recipientId}` : `${recipientId}_${senderId}`;
   const { data: blockRow } = await supabase
@@ -93,6 +97,8 @@ export async function canSendConnectionRequest(fromUid: string, toUid: string): 
   if (fromUid === toUid) return false;
 
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) return false;
 
   const [{ data: existing }, { data: blockRow }] = await Promise.all([
     supabase

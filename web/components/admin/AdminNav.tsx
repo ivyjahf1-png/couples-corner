@@ -13,8 +13,10 @@ interface AdminNavItem {
 const adminNavItems: AdminNavItem[] = [
   { href: "/admin", label: "Overview", icon: "home" },
   { href: "/admin/users", label: "Users", icon: "profile" },
-  { href: "/admin/content", label: "Content", icon: "moments" },
   { href: "/admin/reports", label: "Reports", icon: "flag" },
+  { href: "/admin/content", label: "Content", icon: "moments" },
+  { href: "/admin/broadcast", label: "Broadcast", icon: "bell" },
+  { href: "/admin/support", label: "Support", icon: "chat" },
   { href: "/admin/settings", label: "Settings", icon: "settings" },
 ];
 

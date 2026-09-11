@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Icon, type IconName } from "@/components/landing/Icon";
 
@@ -11,7 +11,7 @@ function Feature({ icon, title, children }: { icon: IconName; title: string; chi
       </span>
       <div>
         <h3 className="font-semibold text-white">{title}</h3>
-        <p className="text-sm leading-6 text-slate-300">{children}</p>
+        <p className="text-sm leading-6 text-ink-600">{children}</p>
       </div>
     </div>
   );
@@ -23,7 +23,7 @@ export default function SafetyPage() {
       <PageHeader
         eyebrow="Safety center"
         title="Safety & privacy"
-        subtitle="Your safety is a shared responsibility. These are the tools and habits that keep Couples Corner trustworthy — and what you can always do to stay protected."
+        subtitle="Your safety is a shared responsibility. These are the tools and habits that keep Couples Corner trustworthy â€” and what you can always do to stay protected."
       />
 
       <section
@@ -34,10 +34,10 @@ export default function SafetyPage() {
           Never send money to someone you have not met in person.
         </h2>
         <ul className="mt-3 max-w-2xl space-y-2 text-sm text-danger-800">
-          <li>• Never share passwords or verification codes — Couples Corner staff will never ask for them.</li>
-          <li>• Be cautious of investment, crypto, or gift-card requests, especially early on.</li>
-          <li>• Treat emergency-money stories with skepticism; confirm through another channel if possible.</li>
-          <li>• Question links to external sites or downloads; scams often arrive as urgent asks.</li>
+          <li>â€¢ Never share passwords or verification codes â€” Couples Corner staff will never ask for them.</li>
+          <li>â€¢ Be cautious of investment, crypto, or gift-card requests, especially early on.</li>
+          <li>â€¢ Treat emergency-money stories with skepticism; confirm through another channel if possible.</li>
+          <li>â€¢ Question links to external sites or downloads; scams often arrive as urgent asks.</li>
         </ul>
       </section>
 
@@ -56,7 +56,7 @@ export default function SafetyPage() {
             Every profile, post, comment, message, and photo has a Report option. Reports are reviewed by moderators.
           </Feature>
           <Feature icon="sparkle" title="Scam detection">
-            We scan for known scam patterns (money asks, gift cards, suspicious links) and flag them for review — never as an automatic ban.
+            We scan for known scam patterns (money asks, gift cards, suspicious links) and flag them for review â€” never as an automatic ban.
           </Feature>
           <Feature icon="chat" title="Private conversations">
             Messages are visible only to participants. We scan for scam patterns but do not read conversations for other purposes.
@@ -76,44 +76,60 @@ export default function SafetyPage() {
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-slate-300">Keep conversations on Couples Corner until you genuinely trust someone.</span>
+            <span className="text-sm text-ink-600">Keep conversations on Couples Corner until you genuinely trust someone.</span>
           </li>
           <li className="flex gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-slate-300">Video chat first before meeting in person, and always meet in a public place.</span>
+            <span className="text-sm text-ink-600">Video chat first before meeting in person, and always meet in a public place.</span>
           </li>
           <li className="flex gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-slate-300">Tell a friend or partner where you&apos;re going and who you&apos;re meeting.</span>
+            <span className="text-sm text-ink-600">Tell a friend or partner where you&apos;re going and who you&apos;re meeting.</span>
           </li>
           <li className="flex gap-3">
             <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-slate-300">If something feels off, block and report it rather than engaging.</span>
+            <span className="text-sm text-ink-600">If something feels off, block and report it rather than engaging.</span>
           </li>
         </ul>
       </section>
 
       <section className="rounded-2xl border border-ink-200 bg-surface p-6 sm:p-8">
-        <h2 className="text-lg font-semibold text-white">Need help?</h2>
-        <p className="mt-1 text-sm text-slate-300">
+        <h2 className="text-lg font-semibold text-ink-900">Need help?</h2>
+        <p className="mt-1 text-sm text-ink-600">
           Have a specific safety concern? Email{" "}
           <a
-            href="mailto:safety@couplescorner.app"
+            href="mailto:iremidetimmy398@gmail.com"
             className="text-brand-700 underline decoration-brand-300/50 underline-offset-2"
           >
-            safety@couplescorner.app
+            iremidetimmy398@gmail.com
           </a>
-          {" "}or review our{" "}
+          {" "}or{" "}
+          <a
+            href="https://wa.me/2348075566434"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-700 underline decoration-brand-300/50 underline-offset-2"
+          >
+            chat with us on WhatsApp
+          </a>
+          . We read every message and respond promptly.
+        </p>
+        <p className="mt-3 text-sm text-ink-600">
+          You can also review our{" "}
           <Link href="/legal/terms" className="text-brand-700 underline">
             Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/legal/privacy" className="text-brand-700 underline">
+            Privacy Policy
           </Link>
-          . We read every message and respond promptly.
+          .
         </p>
       </section>
     </div>

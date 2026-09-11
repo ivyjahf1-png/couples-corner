@@ -26,6 +26,10 @@ export interface AuditEntry {
 export async function recordAudit(entry: AuditEntry): Promise<void> {
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   await supabase.from("audit_logs").insert({
     admin_user_id: entry.adminUserId,
     action: entry.action,

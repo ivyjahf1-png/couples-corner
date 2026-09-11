@@ -132,6 +132,9 @@ export async function uploadContentMedia(
   }
 
   const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
   const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
   const path = `content/${contentId}/${new Date().getTime()}_${sanitizedName}`;
 

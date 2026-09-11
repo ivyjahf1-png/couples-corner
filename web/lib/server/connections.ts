@@ -22,6 +22,9 @@ function pairIdOf(a: string, b: string): string {
 
 async function assertNotBlocked(a: string, b: string): Promise<void> {
   const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
   const { data } = await supabase
     .from("blocks")
     .select("id")
@@ -32,6 +35,9 @@ async function assertNotBlocked(a: string, b: string): Promise<void> {
 
 async function assertUnderRateLimit(fromUid: string): Promise<void> {
   const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
   const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count } = await supabase
     .from("connection_requests")
@@ -48,6 +54,9 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
   if (fromUid === toUid) throw new Error("You can't connect with yourself");
 
   const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
   const now = new Date().toISOString();
 
   await assertNotBlocked(fromUid, toUid);
@@ -124,6 +133,10 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
 export async function cancelConnectionRequest(uid: string, requestId: string): Promise<void> {
   const supabase = getSupabaseServerClient();
 
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
   const { data: request } = await supabase
     .from("connection_requests")
     .select("*")
@@ -151,6 +164,10 @@ export async function respondToConnectionRequest(
   accept: boolean
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   // Pre-read for authorization + notification targeting.
   const { data: pre } = await supabase
@@ -218,6 +235,10 @@ export async function respondToConnectionRequest(
 /** Remove an accepted connection. Either participant may remove. */
 export async function removeConnection(uid: string, connectionId: string): Promise<void> {
   const supabase = getSupabaseServerClient();
+
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
 
   const { data: connection } = await supabase
     .from("connections")

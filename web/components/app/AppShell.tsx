@@ -2,14 +2,32 @@ import Link from "next/link";
 import { AppSidebar, AppMobileNav } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
+import { getCurrentSessionUser } from "@/lib/server/session";
 
 /**
  * Authenticated-app shell: desktop sidebar + mobile top bar and bottom nav.
  * Layout only — pages render inside <main>.
+ *
+ * Shows a prominent demo badge when the current user is a demo/preview account.
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export async function AppShell({ children }: { children: React.ReactNode }) {
+  const user = await getCurrentSessionUser();
+  const isDemo = user?.isDemo ?? false;
+  const displayName = user?.email ? user.email.split("@")[0] : "User";
+  const displayEmail = user?.email ?? "demo@couplescorner.app";
+
   return (
     <div className="min-h-dvh bg-background">
+      {/* Demo banner */}
+      {isDemo && (
+        <div className="sticky top-0 z-50 border-b border-warning-300 bg-warning-100 px-4 py-2 text-center text-sm text-warning-800">
+          <span className="font-semibold">Preview mode</span> — You&apos;re using a demo account.
+          <Link href="/api/auth/logout" className="ml-2 font-medium underline hover:text-warning-900">
+            Sign in with a real account
+          </Link>
+        </div>
+      )}
+
       {/* Mobile top bar */}
       <header className="sticky top-0 z-40 border-b border-ink-200 bg-background/95 backdrop-blur lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
@@ -22,7 +40,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Your profile"
               className="rounded-full ring-2 ring-transparent transition hover:ring-brand-300 focus-visible:ring-brand-500"
             >
-              <Avatar name="Demo User" size="sm" />
+              <Avatar name={displayName} size="sm" />
             </Link>
             <Link
               href="/settings"
@@ -45,12 +63,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Logo as="span" />
           </Link>
           <AppSidebar />
-          <div className="mt-auto flex items-center gap-3 rounded-xl border border-ink-200 bg-surface-muted p-3">
-            <Avatar name="Demo User" size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-900">Demo User</p>
-              <p className="truncate text-xs text-ink-600">demo account</p>
+          <div className={`mt-auto flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-warning-300 bg-warning-50" : "border-ink-200 bg-surface-muted"}`}>
+            <Avatar name={displayName} size="sm" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-ink-900">{displayName}</p>
+              <p className="truncate text-xs text-ink-600">{isDemo ? "Demo account" : displayEmail}</p>
             </div>
+            {isDemo && (
+              <span className="shrink-0 rounded-full bg-warning-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-warning-800">
+                Demo
+              </span>
+            )}
           </div>
         </aside>
 

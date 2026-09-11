@@ -26,6 +26,9 @@ export async function POST(request: Request) {
 
     // Verify the token and get the user
     const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
+    }
     const { data, error } = await supabase.auth.getUser(body.accessToken);
     if (error || !data.user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
