@@ -1,5 +1,8 @@
+"use client";
+
 import { Logo } from "@/components/ui/Logo";
 import { Icon } from "@/components/landing/Icon";
+import { openAuthModal } from "@/components/auth/AuthModals";
 
 const navLinks: { label: string; href: string }[] = [
   { label: "Discover", href: "/discover" },
@@ -9,9 +12,11 @@ const navLinks: { label: string; href: string }[] = [
 ];
 
 /**
- * Responsive marketing header. Sticky; primary CTAs (Log in / Join) stay
- * visible on every breakpoint while secondary links collapse into a
- * JavaScript-free `<details>` menu on small screens.
+ * Responsive marketing header. Sticky; primary CTAs (Log in / Join) open the
+ * auth modal overlay instead of hard-navigating to /login or /register,
+ * avoiding Netlify 404s on routes that may not have static pages deployed.
+ * Secondary navigation links collapse into a JavaScript-free `<details>` menu
+ * on small screens.
  */
 export function SiteHeader() {
   return (
@@ -60,30 +65,33 @@ export function SiteHeader() {
                   </li>
                 ))}
                 <li>
-                  <a
-                    href="/login"
-                    className="block rounded-lg px-3 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100"
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal("login")}
+                    className="block w-full rounded-lg px-3 py-2 text-sm font-medium text-ink-700 hover:bg-ink-100"
                   >
                     Log in
-                  </a>
+                  </button>
                 </li>
               </ul>
             </nav>
           </details>
 
-          <a
-            href="/login"
+          <button
+            type="button"
+            onClick={() => openAuthModal("login")}
             className="hidden h-10 rounded-xl border border-ink-200 bg-surface px-4 text-sm font-medium text-ink-700 transition hover:border-ink-300 hover:bg-ink-100 sm:inline-flex sm:items-center"
           >
             Log in
-          </a>
-          <a
-            href="/register"
+          </button>
+          <button
+            type="button"
+            onClick={() => openAuthModal("register")}
             className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 text-sm font-medium text-white shadow-subtle transition hover:bg-brand-800 active:bg-brand-900"
           >
             Join
             <Icon name="arrow" className="h-4 w-4" />
-          </a>
+          </button>
         </div>
       </div>
     </header>

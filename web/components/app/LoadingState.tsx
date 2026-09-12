@@ -29,16 +29,17 @@ export function LoadingState({
   );
 }
 
-/** Compact inline spinner for buttons/composers. */
-export function InlineSpinner({ className }: { className?: string }) {
+/** Compact dot-loader for buttons/composers. */
+export function DotLoader({ className }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={[
-        "inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent",
-        className ?? "",
-      ].join(" ").trim()}
-    />
+      className={["dot-loader", className ?? ""].join(" ").trim()}
+    >
+      <span className="dot" />
+      <span className="dot" />
+      <span className="dot" />
+    </span>
   );
 }
 

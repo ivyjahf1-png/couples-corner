@@ -71,8 +71,8 @@ export default function LoginPage() {
       footer={
         <>
           New to Couples Corner?{" "}
-          <Link href="/register" className="font-semibold text-brand-700 hover:underline">
-            Create an account
+          <Link href="/" className="font-semibold text-brand-700 hover:underline">
+            Back to home
           </Link>
         </>
       }
@@ -113,7 +113,7 @@ export default function LoginPage() {
       </form>
 
       <p className="mt-6 text-center">
-        <Link href="/forgot-password" className="text-sm text-ink-600 hover:text-ink-900 hover:underline">
+        <Link href="/" className="text-sm text-ink-600 hover:text-ink-900 hover:underline">
           Forgot your password?
         </Link>
       </p>

@@ -86,7 +86,7 @@ export async function getSessionUser(): Promise<SessionUser | null> {
 
 /**
  * For zones that must only be seen when signed OUT (public marketing + auth).
- * Redirects already-authenticated visitors back into the app.
+ * Redirects already-authenticated visitors to the dashboard.
  */
 export async function requireGuest(): Promise<void> {
   const user = await getSessionUser();
@@ -96,13 +96,14 @@ export async function requireGuest(): Promise<void> {
 }
 
 /**
- * For the authenticated app zone. Redirects anonymous visitors to sign in so
- * that no private app UI or data is rendered.
+ * For the authenticated app zone. Redirects anonymous visitors to the
+ * homepage so they can sign in via the auth modal instead of a separate
+ * /login route (which may not exist or may cause Netlify 404s).
  */
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
   // `redirect` returns `never`, so TS narrows `user` to `SessionUser` here.
   return user;
@@ -170,7 +171,7 @@ export async function requireAdminDev(): Promise<SessionUser> {
 
   // Production: require a real authenticated admin session
   if (!user) {
-    redirect("/login");
+    redirect("/");
   }
   if (user.role !== "admin") {
     notFound();

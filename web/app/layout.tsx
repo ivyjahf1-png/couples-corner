@@ -1,6 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
+import "../styles/splash.css";
+import { AuthModalProvider } from "@/components/auth/AuthModals";
+import RootLoading from "./root-loading";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,20 +26,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14110e",
-  // Permanent dark theme: browsers must never apply a light color scheme
+  themeColor: "#ffffff",
+  // Light theme: browsers should apply a light color scheme
   // (affects form controls, scrollbars, and default backgrounds).
-  colorScheme: "dark",
+  colorScheme: "light",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  return (
+    return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
+        <AuthModalProvider />
+        <Suspense fallback={<RootLoading />}>
+          {children}
+        </Suspense>
       </body>
     </html>
   );

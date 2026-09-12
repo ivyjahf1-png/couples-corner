@@ -1,4 +1,4 @@
-import { InlineSpinner } from "@/components/app/LoadingState";
+import { DotLoader } from "@/components/app/LoadingState";
 import type { MessageView } from "@/lib/feature/types";
 
 /**
@@ -27,7 +27,7 @@ export function MessageBubble({ message }: { message: MessageView }) {
             mine ? "text-white/70" : "text-ink-500",
           ].join(" ").trim()}
         >
-          {message.status === "sending" ? <InlineSpinner className="h-3 w-3" /> : null}
+          {message.status === "sending" ? <DotLoader /> : null}
           {message.status === "failed" ? "Not sent — tap to retry" : message.at}
         </span>
       </div>

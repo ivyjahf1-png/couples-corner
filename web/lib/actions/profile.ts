@@ -37,7 +37,7 @@ export async function createProfileAction(uid: string, input: ProfileUpdateInput
 /**
  * Update the calling user's own profile. Ownership is enforced server-side —
  * a user can only pass their own uid (asserted by the calling page from the
- * session), and Firestore rules deny any write where resource.id != uid.
+ * session), and Supabase RLS denies any write where auth.uid() != uid.
  */
 export async function updateOwnProfileAction(uid: string, input: ProfileUpdateInput) {
   const profile = await updateOwnProfile(uid, input);
@@ -46,4 +46,19 @@ export async function updateOwnProfileAction(uid: string, input: ProfileUpdateIn
   revalidatePath("/dashboard");
   revalidatePath("/discover");
   return profile;
+}
+
+/**
+ * Complete the onboarding flow for a user.
+ * Updates the profile with collected data and marks onboarding_completed in
+ * the users table, so the user is redirected to the main app on next visit.
+ */
+export async function completeOnboardingAction(uid: string, input: ProfileUpdateInput) {
+  const { completeOnboarding } = await import("@/lib/server/profiles");
+  await completeOnboarding(uid, input);
+  revalidatePath("/profile");
+  revalidatePath("/profile/edit");
+  revalidatePath("/dashboard");
+  revalidatePath("/discover");
+  revalidatePath("/onboarding");
 }

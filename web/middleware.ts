@@ -33,11 +33,11 @@ export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get("couples_corner_session")?.value;
 
   if (!sessionCookie) {
-    // No session cookie — redirect to the login page so authenticated admins
-    // can sign in and then access /admin/*. (A hard 404 here prevents users
-    // from ever reaching the login flow.)
+    // No session cookie — redirect to the homepage so the user can sign in
+    // via the auth modal. (A hard 404 or redirect to /login would prevent
+    // users from ever reaching the login flow.)
     const url = request.nextUrl.clone();
-    url.pathname = "/login";
+    url.pathname = "/";
     return NextResponse.redirect(url, 302);
   }
 

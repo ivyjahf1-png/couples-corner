@@ -2,92 +2,89 @@
 
 /* ============================================================================
    Couples Corner — Visual Design System (CSS-first, Tailwind v4)
+   Orange & White Theme
    ========================================================================== */
 
 :root {
-  /* ---- Brand: warm terracotta, tuned for a DARK canvas ----
-     High steps are now LIGHT (used as text on dark), low steps are dark
-     washes (used as tinted backgrounds). White-on-brand-700 buttons keep
-     readable contrast at semibold weights. */
-  --brand-50: #221510;
-  --brand-100: #35211a;
-  --brand-200: #4a2d22;
-  --brand-300: #7a4530;
-  --brand-400: #a05c42;
-  --brand-500: #c97a55;
-  --brand-600: #b94f30;
-  --brand-700: #cf5f3d;
-  --brand-800: #dd7250;
-  --brand-900: #f4c3a4;
-  --brand-950: #fbdcc6;
+  /* ---- Brand: vibrant orange spectrum ----
+     Light steps are tinted backgrounds, dark steps are text/buttons on white. */
+  --brand-50: #fff7ed;
+  --brand-100: #ffedd5;
+  --brand-200: #fed7aa;
+  --brand-300: #fdba74;
+  --brand-400: #fb923c;
+  --brand-500: #f97316;
+  --brand-600: #ea580c;
+  --brand-700: #c2410c;
+  --brand-800: #9a3412;
+  --brand-900: #7c2d12;
+  --brand-950: #431407;
 
-  /* ---- Ink: warm neutrals, INVERTED for permanent dark mode ----
-     High steps are light (primary text), low steps are near-black surfaces.
-     All existing `text-ink-900` / `bg-ink-100` usage renders correctly. */
-  --ink-50: #100e0c;
-  --ink-100: #1e1b17;
-  --ink-200: #2b2723;
-  --ink-300: #3a3530;
-  --ink-400: #8f877d;
-  --ink-500: #a49b91;
-  --ink-600: #bdb4aa;
-  --ink-700: #d2cac1;
-  --ink-800: #e7e1d9;
-  --ink-900: #f6f2ec;
-  --ink-950: #fbf8f4;
+  /* ---- Ink: dark grays for text on light backgrounds ---- */
+  --ink-50: #fafafa;
+  --ink-100: #f5f5f5;
+  --ink-200: #e5e5e5;
+  --ink-300: #d4d4d4;
+  --ink-400: #a3a3a3;
+  --ink-500: #737373;
+  --ink-600: #525252;
+  --ink-700: #404040;
+  --ink-800: #262626;
+  --ink-900: #171717;
+  --ink-950: #0a0a0a;
 
-  /* ---- Semantic surfaces (permanent dark) ---- */
-  --background: #14110e;
-  --foreground: #f6f2ec;
-  --surface: #1d1a16;
-  --surface-muted: #242019;
-  --border: #2e2a24;
-  --border-strong: #3d3730;
-  --subtle: #6e675e;
-  --muted: #2a261f;
+  /* ---- Semantic surfaces (light theme) ---- */
+  --background: #ffffff;
+  --foreground: #171717;
+  --surface: #ffffff;
+  --surface-muted: #fff8f3;
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+  --subtle: #737373;
+  --muted: #f5f5f5;
 
   /* ---- Brand accent ---- */
-  --accent: #2a1c16;
-  --accent-strong: #3a221a;
+  --accent: #fff7ed;
+  --accent-strong: #ffedd5;
 
-  /* ---- Status (dark-tuned) ---- */
-  --danger-50: #2a1414;
-  --danger-100: #3a1b1b;
-  --danger-200: #55201f;
-  --danger-300: #8a4040;
-  --danger-400: #b05050;
-  --danger-500: #e06565;
-  --danger-600: #ea8080;
-  --danger-700: #f0a0a0;
-  --danger-800: #f5b8b8;
-  --danger-900: #f8d0d0;
+  /* ---- Status (light-tuned) ---- */
+  --danger-50: #fef2f2;
+  --danger-100: #fee2e2;
+  --danger-200: #fecaca;
+  --danger-300: #fca5a5;
+  --danger-400: #f87171;
+  --danger-500: #ef4444;
+  --danger-600: #dc2626;
+  --danger-700: #b91c1c;
+  --danger-800: #991b1b;
+  --danger-900: #7f1d1d;
 
-  --success-50: #14231a;
-  --success-100: #16301f;
-  --success-200: #1f4530;
-  --success-300: #2b5f44;
-  --success-400: #3d8262;
-  --success-500: #4fa885;
-  --success-600: #6cc49e;
-  --success-700: #8adbb6;
+  --success-50: #f0fdf4;
+  --success-100: #dcfce7;
+  --success-200: #bbf7d0;
+  --success-300: #86efac;
+  --success-400: #4ade80;
+  --success-500: #22c55e;
+  --success-600: #16a34a;
+  --success-700: #15803d;
 
-  /* ---- Warning (demo/preview indicators, dark-tuned) ---- */
-  --warning-50: #2a2210;
-  --warning-100: #38301a;
-  --warning-200: #55461f;
-  --warning-300: #8a7028;
-  --warning-400: #c9a03a;
-  --warning-500: #e8b84a;
-  --warning-600: #f0c96a;
-  --warning-700: #f6dc95;
-  --warning-800: #f9e7b5;
-  --warning-900: #fcf2d4;
+  /* ---- Warning (demo/preview indicators, light-tuned) ---- */
+  --warning-50: #fffbeb;
+  --warning-100: #fef3c7;
+  --warning-200: #fde68a;
+  --warning-300: #fcd34d;
+  --warning-400: #fbbf24;
+  --warning-500: #f59e0b;
+  --warning-600: #d97706;
+  --warning-700: #b45309;
+  --warning-800: #92400e;
+  --warning-900: #78350f;
 
   /* ---- Focus ring ---- */
-  --focus-ring: #dd7250;
-  --focus-ring-muted: #d2cac1;
+  --focus-ring: #f97316;
+  --focus-ring-muted: #d4d4d4;
 
-  /* ---- On-brand text color (buttons/badges on terracotta fills) ---- */
+  /* ---- On-brand text color (buttons/badges on orange fills) ---- */
   --on-brand: #ffffff;
 
   /* ---- Spacing ---- */
@@ -227,12 +224,12 @@ html {
 }
 
 :root {
-  color-scheme: dark only;
+  color-scheme: light only;
 }
 
-/* Theme lock comment: Couples Corner is a PERMANENT dark theme.
-   OS-level light mode is intentionally NOT honored; the palette above
-   is authored directly as dark, so no @media override is needed. */
+/* Theme lock comment: Couples Corner uses a light orange & white theme.
+   OS-level dark mode is intentionally NOT honored; the palette above
+   is authored directly as light, so no @media override is needed. */
 
 body {
   background-color: var(--background);
@@ -276,22 +273,22 @@ input::placeholder, textarea::placeholder {
   }
 }
 
-/* Warm gradient stand-ins for couple photos — DARK-tuned so terracotta
-   glows against the dark canvas instead of glaring like light cream.
-   Real marketing images (admin/content) will replace these eventually. */
+/* Warm gradient stand-ins for couple photos — orange-tuned so the brand
+   glows against the white canvas. Real marketing images (admin/content) will
+   replace these eventually. */
 .hero-photo {
   background:
-    radial-gradient(120% 120% at 78% 20%, rgb(201 122 85 / 0.5) 0%, transparent 55%),
-    linear-gradient(135deg, #2a1c16 0%, #3a221a 55%, #7a4530 100%);
+    radial-gradient(120% 120% at 78% 20%, rgb(249 115 22 / 0.15) 0%, transparent 55%),
+    linear-gradient(135deg, #fff7ed 0%, #ffedd5 55%, #fdba74 100%);
   position: relative;
 }
 .media-placeholder {
   background:
-    radial-gradient(120% 120% at 80% 15%, rgb(221 114 80 / 0.4) 0%, transparent 55%),
-    linear-gradient(140deg, #242019 0%, #4a2d22 60%, #7a4530 100%);
+    radial-gradient(120% 120% at 80% 15%, rgb(249 115 22 / 0.1) 0%, transparent 55%),
+    linear-gradient(140deg, #fff8f3 0%, #ffedd5 60%, #fdba74 100%);
 }
 .story-placeholder {
-  background: linear-gradient(150deg, #3a221a 0%, #7a4530 70%, #4a2d22 100%);
+  background: linear-gradient(150deg, #ffedd5 0%, #fdba74 70%, #fed7aa 100%);
 }
 
 .hero-photo::after,
@@ -299,7 +296,7 @@ input::placeholder, textarea::placeholder {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23ffffff' fill-opacity='0.18'/%3E%3Ccircle cx='90' cy='90' r='30' fill='%23ffffff' fill-opacity='0.12'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='32' cy='32' r='22' fill='%23f97316' fill-opacity='0.08'/%3E%3Ccircle cx='90' cy='90' r='30' fill='%23f97316' fill-opacity='0.05'/%3E%3C/svg%3E");
   background-size: 120px 120px;
   pointer-events: none;
 }
@@ -313,13 +310,12 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ----------------------------------------------------------------------------
-   Theme lock — Couples Corner is a PERMANENT dark theme. OS-level light mode
-   is intentionally NOT honored; the palette is authored directly as dark, so
-   colors stay consistent across every device. (Re-affirms the dark scheme
-   declared at the top of the file.)
+   Theme lock — Couples Corner uses a light orange & white theme. OS-level
+   dark mode is intentionally NOT honored; the palette is authored directly
+   as light, so colors stay consistent across every device.
    -------------------------------------------------------------------------- */
 :root {
-  color-scheme: dark only;
+  color-scheme: light only;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -335,7 +331,7 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ----------------------------------------------------------------------------
-    Couple's Corner — Lifestyle Photo Card (dark-tuned)
+    Couple's Corner — Lifestyle Photo Card (light-tuned)
     -------------------------------------------------------------------------- */
 .dating-card {
   width: 100%;

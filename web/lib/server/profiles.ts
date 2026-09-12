@@ -268,6 +268,57 @@ export async function updateOwnProfile(
 }
 
 /**
+ * Complete onboarding for a user.
+ * Updates the profile with the collected data and marks onboarding_completed
+ * in the users table, so the user is redirected to the main app on next visit.
+ */
+export async function completeOnboarding(
+  uid: string,
+  input: ProfileUpdateInput
+): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase not configured");
+
+  // Build profile update fields (snake_case for the DB)
+  const updates: Record<string, unknown> = {
+    updated_at: new Date().toISOString(),
+  };
+  if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
+  if (input.gender !== undefined) updates.gender = input.gender?.trim() || null;
+  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth;
+
+  // Update profile row
+  await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("user_id", uid);
+
+  // Mark onboarding as completed in users table
+  await supabase
+    .from("users")
+    .update({
+      onboarding_completed: true,
+      display_name: input.displayName?.trim() ?? null,
+      gender: input.gender?.trim() ?? null,
+      date_of_birth: input.dateOfBirth ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", uid);
+
+  // Audit record
+  await recordAudit({
+    adminUserId: uid,
+    action: "update",
+    targetRef: { type: "onboarding", id: uid },
+    reason: "onboarding completed",
+  });
+}
+
+/**
+ * Upload a profile photo via Supabase Storage.
+ * Only the owner's uid may write to their folder (RLS + server check).
+ */
+/**
  * Upload a profile photo via Supabase Storage.
  * Only the owner's uid may write to their folder (RLS + server check).
  */
