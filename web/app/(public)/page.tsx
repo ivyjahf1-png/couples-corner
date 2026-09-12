@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { HeroSlot } from "@/components/content/HeroSlot";
+import Link from "next/link";
 
 /* Marketing images are supplied via /public/images — see MarketingImage.
    Replace the gradients by placing real files in web/public/images/. */
@@ -268,9 +269,9 @@ export default function HomePage() {
                   Find genuine connections and real stories in settings designed
                   for authentic moments.
                 </p>
-                <a href="/discover" className="card-btn">
+                <Link href="/matches" className="card-btn">
                   Explore Matches
-                </a>
+                </Link>
               </div>
             </div>
           </div>
