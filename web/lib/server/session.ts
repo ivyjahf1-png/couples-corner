@@ -10,7 +10,11 @@
  * value.
  */
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import {
+  isSessionRevoked,
+  registerOrTouchSession,
+} from "@/lib/server/account-security";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
   resolveAdminAccess,
@@ -77,10 +81,24 @@ export async function destroySession(): Promise<void> {
 }
 
 /** Resolve the current session server-side, or null when unauthenticated. */
-export async function getCurrentSessionUser(): Promise<SessionUser | null> {
+export async function getCurrentSessionUser(
+  bearerToken?: string | null
+): Promise<SessionUser | null> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get(SESSION_COOKIE_NAME);
-  if (!cookie) return null;
+
+  // Prefer the httpOnly session cookie; fall back to an explicit Bearer token
+  // (e.g. a freshly-refreshed Supabase access token sent by the client when
+  // the cookie's embedded token has expired). Either token is verified
+  // server-side with Supabase Auth — never trusted blindly.
+  // IMPORTANT: if the cookie token is present but expired/invalid, we must
+  // still try the bearer token instead of failing outright — otherwise
+  // long-lived sessions always hit "Authentication required" even though the
+  // browser holds a freshly-refreshed session.
+  const authHeaderToken =
+    bearerToken?.startsWith("Bearer ") ? bearerToken.slice(7) : bearerToken;
+  const candidates = [cookie?.value, authHeaderToken].filter(Boolean) as string[];
+  if (candidates.length === 0) return null;
 
   let supabase = getSupabaseServerClient();
   if (!supabase) {
@@ -89,17 +107,64 @@ export async function getCurrentSessionUser(): Promise<SessionUser | null> {
   }
 
   try {
-    const { data, error } = await supabase.auth.getUser(cookie.value);
-    if (error || !data.user) return null;
+    // Try each candidate token in order (cookie first, then bearer).
+    let userId: string | null = null;
+    let userEmail = "";
+    let emailConfirmedAt: string | null = null;
+    let validToken: string | null = null;
+    for (const token of candidates) {
+      const { data, error } = await supabase.auth.getUser(token);
+      if (!error && data.user) {
+        userId = data.user.id;
+        userEmail = data.user.email ?? "";
+        emailConfirmedAt = data.user.email_confirmed_at ?? null;
+        validToken = token;
+        break;
+      }
+    }
+    if (!userId || !validToken) return null;
+
+    // Refresh the cookie when the bearer token worked but the cookie is
+    // stale, so subsequent cookie-only requests (Server Actions, navigations)
+    // stop failing too.
+    if (cookie?.value !== validToken) {
+      try {
+        const cookieStore = await cookies();
+        cookieStore.set(SESSION_COOKIE_NAME, validToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "lax",
+          maxAge: SESSION_TTL_SECONDS,
+          path: "/",
+        });
+      } catch {
+        // Cookie refresh is best-effort (e.g. called outside a request scope).
+      }
+    }
+
+    // Session tracking (best-effort): register the device row, refresh the
+    // last-seen heartbeat, and enforce revocations made from /settings.
+    try {
+      const h = await headers();
+      await registerOrTouchSession(userId, validToken, {
+        userAgent: h.get("user-agent"),
+        ip: h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      });
+      if (await isSessionRevoked(userId, validToken)) {
+        return null; // Signed out from another device via settings.
+      }
+    } catch {
+      // Session tracking must never break authentication.
+    }
 
     // Get the user's role and demo flag from the users table
     const { data: userRecord } = await supabase
       .from("users")
       .select("role, is_demo")
-      .eq("id", data.user.id)
+      .eq("id", userId)
       .single();
 
-    const email = data.user.email ?? "";
+    const email = userEmail;
     const dbRole: SessionUser["role"] =
       userRecord?.role === "admin" ? "admin" : "user";
 
@@ -107,9 +172,9 @@ export async function getCurrentSessionUser(): Promise<SessionUser | null> {
     const isDemo = (userRecord?.is_demo as boolean) ?? isDemoEmail(email);
 
     return {
-      uid: data.user.id,
+      uid: userId,
       email,
-      emailVerified: data.user.email_confirmed_at != null,
+      emailVerified: emailConfirmedAt != null,
       // Source of truth is the users table; `resolveAdminAccess` additionally
       // grants admin in local development and for allowlisted owner emails.
       role: resolveAdminAccess(dbRole, email) ? "admin" : dbRole,

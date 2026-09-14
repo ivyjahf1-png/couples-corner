@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { rethrowIfNavigation } from "@/lib/utils/errors";
 import {
   sendConnectionRequest,
   cancelConnectionRequest,
@@ -28,6 +29,7 @@ export async function sendConnectionAction(targetUserId: string): Promise<Action
     revalidatePath("/matches");
     return { ok: true };
   } catch (error) {
+    rethrowIfNavigation(error);
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong" };
   }
 }
@@ -41,6 +43,7 @@ export async function cancelRequestAction(requestId: string): Promise<ActionResu
     revalidatePath("/discover");
     return { ok: true };
   } catch (error) {
+    rethrowIfNavigation(error);
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong" };
   }
 }
@@ -55,6 +58,7 @@ export async function respondRequestAction(requestId: string, accept: boolean): 
     revalidatePath("/notifications");
     return { ok: true };
   } catch (error) {
+    rethrowIfNavigation(error);
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong" };
   }
 }
@@ -68,6 +72,7 @@ export async function removeConnectionAction(connectionId: string): Promise<Acti
     revalidatePath("/discover");
     return { ok: true };
   } catch (error) {
+    rethrowIfNavigation(error);
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong" };
   }
 }

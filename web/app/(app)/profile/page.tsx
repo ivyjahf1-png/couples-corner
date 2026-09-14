@@ -35,7 +35,7 @@ export default async function ProfilePage() {
         <Card className="flex flex-col items-center gap-4 text-center">
           {photo ? (
             <img
-              src={`/api/photos/${session.uid}/${photo.storagePath.split("/").pop()}`}
+              src={`/api/photos/${session.uid}/${photo?.storagePath?.split("/")?.pop() ?? ""}`}
               alt={profile?.displayName ?? "Profile photo"}
               className="h-28 w-28 rounded-full object-cover ring-2 ring-brand-200"
             />

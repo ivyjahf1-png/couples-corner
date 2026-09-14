@@ -13,11 +13,15 @@ export interface ProfileUpdateInput {
   bio?: string | null;
   interests?: string[];
   location?: string | null;
+  country?: string | null;
   gender?: string | null;
   orientation?: string | null;
   dateOfBirth?: string | null;
   relationshipStatus?: string | null;
+  occupation?: string | null;
+  genotype?: string | null;
   profileType?: "single" | "coupled" | "open" | null;
+  lookingFor?: string | null;
   visibility?: "public" | "connections" | "private";
   discoverable?: boolean;
 }
@@ -27,11 +31,15 @@ export interface ProfileFormState {
   bio: string;
   interests: string[];
   location: string;
+  country: string;
   gender: string;
   orientation: string;
   dateOfBirth: string;
   relationshipStatus: string;
+  occupation: string;
+  genotype: string;
   profileType: "single" | "coupled" | "open";
+  lookingFor: string;
   visibility: "public" | "connections" | "private";
   discoverable: boolean;
 }
@@ -41,10 +49,14 @@ const initialFormState: ProfileFormState = {
   bio: "",
   interests: [],
   location: "",
+  country: "",
   gender: "",
   orientation: "",
   dateOfBirth: "",
   relationshipStatus: "",
+  occupation: "",
+  genotype: "",
+  lookingFor: "",
   profileType: "single",
   visibility: "public",
   discoverable: true,
@@ -78,10 +90,14 @@ export function useProfileForm(
       base.bio = initialProfile.bio || "";
       base.interests = initialProfile.interests || [];
       base.location = initialProfile.location || "";
+      base.country = initialProfile.country || "";
       base.gender = initialProfile.gender || "";
       base.orientation = initialProfile.orientation || "";
       base.dateOfBirth = initialProfile.dateOfBirth || "";
       base.relationshipStatus = initialProfile.relationshipStatus || "";
+      base.occupation = initialProfile.occupation || "";
+      base.genotype = initialProfile.genotype || "";
+      base.lookingFor = initialProfile.lookingFor || "";
       base.profileType = initialProfile.profileType || "single";
       base.visibility = initialProfile.visibility || "public";
       base.discoverable = initialProfile.discoverable ?? true;
@@ -125,6 +141,15 @@ export function useProfileForm(
     if (formData.location.length > 100) {
       newErrors.location = "Location must be 100 characters or fewer.";
     }
+    if (formData.country.length > 80) {
+      newErrors.country = "Country must be 80 characters or fewer.";
+    }
+    if (formData.occupation.length > 100) {
+      newErrors.occupation = "Occupation must be 100 characters or fewer.";
+    }
+    if (formData.genotype.length > 30) {
+      newErrors.genotype = "Genotype must be 30 characters or fewer.";
+    }
     if (formData.interests.length > 20) {
       newErrors.interests = "You can add up to 20 interests.";
     }
@@ -150,11 +175,15 @@ export function useProfileForm(
           bio: formData.bio || null,
           interests: formData.interests,
           location: formData.location || null,
+          country: formData.country || null,
           gender: formData.gender || null,
           orientation: formData.orientation || null,
           dateOfBirth: formData.dateOfBirth || null,
           relationshipStatus: formData.relationshipStatus || null,
+          occupation: formData.occupation || null,
+          genotype: formData.genotype || null,
           profileType: formData.profileType as ProfileFormState["profileType"] | null,
+          lookingFor: formData.lookingFor || null,
           visibility: formData.visibility,
           discoverable: formData.discoverable,
         };

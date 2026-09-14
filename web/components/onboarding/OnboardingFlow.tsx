@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
 import { completeOnboardingAction } from "@/lib/actions/profile";
+import { getFreshAccessToken } from "@/lib/supabase/auth-client";
 
 type Gender = "male" | "female";
 
@@ -65,10 +66,18 @@ function PersonalInfoStep({ data, onUpdate, onBack, onComplete, saving, error }:
     setUploading(true);
     setUploadError(null);
     try {
+      const accessToken = await getFreshAccessToken();
+      if (!accessToken) {
+        throw new Error("You're signed out. Please sign in again, then retry the upload.");
+      }
       const formData = new FormData();
       formData.append("file", file);
       formData.append("uid", data.uid ?? "");
-      const response = await fetch("/api/photos/profile", { method: "POST", body: formData });
+      const response = await fetch("/api/photos/profile", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      });
       if (!response.ok) {
         const resData = await response.json().catch(() => ({}));
         throw new Error(resData.error || "Upload failed");

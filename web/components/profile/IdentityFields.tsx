@@ -93,6 +93,18 @@ export function IdentityFields({ formData, updateField }: FieldGroupProps) {
             <option value="open">Open</option>
           </select>
         </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="lookingFor" className="mb-1.5 block text-sm font-medium text-ink-700">Looking for</label>
+          <input
+            id="lookingFor"
+            type="text"
+            value={formData.lookingFor}
+            onChange={(e) => updateField("lookingFor", e.target.value)}
+            maxLength={140}
+            className="h-10 w-full rounded-xl border border-ink-200 bg-surface px-4 text-sm text-ink-900 focus:border-brand-400 focus:outline-none"
+            placeholder="e.g. Friendship, long-term relationship…"
+          />
+        </div>
       </div>
     </Card>
   );

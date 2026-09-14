@@ -18,6 +18,50 @@ import { getSupabaseClient, validateSupabaseConfig, isSupabaseConfigured } from 
 import type { User, AuthError } from "@supabase/supabase-js";
 
 /**
+ * Get a fresh, valid access token for authenticated API calls.
+ *
+ * The browser client auto-refreshes via its stored refresh token, but the
+ * httpOnly session cookie holds the access token from sign-in time and goes
+ * stale after ~1h. Sending a fresh bearer token lets server routes
+ * (e.g. photo upload) verify auth even when the cookie token expired.
+ * Also re-syncs the cookie when a refresh produced a newer token.
+ */
+export async function getFreshAccessToken(): Promise<string | null> {
+  const supabase = getSupabaseClient();
+
+  // Force a token refresh so we never ship an expired access token.
+  // `getSession()` only returns the cached session — it does NOT trigger a
+  // token refresh. The client's `autoRefreshToken` option refreshes on outbound
+  // network calls through the client (e.g. `supabase.from().select()`), NOT on
+  // `getSession()`. So we must explicitly refresh first to guarantee a fresh
+  // access token, otherwise uploads fail with 401 after the ~1h access-token
+  // lifetime even though the browser client still holds a valid session.
+  //
+  // `refreshSession()` uses the stored refresh token; if that has also expired
+  // (e.g. the user hasn't used the app in 7+ days), it rejects — in that case
+  // the user is genuinely signed out and must sign in again.
+  try {
+    await supabase.auth.refreshSession();
+  } catch (err) {
+    // Refresh failed: refresh token expired / network error / not signed in.
+    // Fall back to the cached session so we can still surface a clear message
+    // rather than a generic fetch failure.
+    console.warn("[auth] refreshSession failed, using cached session if available:", err);
+  }
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return null;
+  try {
+    await exchangeSessionCookie(session.access_token);
+  } catch {
+    // Cookie re-sync is best-effort — the bearer token itself still works.
+  }
+  return session.access_token;
+}
+
+/**
  * Check if Supabase is properly configured and throw a helpful error if not.
  *
  * This prevents generic "Failed to fetch" errors by failing fast with a

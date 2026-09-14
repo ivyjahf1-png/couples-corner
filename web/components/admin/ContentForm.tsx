@@ -81,6 +81,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
       description: description.trim() || undefined,
       mediaType,
       mediaUrl,
+      mediaUrls: mediaUrl ? [mediaUrl] : ([] as string[]),
       thumbnailUrl: thumbnailUrl.trim() || undefined,
       buttonText: buttonText.trim() || undefined,
       destinationUrl,

@@ -2,7 +2,7 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/authorization";
+import { requireAdminDev } from "@/lib/auth/authorization";
 import {
   listSupportTickets,
   updateSupportTicket,
@@ -14,6 +14,7 @@ export async function getSupportTicketsAction(options?: {
   status?: SupportTicketStatus;
   category?: SupportTicketCategory;
 }) {
+  await requireAdminDev();
   return listSupportTickets(options);
 }
 
@@ -22,7 +23,7 @@ export async function updateSupportTicketAction(
   id: string,
   input: { status?: SupportTicketStatus; adminReply?: string }
 ): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireAdminDev();
   await updateSupportTicket(id, input, admin.uid);
   revalidatePath("/admin/support");
 }

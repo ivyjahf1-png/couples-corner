@@ -7,6 +7,9 @@ import type { ProfileCardView } from "@/lib/feature/types";
  * Profile card used in Discover and dashboard suggestions. Consumes the
  * Firestore-ready ProfileCardView; connection actions route through
  * ConnectionButton so Server Actions slot in later without UI changes.
+ *
+ * Storage-backed photos are served via `/api/photos/{uid}/{fileName}`;
+ * `avatarUrl` carries that URL (see lib/server/discovery.ts).
  */
 export function ProfileCard({ profile }: { profile: ProfileCardView }) {
   const statusLabel =
@@ -20,7 +23,15 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
     <article className="flex flex-col gap-4 rounded-2xl border border-ink-200 bg-surface p-5 shadow-card transition duration-150 hover:border-ink-300 hover:shadow-lifted">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Avatar name={profile.name} kind={profile.kind} size="md" />
+          {profile.avatarUrl ? (
+            <img
+              src={profile.avatarUrl}
+              alt={profile.name}
+              className="h-11 w-11 rounded-full object-cover"
+            />
+          ) : (
+            <Avatar name={profile.name} kind={profile.kind} size="md" />
+          )}
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-ink-900">{profile.name}</h3>
             <p className="truncate text-sm text-ink-600">{profile.location}</p>

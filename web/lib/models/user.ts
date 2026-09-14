@@ -1,97 +1,104 @@
-import type {
-  AppRole,
-  AuditableDocument,
-  EntityId,
-  ISODateString,
-  UserStatus,
-} from "./common";
+export type UserMediaType = "image" | "video";
 
-/**
- * A platform account. Identity (email, password, providers) lives in Firebase
- * Auth; this document holds the public/private profile data and app role.
- */
-export interface User extends AuditableDocument {
-  /** The Firebase Auth UID this document is bound to (tied at Auth wiring time). */
-  authUid: EntityId;
-  email: string;
-  emailVerified: boolean;
-  /** Unique, user-chosen handle used in public URLs `/u/[username]`. */
-  username: string;
-  displayName: string;
-  avatarUrl?: string | null;
-    dateOfBirth?: string | null;
-  gender?: string | null;
-  orientation?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  locationPoint?: { latitude: number; longitude: number } | null;
-  interests: string[];
-  /** Relationship identity for matching and privacy. */
-  relationshipStatus?: string | null;
-  /** "single" | "coupled" | "open" — kept as a free string to align with the model above. */
-  profileType?: "single" | "coupled" | "open" | null;
-  onboardingCompleted: boolean;
-  /** Persisted for server-side authorization and mirrored into custom claims. */
-  role: AppRole;
-  status: UserStatus;
-  lastActiveAt?: ISODateString | null;
-  /**
-   * Profile photo gallery. `photos[0]` is the primary photo; `photos[1..n]`
-   * are additional gallery items. Each entry stores a storage path — clients
-   * resolve the URL via the Storage rules (read-only, authenticated).
-   */
-  photos: ProfilePhoto[];
-  /**
-   * True when this is a demo/preview account. Demo accounts are excluded from
-   * public feeds, real matches, production metrics, and cannot write production
-   * data or send messages to real users. They exist purely for UI exploration.
-   */
-  isDemo?: boolean;
-}
+export type PostVisibility = "public" | "friends" | "private";
 
-/** How discoverable / readable a profile is. */
 export type ProfileVisibility = "public" | "connections" | "private";
 
-/** A gallery photo attached to a user profile. */
 export interface ProfilePhoto {
-  id: EntityId;
+  id?: string;
   storagePath: string;
-  caption?: string | null;
   isPrimary: boolean;
+  publicUrl?: string;
 }
 
-/** Extended, 1:1 profile document for a user. */
-export interface UserProfile extends AuditableDocument {
-  userId: EntityId;
+export interface User {
+  id: string;
+  authUid: string;
+  email: string;
+  emailVerified: boolean;
+  username: string;
   displayName: string;
-  visibility: ProfileVisibility;
-  /** Whether the user opts into being shown in discover/search. */
-  discoverable: boolean;
-  /**
-   * Profile photo gallery. `photos[0]` is the primary photo; `photos[1..n]`
-   * are additional gallery items. Each entry stores a storage path — clients
-   * resolve the URL via the Storage rules (read-only, authenticated).
-   */
-  photos: ProfilePhoto[];
-  /** Matching preferences surfaced to potential connections. */
-  lookingFor?: string | null;
+  avatarUrl: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  orientation: string | null;
+  bio: string | null;
+  location: string | null;
+  country: string | null;
+  occupation: string | null;
+  locationPoint: { latitude: number; longitude: number } | null;
   interests: string[];
-  bio?: string | null;
-  location?: string | null;
-  gender?: string | null;
-  orientation?: string | null;
-  dateOfBirth?: string | null;
-  relationshipStatus?: string | null;
-  profileType?: "single" | "coupled" | "open" | null;
-  preferences: {
-    notifyOnConnection: boolean;
-    notifyOnMessages: boolean;
-    showOnlineStatus: boolean;
-  };
+  relationshipStatus: string | null;
+  profileType: "single" | "coupled" | "open" | null;
+  onboardingCompleted: boolean;
+  role: "user" | "admin";
+  status: "active" | "suspended" | "deactivated";
+  lastActiveAt: string | null;
+  photos: ProfilePhoto[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Backward-compatible alias for `UserProfile`.
- * Prefer `UserProfile` in new code.
- */
+export interface UserProfile {
+  id: string;
+  userId: string;
+  displayName: string;
+  profileType: "single" | "coupled" | "open" | null;
+  bio: string | null;
+  interests: string[];
+  location: string | null;
+  gender: string | null;
+  orientation: string | null;
+  occupation: string | null;
+  genotype: string | null;
+  country: string | null;
+  photos: ProfilePhoto[];
+  name: string;
+  kind: "person" | "couple";
+  visibility: ProfileVisibility;
+  dateOfBirth: string | null;
+  relationshipStatus: string | null;
+  lookingFor?: string | null;
+  discoverable?: boolean;
+  preferences?: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type Profile = UserProfile;
+
+export interface UserMedia {
+  id: string;
+  userId: string;
+  storagePath: string;
+  mediaType: UserMediaType;
+  caption: string | null;
+  isProfilePhoto: boolean;
+  sortOrder: number;
+  createdAt: string;
+  publicUrl?: string;
+}
+
+export interface Post {
+  id: string;
+  authorId: string;
+  author?: {
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  };
+  content: string;
+  mediaUrls: string[];
+  visibility: PostVisibility;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const MAX_USER_MEDIA = 10;
+export const MAX_POST_MEDIA = 4;
+export const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
+
+export const ALLOWED_MEDIA_TYPES: string[] = [
+  "image/jpeg", "image/png", "image/webp", "image/gif",
+  "video/mp4", "video/webm", "video/quicktime"
+];

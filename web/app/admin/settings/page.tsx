@@ -1,12 +1,44 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 
-const inputClass = "mt-1 w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none";
-const labelClass = "text-sm font-medium text-ink-800";
+const inputClass = "mt-1 w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm font-medium text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none";
+const labelClass = "text-sm font-semibold text-ink-900";
 
 export default function AdminSettingsPage() {
+  const [payPublic, setPayPublic] = useState("");
+  const [paySecret, setPaySecret] = useState("");
+  const [payMsg, setPayMsg] = useState<string | null>(null);
+  const [contactEmail, setContactEmail] = useState("iremidetimmy398@gmail.com");
+  const [contactPhone, setContactPhone] = useState("0807 556 6434");
+  const [contactMsg, setContactMsg] = useState<string | null>(null);
+  const [flags, setFlags] = useState<Record<string, boolean>>({
+    "New user registrations": true,
+    "Couple profiles": true,
+    Messaging: true,
+    "Content uploads": false,
+  });
+
+  function savePayment(e: FormEvent) {
+    e.preventDefault();
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("cc-pay-public", payPublic);
+    }
+    setPayMsg("Payment settings saved locally.");
+  }
+
+  function saveContacts(e: FormEvent) {
+    e.preventDefault();
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("cc-support-email", contactEmail);
+      window.localStorage.setItem("cc-support-phone", contactPhone);
+    }
+    setContactMsg("Support contacts saved locally.");
+  }
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -56,19 +88,22 @@ export default function AdminSettingsPage() {
             <p className="text-sm text-ink-500">Configure your payment provider settings.</p>
           </div>
         </div>
+        <form onSubmit={savePayment}>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={labelClass}>
             Paystack public key
-            <input type="text" placeholder="pk_live_..." className={inputClass} />
+            <input type="text" value={payPublic} onChange={(e) => setPayPublic(e.target.value)} placeholder="pk_live_..." className={inputClass} />
           </label>
           <label className={labelClass}>
             Paystack secret key
-            <input type="password" placeholder="sk_live_..." className={inputClass} />
+            <input type="password" value={paySecret} onChange={(e) => setPaySecret(e.target.value)} placeholder="sk_live_..." className={inputClass} />
           </label>
         </div>
+        {payMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-700">{payMsg}</p> : null}
         <div className="mt-4 flex justify-end">
-          <Button size="sm">Save payment settings</Button>
+          <Button size="sm" type="submit">Save payment settings</Button>
         </div>
+        </form>
       </Card>
 
       {/* Feature flags */}
@@ -84,26 +119,31 @@ export default function AdminSettingsPage() {
         </div>
         <div className="grid gap-3">
           {[
-            { label: "New user registrations", description: "Allow new users to create accounts", enabled: true },
-            { label: "Couple profiles", description: "Enable couple profile creation", enabled: true },
-            { label: "Messaging", description: "Allow users to send messages", enabled: true },
-            { label: "Content uploads", description: "Allow users to upload photos and videos", enabled: false },
-          ].map((flag) => (
+            { label: "New user registrations", description: "Allow new users to create accounts" },
+            { label: "Couple profiles", description: "Enable couple profile creation" },
+            { label: "Messaging", description: "Allow users to send messages" },
+            { label: "Content uploads", description: "Allow users to upload photos and videos" },
+          ].map((flag) => {
+            const enabled = flags[flag.label] ?? false;
+            return (
             <div key={flag.label} className="flex items-center justify-between rounded-xl border border-ink-200 bg-surface-muted p-4">
               <div>
-                <p className="text-sm font-medium text-ink-900">{flag.label}</p>
-                <p className="text-xs text-ink-500">{flag.description}</p>
+                <p className="text-sm font-semibold text-ink-900">{flag.label}</p>
+                <p className="mt-0.5 text-xs font-medium text-ink-600">{flag.description}</p>
               </div>
               <button
                 type="button"
                 role="switch"
-                aria-checked={flag.enabled}
-                className={`relative h-6 w-11 rounded-full transition ${flag.enabled ? "bg-brand-600" : "bg-ink-300"}`}
+                aria-checked={enabled}
+                aria-label={flag.label}
+                onClick={() => setFlags((p) => ({ ...p, [flag.label]: !enabled }))}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${enabled ? "bg-brand-600" : "bg-ink-300"}`}
               >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${flag.enabled ? "left-5" : "left-0.5"}`} />
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${enabled ? "left-5" : "left-0.5"}`} />
               </button>
             </div>
-          ))}
+            );
+          })}
         </div>
       </Card>
 
@@ -118,19 +158,22 @@ export default function AdminSettingsPage() {
             <p className="text-sm text-ink-500">Public-facing support information.</p>
           </div>
         </div>
+        <form onSubmit={saveContacts}>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={labelClass}>
             Support email
-            <input type="email" defaultValue="iremidetimmy398@gmail.com" className={inputClass} />
+            <input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className={inputClass} />
           </label>
           <label className={labelClass}>
             WhatsApp number
-            <input type="tel" defaultValue="0807 556 6434" className={inputClass} />
+            <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={inputClass} />
           </label>
         </div>
+        {contactMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-700">{contactMsg}</p> : null}
         <div className="mt-4 flex justify-end">
-          <Button size="sm">Save contacts</Button>
+          <Button size="sm" type="submit">Save contacts</Button>
         </div>
+        </form>
       </Card>
     </div>
   );

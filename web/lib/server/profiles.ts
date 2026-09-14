@@ -1,57 +1,201 @@
-import "server-only";
+﻿import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "./audit";
 import { scanMessage, addRiskSignal } from "./safety";
-import type { UserProfile, User } from "@/lib/models/user";
+import type { ProfilePhoto, UserProfile, User } from "@/lib/models/user";
 import type { ProfileVisibility } from "@/lib/models";
+import { computeProfileCompletion, type ProfileCompletion } from "@/lib/utils/profile-completion";
 
 export interface ProfileUpdateInput {
   displayName?: string;
   bio?: string | null;
   interests?: string[];
   location?: string | null;
+  country?: string | null;
   gender?: string | null;
   orientation?: string | null;
   dateOfBirth?: string | null;
   relationshipStatus?: string | null;
+  occupation?: string | null;
+  genotype?: string | null;
   profileType?: "single" | "coupled" | "open" | null;
   lookingFor?: string | null;
   visibility?: ProfileVisibility;
   discoverable?: boolean;
 }
 
-import { computeProfileCompletion } from "@/lib/utils/profile-completion";
+export const PROFILE_DB_FIELDS = [
+  "user_id",
+  "display_name",
+  "bio",
+  "interests",
+  "location",
+  "country",
+  "gender",
+  "orientation",
+  "date_of_birth",
+  "relationship_status",
+  "occupation",
+  "genotype",
+  "profile_type",
+  "looking_for",
+  "visibility",
+  "discoverable",
+  "preferences",
+  "photos",
+  "created_at",
+  "updated_at",
+] as const;
 
-export type { ProfileCompletion } from "@/lib/utils/profile-completion";
-export { computeProfileCompletion };
+export type ProfileDbField = (typeof PROFILE_DB_FIELDS)[number];
 
-/** Convert snake_case DB row to camelCase UserProfile */
-function dbToUserProfile(row: Record<string, unknown>): UserProfile {
+/** Supabase Storage bucket that holds profile photos at `profiles/{uid}/{file}`. */
+export const PROFILE_PHOTOS_BUCKET = "photos";
+
+export function profileSelectList(): string {
+  return PROFILE_DB_FIELDS.join(", ");
+}
+
+export function publicProfileSelectList(): string {
+  return profileSelectList();
+}
+
+export function mapProfileRow(row: Record<string, unknown> | null): UserProfile | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
   return {
-    id: row.id as string,
-    userId: row.user_id as string,
-    displayName: row.display_name as string,
-    visibility: row.visibility as ProfileVisibility,
-    discoverable: row.discoverable as boolean,
-    photos: (row.photos as UserProfile["photos"]) ?? [],
-    lookingFor: row.looking_for as string | null,
-    interests: (row.interests as string[]) ?? [],
-    bio: row.bio as string | null,
-    location: row.location as string | null,
-    gender: row.gender as string | null,
-    orientation: row.orientation as string | null,
-    dateOfBirth: row.date_of_birth as string | null,
-    relationshipStatus: row.relationship_status as string | null,
-    profileType: row.profile_type as UserProfile["profileType"],
-    preferences: row.preferences as UserProfile["preferences"],
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
+    id: r.user_id as string,
+    userId: r.user_id as string,
+    displayName: (r.display_name as string) ?? "",
+    visibility: (r.visibility as ProfileVisibility) ?? "public",
+    discoverable: r.discoverable == null ? true : Boolean(r.discoverable),
+    photos: (r.photos as UserProfile["photos"]) ?? [],
+    lookingFor: r.looking_for as string | null,
+    interests: Array.isArray(r.interests) ? r.interests : [],
+    bio: r.bio as string | null,
+    location: r.location as string | null,
+    country: r.country as string | null,
+    gender: r.gender as string | null,
+    orientation: r.orientation as string | null,
+    dateOfBirth: r.date_of_birth as string | null,
+    relationshipStatus: r.relationship_status as string | null,
+    occupation: r.occupation as string | null,
+    genotype: r.genotype as string | null,
+    profileType: (r.profile_type as UserProfile["profileType"]) ?? null,
+    preferences: (r.preferences as UserProfile["preferences"]) ?? {
+      notifyOnConnection: true,
+      notifyOnMessages: true,
+      showOnlineStatus: true,
+    },
+    name: (r.display_name as string) ?? "",
+    kind: (r.profile_type as string) === "coupled" ? "couple" : "person",
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string,
   };
 }
 
-/** Convert snake_case DB row to camelCase User */
-function dbToUser(row: Record<string, unknown>): User {
+export function mapProfileCardRow(row: unknown): {
+  id: string;
+  displayName: string;
+  profileType: "single" | "coupled" | "open" | null;
+  bio: string | null;
+  interests: string[];
+  location: string | null;
+  gender: string | null;
+  orientation: string | null;
+  occupation: string | null;
+  genotype: string | null;
+  country: string | null;
+  photos: ProfilePhoto[];
+  name: string;
+  kind: "person" | "couple";
+} | null {
+  if (!row || typeof row !== "object") return null;
+  const r = row as Record<string, unknown>;
+  return {
+    id: r.user_id as string,
+    displayName: (r.display_name as string) ?? "",
+    profileType: (r.profile_type as "single" | "coupled" | "open" | null) ?? null,
+    bio: r.bio as string | null,
+    interests: Array.isArray(r.interests) ? r.interests : [],
+    location: r.location as string | null,
+    gender: r.gender as string | null,
+    orientation: r.orientation as string | null,
+    occupation: r.occupation as string | null,
+    genotype: r.genotype as string | null,
+    country: r.country as string | null,
+    photos: Array.isArray(r.photos) ? (r.photos as ProfilePhoto[]) : [],
+    name: (r.display_name as string) ?? "",
+    kind: r.profile_type === "coupled" ? "couple" : "person",
+  };
+}
+export function profileUpdateFromInput(input: ProfileUpdateInput): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
+  if (input.bio !== undefined) updates.bio = input.bio?.trim() || null;
+  if (input.interests !== undefined) updates.interests = input.interests;
+  if (input.location !== undefined) updates.location = input.location?.trim() || null;
+  if (input.country !== undefined) updates.country = input.country?.trim() || null;
+  if (input.gender !== undefined) updates.gender = input.gender?.trim() || null;
+  if (input.orientation !== undefined) updates.orientation = input.orientation?.trim() || null;
+  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth;
+  if (input.relationshipStatus !== undefined)
+    updates.relationship_status = input.relationshipStatus?.trim() ?? null;
+  if (input.occupation !== undefined) updates.occupation = input.occupation?.trim() || null;
+  if (input.genotype !== undefined) updates.genotype = input.genotype?.trim() || null;
+  if (input.profileType !== undefined) updates.profile_type = input.profileType;
+  if (input.lookingFor !== undefined) updates.looking_for = input.lookingFor?.trim() || null;
+  if (input.visibility !== undefined) updates.visibility = input.visibility;
+  if (input.discoverable !== undefined) updates.discoverable = input.discoverable;
+  return updates;
+}
+
+export type { ProfileCompletion };
+export { computeProfileCompletion };
+
+export async function ensureStorageBucket(
+  supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>,
+  bucket: string
+): Promise<void> {
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+  const { error: getError } = await supabase.storage.getBucket(bucket);
+  if (!getError) return;
+  const { error: createError } = await supabase.storage.createBucket(bucket, { public: true });
+  if (createError) {
+    throw new Error(`Could not create storage bucket "${bucket}": ${createError.message}`);
+  }
+}
+
+export function photoStoragePathToApiUrl(storagePath: string): string {
+  const segments = storagePath.split("/");
+  const fileName = segments.pop();
+  const uid = segments.pop();
+  return `/api/photos/${uid}/${fileName}`;
+}
+
+export function profilePhotoUrl(
+  profile: Pick<UserProfile, "userId" | "photos"> | null | undefined
+): string | null {
+  if (!profile || profile.photos.length === 0) return null;
+  const primary = profile.photos.find((p: ProfilePhoto) => p.isPrimary) ?? profile.photos[0];
+  return photoStoragePathToApiUrl(primary.storagePath);
+}
+
+export function dbToUserProfile(row: unknown): UserProfile {
+  const profile = mapProfileRow(row as Record<string, unknown> | null);
+  if (!profile) {
+    throw new Error("Profile record is missing — could not read profile id.");
+  }
+  return profile;
+}
+
+function dbToUser(row: Record<string, unknown> | null): User {
+  if (!row) {
+    throw new Error("User record is missing — could not read user id.");
+  }
   return {
     id: row.id as string,
     authUid: row.id as string,
@@ -65,6 +209,8 @@ function dbToUser(row: Record<string, unknown>): User {
     orientation: row.orientation as string | null,
     bio: row.bio as string | null,
     location: row.location as string | null,
+    country: row.country as string | null,
+    occupation: row.occupation as string | null,
     locationPoint: row.location_point as User["locationPoint"],
     interests: (row.interests as string[]) ?? [],
     relationshipStatus: row.relationship_status as string | null,
@@ -78,21 +224,18 @@ function dbToUser(row: Record<string, unknown>): User {
     updatedAt: row.updated_at as string,
   };
 }
-
-/** Get a user's own profile + user doc. */
 export async function getOwnProfile(uid: string): Promise<{
   user: User | null;
   profile: UserProfile | null;
 }> {
   const supabase = getSupabaseServerClient();
-
   if (!supabase) {
     throw new Error("Supabase not configured");
   }
 
   const [{ data: userRow }, { data: profileRow }] = await Promise.all([
     supabase.from("users").select("*").eq("id", uid).single(),
-    supabase.from("profiles").select("*").eq("user_id", uid).single(),
+    supabase.from("profiles").select(profileSelectList()).eq("user_id", uid).single(),
   ]);
 
   return {
@@ -101,18 +244,16 @@ export async function getOwnProfile(uid: string): Promise<{
   };
 }
 
-/** Get a profile visible to another user (respects privacy + blocks). */
 export async function getVisibleProfile(
   targetUid: string,
   viewerUid: string | null
 ): Promise<UserProfile | null> {
   const supabase = getSupabaseServerClient();
-
   if (!supabase) return null;
 
   const { data: profileRow } = await supabase
     .from("profiles")
-    .select("*")
+    .select(profileSelectList())
     .eq("user_id", targetUid)
     .single();
 
@@ -128,18 +269,13 @@ export async function getVisibleProfile(
       .from("blocks")
       .select("id")
       .eq("id", pairId)
-      .single();
+      .maybeSingle();
     if (blockRow) return null;
   }
 
   return profile;
 }
 
-/**
- * Scan profile free-text for scam signals. Never bans â€” it only writes a
- * server-side risk flag for later moderation, and never exposes the score.
- * The check runs on potentially-spammy fields (bio, display name, location).
- */
 export async function scanProfileForRisk(uid: string, input: ProfileUpdateInput): Promise<void> {
   const fields = [input.bio, input.displayName, input.location].filter(Boolean).join(" \n ");
   const signal = scanMessage(fields);
@@ -154,10 +290,6 @@ export async function scanProfileForRisk(uid: string, input: ProfileUpdateInput)
   });
 }
 
-/**
- * Create a profile for the calling user. Only callable by the authenticated
- * owner â€” the server asserts uid === session.uid.
- */
 export async function createProfile(
   uid: string,
   input: ProfileUpdateInput
@@ -169,16 +301,21 @@ export async function createProfile(
     throw new Error("Supabase not configured");
   }
 
-  const profileData = {
+  const profilePayload: Record<string, unknown> = {
+    id: uid,
     user_id: uid,
     display_name: input.displayName?.trim() || "",
     bio: input.bio?.trim() || null,
     interests: input.interests ?? [],
+    looking_for: input.lookingFor?.trim() || null,
     location: input.location?.trim() || null,
+    country: input.country?.trim() || null,
     gender: input.gender?.trim() || null,
     orientation: input.orientation?.trim() || null,
     date_of_birth: input.dateOfBirth || null,
-    relationship_status: input.relationshipStatus || null,
+    relationship_status: input.relationshipStatus?.trim() || null,
+    occupation: input.occupation?.trim() || null,
+    genotype: input.genotype?.trim() || null,
     profile_type: input.profileType || null,
     visibility: input.visibility ?? "public",
     discoverable: input.discoverable ?? true,
@@ -192,29 +329,34 @@ export async function createProfile(
     updated_at: now,
   };
 
+  const KNOWN_PROFILE_COLUMNS = new Set<string>([...PROFILE_DB_FIELDS, "id"]);
+  for (const key of Object.keys(profilePayload)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete profilePayload[key];
+  }
+
   const { data: profileRow } = await supabase
     .from("profiles")
-    .insert(profileData)
-    .select()
+    .insert(profilePayload)
+    .select(profileSelectList())
     .single();
+
+  if (!profileRow) {
+    throw new Error(
+      "Could not create profile — no profile record was returned. Check the profiles table schema and RLS policies."
+    );
+  }
 
   await recordAudit({
     adminUserId: uid,
     action: "create",
     targetRef: { type: "profile", id: uid },
     reason: "profile creation",
-    after: { visibility: profileData.visibility, discoverable: profileData.discoverable },
   });
-
   await scanProfileForRisk(uid, input);
 
   return dbToUserProfile(profileRow);
 }
 
-/**
- * Update the calling user's own profile. Ownership enforced by the caller
- * passing their own uid â€” the API route asserts session.uid === uid.
- */
 export async function updateOwnProfile(
   uid: string,
   input: ProfileUpdateInput
@@ -226,106 +368,107 @@ export async function updateOwnProfile(
     throw new Error("Supabase not configured");
   }
 
-  const updates: Record<string, unknown> = { updated_at: now };
-  if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
-  if (input.bio !== undefined) updates.bio = input.bio?.trim() || null;
-  if (input.interests !== undefined) updates.interests = input.interests;
-  if (input.location !== undefined) updates.location = input.location?.trim() || null;
-  if (input.gender !== undefined) updates.gender = input.gender?.trim() || null;
-  if (input.orientation !== undefined) updates.orientation = input.orientation?.trim() || null;
-  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth;
-  if (input.relationshipStatus !== undefined) updates.relationship_status = input.relationshipStatus;
-  if (input.profileType !== undefined) updates.profile_type = input.profileType;
-  if (input.visibility !== undefined) updates.visibility = input.visibility;
-  if (input.discoverable !== undefined) updates.discoverable = input.discoverable;
+  const updates = profileUpdateFromInput(input);
+  updates.updated_at = now;
 
-  // Get before state for audit
+  const KNOWN_PROFILE_COLUMNS = new Set<string>([...PROFILE_DB_FIELDS, "id"]);
+  for (const key of Object.keys(updates)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete updates[key];
+  }
+
   const { data: beforeRow } = await supabase
     .from("profiles")
-    .select("*")
+    .select(profileSelectList())
     .eq("user_id", uid)
     .single();
 
-  const { data: updatedRow } = await supabase
+  const base: Record<string, unknown> = (beforeRow as unknown as Record<string, unknown>) ?? {
+    id: uid,
+    user_id: uid,
+    display_name: input.displayName?.trim() || "",
+    bio: input.bio?.trim() || null,
+    interests: input.interests ?? [],
+    location: input.location?.trim() || null,
+    country: input.country?.trim() || null,
+    gender: input.gender?.trim() || null,
+    orientation: input.orientation?.trim() || null,
+    date_of_birth: input.dateOfBirth || null,
+    relationship_status: input.relationshipStatus?.trim() || null,
+    occupation: input.occupation?.trim() || null,
+    genotype: input.genotype?.trim() || null,
+    profile_type: input.profileType || null,
+    looking_for: input.lookingFor?.trim() || null,
+    visibility: input.visibility ?? "public",
+    discoverable: input.discoverable ?? true,
+    preferences: {
+      notify_on_connection: true,
+      notify_on_messages: true,
+      show_online_status: true,
+    },
+    photos: [],
+    created_at: now,
+    updated_at: now,
+  };
+
+  const upsertPayload: Record<string, unknown> = {
+    ...base,
+    ...updates,
+    updated_at: now,
+  };
+  for (const key of Object.keys(upsertPayload)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete upsertPayload[key];
+  }
+
+  const { data: savedRow, error: upsertError } = await supabase
     .from("profiles")
-    .update(updates)
-    .eq("user_id", uid)
-    .select()
+    .upsert(upsertPayload, {
+      onConflict: "user_id",
+    })
+    .select(profileSelectList())
     .single();
+
+  if (upsertError || !savedRow) {
+    throw new Error(
+      upsertError?.message ??
+        "Could not save your profile. Check RLS policies or the profiles table schema."
+    );
+  }
 
   await recordAudit({
     adminUserId: uid,
     action: "update",
     targetRef: { type: "profile", id: uid },
     reason: "profile edit",
-    before: beforeRow,
-    after: { ...beforeRow, ...updates, id: uid, user_id: uid },
+    before: beforeRow as unknown as Record<string, unknown> | undefined,
+    after: savedRow as unknown as Record<string, unknown>,
   });
 
   await scanProfileForRisk(uid, input);
 
-  return dbToUserProfile(updatedRow);
+  return dbToUserProfile(savedRow);
 }
-
-/**
- * Complete onboarding for a user.
- * Updates the profile with the collected data and marks onboarding_completed
- * in the users table, so the user is redirected to the main app on next visit.
- */
-export async function completeOnboarding(
-  uid: string,
-  input: ProfileUpdateInput
-): Promise<void> {
+export async function completeOnboarding(uid: string, input: ProfileUpdateInput): Promise<void> {
   const supabase = getSupabaseServerClient();
   if (!supabase) throw new Error("Supabase not configured");
 
-  // Build profile update fields (snake_case for the DB)
-  const updates: Record<string, unknown> = {
-    updated_at: new Date().toISOString(),
-  };
-  if (input.displayName !== undefined) updates.display_name = input.displayName.trim();
-  if (input.gender !== undefined) updates.gender = input.gender?.trim() || null;
-  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth;
+  const updates = profileUpdateFromInput(input);
+  updates.updated_at = new Date().toISOString();
 
-  // Update profile row
-  await supabase
-    .from("profiles")
-    .update(updates)
-    .eq("user_id", uid);
+  const KNOWN_PROFILE_COLUMNS = new Set<string>([...PROFILE_DB_FIELDS, "id"]);
+  for (const key of Object.keys(updates)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete updates[key];
+  }
 
-  // Mark onboarding as completed in users table
+  await supabase.from("profiles").update(updates).eq("user_id", uid);
+
   await supabase
     .from("users")
-    .update({
-      onboarding_completed: true,
-      display_name: input.displayName?.trim() ?? null,
-      gender: input.gender?.trim() ?? null,
-      date_of_birth: input.dateOfBirth ?? null,
-      updated_at: new Date().toISOString(),
-    })
+    .update({ onboarding_completed: true, display_name: input.displayName?.trim() ?? null, gender: input.gender?.trim() ?? null, date_of_birth: input.dateOfBirth ?? null, updated_at: new Date().toISOString() })
     .eq("id", uid);
 
-  // Audit record
-  await recordAudit({
-    adminUserId: uid,
-    action: "update",
-    targetRef: { type: "onboarding", id: uid },
-    reason: "onboarding completed",
-  });
+  await recordAudit({ adminUserId: uid, action: "update", targetRef: { type: "onboarding", id: uid }, reason: "onboarding completed" });
 }
-
-/**
- * Upload a profile photo via Supabase Storage.
- * Only the owner's uid may write to their folder (RLS + server check).
- */
-/**
- * Upload a profile photo via Supabase Storage.
- * Only the owner's uid may write to their folder (RLS + server check).
- */
-export async function uploadProfilePhoto(
-  uid: string,
-  file: File
-): Promise<{ url: string; path: string }> {
+export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url: string; path: string }> {
   const validTypes = ["image/jpeg", "image/png", "image/webp"];
   if (!validTypes.includes(file.type)) {
     throw new Error("Unsupported file type. Use JPG, PNG, or WebP.");
@@ -336,52 +479,44 @@ export async function uploadProfilePhoto(
   }
 
   const timestamp = Date.now();
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "");
   const path = `profiles/${uid}/${timestamp}_${safeName}`;
 
   const supabase = getSupabaseServerClient();
-
   if (!supabase) {
     throw new Error("Supabase not configured");
   }
 
+  await ensureStorageBucket(supabase, PROFILE_PHOTOS_BUCKET);
+
   const buffer = await file.arrayBuffer();
   const { error: uploadError } = await supabase.storage
-    .from("photos")
-    .upload(path, buffer, {
-      contentType: file.type,
-      upsert: false,
-    });
+    .from(PROFILE_PHOTOS_BUCKET)
+    .upload(path, buffer, { contentType: file.type, upsert: false });
 
   if (uploadError) {
     throw new Error(`Failed to upload photo: ${uploadError.message}`);
   }
 
-  // Update profile with new photo
   const { data: profileRow } = await supabase
     .from("profiles")
     .select("photos")
     .eq("user_id", uid)
     .single();
 
-  const photos = (profileRow?.photos as UserProfile["photos"]) ?? [];
+  const existing = (profileRow as unknown as { photos?: ProfilePhoto[] } | null)?.photos;
+  const photos: ProfilePhoto[] = existing ? [...existing] : [];
   photos.push({ id: path, storagePath: path, isPrimary: photos.length === 0 });
 
-  await supabase
-    .from("profiles")
-    .update({ photos, updated_at: new Date().toISOString() })
-    .eq("user_id", uid);
+  const allProfileUpdates: Record<string, unknown> = { photos, updated_at: new Date().toISOString() };
+  const KNOWN_PROFILE_COLUMNS = new Set<string>([...PROFILE_DB_FIELDS, "id"]);
+  for (const key of Object.keys(allProfileUpdates)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete allProfileUpdates[key];
+  }
 
-  await recordAudit({
-    adminUserId: uid,
-    action: "upload",
-    targetRef: { type: "profilePhoto", id: path },
-    reason: "profile photo upload",
-  });
+  await supabase.from("profiles").update(allProfileUpdates).eq("user_id", uid);
 
-  return { url: `/api/photos/${uid}/${safeName}`, path };
+  await recordAudit({ adminUserId: uid, action: "upload", targetRef: { type: "profilePhoto", id: path }, reason: "profile photo upload" });
+
+  return { url: photoStoragePathToApiUrl(path), path };
 }
-
-
-
-

@@ -12,9 +12,18 @@ import { recordAudit } from "@/lib/server/audit";
  * profile document via the Admin SDK. The browser never sees Admin credentials.
  */
 export async function POST(request: NextRequest) {
-  const session = await getCurrentSessionUser();
+  // Auth = httpOnly session cookie, with fallback to an Authorization bearer
+  // token carrying a fresh Supabase access token (the cookie's token expires
+  // after ~1h while the cookie lives 14 days; see lib/supabase/auth-client).
+  const session = await getCurrentSessionUser(request.headers.get("authorization"));
   if (!session) {
-    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    return NextResponse.json(
+      {
+        error: "Authentication required",
+        hint: "Your session expired. Please sign out and sign back in, then retry the upload.",
+      },
+      { status: 401 }
+    );
   }
 
   try {

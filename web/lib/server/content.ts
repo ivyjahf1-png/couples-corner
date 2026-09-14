@@ -19,13 +19,16 @@ export interface ContentFilters {
 
 /** Convert snake_case DB row to camelCase ContentItem */
 function dbToContentItem(row: Record<string, unknown>): ContentItem {
+  const mediaUrls = (row.media_urls as string[] | null) ?? [];
+  const primaryMediaUrl = (row.media_url as string) ?? mediaUrls[0] ?? "";
   return {
     id: row.id as string,
     category: row.category as ContentItem["category"],
     title: row.title as string,
     description: row.description as string | undefined,
     mediaType: row.media_type as ContentItem["mediaType"],
-    mediaUrl: row.media_url as string,
+    mediaUrl: primaryMediaUrl,
+    mediaUrls,
     thumbnailUrl: row.thumbnail_url as string | undefined,
     buttonText: row.button_text as string | undefined,
     destinationUrl: row.destination_url as string | undefined,

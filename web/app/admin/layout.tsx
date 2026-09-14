@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { notFound } from "next/navigation";
 import { requireAdminDev } from "@/lib/auth/authorization";
+import { isNavigationSignal } from "@/lib/utils/errors";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Logo } from "@/components/ui/Logo";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
@@ -23,42 +23,16 @@ export default async function AdminLayout({
 }) {
   let adminUser: Awaited<ReturnType<typeof requireAdminDev>> | null = null;
   let supabaseUnavailable = false;
-  let authRedirect = false;
 
   try {
     adminUser = await requireAdminDev();
   } catch (err: unknown) {
-    // Check if this is a Next.js notFound() — let it propagate as a 404.
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest: string }).digest === "string" &&
-      (err as { digest: string }).digest.startsWith("NEXT_NOT_FOUND")
-    ) {
-      notFound();
-    }
-
-    // Check for redirect errors
-    if (
-      err &&
-      typeof err === "object" &&
-      "digest" in err &&
-      typeof (err as { digest: string }).digest === "string" &&
-      (err as { digest: string }).digest.startsWith("NEXT_REDIRECT")
-    ) {
-      // In production, let the redirect propagate.
-      // In development (Supabase not configured), show placeholder instead.
-      if (process.env.NODE_ENV === "production") {
-        throw err;
-      }
-      authRedirect = true;
-    }
+    // Next.js navigation signals (redirect()/notFound()) must always
+    // propagate — never convert them into a placeholder screen.
+    if (isNavigationSignal(err)) throw err;
 
     // Any other error (Supabase not configured, DB error, etc.) -> show placeholder.
-    if (!authRedirect) {
-      supabaseUnavailable = true;
-    }
+    supabaseUnavailable = true;
   }
 
   // Only show placeholder in production when Supabase is truly unavailable

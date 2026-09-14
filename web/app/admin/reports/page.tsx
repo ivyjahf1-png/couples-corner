@@ -1,10 +1,10 @@
-import { requireAdmin } from "@/lib/auth/authorization";
+import { requireAdminDev } from "@/lib/auth/authorization";
 import { getReportsAction } from "@/lib/actions/admin";
 import { PageHeader } from "@/components/app/PageHeader";
 import { AdminReportsClient } from "@/components/admin/AdminReportsClient";
 
 export default async function AdminReportsPage() {
-  await requireAdmin();
+  await requireAdminDev();
   const reports = await getReportsAction();
 
   return (

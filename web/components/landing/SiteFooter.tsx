@@ -5,6 +5,11 @@ const SUPPORT_EMAIL = "iremidetimmy398@gmail.com";
 const WHATSAPP_NUMBER = "0807 556 6434";
 const WHATSAPP_LINK = "https://wa.me/2348075566434";
 
+// Copyright year is a fixed constant (NOT new Date().getFullYear()) so the
+// server-rendered HTML and the initial client render always match. Using a
+// runtime date here is a classic source of React hydration mismatches.
+const COPYRIGHT_YEAR = 2026;
+
 const columns: { title: string; links: { label: string; href: string }[] }[] = [
   {
     title: "Company",
@@ -87,7 +92,7 @@ export function SiteFooter() {
         </div>
 
         <p className="mt-10 border-t border-ink-200 pt-5 text-center text-xs leading-5 text-ink-500">
-          © {new Date().getFullYear()} Couples Corner. Built with care for every
+          © {COPYRIGHT_YEAR} Couples Corner. Built with care for every
           couple · Support:{" "}
           <a className="text-brand-700 hover:underline" href={`mailto:${SUPPORT_EMAIL}`}>
             {SUPPORT_EMAIL}

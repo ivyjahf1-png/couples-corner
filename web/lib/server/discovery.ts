@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserProfile } from "@/lib/models/user";
 import type { ConnectionRequest, Connection } from "@/lib/models/connections";
 import type { ConnectionRowView, ProfileCardView } from "@/lib/feature/types";
+import { mapProfileCardRow, mapProfileRow, publicProfileSelectList, profilePhotoUrl } from "@/lib/server/profiles";
 
 /**
  * Discovery + matches queries (server-side).
@@ -57,33 +58,27 @@ function stateFor(
   return "none";
 }
 
-/** Convert snake_case DB row to camelCase UserProfile */
-function dbToUserProfile(row: Record<string, unknown>): UserProfile {
-  return {
-    id: row.id as string,
-    userId: row.user_id as string,
-    displayName: row.display_name as string,
-    visibility: row.visibility as UserProfile["visibility"],
-    discoverable: row.discoverable as boolean,
-    photos: (row.photos as UserProfile["photos"]) ?? [],
-    lookingFor: row.looking_for as string | null,
-    interests: (row.interests as string[]) ?? [],
-    bio: row.bio as string | null,
-    location: row.location as string | null,
-    gender: row.gender as string | null,
-    orientation: row.orientation as string | null,
-    dateOfBirth: row.date_of_birth as string | null,
-    relationshipStatus: row.relationship_status as string | null,
-    profileType: row.profile_type as UserProfile["profileType"],
-    preferences: row.preferences as UserProfile["preferences"],
-    createdAt: row.created_at as string,
-    updatedAt: row.updated_at as string,
-  };
+/** Convert snake_case DB row to camelCase UserProfile (delegates to shared safe mapper). */
+function dbToUserProfile(row: unknown): UserProfile {
+  const profile = mapProfileRow(row as Record<string, unknown> | null);
+  if (!profile) {
+    throw new Error("Profile record is missing — could not read profile id.");
+  }
+  return profile;
 }
 
-/* ------------------------------------------------------------------ */
-/* Discovery query                                                     */
-/* ------------------------------------------------------------------ */
+/** Build the servable `/api/photos/{uid}/{file}` URL for a profile card. */
+function photoApiUrl(card: ReturnType<typeof mapProfileCardRow>, fallbackUid: string): string | null {
+  if (!card || card.photos.length === 0) return null;
+  const primary = card.photos.find((p) => p.isPrimary) ?? card.photos[0];
+  const storagePath = primary?.storagePath;
+  if (!storagePath) return null;
+  const uid = card.id ?? fallbackUid;
+  const fileName = storagePath.split("/").pop();
+  if (!fileName) return null;
+  // Keep behavior identical to the rest of the app: servable via GET /api/photos/{uid}/{file}.
+  return `/api/photos/${uid}/${fileName}`;
+}
 
 /**
  * Profiles eligible for discovery, filtered and shaped for ProfileCard.
@@ -101,7 +96,7 @@ export async function getDiscoverProfiles(
   // Get viewer profile for interest matching
   const { data: viewerProfileRow } = await supabase
     .from("profiles")
-    .select("*")
+    .select(publicProfileSelectList())
     .eq("user_id", viewerUid)
     .single();
 
@@ -153,10 +148,10 @@ export async function getDiscoverProfiles(
     ...(blocksOnMeResult.data ?? []).map((b: { blocker_id: string }) => b.blocker_id),
   ]);
 
-  // Query discoverable profiles
+  // Query discoverable profiles (never use .select("*") against profiles)
   let query = supabase
     .from("profiles")
-    .select("*")
+    .select(publicProfileSelectList())
     .eq("discoverable", true)
     .eq("visibility", "public")
     .limit(DISCOVERY_LIMIT);
@@ -206,7 +201,7 @@ export async function getDiscoverProfiles(
   const scored = filtered
     .map((p) => ({
       profile: p,
-      overlap: p.interests.filter((i) => viewerInterests.includes(i)).length,
+      overlap: p.interests.filter((i: string) => viewerInterests.includes(i)).length,
     }))
     .sort((a, b) => b.overlap - a.overlap);
 
@@ -217,13 +212,13 @@ export async function getDiscoverProfiles(
     location: p.location ?? "",
     bio: p.bio ?? "",
     interests: p.interests,
-    sharedInterests: p.interests.filter((i) => viewerInterests.includes(i)).length,
+    sharedInterests: p.interests.filter((i: string) => viewerInterests.includes(i)).length,
     connection: stateFor(p.userId, viewerUid, connectedIds, outgoingIds, incomingIds),
     ...(outgoingMap.has(p.userId) && { requestId: outgoingMap.get(p.userId) }),
     ...(incomingMap.has(p.userId) && { requestId: incomingMap.get(p.userId) }),
     href: `/profile/${p.userId}`,
     age: ageFromDob(p.dateOfBirth) ?? undefined,
-    avatarUrl: p.photos?.[0]?.storagePath ?? null,
+    avatarUrl: profilePhotoUrl(p),
   }));
 }
 
@@ -244,14 +239,13 @@ async function displayNamesFor(
 
   const { data: profileRows } = await supabase
     .from("profiles")
-    .select("user_id, display_name, profile_type")
+    .select(publicProfileSelectList())
     .in("user_id", uids);
 
   for (const row of profileRows ?? []) {
-    map.set(row.user_id, {
-      name: row.display_name ?? "Former member",
-      kind: row.profile_type === "coupled" ? "couple" : "person",
-    });
+    const card = mapProfileCardRow(row);
+    if (!card) continue;
+    map.set(card.id, { name: card.name, kind: card.kind });
   }
 
   return map;

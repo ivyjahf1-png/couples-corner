@@ -2,63 +2,303 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { getOwnProfile, createProfile, updateOwnProfile } from "@/lib/server/profiles";
-import type { ProfileUpdateInput } from "@/lib/server/profiles";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { getCurrentSessionUser } from "@/lib/server/session";
+import { MAX_USER_MEDIA } from "@/lib/models/user";
+import { rethrowIfNavigation } from "@/lib/utils/errors";
+import {
+  completeOnboarding,
+  createProfile,
+  getOwnProfile,
+  updateOwnProfile,
+  type ProfileUpdateInput,
+} from "@/lib/server/profiles";
 
-/**
- * Server actions for profile management.
- *
- * SECURITY: these run only on the server (Admin SDK). The caller's uid is
- * passed from the authenticated session in the page component — never trusted
- * from the client. Users can only act on their own profile.
- */
+export interface MediaUploadResult {
+  ok: boolean;
+  error?: string;
+  data?: { id: string; publicUrl: string; storagePath: string };
+}
 
-/**
- * Get the calling user's own profile + user doc (read from Admin SDK).
- * Called in page/server components to hydrate forms.
- */
+export async function uploadUserMediaAction(
+  userId: string,
+  file: File,
+  caption?: string
+): Promise<MediaUploadResult> {
+  try {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return { ok: false, error: "Supabase not configured" };
+    }
+
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm"];
+    if (!allowed.includes(file.type)) {
+      return { ok: false, error: `Unsupported file type: ${file.type}` };
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      return { ok: false, error: "File too large (max 50 MB)" };
+    }
+
+    const { count } = await supabase
+      .from("user_media")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId);
+
+    if (count !== null && count >= MAX_USER_MEDIA) {
+      return { ok: false, error: `You can only upload up to ${MAX_USER_MEDIA} media items. Please delete one first.` };
+    }
+
+    const mediaType = file.type.startsWith("video/") ? "video" : "image";
+
+    const { data: maxRow } = await supabase
+      .from("user_media")
+      .select("sort_order")
+      .eq("user_id", userId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .single();
+    const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+    const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const ext = sanitized.split(".").pop() || (mediaType === "image" ? "jpg" : "mp4");
+    const path = `${userId}/${Date.now()}_${sortOrder}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("user-media")
+      .upload(path, file, { contentType: file.type, upsert: false });
+
+    if (uploadErr) {
+      return { ok: false, error: `Upload failed: ${uploadErr.message}` };
+    }
+
+    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(path);
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("user_media")
+      .insert({
+        user_id: userId,
+        storage_path: path,
+        media_type: mediaType,
+        caption: caption ?? null,
+        sort_order: sortOrder,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !inserted) {
+      await supabase.storage.from("user-media").remove([path]);
+      return { ok: false, error: insertErr?.message ?? "Failed to save media record" };
+    }
+
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${userId}`);
+    revalidatePath("/feed");
+    revalidatePath("/discover");
+
+    return {
+      ok: true,
+      data: { id: inserted.id, publicUrl: urlData.publicUrl, storagePath: path },
+    };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function deleteUserMediaAction(
+  mediaId: string,
+  userId: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) {
+      return { ok: false, error: "Supabase not configured" };
+    }
+
+    const { data: media, error: fetchErr } = await supabase
+      .from("user_media")
+      .select("storage_path")
+      .eq("id", mediaId)
+      .eq("user_id", userId)
+      .single();
+
+    if (fetchErr || !media) {
+      return { ok: false, error: "Media not found or access denied" };
+    }
+
+    const { error: storageErr } = await supabase.storage
+      .from("user-media")
+      .remove([media.storage_path]);
+
+    if (storageErr) {
+      return { ok: false, error: `Failed to delete file: ${storageErr.message}` };
+    }
+
+    const { error: dbErr } = await supabase
+      .from("user_media")
+      .delete()
+      .eq("id", mediaId);
+
+    if (dbErr) {
+      return { ok: false, error: dbErr.message };
+    }
+
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${userId}`);
+    revalidatePath("/feed");
+    revalidatePath("/discover");
+
+    return { ok: true };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+export async function getPublicUserMedia(
+  userId: string,
+  limit = 50
+): Promise<Array<{ id: string; publicUrl: string; mediaType: string; caption: string | null; sortOrder: number }>> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("user_media")
+    .select("id, storage_path, media_type, caption, sort_order")
+    .eq("user_id", userId)
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  return data.map((m) => {
+    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(m.storage_path);
+    return {
+      id: m.id,
+      publicUrl: urlData.publicUrl,
+      mediaType: m.media_type,
+      caption: m.caption,
+      sortOrder: m.sort_order,
+    };
+  });
+}
+
+export type { ProfileUpdateInput };
+
+async function requireSessionUid(uid: string): Promise<void> {
+  const session = await getCurrentSessionUser();
+  if (!session) throw new Error("Please sign in again");
+  if (session.uid !== uid) throw new Error("You can only edit your own profile");
+}
+
+/** Fetch the signed-in user's own user + profile rows. */
 export async function getOwnProfileAction(uid: string) {
+  await requireSessionUid(uid);
   return getOwnProfile(uid);
 }
 
-/**
- * Create the calling user's profile. The uid is taken from the session —
- * the client cannot specify whose profile to create.
- */
+/** Create the signed-in user's profile (first-time save). */
 export async function createProfileAction(uid: string, input: ProfileUpdateInput) {
-  const profile = await createProfile(uid, input);
-  revalidatePath("/profile");
-  revalidatePath("/profile/edit");
-  revalidatePath("/dashboard");
-  revalidatePath("/discover");
-  return profile;
+  await requireSessionUid(uid);
+  try {
+    const profile = await createProfile(uid, input);
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${uid}`);
+    revalidatePath("/discover");
+    revalidatePath("/feed");
+    return profile;
+  } catch (err) {
+    rethrowIfNavigation(err);
+    throw err instanceof Error ? err : new Error("Failed to create profile");
+  }
 }
 
-/**
- * Update the calling user's own profile. Ownership is enforced server-side —
- * a user can only pass their own uid (asserted by the calling page from the
- * session), and Supabase RLS denies any write where auth.uid() != uid.
- */
+/** Update the signed-in user's own profile. */
 export async function updateOwnProfileAction(uid: string, input: ProfileUpdateInput) {
-  const profile = await updateOwnProfile(uid, input);
-  revalidatePath("/profile");
-  revalidatePath("/profile/edit");
-  revalidatePath("/dashboard");
-  revalidatePath("/discover");
-  return profile;
+  await requireSessionUid(uid);
+  try {
+    const profile = await updateOwnProfile(uid, input);
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${uid}`);
+    revalidatePath("/discover");
+    revalidatePath("/feed");
+    return profile;
+  } catch (err) {
+    rethrowIfNavigation(err);
+    throw err instanceof Error ? err : new Error("Failed to update profile");
+  }
 }
 
-/**
- * Complete the onboarding flow for a user.
- * Updates the profile with collected data and marks onboarding_completed in
- * the users table, so the user is redirected to the main app on next visit.
- */
-export async function completeOnboardingAction(uid: string, input: ProfileUpdateInput) {
-  const { completeOnboarding } = await import("@/lib/server/profiles");
-  await completeOnboarding(uid, input);
-  revalidatePath("/profile");
-  revalidatePath("/profile/edit");
-  revalidatePath("/dashboard");
-  revalidatePath("/discover");
-  revalidatePath("/onboarding");
+/** Complete onboarding: save basics + mark users.onboarding_completed. */
+export async function completeOnboardingAction(
+  uid: string,
+  input: Pick<ProfileUpdateInput, "displayName" | "gender" | "dateOfBirth">
+): Promise<void> {
+  await requireSessionUid(uid);
+  try {
+    if (!input.displayName?.trim()) throw new Error("Display name is required");
+    await completeOnboarding(uid, {
+      displayName: input.displayName.trim(),
+      gender: input.gender ?? null,
+      dateOfBirth: input.dateOfBirth ?? null,
+    });
+    revalidatePath("/discover");
+    revalidatePath("/profile");
+  } catch (err) {
+    rethrowIfNavigation(err);
+    throw err instanceof Error ? err : new Error("Failed to complete onboarding");
+  }
+}
+
+export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
+  posts: Array<{
+    id: string;
+    authorId: string;
+    authorName: string | null;
+    authorAvatar: string | null;
+    content: string;
+    mediaUrls: string[];
+    createdAt: string;
+  }>;
+  nextCursor: string | null;
+}> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { posts: [], nextCursor: null };
+
+  let query = supabase
+    .from("posts")
+    .select(`
+      id,
+      content,
+      media_urls,
+      created_at,
+      author:users!posts_author_id_fkey(id, display_name, avatar_url)
+    `)
+    .eq("visibility", "public")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (cursor) {
+    query = query.lt("created_at", cursor);
+  }
+
+  const { data, error } = await query;
+  if (error || !data) return { posts: [], nextCursor: null };
+
+  const posts = (data as unknown as Array<Record<string, unknown>>).map((row) => {
+    const author = (row.author as Record<string, unknown> | null) ?? {};
+    return {
+      id: String(row.id),
+      authorId: String(row.author_id ?? ""),
+      authorName: (author.display_name as string) ?? null,
+      authorAvatar: (author.avatar_url as string) ?? null,
+      content: String(row.content ?? ""),
+      mediaUrls: Array.isArray(row.media_urls) ? row.media_urls.filter(Boolean) : [],
+      createdAt: String(row.created_at),
+    };
+  });
+
+  const nextCursor = posts.length === limit ? posts[posts.length - 1]?.createdAt ?? null : null;
+
+  return { posts, nextCursor };
 }

@@ -1,0 +1,77 @@
+
+> web@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local, .env.production
+✓ Running next.config.ts took 148ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 52s
+  Running TypeScript ...
+  Finished TypeScript in 18.0s ...
+  Collecting page data using 3 workers ...
+✓ Finished writing to filesystem cache in 19.6s
+  Generating static pages using 3 workers (0/41) ...
+  Generating static pages using 3 workers (10/41) 
+  Generating static pages using 3 workers (20/41) 
+  Generating static pages using 3 workers (30/41) 
+✓ Generating static pages using 3 workers (41/41) in 2.7s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /about
+├ ƒ /admin
+├ ƒ /admin/broadcast
+├ ƒ /admin/content
+├ ƒ /admin/couples
+├ ƒ /admin/reports
+├ ƒ /admin/settings
+├ ƒ /admin/support
+├ ƒ /admin/users
+├ ƒ /api/admin/reports
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/register
+├ ƒ /api/auth/session
+├ ƒ /api/photos/[uid]/[fileName]
+├ ƒ /api/photos/profile
+├ ƒ /api/safety/block
+├ ƒ /api/safety/report
+├ ○ /contact
+├ ƒ /couple
+├ ƒ /couple/[slug]
+├ ƒ /dashboard
+├ ƒ /discover
+├ ƒ /explore
+├ ƒ /feed
+├ ƒ /forgot-password
+├ ○ /how-it-works
+├ ○ /legal/cookies
+├ ○ /legal/privacy
+├ ○ /legal/terms
+├ ƒ /login
+├ ƒ /matches
+├ ƒ /messages
+├ ƒ /messages/[conversationId]
+├ ƒ /notifications
+├ ƒ /onboarding
+├ ƒ /profile
+├ ƒ /profile/[userId]
+├ ƒ /profile/edit
+├ ƒ /profile/setup
+├ ƒ /register
+├ ○ /safety
+├ ƒ /settings
+├ ƒ /settings/blocked
+├ ƒ /subscription
+├ ƒ /u/[username]
+└ ƒ /verify-email
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

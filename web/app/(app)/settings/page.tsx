@@ -1,13 +1,28 @@
 ﻿import type { ReactNode } from "react";
+import Link from "next/link";
+import { cookies } from "next/headers";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
+import { getSessionUser } from "@/lib/auth/authorization";
+import { listBlocked } from "@/lib/server/safety";
+import { SESSION_COOKIE_NAME } from "@/lib/server/session";
+import {
+  listMfaFactors,
+  listUserSessions,
+  type SecuritySession,
+} from "@/lib/server/account-security";
+import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
+import { MfaSection } from "@/components/settings/MfaSection";
+import { SessionsList } from "@/components/settings/SessionsList";
+import { BlockedRowClient } from "./blocked/BlockedRowClient";
+import type { BlockedUser } from "@/lib/feature/types";
 
 /**
- * Settings â€” a real, navigable settings interface. Controls will call Server
- * Actions once Firebase exists; until then they render in their default state
- * with no fake persistence.
+ * Settings — real settings interface. The Security section (password, 2FA,
+ * active sessions) and Blocked users are wired to Supabase-backed server
+ * services; remaining controls are placeholders pending their server work.
  */
 
 function Section({
@@ -47,7 +62,37 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 const inputClasses =
   "h-10 w-full max-w-xs rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-900 focus:border-brand-400 focus:outline-none";
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const user = await getSessionUser();
+  const token = user ? ((await cookies()).get(SESSION_COOKIE_NAME)?.value ?? null) : null;
+
+  let mfaEnabled = false;
+  let mfaFactorId: string | null = null;
+  let mfaError: string | null = null;
+  let sessions: SecuritySession[] = [];
+  let blocked: BlockedUser[] = [];
+
+  if (user && token) {
+    try {
+      const factors = await listMfaFactors(token);
+      const verified = factors.find((f) => f.status === "verified");
+      mfaEnabled = Boolean(verified);
+      mfaFactorId = verified?.id ?? null;
+    } catch (err) {
+      mfaError = err instanceof Error ? err.message : null;
+    }
+    try {
+      sessions = await listUserSessions(user.uid, token);
+    } catch {
+      sessions = [];
+    }
+    try {
+      blocked = await listBlocked(user.uid);
+    } catch {
+      blocked = [];
+    }
+  }
+
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
@@ -128,27 +173,77 @@ export default function SettingsPage() {
         {/* Security */}
         <Section id="security" title="Security" description="Keep your account safe.">
           <Card padding="none" className="divide-y divide-ink-200">
-            <Row label="Password" hint="Last changed recently.">
-              <span className="text-sm font-medium text-brand-700">Change password</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink-900">Password</p>
+                <p className="text-sm text-ink-600">
+                  Verified against Supabase Auth — you&apos;ll need your current password.
+                </p>
+              </div>
+              <div className="shrink-0">
+                {user ? (
+                  <ChangePasswordForm />
+                ) : (
+                  <span className="text-sm text-ink-600">Sign in to manage</span>
+                )}
+              </div>
+            </div>
+
+            <Row label="Two-factor authentication" hint="An authenticator-app code on every sign-in.">
+              {user ? (
+                <MfaSection enabled={mfaEnabled} factorId={mfaFactorId} loadError={mfaError} />
+              ) : (
+                <span className="text-sm text-ink-600">Sign in to manage</span>
+              )}
             </Row>
-            <Row label="Two-factor authentication" hint="An extra layer of protection.">
-              <Chip tone="neutral">Coming with Firebase Auth</Chip>
-            </Row>
-            <Row label="Active sessions" hint="Devices currently signed in.">
-              <span className="text-sm text-ink-600">1 device</span>
-            </Row>
+
+            <div className="px-5 py-4">
+              <p className="text-sm font-medium text-ink-900">Active sessions</p>
+              <p className="text-sm text-ink-600">Devices currently signed in.</p>
+            </div>
+            {user ? (
+              <SessionsList initialSessions={sessions} />
+            ) : (
+              <p className="px-5 pb-5 text-sm text-ink-600">Sign in to manage</p>
+            )}
           </Card>
         </Section>
 
         {/* Blocked users */}
         <Section id="blocked" title="Blocked users" description="People you've blocked can't find or contact you.">
           <Card padding="none">
-            <div className="px-5 py-8 text-center">
-              <p className="text-sm font-medium text-ink-900">No blocked users</p>
-              <p className="mt-1 text-sm text-ink-600">
-                When you block someone, they&apos;ll appear here and you can unblock them anytime.
-              </p>
-            </div>
+            {blocked.length === 0 ? (
+              <div className="px-5 py-8 text-center">
+                <p className="text-sm font-medium text-ink-900">No blocked users</p>
+                <p className="mt-1 text-sm text-ink-600">
+                  When you block someone, they&apos;ll appear here and you can unblock them anytime.
+                </p>
+                <Link
+                  href="/settings/blocked"
+                  className="mt-4 inline-block text-sm font-medium text-brand-700 hover:text-brand-800"
+                >
+                  Manage blocked users
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="divide-y divide-ink-200">
+                  {blocked.slice(0, 5).map((entry) => (
+                    <BlockedRowClient key={entry.id} entry={entry} />
+                  ))}
+                </div>
+                {blocked.length > 5 ? (
+                  <div className="border-t border-ink-200 px-5 py-3 text-center">
+                    <Link
+                      href="/settings/blocked"
+                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                    >
+                      View all {blocked.length} blocked users
+                    </Link>
+                  </div>
+                ) : null}
+              </>
+            )}
           </Card>
         </Section>
 

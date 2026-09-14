@@ -5,10 +5,13 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { ContentSlot } from "@/components/content/ContentSlot";
+import { getSessionUser } from "@/lib/auth/authorization";
+import { getOwnProfile } from "@/lib/server/profiles";
+import { getDiscoverProfiles } from "@/lib/server/discovery";
+import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { demoActivity, demoNotifications, demoProfileViews } from "@/lib/demo/demo-data";
 
-/* Structural demo content only — replaced by Firestore reads later. */
-const profileCompletion = 60;
+export const dynamic = "force-dynamic";
 
 const quickActions = [
   { href: "/discover", icon: "discover" as const, label: "Discover people & couples" },
@@ -16,14 +19,45 @@ const quickActions = [
   { href: "/messages", icon: "chat" as const, label: "Open messages" },
 ];
 
-const completionItems = [
-  { label: "Display name & avatar", done: true },
-  { label: "About you", done: true },
-  { label: "Interests (3+)", done: false },
-  { label: "Couple profile", done: false },
-];
+function photoSrc(uid: string, storagePath?: string | null): string | null {
+  if (!storagePath) return null;
+  const fileName = storagePath.split("/").pop();
+  if (!fileName) return null;
+  return `/api/photos/${uid}/${fileName}`;
+}
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const session = await getSessionUser();
+  const { profile } = session ? await getOwnProfile(session.uid) : { profile: null };
+  const ownPhotoSrc =
+    session && profile?.photos?.[0]?.storagePath
+      ? photoSrc(session.uid, profile.photos[0].storagePath)
+      : null;
+
+  // Live suggestions: prefer real discoverable profiles (storage photos render
+  // via /api/photos), falling back to design-review demo cards.
+  let suggestions = demoProfileViews.slice(0, 2);
+  let usingDemo = true;
+  if (session) {
+    try {
+      const live = await getDiscoverProfiles(session.uid);
+      if (live.length > 0) {
+        suggestions = live.slice(0, 2);
+        usingDemo = false;
+      }
+    } catch {
+      // Keep demo fallback when discovery is unavailable.
+    }
+  }
+
+  const completion = computeProfileCompletion(profile);
+  const completionItems = completion.missing.length > 0
+    ? [
+        ...completion.completed.map((label) => ({ label, done: true })),
+        ...completion.missing.map((label) => ({ label, done: false })),
+      ]
+    : completion.completed.map((label) => ({ label, done: true }));
+
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
@@ -40,17 +74,17 @@ export default function DashboardPage() {
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
               <h2 className="font-semibold text-ink-900">Profile completion</h2>
-              <span className="text-sm font-semibold text-brand-700">{profileCompletion}%</span>
+              <span className="text-sm font-semibold text-brand-700">{completion.percentage}%</span>
             </div>
             <div
               role="progressbar"
-              aria-valuenow={profileCompletion}
+              aria-valuenow={completion.percentage}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label="Profile completion"
               className="h-2 overflow-hidden rounded-full bg-ink-100"
             >
-              <div className="h-full rounded-full bg-brand-600" style={{ width: `${profileCompletion}%` }} />
+              <div className="h-full rounded-full bg-brand-600" style={{ width: `${completion.percentage}%` }} />
             </div>
             <ul className="grid gap-2 sm:grid-cols-2">
               {completionItems.map((item) => (
@@ -80,14 +114,16 @@ export default function DashboardPage() {
               <Button href="/discover" size="sm" variant="ghost">See all</Button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
-              {demoProfileViews.slice(0, 2).map((profile) => (
-                <ProfileCard key={profile.id} profile={profile} />
+              {suggestions.map((suggestion) => (
+                <ProfileCard key={suggestion.id} profile={suggestion} />
               ))}
             </div>
-            <p className="text-xs text-ink-500">
-              Suggestions use sample profiles for design review — real suggestions appear once the
-              community grows.
-            </p>
+            {usingDemo ? (
+              <p className="text-xs text-ink-500">
+                Suggestions use sample profiles for design review — real suggestions appear once the
+                community grows.
+              </p>
+            ) : null}
           </section>
 
           {/* Recent activity */}
@@ -153,11 +189,21 @@ export default function DashboardPage() {
           </Card>
 
           <Card tone="muted" className="flex items-center gap-3">
-            <Avatar name="Demo User" size="md" />
+            {ownPhotoSrc ? (
+              <img
+                src={ownPhotoSrc}
+                alt={profile?.displayName ?? "Your profile photo"}
+                className="h-11 w-11 rounded-full object-cover"
+              />
+            ) : (
+              <Avatar name={profile?.displayName ?? "You"} size="md" />
+            )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-900">Demo User</p>
+              <p className="truncate text-sm font-semibold text-ink-900">
+                {profile?.displayName ?? session?.email ?? "Welcome"}
+              </p>
               <p className="truncate text-xs text-ink-600">
-                Preview session — sign-in arrives with Firebase Auth.
+                {profile?.bio ?? "Your uploaded storage photo appears here."}
               </p>
             </div>
           </Card>

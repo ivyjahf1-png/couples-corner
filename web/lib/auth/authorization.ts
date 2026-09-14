@@ -12,6 +12,22 @@
 import { notFound, redirect } from "next/navigation";
 import type { AppRole } from "@/lib/models";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { isNavigationSignal } from "@/lib/utils/errors";
+
+/**
+ * True when the error is a Next.js navigation signal (redirect() or notFound()).
+ *
+ * Guards like requireUser()/requireAdmin() call redirect()/notFound(), which
+ * throw a special error Next.js must handle to route the user. Any catch block
+ * that wraps one of these guards (or a helper like getSessionUser) must re-throw
+ * this signal — otherwise the navigation is swallowed and the page degrades (or
+ * the raw digest is logged) instead of redirecting.
+ *
+ * Delegates to the shared util so the whole workspace uses one detector.
+ */
+export function isRedirectOrNotFoundError(err: unknown): boolean {
+  return isNavigationSignal(err);
+}
 
 /** The subset of a User that server-side guards actually depend on. */
 export interface SessionUser {
@@ -79,7 +95,10 @@ export function resolveAdminAccess(
 export async function getSessionUser(): Promise<SessionUser | null> {
   try {
     return await getCurrentSessionUser();
-  } catch {
+  } catch (err) {
+    // A navigation signal (redirect/notFound) bubbling up from a session read
+    // must propagate so Next.js routes the user — never swallow it as a no-op.
+    if (isRedirectOrNotFoundError(err)) throw err;
     return null;
   }
 }
@@ -198,7 +217,9 @@ export async function isAdminUser(): Promise<boolean> {
   try {
     const user = await getSessionUser();
     return user?.role === "admin";
-  } catch {
+  } catch (err) {
+    // Re-throw navigation signals so they don't get converted into a "false".
+    if (isRedirectOrNotFoundError(err)) throw err;
     return false;
   }
 }

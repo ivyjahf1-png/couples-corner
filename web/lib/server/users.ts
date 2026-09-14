@@ -50,8 +50,9 @@ export async function provisionUser(
     last_active_at: now,
   });
 
-  // Insert profile record
-  await supabase.from("profiles").insert({
+  // Insert profile record — strip any keys the DB might not have yet.
+  const profilePayload: Record<string, unknown> = {
+    id: uid,
     user_id: uid,
     display_name: displayName?.trim() || email.split("@")[0],
     bio: null,
@@ -73,6 +74,33 @@ export async function provisionUser(
     },
     created_at: now,
     updated_at: now,
-  });
+  };
+  const KNOWN_PROFILE_COLUMNS = new Set([
+    "id",
+    "user_id",
+    "display_name",
+    "bio",
+    "interests",
+    "location",
+    "country",
+    "gender",
+    "orientation",
+    "date_of_birth",
+    "relationship_status",
+    "occupation",
+    "genotype",
+    "profile_type",
+    "looking_for",
+    "visibility",
+    "discoverable",
+    "preferences",
+    "photos",
+    "created_at",
+    "updated_at",
+  ]);
+  for (const key of Object.keys(profilePayload)) {
+    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete profilePayload[key];
+  }
+  await supabase.from("profiles").insert(profilePayload);
 }
 

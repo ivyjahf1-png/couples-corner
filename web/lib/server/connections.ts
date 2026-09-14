@@ -3,6 +3,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ConnectionRequest, Connection } from "@/lib/models/connections";
 import { createNotification } from "./notifications";
+import { profileSelectList } from "./profiles";
 
 /**
  * Connection request/response mutations.
@@ -95,11 +96,14 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
 
   const { data: targetProfile } = await supabase
     .from("profiles")
-    .select("preferences")
+    .select(profileSelectList())
     .eq("user_id", toUid)
     .single();
 
-  const targetData = targetProfile as { preferences?: { notify_on_connection?: boolean } } | null;
+  const targetData = targetProfile as Record<string, unknown> | null;
+  const notifyOnConnection = (
+    targetData?.preferences as { notify_on_connection?: boolean } | undefined
+  )?.notify_on_connection;
 
   const { data: created } = await supabase
     .from("connection_requests")
@@ -116,7 +120,7 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
     .select("id")
     .single();
 
-  if (targetData?.preferences?.notify_on_connection !== false) {
+  if (notifyOnConnection !== false) {
     await createNotification({
       recipientId: toUid,
       type: "connection_request",

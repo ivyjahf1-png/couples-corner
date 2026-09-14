@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { useProfileForm } from "@/lib/hooks/useProfileForm";
 import type { UserProfile, User } from "@/lib/models";
 import { BasicInfoFields } from "./BasicInfoFields";
+import { BackgroundFields } from "./BackgroundFields";
 import { InterestFields } from "./InterestFields";
 import { IdentityFields } from "./IdentityFields";
 import { PrivacyFields } from "./PrivacyFields";
@@ -31,7 +32,14 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
     resetSuccess,
   } = useProfileForm(initialData, mode);
 
-  const [photoUrl, setPhotoUrl] = useState<string | null>(initialData?.user?.avatarUrl ?? null);
+  const initialPhoto = (() => {
+    const storagePath = initialData?.photos?.[0]?.storagePath;
+    if (!storagePath) return initialData?.user?.avatarUrl ?? null;
+    const fileName = storagePath.split("/").pop();
+    if (!fileName) return initialData?.user?.avatarUrl ?? null;
+    return `/api/photos/${uid}/${fileName}`;
+  })();
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initialPhoto);
 
   return (
     <div className="flex flex-col gap-8">
@@ -97,6 +105,7 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
           </Card>
           <div className="flex flex-col gap-6">
             <BasicInfoFields formData={formData} updateField={updateField} errors={errors} />
+            <BackgroundFields formData={formData} updateField={updateField} errors={errors} />
             <InterestFields formData={formData} updateField={updateField} errors={errors} />
             <IdentityFields formData={formData} updateField={updateField} />
             <PrivacyFields formData={formData} updateField={updateField} />

@@ -2,7 +2,7 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth/authorization";
+import { requireAdminDev } from "@/lib/auth/authorization";
 import {
   listReports,
   listUsersForModeration,
@@ -27,7 +27,7 @@ export async function reviewReportAction(
   status: ReportStatus,
   note?: string
 ): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireAdminDev();
   await updateReportStatus(reportId, status, admin.uid, note);
   revalidatePath("/admin/reports");
 }
@@ -38,7 +38,7 @@ export async function setUserStatusAction(
   status: "active" | "suspended",
   reason?: string
 ): Promise<void> {
-  const admin = await requireAdmin();
+  const admin = await requireAdminDev();
   await setUserStatus(uid, status, admin.uid, reason);
   revalidatePath("/admin/users");
 }

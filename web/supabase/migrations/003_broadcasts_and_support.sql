@@ -39,12 +39,14 @@ alter table public.support_tickets enable row level security;
 
 -- Only admins / server writes. Simple RLS policies (service role bypasses via
 -- Supabase; these are gateways for any client/anon access).
-create policy if not exists "broadcasts are admin-only"
+drop policy if exists "broadcasts are admin-only" on public.broadcasts;
+create policy "broadcasts are admin-only"
   on public.broadcasts for all
   using (false)
   with check (false);
 
-create policy if not exists "support tickets are admin-only"
+drop policy if exists "support tickets are admin-only" on public.support_tickets;
+create policy "support tickets are admin-only"
   on public.support_tickets for all
   using (false)
   with check (false);

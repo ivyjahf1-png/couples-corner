@@ -2,6 +2,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { PROFILE_PHOTOS_BUCKET } from "@/lib/server/profiles";
 
 /**
  * GET /api/photos/{uid}/{fileName}
@@ -23,7 +24,7 @@ export async function GET(
     }
     const path = `profiles/${uid}/${fileName}`;
 
-    const { data, error } = await supabase.storage.from("photos").download(path);
+    const { data, error } = await supabase.storage.from(PROFILE_PHOTOS_BUCKET).download(path);
 
     if (error || !data) {
       return NextResponse.json({ error: "Photo not found" }, { status: 404 });
@@ -54,10 +55,10 @@ export async function GET(
  * profile document. Only the photo owner may delete their own photo.
  */
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ uid: string; fileName: string }> }
 ) {
-  const session = await getCurrentSessionUser();
+  const session = await getCurrentSessionUser(request.headers.get("authorization"));
   if (!session) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
@@ -77,7 +78,7 @@ export async function DELETE(
     const path = `profiles/${uid}/${fileName}`;
 
     // Delete from storage
-    const { error: deleteError } = await supabase.storage.from("photos").remove([path]);
+    const { error: deleteError } = await supabase.storage.from(PROFILE_PHOTOS_BUCKET).remove([path]);
     if (deleteError) {
       throw deleteError;
     }
@@ -92,9 +93,38 @@ export async function DELETE(
     if (profileRow) {
       const photos = (profileRow.photos as Array<{ storagePath: string }>) ?? [];
       const updatedPhotos = photos.filter((p) => p.storagePath !== path);
+      // Strip unknown keys in case the `photos` column hasn't been migrated yet.
+      const photoUpdates: Record<string, unknown> = {
+        photos: updatedPhotos,
+      };
+      const KNOWN_PROFILE_COLUMNS = new Set([
+        "user_id",
+        "display_name",
+        "bio",
+        "interests",
+        "location",
+        "country",
+        "gender",
+        "orientation",
+        "date_of_birth",
+        "relationship_status",
+        "occupation",
+        "genotype",
+        "profile_type",
+        "looking_for",
+        "visibility",
+        "discoverable",
+        "preferences",
+        "photos",
+        "created_at",
+        "updated_at",
+      ]);
+      for (const key of Object.keys(photoUpdates)) {
+        if (!KNOWN_PROFILE_COLUMNS.has(key)) delete photoUpdates[key];
+      }
       await supabase
         .from("profiles")
-        .update({ photos: updatedPhotos })
+        .update(photoUpdates)
         .eq("user_id", uid);
     }
 

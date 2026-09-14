@@ -41,5 +41,42 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
   });
 }
 
+/**
+ * Best-effort audit wrapper. Audit must NEVER break a user-facing write:
+ * if `audit_logs` is missing/mis-shaped (schema-cache / RLS errors), the
+ * profile save or photo upload still succeeds — the failure is logged
+ * server-side for operators to investigate.
+ */
+export async function recordAuditBestEffort(entry: AuditEntry): Promise<void> {
+  try {
+    await recordAudit(entry);
+  } catch (error) {
+    console.warn("[audit] non-fatal audit write failed:", {
+      action: entry.action,
+      targetRef: entry.targetRef,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+/**
+ * Assert that the caller owns the profile being mutated. Callers pass the
+ * already-verified session uid plus the requested uid; throws when they
+ * differ (or when there is no session). The session must always be resolved
+ * server-side via `getCurrentSessionUser()` — never trust a client uid alone.
+ */
+export function assertOwnProfile(
+  requestedUid: string,
+  sessionUid?: string | null
+): string {
+  if (!sessionUid) {
+    throw new Error("Authentication required. Please sign in again, then retry.");
+  }
+  if (requestedUid && requestedUid !== sessionUid) {
+    throw new Error("Not authorized to modify this profile.");
+  }
+  return sessionUid;
+}
+
 
 

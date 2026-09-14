@@ -1,10 +1,10 @@
-import { requireAdmin } from "@/lib/auth/authorization";
+import { requireAdminDev } from "@/lib/auth/authorization";
 import { getSupportTicketsAction } from "@/lib/actions/support";
 import { PageHeader } from "@/components/app/PageHeader";
 import { SupportClient } from "@/components/admin/SupportClient";
 
 export default async function AdminSupportPage() {
-  await requireAdmin();
+  await requireAdminDev();
   const tickets = await getSupportTicketsAction();
 
   return (

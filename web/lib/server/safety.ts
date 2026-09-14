@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { profileSelectList } from "./profiles";
 import type { Report, ReportReason, RiskPriority, RiskSignalType } from "@/lib/models";
 import type { BlockedUser } from "@/lib/feature/types";
 import { REPORT_REASONS } from "@/lib/models/safety";
@@ -163,17 +164,17 @@ export async function listBlocked(blockerId: string): Promise<BlockedUser[]> {
   // Resolve display names + kinds from profiles in parallel.
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("user_id, display_name, profile_type")
+    .select(profileSelectList())
     .in("user_id", blockedIds);
 
   const profileMap = new Map<string, { name: string; kind: "person" | "couple" }>();
-  if (profiles) {
-    for (const p of profiles) {
-      profileMap.set(p.user_id, {
-        name: p.display_name ?? p.user_id.slice(0, 8),
-        kind: p.profile_type === "coupled" ? "couple" : "person",
-      });
-    }
+  const profileRows = (profiles ?? []) as unknown as Array<Record<string, unknown>>;
+  for (const p of profileRows) {
+    const userId = p.user_id as string;
+    profileMap.set(userId, {
+      name: (p.display_name as string) ?? userId.slice(0, 8),
+      kind: (p.profile_type as string) === "coupled" ? "couple" : "person",
+    });
   }
 
   return blocks.map((block) => {

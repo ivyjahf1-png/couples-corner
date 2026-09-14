@@ -1,3 +1,4 @@
+import { getPublicFeed } from "@/lib/actions/profile";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
@@ -5,13 +6,41 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { demoFeedPosts } from "@/lib/demo/demo-data";
+import type { FeedPostView } from "@/lib/feature/types";
 
 /**
  * The community feed. Create-post composer + a reverse-chronological list of
- * posts from connections. All content is clearly-labeled structural demo data
- * until Firestore reads land.
+ * public posts. Real posts come from getPublicFeed() when available; the
+ * demo fixtures act as a graceful fallback so the UI is never empty.
  */
-export default function FeedPage() {
+function mapFeedPosts(
+  posts: Awaited<ReturnType<typeof getPublicFeed>>["posts"]
+): FeedPostView[] {
+  return posts.map((post) => ({
+    id: post.id,
+    authorName: post.authorName ?? "Member",
+    authorKind: "person",
+    at: post.createdAt,
+    body: post.content,
+    mediaCount: post.mediaUrls.length > 0 ? post.mediaUrls.length : undefined,
+    likeCount: 0,
+    commentCount: 0,
+    likedByMe: false,
+    canDelete: false,
+  }));
+}
+
+export default async function FeedPage() {
+  let posts: FeedPostView[] = demoFeedPosts;
+  try {
+    const feed = await getPublicFeed();
+    if (feed.posts.length > 0) {
+      posts = mapFeedPosts(feed.posts);
+    }
+  } catch {
+    posts = demoFeedPosts;
+  }
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -61,7 +90,7 @@ export default function FeedPage() {
       </Card>
 
       {/* Feed list */}
-      {demoFeedPosts.length === 0 ? (
+      {posts.length === 0 ? (
         <EmptyState
           icon="moments"
           title="Your feed is quiet"
@@ -69,7 +98,7 @@ export default function FeedPage() {
         />
       ) : (
         <div className="flex flex-col gap-4">
-          {demoFeedPosts.map((post) => (
+          {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
         </div>

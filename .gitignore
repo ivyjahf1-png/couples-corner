@@ -70,3 +70,19 @@ node_modules/
 
 # Local Netlify folder
 .netlify
+
+node_modules/
+.next/
+dist/
+build/
+# Environment files
+.env.local
+.env*.local
+
+# Build logs
+*_err.txt
+*_out.txt
+*_verify.txt
+*_debug.txt
+tsc_*.txt
+build_*.txt
