@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { requireAdminDev, isDevAdminBypassActive } from "@/lib/auth/authorization";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { isNavigationSignal } from "@/lib/utils/errors";
@@ -41,15 +41,15 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="min-h-dvh bg-slate-950 admin-dark">
+    <div className="min-h-dvh bg-purple-950 admin-dark">
       <div className="mx-auto flex w-full max-w-7xl">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-orange-500/20 bg-slate-900 px-4 py-6 lg:flex">
+        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-orange-500/20 bg-purple-900 px-4 py-6 lg:flex">
           <div className="mb-8 px-2">
             <Logo as="span" />
           </div>
           <AdminNav />
           <div className="mt-auto border-t border-orange-500/20 p-3">
-            <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-slate-800 p-3">
+            <div className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-purple-800 p-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-orange-600 text-sm font-bold text-white">
                 {adminUser ? adminUser.email.charAt(0).toUpperCase() : "A"}
               </div>
@@ -77,9 +77,9 @@ export default async function AdminLayout({
 /** Placeholder shown when Supabase is not configured or unreachable. */
 function AdminUnavailablePlaceholder() {
   return (
-    <div className="min-h-dvh bg-slate-950 admin-dark">
+    <div className="min-h-dvh bg-purple-950 admin-dark">
       <div className="mx-auto flex w-full max-w-7xl">
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-orange-500/20 bg-slate-900 px-4 py-6 lg:flex">
+        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-orange-500/20 bg-purple-900 px-4 py-6 lg:flex">
           <div className="mb-8 px-2">
             <Logo as="span" />
           </div>
@@ -89,7 +89,7 @@ function AdminUnavailablePlaceholder() {
           <section data-zone="admin" className="flex flex-1 flex-col">
             <ErrorBoundary feature="Admin Panel">
               <div className="mx-auto flex max-w-xl flex-col gap-6 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-500/30 bg-slate-800 text-orange-400">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-500/30 bg-purple-800 text-orange-400">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
                     <rect x="3" y="11" width="18" height="11" rx="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
@@ -97,23 +97,23 @@ function AdminUnavailablePlaceholder() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-                  <p className="mt-1 text-slate-300">
+                  <p className="mt-1 text-white">
                     The admin panel is not yet available.
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm text-orange-300">
                     This can mean Supabase is not configured, or your account doesn&apos;t have
                     admin privileges.
                   </p>
                 </div>
-                <div className="rounded-xl border border-orange-500/30 bg-slate-900 p-5 text-left text-sm text-slate-300">
+                <div className="rounded-xl border border-orange-500/30 bg-purple-900 p-5 text-left text-sm text-white">
                   <p className="font-medium text-white">If you&apos;re an administrator:</p>
                   <ul className="mt-2 space-y-1.5 list-disc list-inside">
-                    <li>Make sure <code className="rounded bg-slate-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="rounded bg-slate-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">SUPABASE_SERVICE_ROLE_KEY</code> are set.</li>
-                    <li>Sign in with an account that has the <code className="rounded bg-slate-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">admin</code> role.</li>
+                    <li>Make sure <code className="rounded bg-purple-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="rounded bg-purple-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">SUPABASE_SERVICE_ROLE_KEY</code> are set.</li>
+                    <li>Sign in with an account that has the <code className="rounded bg-purple-800 px-1.5 py-0.5 text-xs font-mono text-orange-300">admin</code> role.</li>
                     <li>Try refreshing after verifying both.</li>
                   </ul>
                 </div>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-orange-300">
                   If you believe you should have access, contact the platform administrator.
                 </p>
               </div>

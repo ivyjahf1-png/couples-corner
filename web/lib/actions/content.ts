@@ -169,3 +169,70 @@ export async function uploadContentMedia(
 
   return { mediaUrl: urlData.publicUrl };
 }
+
+/**
+ * Upload multiple photos/videos to Supabase Storage ("media" bucket).
+ * Mirrors the web-admin implementation: validates each file, enforces
+ * CONTENT_UPLOAD limits, uploads to content/{contentId}/{timestamp}_{rand}_{name},
+ * returns public URLs. Partial success is returned; total failure throws.
+ */
+export async function uploadMultipleContentMedia(
+  contentId: string,
+  files: File[]
+): Promise<{ mediaUrls: string[]; thumbnailUrl?: string }> {
+  if (files.length === 0) throw new Error("No files to upload");
+  if (files.length > CONTENT_UPLOAD.maxFiles) {
+    throw new Error(`Max ${CONTENT_UPLOAD.maxFiles} files. Got ${files.length}.`);
+  }
+
+  await requireAdminDev();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) throw new Error("Supabase not configured");
+  await ensureStorageBucket(supabase, "media");
+
+  const mediaUrls: string[] = [];
+  let thumbnailUrl: string | undefined;
+  const failures: string[] = [];
+
+  for (const file of files) {
+    const isImage = CONTENT_UPLOAD.imageTypes.some((t) => t === file.type);
+    const isVideo = CONTENT_UPLOAD.videoTypes.some((t) => t === file.type);
+    if (!isImage && !isVideo) {
+      failures.push(`${file.name}: unsupported type (${file.type || "unknown"})`);
+      continue;
+    }
+    const maxSize = isImage ? CONTENT_UPLOAD.maxImageBytes : CONTENT_UPLOAD.maxVideoBytes;
+    if (file.size > maxSize) {
+      failures.push(`${file.name}: exceeds ${(maxSize / 1024 / 1024).toFixed(0)}MB`);
+      continue;
+    }
+
+    const name = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const rand = Math.random().toString(36).slice(2, 8);
+    const path = `content/${contentId}/${Date.now()}_${rand}_${name}`;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const { error: err } = await supabase.storage.from("media").upload(path, buffer, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (err) {
+        failures.push(`${file.name}: ${err.message ?? "upload failed"}`);
+        continue;
+      }
+      const { data: url } = supabase.storage.from("media").getPublicUrl(path);
+      mediaUrls.push(url.publicUrl);
+      if (isImage && !thumbnailUrl) thumbnailUrl = url.publicUrl;
+    } catch (e) {
+      failures.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (mediaUrls.length === 0) {
+    throw new Error(
+      failures.length > 0 ? `Upload failed: ${failures.join("; ")}` : "All uploads failed"
+    );
+  }
+  return { mediaUrls, thumbnailUrl };
+}

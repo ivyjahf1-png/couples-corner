@@ -51,5 +51,5 @@ export const CONTENT_UPLOAD = {
   videoTypes: ["video/mp4", "video/webm"],
   maxImageBytes: 10 * 1024 * 1024,
   maxVideoBytes: 100 * 1024 * 1024,
-  maxFiles: 3,
+  maxFiles: 10,
 } as const;

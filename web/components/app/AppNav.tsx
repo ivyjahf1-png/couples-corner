@@ -17,6 +17,7 @@ export const appNavItems: AppNavItem[] = [
   { href: "/messages", label: "Messages", icon: "chat" },
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
+  { href: "/subscription", label: "Subscription", icon: "sparkle" },
 ];
 
 const secondaryItems: AppNavItem[] = [

@@ -38,7 +38,7 @@ export function AdminNav() {
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
             isActive(pathname, item.href)
               ? "bg-orange-600 text-white"
-              : "text-slate-100 hover:bg-slate-800 hover:text-white",
+              : "text-white hover:bg-purple-800 hover:text-white",
           ].join(" ")}
         >
           <Icon name={item.icon} className="h-5 w-5" />

@@ -1,0 +1,15 @@
+=====header=====
+=====header=====
+ERR: ENOENT: no such file or directory, open 'C:\Users\HomePC\Documents\couple's conner\components\landing\SiteHeader.tsx'
+=====logo=====
+=====logo=====
+ERR: ENOENT: no such file or directory, open 'C:\Users\HomePC\Documents\couple's conner\components\ui\Logo.tsx'
+=====page=====
+=====page=====
+ERR: ENOENT: no such file or directory, open 'C:\Users\HomePC\Documents\couple's conner\app\(public)\page.tsx'
+=====css=====
+=====css=====
+ERR: ENOENT: no such file or directory, open 'C:\Users\HomePC\Documents\couple's conner\app\globals.css'
+=====tail=====
+=====tail=====
+ERR: ENOENT: no such file or directory, open 'C:\Users\HomePC\Documents\couple's conner\tailwind.config.ts'

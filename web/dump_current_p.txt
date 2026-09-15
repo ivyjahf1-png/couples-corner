@@ -1,3 +1,4 @@
+===== app/(public)/page.tsx =====
 import { SiteHeader } from "@/components/landing/SiteHeader";
 import { SiteFooter } from "@/components/landing/SiteFooter";
 import { Icon, type IconName } from "@/components/landing/Icon";

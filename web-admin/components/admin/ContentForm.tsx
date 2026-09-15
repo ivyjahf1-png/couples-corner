@@ -286,7 +286,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
                   ))}
                 </div>
                 {canAddMore && (
-                  <label className="cursor-pointer self-start rounded-lg border border-orange-500/30 bg-slate-900 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-500/20">
+                  <label className="cursor-pointer self-start rounded-lg border border-orange-500/30 bg-purple-900 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-500/20">
                     + Add more ({fileSlots.length}/{MAX_FILES})
                     <input ref={fileInputRef} type="file" accept={acceptedTypes} multiple onChange={handleFileChange} className="hidden" />
                   </label>

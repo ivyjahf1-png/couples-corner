@@ -5,6 +5,8 @@ import { PostCard } from "@/components/app/PostCard";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
+import { ContentSlot } from "@/components/content/ContentSlot";
+import { AdvertCardGrid } from "@/components/content/AdvertCardGrid";
 import { demoFeedPosts } from "@/lib/demo/demo-data";
 import type { FeedPostView } from "@/lib/feature/types";
 
@@ -88,6 +90,15 @@ export default async function FeedPage() {
           Composer preview — posting and media uploads arrive with Firebase.
         </p>
       </Card>
+
+            {/* Sponsored / featured content */}
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-ink-900">Sponsored</h2>
+        <ContentSlot placement="feed" limit={10} />
+      </div>
+
+      {/* Advert cards grid (admin-managed) */}
+      <AdvertCardGrid placement="feed" limit={10} columns={3} />
 
       {/* Feed list */}
       {posts.length === 0 ? (

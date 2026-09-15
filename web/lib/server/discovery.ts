@@ -251,6 +251,44 @@ async function displayNamesFor(
   return map;
 }
 
+/**
+ * Public profile summary used by leaderboards and discovery cards.
+ */
+export interface TopProfile {
+  id: string;
+  name: string;
+  kind: "person" | "couple";
+  location: string | null;
+}
+
+/**
+ * Top profiles for community leaderboard display.
+ *
+ * Fetches the most recently active discoverable profiles from the `profiles`
+ * table. Works without a viewer session — no self/blocked filtering needed
+ * since this is a public leaderboard.
+ */
+export async function getTopProfiles(limit = 10): Promise<TopProfile[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, profile_type, location")
+    .eq("discoverable", true)
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+
+  return data.map((row) => ({
+    id: row.user_id as string,
+    name: (row.display_name as string) ?? "Member",
+    kind: (row.profile_type as string) === "coupled" ? "couple" as const : "person" as const,
+    location: row.location as string | null,
+  }));
+}
+
 export interface MatchesData {
   incoming: ConnectionRowView[];
   outgoing: ConnectionRowView[];
