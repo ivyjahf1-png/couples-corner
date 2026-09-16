@@ -37,55 +37,62 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     openReports: 0,
     openSupportTickets: 0,
   };
-  if (!supabase) return empty;
+  if (!supabase) {
+    console.warn("[Dashboard] Supabase server client unavailable — returning empty metrics.");
+    return empty;
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayISO = today.toISOString();
 
-  // Total users
-  const { count: totalUsers } = await supabase
-    .from("users")
-    .select("*", { count: "exact", head: true });
+  const client = supabase;
+  // Helper: head-count a table via `.select("id", { count: "exact", head: true })`.
+  // Logs failures instead of silently rendering "0".
+  async function headCount(
+    table: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    apply?: (q: any) => any,
+  ): Promise<number> {
+    try {
+      let query = client.from(table).select("id", { count: "exact", head: true });
+      if (apply) query = apply(query);
+      const { count, error } = await query;
+      if (error) {
+        console.error(`[Dashboard] count failed on "${table}": ${error.message}`);
+        return 0;
+      }
+      return count ?? 0;
+    } catch (err) {
+      console.error(`[Dashboard] count threw on "${table}": ${err instanceof Error ? err.message : String(err)}`);
+      return 0;
+    }
+  }
 
-  // New users today
-  const { count: newUsersToday } = await supabase
-    .from("users")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", todayISO);
-
-  // New couples today
-  const { count: newCouplesToday } = await supabase
-    .from("couples_profiles")
-    .select("*", { count: "exact", head: true })
-    .gte("created_at", todayISO);
-
-  // Active subscriptions (users with premium role or active subscription)
-  const { count: activeSubscriptions } = await supabase
-    .from("users")
-    .select("*", { count: "exact", head: true })
-    .eq("role", "premium");
-
-  // Open reports
-  const { count: openReports } = await supabase
-    .from("reports")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "open");
-
-  // Open support tickets
-  const { count: openSupportTickets } = await supabase
-    .from("support_tickets")
-    .select("*", { count: "exact", head: true })
-    .in("status", ["open", "in_progress"]);
+  // Registered accounts live in public.users (mirrored 1:1 in public.profiles).
+  // There is no `couples_profiles` table — couple accounts are rows in
+  // `profiles` with profile_type = 'coupled'.
+  const [usersTotal, profilesTotal, newUsersToday, newCouplesToday, activeSubscriptions, openReports, openSupportTickets] =
+    await Promise.all([
+      headCount("users"),
+      headCount("profiles"),
+      headCount("users", (q) => q.gte("created_at", todayISO)),
+      headCount("profiles", (q) => q.eq("profile_type", "coupled").gte("created_at", todayISO)),
+             // Active paid subscriptions (users table has no `role` column; premium
+       // status lives in the `subscriptions` table with a `status` column).
+       headCount("subscriptions", (q) => q.eq("status", "active")),
+      headCount("reports", (q) => q.eq("status", "open")),
+      headCount("support_tickets", (q) => q.in("status", ["open", "in_progress"])),
+    ]);
 
   return {
-    totalUsers: totalUsers ?? 0,
-    newUsersToday: newUsersToday ?? 0,
-    newCouplesToday: newCouplesToday ?? 0,
-    activeSubscriptions: activeSubscriptions ?? 0,
+    totalUsers: Math.max(usersTotal, profilesTotal),
+    newUsersToday,
+    newCouplesToday,
+    activeSubscriptions,
     revenueToday: 0, // Placeholder — integrate with payment provider
-    openReports: openReports ?? 0,
-    openSupportTickets: openSupportTickets ?? 0,
+    openReports,
+    openSupportTickets,
   };
 }
 

@@ -35,8 +35,8 @@ export function AdminNav() {
           className={[
             "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
             isActive(pathname, item.href)
-              ? "bg-brand-100 text-brand-800"
-              : "text-ink-700 hover:bg-ink-100 hover:text-ink-900",
+              ? "bg-brand-500/15 text-brand-200"
+              : "text-ink-200 hover:bg-white/10 hover:text-white",
           ].join(" ")}
         >
           <Icon name={item.icon} className="h-5 w-5" />

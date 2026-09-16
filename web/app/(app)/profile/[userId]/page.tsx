@@ -40,31 +40,31 @@ export default async function PublicProfilePage({
             <img
               src={`/api/photos/${userId}/${photo.storagePath.split("/").pop()}`}
               alt={profile.displayName}
-              className="h-28 w-28 rounded-full object-cover ring-2 ring-brand-200"
+              className="h-28 w-28 rounded-full object-cover ring-2 ring-brand-500/40"
             />
           ) : (
             <Avatar name={profile.displayName} size="xl" />
           )}
-          <h2 className="text-lg font-semibold text-ink-900">{profile.displayName}</h2>
+          <h2 className="text-lg font-semibold text-white">{profile.displayName}</h2>
           {profile.profileType === "coupled" ? <Chip tone="brand">Couple</Chip> : null}
-          {profile.location ? <p className="text-sm text-ink-600">{profile.location}</p> : null}
+          {profile.location ? <p className="text-sm text-ink-300">{profile.location}</p> : null}
         </Card>
 
         {/* Details */}
         <div className="flex flex-col gap-6">
           <Card as="section" className="flex flex-col gap-3" aria-label="About">
-            <h2 className="font-semibold text-ink-900">About</h2>
+            <h2 className="font-semibold text-white">About</h2>
             {profile.bio ? (
-              <p className="text-sm leading-6 text-ink-700">{profile.bio}</p>
+              <p className="text-sm leading-6 text-ink-200">{profile.bio}</p>
             ) : (
-              <p className="text-sm text-ink-500">
+              <p className="text-sm text-ink-400">
                 {isSelf ? "Add a bio so people can get to know you." : "No bio shared yet."}
               </p>
             )}
           </Card>
 
           <Card as="section" className="flex flex-col gap-3" aria-label="Interests">
-            <h2 className="font-semibold text-ink-900">Interests</h2>
+            <h2 className="font-semibold text-white">Interests</h2>
             {profile.interests && profile.interests.length > 0 ? (
               <ul className="flex flex-wrap gap-2">
                 {profile.interests.map((interest) => (
@@ -72,21 +72,21 @@ export default async function PublicProfilePage({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-ink-500">No interests shared yet.</p>
+              <p className="text-sm text-ink-400">No interests shared yet.</p>
             )}
           </Card>
 
           {/* Relationship type */}
           {profile.profileType || profile.relationshipStatus ? (
             <Card as="section" className="flex flex-col gap-3" aria-label="Relationship">
-              <h2 className="font-semibold text-ink-900">Relationship</h2>
+              <h2 className="font-semibold text-white">Relationship</h2>
               {profile.relationshipStatus ? (
-                <p className="text-sm text-ink-700">
+                <p className="text-sm text-ink-200">
                   Status: {profile.relationshipStatus.charAt(0).toUpperCase() + profile.relationshipStatus.slice(1)}
                 </p>
               ) : null}
               {profile.profileType ? (
-                <p className="text-sm text-ink-700">
+                <p className="text-sm text-ink-200">
                   Profile: {profile.profileType.charAt(0).toUpperCase() + profile.profileType.slice(1)}
                 </p>
               ) : null}

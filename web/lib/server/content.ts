@@ -77,10 +77,13 @@ export async function createContent(
   const now = new Date().toISOString();
 
   if (!supabase) {
-    throw new Error("Supabase not configured");
+    throw new Error(
+      "Database unavailable: Supabase is not configured. " +
+      "Ensure NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set."
+    );
   }
 
-  const { data: created } = await supabase
+  const { data: created, error } = await supabase
     .from("content")
     .insert({
       category: data.category,

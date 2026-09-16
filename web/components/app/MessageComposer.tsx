@@ -40,7 +40,7 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
   return (
     <form
       aria-label="Send a message"
-      className="flex items-center gap-2 border-t border-ink-200 pt-4"
+      className="flex items-center gap-2 border-t border-ink-700 pt-4"
       onSubmit={handleSubmit}
     >
       <label htmlFor="message-input" className="sr-only">Message</label>
@@ -51,7 +51,7 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
         onChange={(e) => setBody(e.target.value)}
         placeholder="Write a message…"
         disabled={busy}
-        className="h-11 flex-1 rounded-xl border border-ink-200 bg-surface px-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none disabled:opacity-60"
+        className="h-11 flex-1 rounded-xl border border-ink-700 bg-surface px-4 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none disabled:opacity-60"
       />
       <button
         type="submit"
@@ -62,7 +62,7 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
         <Icon name="send" className="h-4 w-4" />
       </button>
       {error && (
-        <span role="alert" className="absolute -bottom-6 left-0 text-xs text-danger-700">
+        <span role="alert" className="absolute -bottom-6 left-0 text-xs text-danger-300">
           {error}
         </span>
       )}

@@ -2,12 +2,12 @@
 
 /* ============================================================================
    Couples Corner — Visual Design System (CSS-first, Tailwind v4)
-   Orange & White Theme
+   Dark Purple/Navy Theme with Orange Acrylic Accents
+   Shared by the landing page and every authenticated dashboard screen.
    ========================================================================== */
 
 :root {
-  /* ---- Brand: vibrant orange spectrum ----
-     Light steps are tinted backgrounds, dark steps are text/buttons on white. */
+  /* ---- Brand: vibrant orange/coral accent spectrum (the CTA color) ---- */
   --brand-50: #fff7ed;
   --brand-100: #ffedd5;
   --brand-200: #fed7aa;
@@ -21,33 +21,37 @@
   --brand-950: #431407;
 
   /* ---- Ink: dark grays for text on light backgrounds ---- */
-  --ink-50: #fafafa;
-  --ink-100: #f5f5f5;
-  --ink-200: #e5e5e5;
-  --ink-300: #d4d4d4;
-  --ink-400: #a3a3a3;
-  --ink-500: #737373;
-  --ink-600: #525252;
-  --ink-700: #404040;
-  --ink-800: #262626;
-  --ink-900: #171717;
-  --ink-950: #0a0a0a;
+  /* Now used as light text on dark backgrounds */
+  --ink-50: #f8fafc;
+  --ink-100: #f1f5f9;
+  --ink-200: #e2e8f0;
+  --ink-300: #cbd5e1;
+  --ink-400: #94a3b8;
+  --ink-500: #64748b;
+  --ink-600: #475569;
+  --ink-700: #334155;
+  --ink-800: #1e293b;
+  --ink-900: #0f172a;
+  --ink-950: #020617;
 
-  /* ---- Semantic surfaces (light theme) ---- */
-  --background: #ffffff;
-  --foreground: #171717;
-  --surface: #ffffff;
-  --surface-muted: #fff8f3;
-  --border: #e5e5e5;
-  --border-strong: #d4d4d4;
-  --subtle: #737373;
-  --muted: #f5f5f5;
+  /* ---- Semantic surfaces (dark theme) ---- */
+  --background: #0F172A;
+  --foreground: #ffffff;
+  /* Root canvas: the landing page's deep purple → navy gradient, applied to
+     <body> so every screen shares one seamless background. */
+  --background-gradient: linear-gradient(135deg, #3b0764 0%, #581c87 50%, #020617 100%);
+  --surface: #1E293B;
+  --surface-muted: #334155;
+  --border: #334155;
+  --border-strong: #475569;
+  --subtle: #94a3b8;
+  --muted: #1E293B;
 
-  /* ---- Brand accent ---- */
-  --accent: #fff7ed;
-  --accent-strong: #ffedd5;
+  /* ---- Brand accent: vibrant orange/coral CTA (matches landing page) ---- */
+  --accent: #f97316;
+  --accent-strong: #ea580c;
 
-  /* ---- Status (light-tuned) ---- */
+  /* ---- Status (dark-tuned: tinted fills + light text on dark canvas) ---- */
   --danger-50: #fef2f2;
   --danger-100: #fee2e2;
   --danger-200: #fecaca;
@@ -223,16 +227,32 @@ html {
   text-rendering: optimizeLegibility;
 }
 
-:root {
-  color-scheme: light only;
+/* ----------------------------------------------------------------------------
+   Shared dark canvas — the landing page's deep purple → navy gradient.
+   Applied to <body> globally; this utility lets fixed/overlay surfaces
+   (splash, loading screens, onboarding, the app shell) re-apply the exact
+   same canvas so no view falls back to a flat or light background.
+   -------------------------------------------------------------------------- */
+.app-canvas {
+  background-color: var(--background);
+  background-image: var(--background-gradient);
+  background-attachment: fixed;
+  color: var(--foreground);
 }
 
-/* Theme lock comment: Couples Corner uses a light orange & white theme.
-   OS-level dark mode is intentionally NOT honored; the palette above
-   is authored directly as light, so no @media override is needed. */
+/* ----------------------------------------------------------------------------
+   Theme lock — single dark theme. See the palette at the top of this file.
+   OS-level light mode is intentionally NOT honored so every device renders
+   the same purple/navy canvas with orange accents and white text.
+   -------------------------------------------------------------------------- */
+:root {
+  color-scheme: dark;
+}
 
 body {
   background-color: var(--background);
+  background-image: var(--background-gradient);
+  background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
   line-height: 1.5;
@@ -278,17 +298,17 @@ input::placeholder, textarea::placeholder {
    replace these eventually. */
 .hero-photo {
   background:
-    radial-gradient(120% 120% at 78% 20%, rgb(249 115 22 / 0.15) 0%, transparent 55%),
-    linear-gradient(135deg, #fff7ed 0%, #ffedd5 55%, #fdba74 100%);
+    radial-gradient(120% 120% at 78% 20%, rgb(249 115 22 / 0.28) 0%, transparent 60%),
+    linear-gradient(135deg, #3b0764 0%, #581c87 55%, #7c2d12 100%);
   position: relative;
 }
 .media-placeholder {
   background:
-    radial-gradient(120% 120% at 80% 15%, rgb(249 115 22 / 0.1) 0%, transparent 55%),
-    linear-gradient(140deg, #fff8f3 0%, #ffedd5 60%, #fdba74 100%);
+    radial-gradient(120% 120% at 80% 15%, rgb(249 115 22 / 0.22) 0%, transparent 60%),
+    linear-gradient(140deg, #2e1065 0%, #4c1d95 60%, #9a3412 100%);
 }
 .story-placeholder {
-  background: linear-gradient(150deg, #ffedd5 0%, #fdba74 70%, #fed7aa 100%);
+  background: linear-gradient(150deg, #4c1d95 0%, #7c2d12 70%, #581c87 100%);
 }
 
 .hero-photo::after,
@@ -314,10 +334,6 @@ input::placeholder, textarea::placeholder {
    dark mode is intentionally NOT honored; the palette is authored directly
    as light, so colors stay consistent across every device.
    -------------------------------------------------------------------------- */
-:root {
-  color-scheme: light only;
-}
-
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -364,21 +380,108 @@ input::placeholder, textarea::placeholder {
 .card-content p {
   margin: 0 0 20px 0;
   font-size: 0.95rem;
-  color: var(--ink-500);
+  color: var(--ink-300);
   line-height: 1.5;
 }
 .card-btn {
   display: inline-block;
   width: 100%;
   padding: 12px 0;
-  background-color: var(--brand-700);
+  background: linear-gradient(to right, #f97316, #ea580c);
   color: #ffffff;
   text-align: center;
   text-decoration: none;
   font-weight: 600;
   border-radius: 6px;
-  transition: background-color 0.2s ease;
+  transition: filter 0.2s ease;
 }
 .card-btn:hover {
-  background-color: var(--brand-800);
+  filter: brightness(1.1);
+}
+
+/* ============================================================================
+   App shell chrome — deep navy (#0F172A) navigation surfaces
+   Shared by the mobile bottom bar, the mobile "Menu" drawer and the fixed
+   tablet + desktop sidebar. Authored as real CSS (rather than utility soup) so
+   the rail, the bar and the drawer can never drift apart, and so the bottom
+   bar can honour iOS safe-area insets.
+   ========================================================================== */
+:root {
+  --nav-bg: #0f172a;                    /* deep navy — the landing-page base */
+  --nav-surface: rgb(15 23 42 / 0.92);  /* translucent bar over content */
+  --nav-border: rgb(255 255 255 / 0.08);
+  --nav-text-muted: #cbd5e1;            /* slate-300 — AA contrast on navy */
+}
+
+/* Fixed left-hand navigation rail (md and up). */
+.app-sidebar {
+  background-color: var(--nav-bg);
+  color: #ffffff;
+  border-right: 1px solid var(--nav-border);
+  box-shadow:
+    inset -1px 0 0 0 rgb(255 255 255 / 0.04),
+    24px 0 48px -32px rgb(0 0 0 / 0.9);
+}
+
+/* Mobile top bar + bottom tab bar: frosted navy so content glows through. */
+.app-top-bar,
+.app-bottom-nav {
+  background-color: var(--nav-surface);
+  border-color: var(--nav-border);
+  color: #ffffff;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* Thumb-friendly tap targets + iPhone home-indicator clearance. */
+.app-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Slide-in "Menu" drawer (mobile only). */
+.app-drawer {
+  background-color: var(--nav-bg);
+  color: #ffffff;
+  border-color: var(--nav-border);
+}
+
+.app-drawer-scrim {
+  background-color: rgb(2 6 23 / 0.72);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .app-drawer {
+    animation: app-drawer-in 190ms cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .app-drawer-scrim {
+    animation: app-drawer-fade 190ms ease-out;
+  }
+}
+
+@keyframes app-drawer-in {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+@keyframes app-drawer-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Sidebar section rhythm — high-contrast labels on the navy rail. */
+.nav-section-label {
+  margin: 0.5rem 0 0.25rem;
+  padding: 0 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nav-text-muted);
+}
+
+.nav-divider {
+  margin: 0.75rem;
+  border-top: 1px solid var(--nav-border);
 }

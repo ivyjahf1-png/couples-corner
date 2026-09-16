@@ -36,12 +36,12 @@ export function Logo({
     >
       {mark ? (
         <span aria-hidden className="flex items-center gap-x-1">
-          <span className="h-2.5 w-2.5 rounded-full bg-brand-600" />
-          <span className="h-2.5 w-2.5 rounded-full bg-ink-900" />
+          <span className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white" />
         </span>
       ) : null}
-      <span className="whitespace-nowrap font-semibold text-ink-900">
-        Couples <span className="text-brand-700">Corner</span>
+      <span className="whitespace-nowrap font-semibold text-white">
+        Couples <span className="text-orange-400">Corner</span>
       </span>
       {children}
     </Tag>

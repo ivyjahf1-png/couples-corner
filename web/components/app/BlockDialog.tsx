@@ -64,7 +64,7 @@ export function BlockDialog({
         onCancel={() => setOpen(false)}
         onConfirm={toggleBlock}
       />
-      {error ? <p className="text-xs text-danger-700">{error}</p> : null}
+      {error ? <p className="text-xs text-danger-300">{error}</p> : null}
     </>
   );
 }

@@ -17,7 +17,7 @@ const interestOptions = [
 ];
 
 const fieldClasses =
-  "w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none";
+  "w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
 
 /**
  * Client-controlled discovery filter panel. State lives in the URL-ready
@@ -58,7 +58,7 @@ export function FilterPanel({
           onClick={() => setOpen((previous) => !previous)}
           aria-expanded={open}
           aria-controls="discover-filters"
-          className="rounded-xl border border-ink-200 bg-surface px-4 py-2 text-sm font-medium text-ink-800 transition hover:bg-surface-muted"
+          className="rounded-xl border border-ink-700 bg-surface px-4 py-2 text-sm font-medium text-ink-100 transition hover:bg-surface-muted"
         >
           Filters
         </button>
@@ -66,7 +66,7 @@ export function FilterPanel({
           <button
             type="button"
             onClick={() => onChange(defaultDiscoveryFilters)}
-            className="text-sm font-medium text-brand-700 hover:underline"
+            className="text-sm font-medium text-brand-300 hover:underline"
           >
             Clear all
           </button>
@@ -79,10 +79,10 @@ export function FilterPanel({
       {open ? (
         <div
           id="discover-filters"
-          className="grid gap-4 rounded-2xl border border-ink-200 bg-surface p-5 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid gap-4 rounded-2xl border border-ink-700 bg-surface p-5 sm:grid-cols-2 lg:grid-cols-3"
         >
           <div>
-            <label htmlFor="filter-location" className="text-sm font-medium text-ink-800">Location</label>
+            <label htmlFor="filter-location" className="text-sm font-medium text-ink-100">Location</label>
             <input
               id="filter-location"
               type="text"
@@ -94,7 +94,7 @@ export function FilterPanel({
           </div>
 
           <div>
-            <label htmlFor="filter-type" className="text-sm font-medium text-ink-800">Profile type</label>
+            <label htmlFor="filter-type" className="text-sm font-medium text-ink-100">Profile type</label>
             <select
               id="filter-type"
               value={filters.profileType}
@@ -108,7 +108,7 @@ export function FilterPanel({
           </div>
 
           <div>
-            <label htmlFor="filter-status" className="text-sm font-medium text-ink-800">Relationship status</label>
+            <label htmlFor="filter-status" className="text-sm font-medium text-ink-100">Relationship status</label>
             <select
               id="filter-status"
               value={filters.relationshipStatus}
@@ -124,7 +124,7 @@ export function FilterPanel({
           </div>
 
           <fieldset className="sm:col-span-2 lg:col-span-3">
-            <legend className="text-sm font-medium text-ink-800">Interests</legend>
+            <legend className="text-sm font-medium text-ink-100">Interests</legend>
             <div className="mt-2 flex flex-wrap gap-2">
               {interestOptions.map((interest) => {
                 const active = filters.interests.includes(interest);
@@ -143,8 +143,8 @@ export function FilterPanel({
                     className={[
                       "rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
                       active
-                        ? "border-brand-600 bg-brand-100 text-brand-800"
-                        : "border-ink-200 bg-surface text-ink-700 hover:bg-surface-muted",
+                        ? "border-brand-600 bg-brand-500/15 text-brand-200"
+                        : "border-ink-700 bg-surface text-ink-200 hover:bg-surface-muted",
                     ].join(" ")}
                   >
                     {interest}
@@ -155,9 +155,9 @@ export function FilterPanel({
           </fieldset>
 
           <fieldset className="sm:col-span-2 lg:col-span-3">
-            <legend className="text-sm font-medium text-ink-800">
+            <legend className="text-sm font-medium text-ink-100">
               Age range{" "}
-              <span className="font-normal text-ink-500">
+              <span className="font-normal text-ink-400">
                 {filters.ageRange ? `${filters.ageRange.min}–${filters.ageRange.max}` : "(any)"}
               </span>
             </legend>
@@ -176,7 +176,7 @@ export function FilterPanel({
                     },
                   })
                 }
-                className="w-full accent-[var(--color-brand-700)]"
+                className="w-full accent-[var(--color-brand-500)]"
               />
               <input
                 type="range"
@@ -192,7 +192,7 @@ export function FilterPanel({
                     },
                   })
                 }
-                className="w-full accent-[var(--color-brand-700)]"
+                className="w-full accent-[var(--color-brand-500)]"
               />
             </div>
           </fieldset>

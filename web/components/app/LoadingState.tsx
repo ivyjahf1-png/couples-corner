@@ -21,7 +21,7 @@ export function LoadingState({
         <div
           key={i}
           aria-hidden
-          className="h-20 animate-pulse rounded-2xl border border-ink-200 bg-surface-muted"
+          className="h-20 animate-pulse rounded-2xl border border-ink-700 bg-surface-muted"
           style={{ animationDelay: `${i * 120}ms` }}
         />
       ))}

@@ -25,7 +25,7 @@ export default async function BlockedUsersPage() {
           body="Users you block will appear here. You can unblock them at any time from this list."
         />
       ) : (
-        <Card padding="none" className="divide-y divide-ink-200">
+        <Card padding="none" className="divide-y divide-ink-700">
           {blocked.map((entry) => (
             <BlockedRowClient key={entry.id} entry={entry} />
           ))}

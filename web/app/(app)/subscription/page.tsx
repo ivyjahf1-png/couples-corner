@@ -40,14 +40,14 @@ export default async function SubscriptionPage() {
       />
 
       {activePlan ? (
-        <Card tone="muted" className="border border-success-300 bg-success-50">
+        <Card tone="muted" className="border border-success-500/40 bg-success-500/10">
           <div className="flex items-center gap-3">
-            <Icon name="sparkle" className="h-5 w-5 text-success-700" />
+            <Icon name="sparkle" className="h-5 w-5 text-success-300" />
             <div>
-              <p className="text-sm font-medium text-success-800">
+              <p className="text-sm font-medium text-success-200">
                 You are currently on the <strong>{activePlan.name}</strong> plan.
               </p>
-              <p className="text-xs text-success-700">
+              <p className="text-xs text-success-300">
                 Renews on {new Date(activeSub!.currentPeriodEnd).toLocaleDateString()}.
               </p>
             </div>
@@ -74,23 +74,23 @@ export default async function SubscriptionPage() {
                   Most popular
                 </span>
               )}
-              <h3 className="text-lg font-semibold text-ink-900">{plan.name}</h3>
-              <p className="mt-1 text-sm text-ink-600">{plan.description}</p>
+              <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+              <p className="mt-1 text-sm text-ink-300">{plan.description}</p>
               <div className="mt-4">
-                <span className="text-4xl font-bold text-ink-900">{formatPrice(plan.priceUsd)}</span>
-                <span className="text-sm text-ink-500">
+                <span className="text-4xl font-bold text-white">{formatPrice(plan.priceUsd)}</span>
+                <span className="text-sm text-ink-400">
                   /{plan.durationDays === 7 ? "wk" : plan.durationDays === 30 ? "mo" : "yr"}
                 </span>
                 {savings && (
-                  <span className="ml-2 rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-700">
+                  <span className="ml-2 rounded-full bg-success-500/15 px-2 py-0.5 text-xs font-medium text-success-300">
                     {savings}
                   </span>
                 )}
               </div>
               <ul className="mt-6 flex flex-col gap-2">
                 {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-ink-700">
-                    <Icon name="check" className="mt-0.5 h-4 w-4 shrink-0 text-success-600" />
+                  <li key={f} className="flex items-start gap-2 text-sm text-ink-200">
+                    <Icon name="check" className="mt-0.5 h-4 w-4 shrink-0 text-success-400" />
                     {f}
                   </li>
                 ))}
@@ -110,7 +110,7 @@ export default async function SubscriptionPage() {
       </div>
 
       <Card tone="muted" className="text-center">
-        <p className="text-sm text-ink-600">
+        <p className="text-sm text-ink-300">
           All plans include a 3-day free trial. Cancel anytime. No hidden fees.
         </p>
       </Card>

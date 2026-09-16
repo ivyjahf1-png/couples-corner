@@ -7,7 +7,7 @@ export function MessageComposer() {
   return (
     <form
       aria-label="Send a message"
-      className="flex items-center gap-2 border-t border-ink-200 pt-4"
+      className="flex items-center gap-2 border-t border-ink-700 pt-4"
       onSubmit={(event) => event.preventDefault()}
     >
       <label htmlFor="message-input" className="sr-only">Message</label>
@@ -15,7 +15,7 @@ export function MessageComposer() {
         id="message-input"
         type="text"
         placeholder="Write a message…"
-        className="h-11 flex-1 rounded-xl border border-ink-200 bg-surface px-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+        className="h-11 flex-1 rounded-xl border border-ink-700 bg-surface px-4 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
       />
       <button
         type="submit"

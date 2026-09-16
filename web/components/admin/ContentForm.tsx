@@ -38,7 +38,7 @@ function defaultEnd(): string {
 }
 
 const inputClass =
-  "mt-1 w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none";
+  "mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
 
 export function ContentForm({ category, editingItem, adminUid, onClose }: ContentFormProps) {
   const [title, setTitle] = useState(editingItem?.title ?? "");
@@ -108,80 +108,80 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-20 backdrop-blur">
       <div className="w-full max-w-2xl rounded-2xl bg-surface p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-ink-900">
+        <h2 className="text-lg font-semibold text-white">
           {editingItem ? "Edit content" : `New ${category.replace(/s$/, "")}`}
         </h2>
         <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
-          <label className="text-sm font-medium text-ink-800">
+          <label className="text-sm font-medium text-ink-100">
             Title
             <input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="e.g. Summer couples retreat" required />
           </label>
-          <label className="text-sm font-medium text-ink-800">
+          <label className="text-sm font-medium text-ink-100">
             Description
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} rows={3} placeholder="Brief description (optional)" />
           </label>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Media type
               <select value={mediaType} onChange={(e) => setMediaType(e.target.value as MediaType)} className={inputClass}>
                 {MEDIA_TYPES.map((m) => (<option key={m} value={m}>{m}</option>))}
               </select>
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Placement
               <select value={placement} onChange={(e) => setPlacement(e.target.value as ContentPlacement)} className={inputClass}>
                 {CONTENT_PLACEMENTS.map((p) => (<option key={p} value={p}>{p}</option>))}
               </select>
             </label>
           </div>
-          <p className="text-xs text-ink-500">Provide a media URL below. Direct file uploads will be available in a future update.</p>
+          <p className="text-xs text-ink-400">Provide a media URL below. Direct file uploads will be available in a future update.</p>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Media URL (blank to upload)
               <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className={inputClass} placeholder="https://…" />
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Thumbnail / poster URL
               <input value={thumbnailUrl} onChange={(e) => setThumbnailUrl(e.target.value)} className={inputClass} placeholder="https://…" />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Button text
               <input value={buttonText} onChange={(e) => setButtonText(e.target.value)} className={inputClass} placeholder="Learn more" />
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Destination URL
               <input value={destinationUrl} onChange={(e) => setDestinationUrl(e.target.value)} className={inputClass} placeholder="https://… or /discover" />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Status
               <select value={status} onChange={(e) => setStatus(e.target.value as ContentStatus)} className={inputClass}>
                 {CONTENT_STATUSES.map((s) => (<option key={s} value={s}>{s}</option>))}
               </select>
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Priority
               <input type="number" value={priority} onChange={(e) => setPriority(e.target.value)} className={inputClass} />
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Target audience
               <input value={targetAudience} onChange={(e) => setTargetAudience(e.target.value)} className={inputClass} placeholder="all, new-users" />
             </label>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               Start date/time
               <input type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={inputClass} />
             </label>
-            <label className="text-sm font-medium text-ink-800">
+            <label className="text-sm font-medium text-ink-100">
               End date/time
               <input type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={inputClass} />
             </label>
           </div>
-          {error ? <p className="text-sm text-danger-700">{error}</p> : null}
+          {error ? <p className="text-sm text-danger-300">{error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button size="sm" variant="secondary" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
             <Button size="sm" type="submit" disabled={busy}>

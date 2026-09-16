@@ -16,13 +16,13 @@ const sizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-brand-500 text-white shadow-subtle hover:bg-brand-600 active:bg-brand-700",
+    "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20 hover:from-orange-400 hover:to-orange-500 active:from-orange-600 active:to-orange-700",
   secondary:
-    "border border-ink-200 bg-surface text-ink-800 hover:border-ink-300 hover:bg-surface-muted active:bg-ink-100",
+    "border border-ink-600 bg-surface text-ink-100 hover:border-ink-500 hover:bg-surface-muted active:bg-white/10",
   ghost:
-    "border border-brand-400 bg-transparent text-brand-700 hover:border-brand-500 hover:bg-brand-50 active:bg-brand-100",
+    "border border-orange-400/60 bg-transparent text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 active:bg-orange-500/20",
   danger:
-    "border border-danger-300 bg-danger-100 text-danger-700 hover:border-danger-400 hover:bg-danger-200 active:bg-danger-300",
+    "border border-danger-500/40 bg-danger-500/15 text-danger-300 hover:border-danger-400 hover:bg-danger-500/20 active:bg-danger-500/25",
 };
 
 interface BaseButtonProps {

@@ -82,51 +82,51 @@ export function AdminUsersClient({ initialUsers }: Props) {
             onChange={(e) => handleQuery(e.target.value)}
             placeholder="Search by name, email, role, or user ID…"
             aria-label="Search users"
-            className="h-10 w-full rounded-xl border border-ink-200 bg-surface pl-9 pr-3 text-sm font-medium text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-ink-700 bg-surface pl-9 pr-3 text-sm font-medium text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => handleStatusFilter(e.target.value)}
           aria-label="Filter by status"
-          className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm font-medium text-ink-900 focus:border-brand-400 focus:outline-none"
+          className="h-10 rounded-xl border border-ink-700 bg-surface px-3 text-sm font-medium text-white focus:border-brand-500/60 focus:outline-none"
         >
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="suspended">Suspended</option>
           <option value="deactivated">Deactivated</option>
         </select>
-        <p className="shrink-0 text-sm font-semibold text-ink-700" role="status">
+        <p className="shrink-0 text-sm font-semibold text-ink-200" role="status">
           {filtered.length} of {users.length} users
         </p>
       </div>
 
       {actionError ? (
-        <p role="alert" className="rounded-xl border border-danger-300 bg-danger-100 px-4 py-2.5 text-sm font-semibold text-danger-700">
+        <p role="alert" className="rounded-xl border border-danger-500/40 bg-danger-500/15 px-4 py-2.5 text-sm font-semibold text-danger-300">
           {actionError}
         </p>
       ) : null}
 
-    <div className="overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-ink-700 bg-surface shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-ink-200 bg-surface-muted">
+          <thead className="border-b border-ink-700 bg-surface-muted">
             <tr>
-              <th scope="col" className="px-4 py-3 font-semibold text-ink-900">User</th>
-              <th scope="col" className="hidden px-4 py-3 font-semibold text-ink-900 sm:table-cell">Status</th>
-              <th scope="col" className="hidden px-4 py-3 font-semibold text-ink-900 md:table-cell">Role</th>
-              <th scope="col" className="hidden px-4 py-3 font-semibold text-ink-900 lg:table-cell">Reports</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-ink-900">Risk score</th>
-              <th scope="col" className="px-4 py-3 font-semibold text-ink-900">Actions</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-white">User</th>
+              <th scope="col" className="hidden px-4 py-3 font-semibold text-white sm:table-cell">Status</th>
+              <th scope="col" className="hidden px-4 py-3 font-semibold text-white md:table-cell">Role</th>
+              <th scope="col" className="hidden px-4 py-3 font-semibold text-white lg:table-cell">Reports</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-white">Risk score</th>
+              <th scope="col" className="px-4 py-3 font-semibold text-white">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-ink-200">
+          <tbody className="divide-y divide-ink-700">
             {paged.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-16 text-center">
-                  <p className="font-semibold text-ink-900">{users.length === 0 ? "No users to moderate yet." : "No users match these filters."}</p>
+                  <p className="font-semibold text-white">{users.length === 0 ? "No users to moderate yet." : "No users match these filters."}</p>
                   {users.length > 0 ? (
-                    <button type="button" onClick={() => { setQuery(""); setStatusFilter(""); setPage(1); }} className="mt-3 text-sm font-semibold text-brand-700 underline underline-offset-2">
+                    <button type="button" onClick={() => { setQuery(""); setStatusFilter(""); setPage(1); }} className="mt-3 text-sm font-semibold text-brand-300 underline underline-offset-2">
                       Clear search and filters
                     </button>
                   ) : null}
@@ -140,32 +140,32 @@ export function AdminUsersClient({ initialUsers }: Props) {
                   <tr key={user.uid} className="transition hover:bg-surface-muted/60">
                     <td className="px-4 py-3">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold text-ink-900">{user.displayName}</p>
-                        <p className="truncate text-xs font-medium text-ink-600">{user.email}</p>
+                        <p className="truncate font-semibold text-white">{user.displayName}</p>
+                        <p className="truncate text-xs font-medium text-ink-300">{user.email}</p>
                       </div>
                     </td>
                     <td className="hidden px-4 py-3 sm:table-cell">
                       <Chip tone={STATUS_TONE[user.status] ?? "neutral"}>{user.status}</Chip>
                     </td>
-                    <td className="hidden px-4 py-3 font-medium text-ink-800 md:table-cell">{user.role}</td>
+                    <td className="hidden px-4 py-3 font-medium text-ink-100 md:table-cell">{user.role}</td>
                     <td className="hidden px-4 py-3 lg:table-cell">
                       {hasReports ? (
                         <Chip tone="danger">{user.openReportCount} open</Chip>
                       ) : (
-                        <span className="font-medium text-ink-600">0</span>
+                        <span className="font-medium text-ink-300">0</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <span className="inline-flex h-2 w-16 overflow-hidden rounded-full bg-ink-200">
+                        <span className="inline-flex h-2 w-16 overflow-hidden rounded-full bg-white/15">
                           <span
                             className={["h-full rounded-full", highRisk ? "bg-danger-500" : "bg-success-500"].join(" ")}
                             style={{ width: `${Math.min(user.riskScore, 100)}%` }}
                           />
                         </span>
-                        <span className="text-xs font-semibold text-ink-800">{user.riskScore}</span>
+                        <span className="text-xs font-semibold text-ink-100">{user.riskScore}</span>
                         {hasReports || highRisk ? (
-                          <Icon name="flag" className="h-4 w-4 text-danger-600" aria-label="Flagged" />
+                          <Icon name="flag" className="h-4 w-4 text-danger-400" aria-label="Flagged" />
                         ) : null}
                       </div>
                     </td>
@@ -188,8 +188,8 @@ export function AdminUsersClient({ initialUsers }: Props) {
         </table>
       </div>
       {totalPages > 1 ? (
-        <div className="flex items-center justify-between border-t border-ink-200 bg-surface-muted px-4 py-3">
-          <p className="text-xs font-semibold text-ink-700">Page {safePage} of {totalPages}</p>
+        <div className="flex items-center justify-between border-t border-ink-700 bg-surface-muted px-4 py-3">
+          <p className="text-xs font-semibold text-ink-200">Page {safePage} of {totalPages}</p>
           <div className="flex items-center gap-2">
             <Button size="sm" variant="secondary" disabled={safePage <= 1 || pending} onClick={() => setPage((p) => Math.max(1, p - 1))}>
               Previous

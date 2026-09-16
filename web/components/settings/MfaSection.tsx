@@ -119,8 +119,8 @@ export function MfaSection({
         </div>
       ) : enrollment ? (
         <div className="flex w-full max-w-sm flex-col gap-3 text-left">
-          <p className="text-sm font-medium text-ink-900">Set up an authenticator app</p>
-          <ol className="list-inside list-decimal text-sm text-ink-600">
+          <p className="text-sm font-medium text-white">Set up an authenticator app</p>
+          <ol className="list-inside list-decimal text-sm text-ink-300">
             <li>Scan this QR code with Google Authenticator, 1Password, or similar.</li>
             <li>Enter the 6-digit code it shows to finish setup.</li>
           </ol>
@@ -128,11 +128,11 @@ export function MfaSection({
           <img
             src={enrollment.qrCode}
             alt="Two-factor authentication QR code"
-            className="h-48 w-48 self-center rounded-xl border border-ink-200 bg-surface p-2"
+            className="h-48 w-48 self-center rounded-xl border border-ink-700 bg-surface p-2"
           />
-          <p className="text-xs text-ink-500">
+          <p className="text-xs text-ink-400">
             Can&apos;t scan? Enter this key manually:{" "}
-            <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-xs text-ink-800">
+            <code className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-xs text-ink-100">
               {enrollment.secret}
             </code>
           </p>
@@ -141,7 +141,7 @@ export function MfaSection({
             pattern="\d{6}"
             maxLength={6}
             placeholder="123456"
-            className="h-10 w-full rounded-xl border border-ink-200 bg-surface px-3 text-center font-mono text-lg tracking-[0.3em] text-ink-900 focus:border-brand-400 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-ink-700 bg-surface px-3 text-center font-mono text-lg tracking-[0.3em] text-white focus:border-brand-500/60 focus:outline-none"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
             aria-label="6-digit verification code"
@@ -173,7 +173,7 @@ export function MfaSection({
       )}
 
       {error ? (
-        <p className="max-w-sm text-right text-xs font-medium text-danger-700" role="alert">
+        <p className="max-w-sm text-right text-xs font-medium text-danger-300" role="alert">
           {error}
         </p>
       ) : null}

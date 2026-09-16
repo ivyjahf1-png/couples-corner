@@ -36,7 +36,7 @@ export default function NotificationsPage() {
           body="Connection requests, messages, and updates will appear here as they happen."
         />
       ) : (
-        <Card padding="none" className="divide-y divide-ink-200">
+        <Card padding="none" className="divide-y divide-ink-700">
           {demoNotificationViews.map((notification) => (
             <NotificationItem key={notification.id} notification={notification} />
           ))}

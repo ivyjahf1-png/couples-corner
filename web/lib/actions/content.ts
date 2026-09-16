@@ -149,7 +149,17 @@ export async function uploadContentMedia(
   const path = `content/${contentId}/${new Date().getTime()}_${sanitizedName}`;
 
   // Make sure the bucket exists before uploading ("Bucket not found" guard).
-  await ensureStorageBucket(supabase, "media");
+  // If bucket creation fails, we provide a clear error message.
+  try {
+    await ensureStorageBucket(supabase, "media");
+  } catch (bucketError) {
+    const msg = bucketError instanceof Error ? bucketError.message : String(bucketError);
+    throw new Error(
+      `Storage bucket setup failed: ${msg}. ` +
+      `The "media" bucket may not exist in your Supabase project. ` +
+      `Run the migration 010_media_bucket.sql or create the bucket manually in Supabase Dashboard → Storage.`
+    );
+  }
 
   const buffer = await file.arrayBuffer();
 
@@ -161,11 +171,26 @@ export async function uploadContentMedia(
     });
 
   if (uploadError) {
-    throw new Error(`Failed to upload media: ${uploadError.message}`);
+    // Provide contextual hint for common errors
+    const msg = uploadError.message ?? "";
+    const hint = msg.toLowerCase().includes("jwt") || msg.toLowerCase().includes("token")
+      ? " (Check that SUPABASE_SERVICE_ROLE_KEY is set correctly — copy the service_role key from Supabase Dashboard → Settings → API)"
+      : "";
+    throw new Error(`Failed to upload media: ${msg}${hint}`);
   }
 
-  // Get public URL
+  // Resolve the public URL. `getPublicUrl` is synchronous and, in this
+  // supabase-js version, never returns an error — it only builds the string.
+  // Guard on the value anyway so a missing URL can never fail the form.
   const { data: urlData } = supabase.storage.from("media").getPublicUrl(path);
+
+  if (!urlData?.publicUrl) {
+    // The upload succeeded but URL generation didn't yield a value: fall back
+    // to the canonical public object URL rather than failing the submission.
+    const fallbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/${path}`;
+    console.warn(`[Storage] getPublicUrl returned no URL for ${path}. Using constructed fallback URL.`);
+    return { mediaUrl: fallbackUrl };
+  }
 
   return { mediaUrl: urlData.publicUrl };
 }
@@ -188,7 +213,18 @@ export async function uploadMultipleContentMedia(
   await requireAdminDev();
   const supabase = getSupabaseServerClient();
   if (!supabase) throw new Error("Supabase not configured");
-  await ensureStorageBucket(supabase, "media");
+
+  // Make sure the bucket exists before uploading ("Bucket not found" guard).
+  try {
+    await ensureStorageBucket(supabase, "media");
+  } catch (bucketError) {
+    const msg = bucketError instanceof Error ? bucketError.message : String(bucketError);
+    throw new Error(
+      `Storage bucket setup failed: ${msg}. ` +
+      `The "media" bucket may not exist in your Supabase project. ` +
+      `Run the migration 010_media_bucket.sql or create the bucket manually in Supabase Dashboard → Storage.`
+    );
+  }
 
   const mediaUrls: string[] = [];
   let thumbnailUrl: string | undefined;
@@ -218,12 +254,27 @@ export async function uploadMultipleContentMedia(
         upsert: false,
       });
       if (err) {
-        failures.push(`${file.name}: ${err.message ?? "upload failed"}`);
+        // Provide contextual hint for common errors
+        const msg = err.message ?? "upload failed";
+        const hint = msg.toLowerCase().includes("jwt") || msg.toLowerCase().includes("token")
+          ? " (Check SUPABASE_SERVICE_ROLE_KEY)"
+          : "";
+        failures.push(`${file.name}: ${msg}${hint}`);
         continue;
       }
+      // See note above: `getPublicUrl` never errors, so guard on the value.
       const { data: url } = supabase.storage.from("media").getPublicUrl(path);
-      mediaUrls.push(url.publicUrl);
-      if (isImage && !thumbnailUrl) thumbnailUrl = url.publicUrl;
+
+      if (!url?.publicUrl) {
+        // Fallback URL if public URL generation yields nothing
+        const fallbackUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/media/${path}`;
+        console.warn(`[Storage] getPublicUrl returned no URL for ${path}. Using constructed fallback.`);
+        mediaUrls.push(fallbackUrl);
+        if (isImage && !thumbnailUrl) thumbnailUrl = fallbackUrl;
+      } else {
+        mediaUrls.push(url.publicUrl);
+        if (isImage && !thumbnailUrl) thumbnailUrl = url.publicUrl;
+      }
     } catch (e) {
       failures.push(`${file.name}: ${e instanceof Error ? e.message : String(e)}`);
     }

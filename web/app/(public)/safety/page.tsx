@@ -6,12 +6,12 @@ import { Icon, type IconName } from "@/components/landing/Icon";
 function Feature({ icon, title, children }: { icon: IconName; title: string; children: React.ReactNode }) {
   return (
     <div className="flex gap-3.5">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/15 text-brand-300">
         <Icon name={icon} className="h-5 w-5" />
       </span>
       <div>
         <h3 className="font-semibold text-white">{title}</h3>
-        <p className="text-sm leading-6 text-ink-600">{children}</p>
+        <p className="text-sm leading-6 text-ink-300">{children}</p>
       </div>
     </div>
   );
@@ -28,12 +28,12 @@ export default function SafetyPage() {
 
       <section
         aria-labelledby="lead-heading"
-        className="rounded-2xl border border-danger-200 bg-danger-50 p-6 sm:p-8"
+        className="rounded-2xl border border-danger-500/30 bg-danger-500/10 p-6 sm:p-8"
       >
-        <h2 id="lead-heading" className="max-w-2xl text-xl font-semibold text-danger-900">
+        <h2 id="lead-heading" className="max-w-2xl text-xl font-semibold text-danger-200">
           Never send money to someone you have not met in person.
         </h2>
-        <ul className="mt-3 max-w-2xl space-y-2 text-sm text-danger-800">
+        <ul className="mt-3 max-w-2xl space-y-2 text-sm text-danger-200">
           <li>â€¢ Never share passwords or verification codes â€” Couples Corner staff will never ask for them.</li>
           <li>â€¢ Be cautious of investment, crypto, or gift-card requests, especially early on.</li>
           <li>â€¢ Treat emergency-money stories with skepticism; confirm through another channel if possible.</li>
@@ -73,39 +73,39 @@ export default function SafetyPage() {
         </h2>
         <ul className="grid gap-4 sm:grid-cols-2">
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-ink-600">Keep conversations on Couples Corner until you genuinely trust someone.</span>
+            <span className="text-sm text-ink-300">Keep conversations on Couples Corner until you genuinely trust someone.</span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-ink-600">Video chat first before meeting in person, and always meet in a public place.</span>
+            <span className="text-sm text-ink-300">Video chat first before meeting in person, and always meet in a public place.</span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-ink-600">Tell a friend or partner where you&apos;re going and who you&apos;re meeting.</span>
+            <span className="text-sm text-ink-300">Tell a friend or partner where you&apos;re going and who you&apos;re meeting.</span>
           </li>
           <li className="flex gap-3">
-            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
               <Icon name="check" className="h-3.5 w-3.5" />
             </span>
-            <span className="text-sm text-ink-600">If something feels off, block and report it rather than engaging.</span>
+            <span className="text-sm text-ink-300">If something feels off, block and report it rather than engaging.</span>
           </li>
         </ul>
       </section>
 
-      <section className="rounded-2xl border border-ink-200 bg-surface p-6 sm:p-8">
-        <h2 className="text-lg font-semibold text-ink-900">Need help?</h2>
-        <p className="mt-1 text-sm text-ink-600">
+      <section className="rounded-2xl border border-ink-700 bg-surface p-6 sm:p-8">
+        <h2 className="text-lg font-semibold text-white">Need help?</h2>
+        <p className="mt-1 text-sm text-ink-300">
           Have a specific safety concern? Email{" "}
           <a
             href="mailto:iremidetimmy398@gmail.com"
-            className="text-brand-700 underline decoration-brand-300/50 underline-offset-2"
+            className="text-brand-300 underline decoration-brand-500/50 underline-offset-2"
           >
             iremidetimmy398@gmail.com
           </a>
@@ -114,19 +114,19 @@ export default function SafetyPage() {
             href="https://wa.me/2348075566434"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-brand-700 underline decoration-brand-300/50 underline-offset-2"
+            className="text-brand-300 underline decoration-brand-500/50 underline-offset-2"
           >
             chat with us on WhatsApp
           </a>
           . We read every message and respond promptly.
         </p>
-        <p className="mt-3 text-sm text-ink-600">
+        <p className="mt-3 text-sm text-ink-300">
           You can also review our{" "}
-          <Link href="/legal/terms" className="text-brand-700 underline">
+          <Link href="/legal/terms" className="text-brand-300 underline">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link href="/legal/privacy" className="text-brand-700 underline">
+          <Link href="/legal/privacy" className="text-brand-300 underline">
             Privacy Policy
           </Link>
           .

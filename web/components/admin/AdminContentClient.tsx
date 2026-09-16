@@ -73,9 +73,9 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-ink-200 bg-surface p-3 text-center shadow-sm">
-            <p className="text-2xl font-semibold text-ink-900">{s.value}</p>
-            <p className="text-xs text-ink-600">{s.label}</p>
+          <div key={s.label} className="rounded-2xl border border-ink-700 bg-surface p-3 text-center shadow-sm">
+            <p className="text-2xl font-semibold text-white">{s.value}</p>
+            <p className="text-xs text-ink-300">{s.label}</p>
           </div>
         ))}
       </div>
@@ -91,8 +91,8 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
             className={[
               "rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
               activeTab === cat
-                ? "border-brand-600 bg-brand-100 text-brand-800"
-                : "border-ink-200 bg-surface text-ink-700 hover:bg-surface-muted",
+                ? "border-brand-600 bg-brand-500/15 text-brand-200"
+                : "border-ink-700 bg-surface text-ink-200 hover:bg-surface-muted",
             ].join(" ")}
           >
             {CATEGORY_LABELS[cat]}
@@ -106,7 +106,7 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-800"
+            className="h-10 rounded-xl border border-ink-700 bg-surface px-3 text-sm text-ink-100"
             aria-label="Filter by status"
           >
             <option value="">All statuses</option>
@@ -120,7 +120,7 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
           <select
             value={placementFilter}
             onChange={(e) => setPlacementFilter(e.target.value)}
-            className="h-10 rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-800"
+            className="h-10 rounded-xl border border-ink-700 bg-surface px-3 text-sm text-ink-100"
             aria-label="Filter by placement"
           >
             <option value="">All placements</option>
@@ -140,11 +140,11 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
 
       {/* Content list */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ink-200 bg-surface-muted px-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ink-700 bg-surface-muted px-6 py-16 text-center">
           <Icon name="moments" className="h-10 w-10 text-ink-400" />
           <div>
-            <p className="text-lg font-semibold text-ink-900">No {CATEGORY_LABELS[activeTab].toLowerCase()} yet</p>
-            <p className="mt-1 text-sm text-ink-600">
+            <p className="text-lg font-semibold text-white">No {CATEGORY_LABELS[activeTab].toLowerCase()} yet</p>
+            <p className="mt-1 text-sm text-ink-300">
               {statusFilter || placementFilter
                 ? "No content matches these filters. Try clearing them."
                 : "Admins can upload photos, videos, announcements and advertisements to appear in designated slots."}
@@ -155,19 +155,19 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-ink-200 bg-surface">
+        <div className="overflow-hidden rounded-2xl border border-ink-700 bg-surface">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-ink-200 bg-surface-muted">
+              <thead className="border-b border-ink-700 bg-surface-muted">
                 <tr>
-                  <th className="px-4 py-3 font-medium text-ink-700">Content</th>
-                  <th className="hidden px-4 py-3 font-medium text-ink-700 sm:table-cell">Status</th>
-                  <th className="hidden px-4 py-3 font-medium text-ink-700 md:table-cell">Placement</th>
-                  <th className="hidden px-4 py-3 font-medium text-ink-700 lg:table-cell">Schedule</th>
-                  <th className="px-4 py-3 font-medium text-ink-700">Actions</th>
+                  <th className="px-4 py-3 font-medium text-ink-200">Content</th>
+                  <th className="hidden px-4 py-3 font-medium text-ink-200 sm:table-cell">Status</th>
+                  <th className="hidden px-4 py-3 font-medium text-ink-200 md:table-cell">Placement</th>
+                  <th className="hidden px-4 py-3 font-medium text-ink-200 lg:table-cell">Schedule</th>
+                  <th className="px-4 py-3 font-medium text-ink-200">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-200">
+              <tbody className="divide-y divide-ink-700">
                 {filtered.map((item) => (
                   <ContentRow key={item.id} item={item} onEdit={handleEdit} adminUid={adminUid} />
                 ))}

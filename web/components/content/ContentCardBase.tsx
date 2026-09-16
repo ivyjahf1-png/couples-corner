@@ -27,7 +27,7 @@ function MediaGallery({ item, featureMedia }: { item: ContentItem; featureMedia:
               alt={`${item.title} — media ${i + 1}`}
               loading="lazy"
               className={[
-                "w-full rounded-xl border border-ink-200 bg-surface-muted object-cover",
+                "w-full rounded-xl border border-ink-700 bg-surface-muted object-cover",
                 featureMedia ? "aspect-[16/9]" : "aspect-video",
               ].join(" ")}
             />
@@ -42,7 +42,7 @@ function MediaGallery({ item, featureMedia }: { item: ContentItem; featureMedia:
             controls
             preload="metadata"
             playsInline
-            className="w-full rounded-xl border border-ink-200 bg-ink-900 object-contain"
+            className="w-full rounded-xl border border-ink-700 bg-ink-900 object-contain"
           />
         );
       })}
@@ -72,15 +72,15 @@ export function ContentCardBase({
   return (
     <article
       className={[
-        "overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-card",
+        "overflow-hidden rounded-2xl border border-ink-700 bg-surface shadow-card",
         className ?? "",
       ].join(" ").trim()}
     >
       <div className="flex flex-col gap-3 p-5">
         <Chip tone="brand">{LABEL[item.category]}</Chip>
-        <h3 className="text-lg font-semibold text-ink-900">{item.title}</h3>
+        <h3 className="text-lg font-semibold text-white">{item.title}</h3>
         {item.description ? (
-          <p className="text-sm leading-6 text-ink-600">{item.description}</p>
+          <p className="text-sm leading-6 text-ink-300">{item.description}</p>
         ) : null}
 
         <MediaGallery item={item} featureMedia={featureMedia} />

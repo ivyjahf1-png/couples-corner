@@ -32,14 +32,14 @@ function BirthdayStep({ value, onChange, onConfirm }: { value: string; onChange:
   const isValid = /^\d{4}-\d{2}-\d{2}$/.test(value);
   return (
     <div className="flex flex-col items-center gap-6 px-2">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-100">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-500/15">
         <Icon name="sparkle" className="h-8 w-8 text-brand-500" />
       </div>
-      <h2 className="text-2xl font-semibold tracking-display text-ink-900">Nice to meet you!</h2>
-      <p className="text-center text-ink-500">What is your birthday?</p>
+      <h2 className="text-2xl font-semibold tracking-display text-white">Nice to meet you!</h2>
+      <p className="text-center text-ink-400">What is your birthday?</p>
       <div className="w-full max-w-xs">
         <label htmlFor="dob" className="sr-only">Birthday</label>
-        <input id="dob" type="date" value={value} onChange={(e) => onChange(e.target.value)} className="h-12 w-full rounded-xl border border-ink-300 bg-white px-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        <input id="dob" type="date" value={value} onChange={(e) => onChange(e.target.value)} className="h-12 w-full rounded-xl border border-ink-600 bg-white/5 px-4 text-sm text-white placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
       </div>
       <Button fullWidth disabled={!isValid} onClick={onConfirm}>Confirm</Button>
     </div>
@@ -95,12 +95,12 @@ function PersonalInfoStep({ data, onUpdate, onBack, onComplete, saving, error }:
 
   return (
     <div className="flex flex-col items-center gap-5 px-2">
-      <h2 className="text-2xl font-semibold tracking-display text-ink-900">Perfecting Personal Information</h2>
-      <p className="text-center text-sm text-ink-500">Set up your profile so others can get to know you.</p>
+      <h2 className="text-2xl font-semibold tracking-display text-white">Perfecting Personal Information</h2>
+      <p className="text-center text-sm text-ink-400">Set up your profile so others can get to know you.</p>
       <div className="flex flex-col items-center gap-3">
         <div className="relative">
           {data.avatarUrl ? (
-            <img src={data.avatarUrl} alt={data.displayName} className="h-20 w-20 rounded-full object-cover ring-2 ring-brand-200" />
+            <img src={data.avatarUrl} alt={data.displayName} className="h-20 w-20 rounded-full object-cover ring-2 ring-brand-500/40" />
           ) : (
             <Avatar name={data.displayName || "U"} size="xl" />
           )}
@@ -114,24 +114,24 @@ function PersonalInfoStep({ data, onUpdate, onBack, onComplete, saving, error }:
           {data.avatarUrl ? "Replace photo" : "Upload photo"}
         </Button>
         <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handleFileSelect} aria-label="Profile photo" />
-        {uploadError && <p className="text-xs text-danger-600">{uploadError}</p>}
+        {uploadError && <p className="text-xs text-danger-400">{uploadError}</p>}
       </div>
       <div className="w-full">
-        <label htmlFor="nickname" className="mb-1.5 block text-sm font-medium text-ink-700">Nickname</label>
-        <input id="nickname" type="text" value={data.displayName} onChange={(e) => onUpdate("displayName", e.target.value)} placeholder="How should we greet you?" maxLength={60} className="h-11 w-full rounded-xl border border-ink-300 bg-white px-3.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200" />
+        <label htmlFor="nickname" className="mb-1.5 block text-sm font-medium text-ink-200">Nickname</label>
+        <input id="nickname" type="text" value={data.displayName} onChange={(e) => onUpdate("displayName", e.target.value)} placeholder="How should we greet you?" maxLength={60} className="h-11 w-full rounded-xl border border-ink-600 bg-white/5 px-3.5 text-sm text-white placeholder:text-ink-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40" />
       </div>
       <div className="w-full">
-        <label className="mb-1.5 block text-sm font-medium text-ink-700">Gender</label>
+        <label className="mb-1.5 block text-sm font-medium text-ink-200">Gender</label>
         <div className="grid grid-cols-2 gap-3">
-          <button type="button" onClick={() => onUpdate("gender", "male")} className={"flex h-11 items-center justify-center rounded-xl border text-sm font-medium transition " + (data.gender === "male" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-300 bg-white text-ink-600 hover:border-ink-400")}>Male</button>
-          <button type="button" onClick={() => onUpdate("gender", "female")} className={"flex h-11 items-center justify-center rounded-xl border text-sm font-medium transition " + (data.gender === "female" ? "border-brand-500 bg-brand-50 text-brand-700" : "border-ink-300 bg-white text-ink-600 hover:border-ink-400")}>Female</button>
+          <button type="button" onClick={() => onUpdate("gender", "male")} className={"flex h-11 items-center justify-center rounded-xl border text-sm font-medium transition " + (data.gender === "male" ? "border-brand-500 bg-brand-500/10 text-brand-300" : "border-ink-600 bg-white/5 text-ink-300 hover:border-ink-500")}>Male</button>
+          <button type="button" onClick={() => onUpdate("gender", "female")} className={"flex h-11 items-center justify-center rounded-xl border text-sm font-medium transition " + (data.gender === "female" ? "border-brand-500 bg-brand-500/10 text-brand-300" : "border-ink-600 bg-white/5 text-ink-300 hover:border-ink-500")}>Female</button>
         </div>
       </div>
       <div className="w-full">
-        <label className="mb-1.5 block text-sm font-medium text-ink-700">Birthday</label>
-        <div className="flex h-11 items-center rounded-xl border border-ink-200 bg-ink-50 px-3.5 text-sm text-ink-600">{data.dateOfBirth || "Not set"}</div>
+        <label className="mb-1.5 block text-sm font-medium text-ink-200">Birthday</label>
+        <div className="flex h-11 items-center rounded-xl border border-ink-700 bg-white/5 px-3.5 text-sm text-ink-300">{data.dateOfBirth || "Not set"}</div>
       </div>
-      {error && (<div role="alert" className="w-full rounded-xl border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">{error}</div>)}
+      {error && (<div role="alert" className="w-full rounded-xl border border-danger-500/40 bg-danger-500/10 px-4 py-3 text-sm text-danger-300">{error}</div>)}
       <div className="flex w-full gap-3">
         <Button variant="secondary" fullWidth onClick={onBack}>Back</Button>
         <Button fullWidth disabled={!canComplete || saving} onClick={onComplete}>{saving ? "Saving..." : "Next"}</Button>
@@ -169,11 +169,11 @@ export function OnboardingFlow({ uid, email }: { uid: string; email: string }) {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-ink-200 bg-surface p-8 shadow-card">
+    <div className="app-canvas flex min-h-dvh flex-col items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-surface p-8 shadow-card">
         <div className="mb-8 flex items-center gap-3">
-          <div className={"h-2 flex-1 rounded-full transition " + (step >= 1 ? "bg-brand-500" : "bg-ink-200")} />
-          <div className={"h-2 flex-1 rounded-full transition " + (step >= 2 ? "bg-brand-500" : "bg-ink-200")} />
+          <div className={"h-2 flex-1 rounded-full transition " + (step >= 1 ? "bg-brand-500" : "bg-white/15")} />
+          <div className={"h-2 flex-1 rounded-full transition " + (step >= 2 ? "bg-brand-500" : "bg-white/15")} />
         </div>
         {step === 1 ? (
           <BirthdayStep value={data.dateOfBirth} onChange={(v) => updateField("dateOfBirth", v)} onConfirm={() => setStep(2)} />

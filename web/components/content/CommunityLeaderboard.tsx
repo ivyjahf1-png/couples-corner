@@ -25,7 +25,7 @@ export async function CommunityLeaderboard({ limit = 10 }: { limit?: number }) {
           <h2 className="text-3xl font-bold tracking-display text-foreground sm:text-4xl">
             Top connections this week
           </h2>
-          <p className="text-lg leading-8 text-ink-500">
+          <p className="text-lg leading-8 text-ink-400">
             The most-active couples and individuals leading the community.
           </p>
         </div>
@@ -75,7 +75,7 @@ function LeaderboardCard({
         <p className="truncate text-sm font-semibold text-foreground">
           {profile.name ?? "Member"}
         </p>
-        <p className="truncate text-xs text-ink-500">
+        <p className="truncate text-xs text-ink-400">
           {profile.kind === "couple" ? "Couple" : "Individual"}
           {profile.location ? ` · ${profile.location}` : ""}
         </p>

@@ -100,7 +100,7 @@ function LoginModalContent({ onClose }: { onClose: () => void }) {
             onClick={() =>
               window.dispatchEvent(new CustomEvent(AUTH_MODAL_EVENT, { detail: { which: "register" } }))
             }
-            className="font-semibold text-brand-700 hover:underline"
+            className="font-semibold text-brand-300 hover:underline"
           >
             Create an account
           </button>
@@ -110,7 +110,7 @@ function LoginModalContent({ onClose }: { onClose: () => void }) {
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 text-ink-500 hover:text-ink-900"
+        className="absolute top-4 right-4 text-ink-400 hover:text-white"
         aria-label="Close"
       >
         ✕
@@ -118,7 +118,7 @@ function LoginModalContent({ onClose }: { onClose: () => void }) {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {error ? <FormAlert message={error} /> : null}
         {info ? (
-          <div role="status" className="rounded-xl border border-success-300 bg-success-100 px-4 py-3 text-sm text-success-700">
+          <div role="status" className="rounded-xl border border-success-500/40 bg-success-500/15 px-4 py-3 text-sm text-success-300">
             {info}
           </div>
         ) : null}
@@ -129,12 +129,12 @@ function LoginModalContent({ onClose }: { onClose: () => void }) {
         </Button>
       </form>
       <div className="my-5 flex items-center gap-3" role="presentation">
-        <span className="h-px flex-1 bg-ink-200" />
-        <span className="text-xs text-ink-500">or</span>
-        <span className="h-px flex-1 bg-ink-200" />
+        <span className="h-px flex-1 bg-white/15" />
+        <span className="text-xs text-ink-400">or</span>
+        <span className="h-px flex-1 bg-white/15" />
       </div>
             <form onSubmit={handleEmailLink} className="flex flex-col gap-3" noValidate>
-        <p className="text-xs leading-5 text-ink-600">
+        <p className="text-xs leading-5 text-ink-300">
           Prefer no password? We can email you a one-time sign-in link.
         </p>
         <Field id="link-email" label="Email for sign-in link" type="email" autoComplete="email" placeholder="you@example.com" />
@@ -204,7 +204,7 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
             onClick={() =>
               window.dispatchEvent(new CustomEvent(AUTH_MODAL_EVENT, { detail: { which: "login" } }))
             }
-            className="font-semibold text-brand-700 hover:underline"
+            className="font-semibold text-brand-300 hover:underline"
           >
             Sign in
           </button>
@@ -214,7 +214,7 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
       <button
         type="button"
         onClick={onClose}
-        className="absolute top-4 right-4 text-ink-500 hover:text-ink-900"
+        className="absolute top-4 right-4 text-ink-400 hover:text-white"
         aria-label="Close"
       >
         ✕
@@ -228,9 +228,9 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
         <Button type="submit" fullWidth disabled={submitting}>
           {submitting ? "Creating your account…" : "Create account"}
         </Button>
-        <p className="text-center text-xs leading-5 text-ink-500">
-          By creating an account you agree to our <Link href="/legal/terms" className="underline hover:text-ink-700">Terms</Link> and{" "}
-                    <Link href="/legal/privacy" className="underline hover:text-ink-700">Privacy Policy</Link>.
+        <p className="text-center text-xs leading-5 text-ink-400">
+          By creating an account you agree to our <Link href="/legal/terms" className="underline hover:text-ink-200">Terms</Link> and{" "}
+                    <Link href="/legal/privacy" className="underline hover:text-ink-200">Privacy Policy</Link>.
         </p>
       </form>
     </AuthShell>

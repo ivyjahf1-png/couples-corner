@@ -47,7 +47,7 @@ export function ConnectionActions({
         onRemove={() => run(() => removeConnectionAction(requestId ?? ""))}
       />
       {error ? (
-        <p role="alert" className="text-xs text-danger-700">
+        <p role="alert" className="text-xs text-danger-300">
           {error}
         </p>
       ) : null}

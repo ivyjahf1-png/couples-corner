@@ -83,7 +83,7 @@ export function SessionsList({ initialSessions }: { initialSessions: SecuritySes
   return (
     <div className="w-full">
       <div className="flex items-center justify-between gap-3 px-5 py-4">
-        <p className="text-sm text-ink-600">
+        <p className="text-sm text-ink-300">
           {sessions.filter((s) => !s.revoked).length} device
           {sessions.filter((s) => !s.revoked).length === 1 ? "" : "s"} signed in
         </p>
@@ -95,11 +95,11 @@ export function SessionsList({ initialSessions }: { initialSessions: SecuritySes
       </div>
 
       {sessions.length === 0 ? (
-        <p className="px-5 pb-5 text-sm text-ink-600">
+        <p className="px-5 pb-5 text-sm text-ink-300">
           No device sessions recorded yet. They appear here as you sign in on each device.
         </p>
       ) : (
-        <ul className="divide-y divide-ink-200 border-t border-ink-200">
+        <ul className="divide-y divide-ink-700 border-t border-ink-700">
           {sessions.map((session) => (
             <li
               key={session.id}
@@ -109,14 +109,14 @@ export function SessionsList({ initialSessions }: { initialSessions: SecuritySes
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate text-sm font-medium text-ink-900">{session.device}</p>
+                  <p className="truncate text-sm font-medium text-white">{session.device}</p>
                   {session.isCurrent ? (
                     <Chip tone="success" leadingDot>
                       This device
                     </Chip>
                   ) : null}
                 </div>
-                <p className="mt-0.5 text-sm text-ink-600">
+                <p className="mt-0.5 text-sm text-ink-300">
                   Active {timeAgo(session.lastSeenAt)}
                   {session.ip ? ` · ${session.ip}` : ""}
                   {session.revoked ? " · signed out" : ""}
@@ -140,7 +140,7 @@ export function SessionsList({ initialSessions }: { initialSessions: SecuritySes
       )}
 
       {error ? (
-        <p className="px-5 pb-4 text-xs font-medium text-danger-700" role="alert">
+        <p className="px-5 pb-4 text-xs font-medium text-danger-300" role="alert">
           {error}
         </p>
       ) : null}

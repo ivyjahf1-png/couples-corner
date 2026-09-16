@@ -3,7 +3,7 @@
 export default function TermsPage() {
   return (
     <PlaceholderPage title="Terms of Service">
-      <p className="max-w-lg text-ink-700 text-lg leading-8">
+      <p className="max-w-lg text-ink-200 text-lg leading-8">
         Terms of service. Not written yet.
       </p>
     </PlaceholderPage>

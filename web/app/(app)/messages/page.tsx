@@ -46,7 +46,7 @@ export default async function MessagesPage() {
           title="No conversations yet"
           body="Once you connect with someone, you can start a private conversation from their profile."
           action={
-            <Link href="/discover" className="text-sm font-medium text-brand-700 hover:underline">
+            <Link href="/discover" className="text-sm font-medium text-brand-300 hover:underline">
               Discover people
             </Link>
           }
@@ -61,29 +61,29 @@ export default async function MessagesPage() {
               </label>
               <Icon
                 name="search"
-                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500"
+                className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400"
               />
               <input
                 id="conversation-search"
                 type="search"
                 placeholder="Search conversations…"
-                className="h-10 w-full rounded-xl border border-ink-200 bg-surface pl-10 pr-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+                className="h-10 w-full rounded-xl border border-ink-700 bg-surface pl-10 pr-4 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
               />
             </div>
 
-            <Card padding="none" className="divide-y divide-ink-200 overflow-hidden">
+            <Card padding="none" className="divide-y divide-ink-700 overflow-hidden">
               {views.map((conversation) => (
                 <Link
                   key={conversation.id}
                   href={`/messages/${conversation.id}`}
                   className="flex items-center gap-3 px-4 py-3 transition hover:bg-surface-muted"
                 >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-sm font-bold text-brand-300">
                     {conversation.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-ink-900">{conversation.name}</p>
-                    <p className="truncate text-xs text-ink-500">
+                    <p className="truncate text-sm font-medium text-white">{conversation.name}</p>
+                    <p className="truncate text-xs text-ink-400">
                       {conversation.lastMessage ?? "No messages yet"}
                     </p>
                   </div>

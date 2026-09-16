@@ -25,7 +25,7 @@ export function InterestFields({ formData, updateField, errors }: FieldGroupProp
 
   return (
     <Card as="section" className="flex flex-col gap-4" aria-label="Interests">
-      <h2 className="font-semibold text-ink-900">Interests</h2>
+      <h2 className="font-semibold text-white">Interests</h2>
       <div className="flex gap-2">
         <input
           type="text"
@@ -39,23 +39,23 @@ export function InterestFields({ formData, updateField, errors }: FieldGroupProp
             }
           }}
           maxLength={30}
-          className="h-10 flex-1 rounded-xl border border-ink-200 bg-surface px-4 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+          className="h-10 flex-1 rounded-xl border border-ink-700 bg-surface px-4 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
           placeholder="e.g. Hiking"
         />
         <button
           type="button"
-          className="rounded-xl border border-brand-700 bg-brand-100 px-4 text-sm font-medium text-brand-800 hover:bg-brand-200"
+          className="rounded-xl border border-brand-500/60 bg-brand-500/15 px-4 text-sm font-medium text-brand-200 hover:bg-brand-500/20"
           onClick={() => { addInterest(input); setInput(""); }}
         >Add</button>
       </div>
-      {errors?.interests ? <p className="text-xs text-danger-700">{errors.interests}</p> : null}
+      {errors?.interests ? <p className="text-xs text-danger-300">{errors.interests}</p> : null}
       <div className="flex flex-wrap gap-2">
         {formData.interests.map((interest) => (
-          <span key={interest} className="inline-flex items-center gap-1 rounded-full bg-ink-100 px-2.5 py-1 text-xs font-medium text-ink-700">
+          <span key={interest} className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-ink-200">
             {interest}
             <button
               type="button"
-              className="rounded-full p-0.5 text-ink-500 hover:bg-ink-200"
+              className="rounded-full p-0.5 text-ink-400 hover:bg-white/15"
               onClick={() => updateField("interests", formData.interests.filter((i) => i !== interest))}
               aria-label={`Remove ${interest}`}
             >
@@ -70,7 +70,7 @@ export function InterestFields({ formData, updateField, errors }: FieldGroupProp
             <button
               key={suggestion}
               type="button"
-              className="rounded-full border border-ink-200 bg-surface px-3 py-1.5 text-xs font-medium text-ink-700 transition hover:border-ink-300 hover:bg-surface-muted"
+              className="rounded-full border border-ink-700 bg-surface px-3 py-1.5 text-xs font-medium text-ink-200 transition hover:border-ink-600 hover:bg-surface-muted"
               onClick={() => updateField("interests", [...formData.interests, suggestion])}
             >+ {suggestion}</button>
           ))}

@@ -190,7 +190,8 @@ export async function requireAdminDev(): Promise<SessionUser> {
 
   // Production: require a real authenticated admin session
   if (!user) {
-    redirect("/");
+    // Cleanly send unauthenticated visitors to the login page.
+    redirect("/login");
   }
   if (user.role !== "admin") {
     notFound();

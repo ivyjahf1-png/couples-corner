@@ -73,15 +73,15 @@ export function ReportDialog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="report-dialog-title"
-            className="w-full max-w-md rounded-2xl border border-ink-200 bg-surface p-6 shadow-floating"
+            className="w-full max-w-md rounded-2xl border border-ink-700 bg-surface p-6 shadow-floating"
             onClick={(event) => event.stopPropagation()}
           >
             {submitted ? (
               <div className="flex flex-col gap-3 text-center">
-                <h2 id="report-dialog-title" className="text-lg font-semibold text-ink-900">
+                <h2 id="report-dialog-title" className="text-lg font-semibold text-white">
                   Thank you
                 </h2>
-                <p className="text-sm leading-6 text-ink-600">
+                <p className="text-sm leading-6 text-ink-300">
                   Your report about {targetLabel} has been recorded for review. The person you
                   reported won&apos;t be told who filed it.
                 </p>
@@ -92,25 +92,25 @@ export function ReportDialog({
             ) : (
               <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
                 <div>
-                  <h2 id="report-dialog-title" className="text-lg font-semibold text-ink-900">
+                  <h2 id="report-dialog-title" className="text-lg font-semibold text-white">
                     Report {targetLabel}
                   </h2>
-                  <p className="mt-1 text-sm text-ink-600">
+                  <p className="mt-1 text-sm text-ink-300">
                     Reports are confidential and help keep Couples Corner safe.
                   </p>
                 </div>
 
                 <fieldset className="flex flex-col gap-2">
-                  <legend className="text-sm font-medium text-ink-800">Reason</legend>
+                  <legend className="text-sm font-medium text-ink-100">Reason</legend>
                   {REPORT_REASONS.map((option) => (
-                    <label key={option} className="flex items-center gap-2.5 text-sm text-ink-700">
+                    <label key={option} className="flex items-center gap-2.5 text-sm text-ink-200">
                       <input
                         type="radio"
                         name="report-reason"
                         value={option}
                         checked={reason === option}
                         onChange={() => setReason(option)}
-                        className="h-4 w-4 accent-brand-700"
+                        className="h-4 w-4 accent-brand-500"
                       />
                       {option}
                     </label>
@@ -118,20 +118,20 @@ export function ReportDialog({
                 </fieldset>
 
                 <div>
-                  <label htmlFor="report-details" className="text-sm font-medium text-ink-800">
-                    Additional details <span className="font-normal text-ink-500">(optional)</span>
+                  <label htmlFor="report-details" className="text-sm font-medium text-ink-100">
+                    Additional details <span className="font-normal text-ink-400">(optional)</span>
                   </label>
                   <textarea
                     id="report-details"
                     rows={3}
                     value={details}
                     onChange={(event) => setDetails(event.target.value)}
-                    className="mt-1 w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+                    className="mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
                     placeholder="Tell us what happened…"
                   />
                 </div>
 
-                {error ? <p className="text-sm text-danger-700">{error}</p> : null}
+                {error ? <p className="text-sm text-danger-300">{error}</p> : null}
 
                 <div className="flex justify-end gap-2">
                   <Button size="sm" type="button" variant="secondary" onClick={close} disabled={busy}>

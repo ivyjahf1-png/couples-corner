@@ -85,11 +85,11 @@ export function ConfirmationDialog({
           aria-modal="true"
           aria-labelledby={titleId}
           aria-describedby={bodyId}
-          className="w-full max-w-md rounded-2xl border border-ink-200 bg-surface p-6 shadow-floating"
+          className="w-full max-w-md rounded-2xl border border-ink-700 bg-surface p-6 shadow-floating"
           onClick={(event) => event.stopPropagation()}
         >
-          <h2 id={titleId} className="text-lg font-semibold text-ink-900">{title}</h2>
-          <div id={bodyId} className="mt-2 text-sm leading-6 text-ink-600">{body}</div>
+          <h2 id={titleId} className="text-lg font-semibold text-white">{title}</h2>
+          <div id={bodyId} className="mt-2 text-sm leading-6 text-ink-300">{body}</div>
           <div className="mt-6 flex justify-end gap-2">
             <Button
               size="sm"

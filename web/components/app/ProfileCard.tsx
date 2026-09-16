@@ -20,7 +20,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
         : "New";
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-ink-200 bg-surface p-5 shadow-card transition duration-150 hover:border-ink-300 hover:shadow-lifted">
+    <article className="flex flex-col gap-4 rounded-2xl border border-ink-700 bg-surface p-5 shadow-card transition duration-150 hover:border-ink-600 hover:shadow-lifted">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           {profile.avatarUrl ? (
@@ -33,8 +33,8 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
             <Avatar name={profile.name} kind={profile.kind} size="md" />
           )}
           <div className="min-w-0">
-            <h3 className="truncate font-semibold text-ink-900">{profile.name}</h3>
-            <p className="truncate text-sm text-ink-600">{profile.location}</p>
+            <h3 className="truncate font-semibold text-white">{profile.name}</h3>
+            <p className="truncate text-sm text-ink-300">{profile.location}</p>
           </div>
         </div>
         <Chip tone={profile.connection === "connected" ? "success" : statusLabel === "Requested" ? "brand" : "neutral"}>
@@ -42,7 +42,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
         </Chip>
       </div>
 
-      <p className="text-sm leading-6 text-ink-600">{profile.bio}</p>
+      <p className="text-sm leading-6 text-ink-300">{profile.bio}</p>
 
       <ul className="flex flex-wrap gap-1.5" aria-label="Interests">
         {profile.interests.map((interest) => (
@@ -54,7 +54,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-1">
         {typeof profile.sharedInterests === "number" ? (
-          <span className="text-xs font-medium text-brand-700">
+          <span className="text-xs font-medium text-brand-300">
             {profile.sharedInterests} shared interest{profile.sharedInterests === 1 ? "" : "s"}
           </span>
         ) : (

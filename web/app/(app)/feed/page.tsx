@@ -54,7 +54,7 @@ export default async function FeedPage() {
       {/* Create-post composer (visual until Firebase) */}
       <Card className="flex flex-col gap-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
             <Icon name="plus" className="h-5 w-5" />
           </span>
           <label htmlFor="new-post" className="sr-only">
@@ -64,14 +64,14 @@ export default async function FeedPage() {
             id="new-post"
             rows={2}
             placeholder="Share a moment with your connections…"
-            className="flex-1 resize-none rounded-xl border border-ink-200 bg-surface px-4 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+            className="flex-1 resize-none rounded-xl border border-ink-700 bg-surface px-4 py-2.5 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
           />
         </div>
-        <div className="flex items-center justify-between border-t border-ink-200 pt-3">
-          <div className="flex items-center gap-2 text-sm text-ink-600">
+        <div className="flex items-center justify-between border-t border-ink-700 pt-3">
+          <div className="flex items-center gap-2 text-sm text-ink-300">
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 hover:bg-ink-100"
+              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 hover:bg-white/10"
               aria-label="Add photo"
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
@@ -86,14 +86,14 @@ export default async function FeedPage() {
             Post
           </Button>
         </div>
-        <p className="text-xs text-ink-500">
+        <p className="text-xs text-ink-400">
           Composer preview — posting and media uploads arrive with Firebase.
         </p>
       </Card>
 
             {/* Sponsored / featured content */}
       <div className="flex flex-col gap-3">
-        <h2 className="text-lg font-semibold text-ink-900">Sponsored</h2>
+        <h2 className="text-lg font-semibold text-white">Sponsored</h2>
         <ContentSlot placement="feed" limit={10} />
       </div>
 

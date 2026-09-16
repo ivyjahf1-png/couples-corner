@@ -33,8 +33,8 @@ export default async function MatchesPage() {
 
         {/* Incoming requests */}
         <section aria-labelledby="incoming-heading" className="flex flex-col gap-4">
-          <h2 id="incoming-heading" className="font-semibold text-ink-900">
-            Incoming requests <span className="text-ink-500">({overview.incoming.length})</span>
+          <h2 id="incoming-heading" className="font-semibold text-white">
+            Incoming requests <span className="text-ink-400">({overview.incoming.length})</span>
           </h2>
           {overview.incoming.length === 0 ? (
             <EmptyState
@@ -43,13 +43,13 @@ export default async function MatchesPage() {
               body="When someone sends you a connection request, it appears here for you to accept or decline."
             />
           ) : (
-            <Card padding="none" className="divide-y divide-ink-200">
+            <Card padding="none" className="divide-y divide-ink-700">
               {overview.incoming.map((request) => (
                 <div key={request.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
                   <Avatar name={request.name} kind={request.kind} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-ink-900">{request.name}</p>
-                    <p className="truncate text-sm text-ink-600">{request.location}</p>
+                    <p className="truncate font-semibold text-white">{request.name}</p>
+                    <p className="truncate text-sm text-ink-300">{request.location}</p>
                   </div>
                   <IncomingRequestActions requestId={request.id} />
                 </div>
@@ -60,8 +60,8 @@ export default async function MatchesPage() {
 
         {/* Outgoing (sent) requests */}
         <section aria-labelledby="outgoing-heading" className="flex flex-col gap-4">
-          <h2 id="outgoing-heading" className="font-semibold text-ink-900">
-            Sent requests <span className="text-ink-500">({overview.outgoing.length})</span>
+          <h2 id="outgoing-heading" className="font-semibold text-white">
+            Sent requests <span className="text-ink-400">({overview.outgoing.length})</span>
           </h2>
           {overview.outgoing.length === 0 ? (
             <EmptyState
@@ -70,7 +70,7 @@ export default async function MatchesPage() {
               body="Requests you send to others will be listed here until they're answered."
             />
           ) : (
-            <Card padding="none" className="divide-y divide-ink-200">
+            <Card padding="none" className="divide-y divide-ink-700">
               {overview.outgoing.map((request) => (
                 <OutgoingRequestRow key={request.id} person={request} />
               ))}
@@ -80,8 +80,8 @@ export default async function MatchesPage() {
 
         {/* Accepted connections */}
         <section aria-labelledby="connected-heading" className="flex flex-col gap-4">
-          <h2 id="connected-heading" className="font-semibold text-ink-900">
-            Connected <span className="text-ink-500">({overview.connected.length})</span>
+          <h2 id="connected-heading" className="font-semibold text-white">
+            Connected <span className="text-ink-400">({overview.connected.length})</span>
           </h2>
           {overview.connected.length === 0 ? (
             <EmptyState
@@ -91,13 +91,13 @@ export default async function MatchesPage() {
               action={<Button href="/discover">Find people</Button>}
             />
           ) : (
-            <Card padding="none" className="divide-y divide-ink-200">
+            <Card padding="none" className="divide-y divide-ink-700">
               {overview.connected.map((connection) => (
                 <div key={connection.id} className="flex flex-wrap items-center gap-3 px-5 py-4">
                   <Avatar name={connection.name} kind={connection.kind} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold text-ink-900">{connection.name}</p>
-                    <p className="truncate text-sm text-ink-600">{connection.location}</p>
+                    <p className="truncate font-semibold text-white">{connection.name}</p>
+                    <p className="truncate text-sm text-ink-300">{connection.location}</p>
                   </div>
                   <Button size="sm" variant="secondary" href="/messages">Message</Button>
                 </div>

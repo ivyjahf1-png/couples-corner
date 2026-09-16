@@ -28,8 +28,8 @@ export function BlockedRowClient({
     <div className="flex items-center gap-3 px-5 py-3.5">
       <Avatar name={entry.displayName} kind={entry.kind} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-ink-900">{entry.displayName}</p>
-        <p className="truncate text-sm text-ink-600">
+        <p className="truncate font-semibold text-white">{entry.displayName}</p>
+        <p className="truncate text-sm text-ink-300">
           {entry.blockedAt && new Date(entry.blockedAt).toLocaleDateString()}
         </p>
       </div>

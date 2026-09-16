@@ -15,8 +15,8 @@ export function MessageBubble({ message }: { message: MessageView }) {
           "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
           mine
             ? "rounded-br-md bg-brand-700 text-white"
-            : "rounded-bl-md border border-ink-200 bg-surface text-ink-900",
-          message.status === "failed" ? "border-danger-300" : "",
+            : "rounded-bl-md border border-ink-700 bg-surface text-white",
+          message.status === "failed" ? "border-danger-500/40" : "",
         ].join(" ").trim()}
       >
         {message.body}
@@ -24,7 +24,7 @@ export function MessageBubble({ message }: { message: MessageView }) {
           aria-hidden
           className={[
             "mt-1 flex items-center gap-1.5 text-[11px]",
-            mine ? "text-white/70" : "text-ink-500",
+            mine ? "text-white/70" : "text-ink-400",
           ].join(" ").trim()}
         >
           {message.status === "sending" ? <DotLoader /> : null}

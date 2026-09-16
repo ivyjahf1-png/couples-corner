@@ -9,7 +9,7 @@ import { Logo } from "@/components/ui/Logo";
  */
 export default function RootLoading() {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+    <div className="app-canvas fixed inset-0 z-50 flex flex-col items-center justify-center">
       <div className="mb-6">
         <Logo as="div" />
       </div>
@@ -18,7 +18,7 @@ export default function RootLoading() {
         <span className="dot" />
         <span className="dot" />
       </div>
-      <p className="mt-4 text-sm text-ink-500">Loading your corner…</p>
+      <p className="mt-4 text-sm text-ink-400">Loading your corner…</p>
     </div>
   );
 }

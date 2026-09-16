@@ -41,9 +41,9 @@ function AdvertCard({ item }: { item: ContentItem }) {
   const isExternal = item.destinationUrl?.startsWith("http");
 
   const cardContent = (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-200 bg-surface shadow-card transition hover:shadow-lifted">
+    <div className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-ink-700 bg-surface shadow-card transition hover:shadow-lifted">
       {/* Media */}
-      <div className="relative aspect-video w-full overflow-hidden bg-ink-100">
+      <div className="relative aspect-video w-full overflow-hidden bg-white/10">
         {item.mediaType === "video" ? (
           <video
             src={item.mediaUrl}
@@ -73,16 +73,16 @@ function AdvertCard({ item }: { item: ContentItem }) {
 
       {/* Body */}
       <div className="flex flex-1 flex-col gap-2 p-5">
-        <h3 className="text-base font-semibold leading-6 text-ink-900 line-clamp-2">
+        <h3 className="text-base font-semibold leading-6 text-white line-clamp-2">
           {item.title}
         </h3>
         {item.description ? (
-          <p className="text-sm leading-5 text-ink-600 line-clamp-3">
+          <p className="text-sm leading-5 text-ink-300 line-clamp-3">
             {item.description}
           </p>
         ) : null}
         {item.buttonText ? (
-          <span className="mt-auto pt-2 text-sm font-medium text-brand-600 group-hover:text-brand-700">
+          <span className="mt-auto pt-2 text-sm font-medium text-brand-400 group-hover:text-brand-300">
             {item.buttonText}
           </span>
         ) : null}

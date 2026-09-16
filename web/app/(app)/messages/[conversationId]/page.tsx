@@ -33,11 +33,11 @@ export default async function ConversationPage({
   return (
     <div className="flex h-full min-h-[70dvh] flex-col gap-4">
       {/* Thread header */}
-      <div className="flex items-center gap-3 border-b border-ink-200 pb-4">
+      <div className="flex items-center gap-3 border-b border-ink-700 pb-4">
         <Link
           href="/messages"
           aria-label="Back to conversations"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-surface text-ink-700 hover:bg-ink-100 lg:hidden"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10 lg:hidden"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
             <path d="M14 6 L8 12 L14 18" />
@@ -45,8 +45,8 @@ export default async function ConversationPage({
         </Link>
         <Avatar name={title} kind="person" />
         <div className="min-w-0">
-          <h1 className="truncate font-semibold text-ink-900">{title}</h1>
-          <p className="text-xs text-ink-600">
+          <h1 className="truncate font-semibold text-white">{title}</h1>
+          <p className="text-xs text-ink-300">
             Private conversation · {conversation.type === "couple" ? "couple" : "individual"}
           </p>
         </div>

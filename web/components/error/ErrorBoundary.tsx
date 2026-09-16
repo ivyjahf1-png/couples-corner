@@ -51,17 +51,17 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       const feature = this.props.feature ?? "this feature";
       return (
-        <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-xl border border-ink-200 bg-surface-muted p-8 text-center">
+        <div className="flex min-h-[320px] flex-col items-center justify-center gap-4 rounded-xl border border-ink-700 bg-surface-muted p-8 text-center">
           <Logo as="div" />
           <h3 className="text-lg font-semibold text-foreground">
             {feature} is still loading
           </h3>
-          <p className="max-w-sm text-sm text-ink-500">
+          <p className="max-w-sm text-sm text-ink-400">
             This feature is either under construction or temporarily unavailable.
             Check back soon — or contact support if the problem persists.
           </p>
           {process.env.NODE_ENV === "development" && this.state.error ? (
-            <pre className="max-w-full overflow-x-auto text-left text-xs text-danger-600">
+            <pre className="max-w-full overflow-x-auto text-left text-xs text-danger-400">
               {this.state.error.message}
             </pre>
           ) : null}
@@ -74,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
             </button>
             <Link
               href="/"
-              className="rounded-xl border border-ink-300 px-4 py-2 text-sm font-medium text-ink-700 transition hover:bg-ink-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+              className="rounded-xl border border-ink-600 px-4 py-2 text-sm font-medium text-ink-200 transition hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
             >
               Go home
             </Link>

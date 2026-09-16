@@ -6,8 +6,8 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 
-const inputClass = "mt-1 w-full rounded-xl border border-ink-200 bg-surface px-3 py-2 text-sm font-medium text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none";
-const labelClass = "text-sm font-semibold text-ink-900";
+const inputClass = "mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm font-medium text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
+const labelClass = "text-sm font-semibold text-white";
 
 export default function AdminSettingsPage() {
   const [payPublic, setPayPublic] = useState("");
@@ -50,29 +50,29 @@ export default function AdminSettingsPage() {
       {/* Subscription tiers */}
       <Card tone="raised" className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/15 text-brand-300">
             <Icon name="sparkle" className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Subscription tiers</h2>
-            <p className="text-sm text-ink-500">Configure pricing and features for each tier.</p>
+            <h2 className="text-lg font-semibold text-white">Subscription tiers</h2>
+            <p className="text-sm text-ink-400">Configure pricing and features for each tier.</p>
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-xl border border-ink-200 bg-surface-muted p-4">
-            <h3 className="font-semibold text-ink-900">Free</h3>
-            <p className="mt-1 text-xs text-ink-500">Basic access</p>
-            <p className="mt-2 text-2xl font-bold text-ink-900">₦0<span className="text-sm font-normal text-ink-500">/mo</span></p>
+          <div className="rounded-xl border border-ink-700 bg-surface-muted p-4">
+            <h3 className="font-semibold text-white">Free</h3>
+            <p className="mt-1 text-xs text-ink-400">Basic access</p>
+            <p className="mt-2 text-2xl font-bold text-white">₦0<span className="text-sm font-normal text-ink-400">/mo</span></p>
           </div>
-          <div className="rounded-xl border border-brand-300 bg-brand-50 p-4">
-            <h3 className="font-semibold text-brand-800">Gold</h3>
-            <p className="mt-1 text-xs text-ink-500">Premium features</p>
-            <p className="mt-2 text-2xl font-bold text-brand-800">₦2,500<span className="text-sm font-normal text-ink-500">/mo</span></p>
+          <div className="rounded-xl border border-brand-500/50 bg-brand-500/10 p-4">
+            <h3 className="font-semibold text-brand-200">Gold</h3>
+            <p className="mt-1 text-xs text-ink-400">Premium features</p>
+            <p className="mt-2 text-2xl font-bold text-brand-200">₦2,500<span className="text-sm font-normal text-ink-400">/mo</span></p>
           </div>
-          <div className="rounded-xl border border-ink-300 bg-surface-muted p-4">
-            <h3 className="font-semibold text-ink-900">Platinum</h3>
-            <p className="mt-1 text-xs text-ink-500">VIP access</p>
-            <p className="mt-2 text-2xl font-bold text-ink-900">₦5,000<span className="text-sm font-normal text-ink-500">/mo</span></p>
+          <div className="rounded-xl border border-ink-600 bg-surface-muted p-4">
+            <h3 className="font-semibold text-white">Platinum</h3>
+            <p className="mt-1 text-xs text-ink-400">VIP access</p>
+            <p className="mt-2 text-2xl font-bold text-white">₦5,000<span className="text-sm font-normal text-ink-400">/mo</span></p>
           </div>
         </div>
       </Card>
@@ -80,12 +80,12 @@ export default function AdminSettingsPage() {
       {/* Payment gateway */}
       <Card tone="raised" className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-success-100 text-success-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-success-500/15 text-success-300">
             <Icon name="lock" className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Payment gateway</h2>
-            <p className="text-sm text-ink-500">Configure your payment provider settings.</p>
+            <h2 className="text-lg font-semibold text-white">Payment gateway</h2>
+            <p className="text-sm text-ink-400">Configure your payment provider settings.</p>
           </div>
         </div>
         <form onSubmit={savePayment}>
@@ -99,7 +99,7 @@ export default function AdminSettingsPage() {
             <input type="password" value={paySecret} onChange={(e) => setPaySecret(e.target.value)} placeholder="sk_live_..." className={inputClass} />
           </label>
         </div>
-        {payMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-700">{payMsg}</p> : null}
+        {payMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-300">{payMsg}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button size="sm" type="submit">Save payment settings</Button>
         </div>
@@ -109,12 +109,12 @@ export default function AdminSettingsPage() {
       {/* Feature flags */}
       <Card tone="raised" className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/15 text-brand-300">
             <Icon name="settings" className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Feature flags</h2>
-            <p className="text-sm text-ink-500">Toggle platform features on or off.</p>
+            <h2 className="text-lg font-semibold text-white">Feature flags</h2>
+            <p className="text-sm text-ink-400">Toggle platform features on or off.</p>
           </div>
         </div>
         <div className="grid gap-3">
@@ -126,10 +126,10 @@ export default function AdminSettingsPage() {
           ].map((flag) => {
             const enabled = flags[flag.label] ?? false;
             return (
-            <div key={flag.label} className="flex items-center justify-between rounded-xl border border-ink-200 bg-surface-muted p-4">
+            <div key={flag.label} className="flex items-center justify-between rounded-xl border border-ink-700 bg-surface-muted p-4">
               <div>
-                <p className="text-sm font-semibold text-ink-900">{flag.label}</p>
-                <p className="mt-0.5 text-xs font-medium text-ink-600">{flag.description}</p>
+                <p className="text-sm font-semibold text-white">{flag.label}</p>
+                <p className="mt-0.5 text-xs font-medium text-ink-300">{flag.description}</p>
               </div>
               <button
                 type="button"
@@ -137,9 +137,9 @@ export default function AdminSettingsPage() {
                 aria-checked={enabled}
                 aria-label={flag.label}
                 onClick={() => setFlags((p) => ({ ...p, [flag.label]: !enabled }))}
-                className={`relative h-6 w-11 shrink-0 rounded-full transition ${enabled ? "bg-brand-600" : "bg-ink-300"}`}
+                className={`relative h-6 w-11 shrink-0 rounded-full transition ${enabled ? "bg-brand-600" : "bg-white/20"}`}
               >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${enabled ? "left-5" : "left-0.5"}`} />
+                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white/5 shadow transition ${enabled ? "left-5" : "left-0.5"}`} />
               </button>
             </div>
             );
@@ -150,12 +150,12 @@ export default function AdminSettingsPage() {
       {/* Support contacts */}
       <Card tone="raised" className="p-6">
         <div className="flex items-center gap-3 mb-6">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/15 text-brand-300">
             <Icon name="chat" className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-ink-900">Support contacts</h2>
-            <p className="text-sm text-ink-500">Public-facing support information.</p>
+            <h2 className="text-lg font-semibold text-white">Support contacts</h2>
+            <p className="text-sm text-ink-400">Public-facing support information.</p>
           </div>
         </div>
         <form onSubmit={saveContacts}>
@@ -169,7 +169,7 @@ export default function AdminSettingsPage() {
             <input type="tel" value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className={inputClass} />
           </label>
         </div>
-        {contactMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-700">{contactMsg}</p> : null}
+        {contactMsg ? <p role="status" className="mt-3 text-sm font-semibold text-success-300">{contactMsg}</p> : null}
         <div className="mt-4 flex justify-end">
           <Button size="sm" type="submit">Save contacts</Button>
         </div>

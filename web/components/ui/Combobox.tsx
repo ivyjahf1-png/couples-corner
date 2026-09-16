@@ -87,7 +87,7 @@ export function Combobox({
 
   return (
     <div ref={wrapperRef} className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-ink-700">
+      <label htmlFor={id} className="text-sm font-medium text-ink-200">
         {label}
       </label>
       <div className="relative">
@@ -112,15 +112,15 @@ export function Combobox({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           maxLength={100}
-          className="h-10 w-full rounded-xl border border-ink-200 bg-surface px-4 pr-10 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+          className="h-10 w-full rounded-xl border border-ink-700 bg-surface px-4 pr-10 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
         />
-        <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-ink-500">
+        <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-ink-400">
           <Icon name="search" className="h-4 w-4" />
         </span>
 
         {open ? (
           <ul id={`${id}-listbox`} role="listbox" aria-label={`${label} suggestions`}
-            className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-ink-200 bg-surface shadow-card">
+            className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-xl border border-ink-700 bg-surface shadow-card">
             {results.length > 0 ? (
               results.map((option, i) => (
                 <li
@@ -132,14 +132,14 @@ export function Combobox({
                   onMouseEnter={() => setActiveIndex(i)}
                   className={[
                     "flex w-full cursor-pointer items-center px-4 py-2.5 text-sm",
-                    i === activeIndex ? "bg-brand-100 text-ink-900" : "text-ink-700 hover:bg-ink-100",
+                    i === activeIndex ? "bg-brand-500/15 text-white" : "text-ink-200 hover:bg-white/10",
                   ].join(" ")}
                 >
                   {option}
                 </li>
               ))
             ) : (
-              <li role="option" aria-selected={false} className="flex w-full items-center px-4 py-2.5 text-sm text-ink-600">
+              <li role="option" aria-selected={false} className="flex w-full items-center px-4 py-2.5 text-sm text-ink-300">
                 {freeform ? (emptyMessage ?? "No matching option - press Enter to use your own.") : "No matching option."}
               </li>
             )}
@@ -147,9 +147,9 @@ export function Combobox({
         ) : null}
       </div>
       {error ? (
-        <p id={`${id}-error`} className="mt-0.5 text-xs text-danger-700">{error}</p>
+        <p id={`${id}-error`} className="mt-0.5 text-xs text-danger-300">{error}</p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="mt-0.5 text-xs text-ink-500">{hint}</p>
+        <p id={`${id}-hint`} className="mt-0.5 text-xs text-ink-400">{hint}</p>
       ) : null}
     </div>
   );

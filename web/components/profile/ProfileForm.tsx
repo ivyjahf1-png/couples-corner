@@ -60,21 +60,21 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
       />
 
       {isSuccess && (
-        <div className="rounded-xl border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-800">
+        <div className="rounded-xl border border-success-500/30 bg-success-500/10 px-4 py-3 text-sm text-success-200">
           Profile saved successfully.
           <button type="button" className="ml-2 underline" onClick={resetSuccess}>Dismiss</button>
         </div>
       )}
       {submitError && (
-        <div className="rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+        <div className="rounded-xl border border-danger-500/30 bg-danger-500/10 px-4 py-3 text-sm text-danger-200">
           {submitError}
         </div>
       )}
 
       <Card className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-ink-900">Profile completion</h2>
-          <span className="text-sm font-semibold text-brand-700">{completion.percentage}%</span>
+          <h2 className="font-semibold text-white">Profile completion</h2>
+          <span className="text-sm font-semibold text-brand-300">{completion.percentage}%</span>
         </div>
         <div
           role="progressbar"
@@ -82,12 +82,12 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-label="Profile completion"
-          className="h-2 overflow-hidden rounded-full bg-ink-100"
+          className="h-2 overflow-hidden rounded-full bg-white/10"
         >
           <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${completion.percentage}%` }} />
         </div>
         {completion.missing.length > 0 && (
-          <p className="text-sm text-ink-600">Add: {completion.missing.join(", ")}</p>
+          <p className="text-sm text-ink-300">Add: {completion.missing.join(", ")}</p>
         )}
       </Card>
 

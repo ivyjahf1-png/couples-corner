@@ -116,7 +116,7 @@ export function ProfilePhotoUploader({
           <img
             src={currentUrl}
             alt={displayName}
-            className="h-24 w-24 rounded-full object-cover ring-2 ring-brand-200"
+            className="h-24 w-24 rounded-full object-cover ring-2 ring-brand-500/40"
           />
         ) : (
           <Avatar name={displayName || "User"} size="xl" />
@@ -144,7 +144,7 @@ export function ProfilePhotoUploader({
         ) : null}
       </div>
 
-      {error ? <p className="text-xs text-danger-700">{error}</p> : null}
+      {error ? <p className="text-xs text-danger-300">{error}</p> : null}
 
       <input
         type="file"
@@ -152,7 +152,7 @@ export function ProfilePhotoUploader({
         onChange={handleUpload}
         className="hidden"
       />
-      <p className="text-xs text-ink-500">JPG, PNG, or WebP up to 5 MB</p>
+      <p className="text-xs text-ink-400">JPG, PNG, or WebP up to 5 MB</p>
     </div>
   );
 }

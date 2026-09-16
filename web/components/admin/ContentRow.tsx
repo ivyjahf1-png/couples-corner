@@ -54,16 +54,16 @@ export function ContentRow({ item, onEdit, adminUid }: ContentRowProps) {
             <img
               src={item.thumbnailUrl ?? item.mediaUrl}
               alt=""
-              className="h-12 w-16 shrink-0 rounded-lg border border-ink-200 object-cover"
+              className="h-12 w-16 shrink-0 rounded-lg border border-ink-700 object-cover"
             />
           ) : (
-            <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-ink-200 bg-surface-muted">
+            <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-ink-700 bg-surface-muted">
               <Icon name="moments" className="h-5 w-5 text-ink-400" />
             </div>
           )}
           <div className="min-w-0">
-            <p className="truncate font-medium text-ink-900">{item.title}</p>
-            <p className="truncate text-xs text-ink-500">
+            <p className="truncate font-medium text-white">{item.title}</p>
+            <p className="truncate text-xs text-ink-400">
               {item.category} · priority {item.priority}
             </p>
           </div>
@@ -72,8 +72,8 @@ export function ContentRow({ item, onEdit, adminUid }: ContentRowProps) {
       <td className="hidden px-4 py-3 sm:table-cell">
         <Chip tone={statusChip[item.status]}>{item.status}</Chip>
       </td>
-      <td className="hidden px-4 py-3 text-sm text-ink-600 md:table-cell">{item.placement}</td>
-      <td className="hidden px-4 py-3 text-sm text-ink-600 lg:table-cell">
+      <td className="hidden px-4 py-3 text-sm text-ink-300 md:table-cell">{item.placement}</td>
+      <td className="hidden px-4 py-3 text-sm text-ink-300 lg:table-cell">
         {formatDate(item.startAt)} – {formatDate(item.endAt)}
       </td>
       <td className="px-4 py-3">

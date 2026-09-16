@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { PasswordInput } from "@/components/auth/PasswordInput";
 import { changePasswordAction } from "@/lib/actions/security";
 
 const inputClasses =
-  "h-10 w-full max-w-xs rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-900 focus:border-brand-400 focus:outline-none";
+  "h-10 w-full max-w-xs rounded-xl border border-ink-700 bg-surface px-3 text-sm text-white focus:border-brand-500/60 focus:outline-none";
 
 /** "Change password" form wired to Supabase Auth (verify current → update). */
 export function ChangePasswordForm() {
@@ -49,7 +50,7 @@ export function ChangePasswordForm() {
           Change password
         </Button>
         {success ? (
-          <p className="text-xs font-medium text-success-700" role="status">
+          <p className="text-xs font-medium text-success-300" role="status">
             Password updated.
           </p>
         ) : null}
@@ -65,39 +66,39 @@ export function ChangePasswordForm() {
         void handleSubmit();
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-ink-700">
+      <label className="flex flex-col gap-1 text-xs font-medium text-ink-200">
         Current password
-        <input
-          type="password"
+        <PasswordInput
+          tone="light"
           required
           autoComplete="current-password"
-          className={inputClasses}
+          className={`${inputClasses} pr-10`}
           value={currentPassword}
           onChange={(e) => setCurrentPassword(e.target.value)}
           aria-label="Current password"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-ink-700">
+      <label className="flex flex-col gap-1 text-xs font-medium text-ink-200">
         New password
-        <input
-          type="password"
+        <PasswordInput
+          tone="light"
           required
           minLength={8}
           autoComplete="new-password"
-          className={inputClasses}
+          className={`${inputClasses} pr-10`}
           value={newPassword}
           onChange={(e) => setNewPassword(e.target.value)}
           aria-label="New password"
         />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-ink-700">
+      <label className="flex flex-col gap-1 text-xs font-medium text-ink-200">
         Confirm new password
-        <input
-          type="password"
+        <PasswordInput
+          tone="light"
           required
           minLength={8}
           autoComplete="new-password"
-          className={inputClasses}
+          className={`${inputClasses} pr-10`}
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           aria-label="Confirm new password"
@@ -105,12 +106,12 @@ export function ChangePasswordForm() {
       </label>
 
       {error ? (
-        <p className="text-xs font-medium text-danger-700" role="alert">
+        <p className="text-xs font-medium text-danger-300" role="alert">
           {error}
         </p>
       ) : null}
       {success ? (
-        <p className="text-xs font-medium text-success-700" role="status">
+        <p className="text-xs font-medium text-success-300" role="status">
           Password updated.
         </p>
       ) : null}

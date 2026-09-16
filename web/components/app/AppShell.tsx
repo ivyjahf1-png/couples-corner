@@ -2,13 +2,22 @@ import Link from "next/link";
 import { AppSidebar, AppMobileNav } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
+import { Icon } from "@/components/landing/Icon";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getCurrentSessionUser } from "@/lib/server/session";
 
 /**
- * Authenticated-app shell: desktop sidebar + mobile top bar and bottom nav.
- * Layout only — pages render inside <main>.
+ * Authenticated-app shell — VISUAL LAYER ONLY.
  *
- * Shows a prominent demo badge when the current user is a demo/preview account.
+ * Chrome:
+ *   • md and up (tablet / PC): one fixed left-hand deep-navy (#0F172A) rail.
+ *   • below md (phone): a frosted navy top bar plus a strictly 3-item bottom
+ *     bar whose "Menu" tab opens the secondary-navigation drawer.
+ *
+ * PRESERVATION CONSTRAINT: the session lookup below is unchanged and the demo
+ * banner keeps its original /api/auth/logout target. Nothing in this file
+ * touches route parameters, Supabase queries, auth handlers or API endpoints —
+ * only layout, styling and which nav component is rendered where.
  */
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const user = await getCurrentSessionUser();
@@ -17,72 +26,76 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const displayEmail = user?.email ?? "demo@couplescorner.app";
 
   return (
-    <div className="min-h-dvh bg-background">
-      {/* Demo banner */}
+    <div className="app-canvas min-h-dvh text-foreground">
+      {/* Demo banner — scrolls away so the sticky mobile top bar owns the top slot. */}
       {isDemo && (
-        <div className="sticky top-0 z-50 border-b border-warning-300 bg-warning-100 px-4 py-2 text-center text-sm text-warning-800">
+        <div className="border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">
           <span className="font-semibold">Preview mode</span> — You&apos;re using a demo account.
-          <Link href="/api/auth/logout" className="ml-2 font-medium underline hover:text-warning-900">
+          <Link href="/api/auth/logout" className="ml-2 font-medium text-white underline hover:text-amber-50">
             Sign in with a real account
           </Link>
         </div>
       )}
 
-      {/* Mobile top bar */}
-      <header className="sticky top-0 z-40 border-b border-ink-200 bg-background/95 backdrop-blur lg:hidden">
+      {/* Mobile top bar — frosted navy with high-contrast white icons. */}
+      <header className="app-top-bar sticky top-0 z-30 border-b md:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/dashboard" aria-label="Couples Corner home">
             <Logo as="span" />
           </Link>
           <div className="flex items-center gap-2">
             <Link
-              href="/profile"
-              aria-label="Your profile"
-              className="rounded-full ring-2 ring-transparent transition hover:ring-brand-300 focus-visible:ring-brand-500"
+              href="/notifications"
+              aria-label="Alerts"
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
             >
-              <Avatar name={displayName} size="sm" />
+              <Icon name="bell" className="h-5 w-5" />
             </Link>
             <Link
-              href="/settings"
-              aria-label="Settings"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-200 bg-surface text-ink-700 hover:bg-ink-100"
+              href="/profile"
+              aria-label="Your profile"
+              className="rounded-full ring-2 ring-transparent transition hover:ring-brand-400 focus-visible:ring-brand-500"
             >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
-                <circle cx="12" cy="12" r="3" />
-                <path d="M12 3 L12 6 M12 18 L12 21 M3 12 L6 12 M18 12 L21 12 M5.6 5.6 L7.7 7.7 M16.3 16.3 L18.4 18.4 M18.4 5.6 L16.3 7.7 M7.7 16.3 L5.6 18.4" />
-              </svg>
+              <Avatar name={displayName} size="sm" />
             </Link>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl">
-        {/* Desktop sidebar */}
-        <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-ink-200 bg-surface px-4 py-6 lg:flex">
-          <Link href="/dashboard" className="mb-8 px-2">
-            <Logo as="span" />
-          </Link>
+      <div className="flex w-full md:pl-72">
+        {/* Fixed left-hand navy rail (tablet + desktop) */}
+        <aside className="app-sidebar fixed inset-y-0 left-0 z-40 hidden w-72 flex-col md:flex">
+          <div className="px-5 pb-5 pt-6">
+            <Link href="/dashboard" aria-label="Couples Corner home">
+              <Logo as="span" />
+            </Link>
+          </div>
+
           <AppSidebar />
-          <div className={`mt-auto flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-warning-300 bg-warning-50" : "border-ink-200 bg-surface-muted"}`}>
-            <Avatar name={displayName} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-ink-900">{displayName}</p>
-              <p className="truncate text-xs text-ink-600">{isDemo ? "Demo account" : displayEmail}</p>
+
+          <div className="border-t border-white/10 p-3">
+            <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+              <Avatar name={displayName} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+                <p className="truncate text-xs text-slate-300">{isDemo ? "Demo account" : displayEmail}</p>
+              </div>
+              {isDemo && (
+                <span className="shrink-0 rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold uppercase text-slate-950">
+                  Demo
+                </span>
+              )}
             </div>
-            {isDemo && (
-              <span className="shrink-0 rounded-full bg-warning-200 px-2 py-0.5 text-[10px] font-semibold uppercase text-warning-800">
-                Demo
-              </span>
-            )}
+            <LogoutButton className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white" />
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 pb-24 pt-6 sm:px-6 lg:px-10 lg:pb-12">
-          {children}
+        <main className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 md:px-8 md:pb-12 lg:px-10">
+          <div className="mx-auto w-full max-w-5xl">{children}</div>
         </main>
       </div>
 
-      <AppMobileNav />
+      <AppMobileNav displayName={displayName} displayEmail={displayEmail} isDemo={isDemo} />
     </div>
   );
 }

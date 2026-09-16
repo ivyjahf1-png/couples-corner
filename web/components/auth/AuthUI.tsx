@@ -23,16 +23,16 @@ export function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12">
+    <div className="app-canvas flex min-h-dvh flex-col items-center justify-center px-4 py-12">
       <Link href="/" className="mb-8" aria-label="Couples Corner home">
         <Logo as="span" />
       </Link>
-      <div className="w-full max-w-md rounded-2xl border border-ink-200 bg-surface p-8 shadow-card">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-surface p-8 shadow-card">
         <h1 className="text-2xl font-semibold tracking-display text-foreground">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-ink-500">{subtitle}</p>
+        <p className="mt-2 text-sm leading-6 text-ink-400">{subtitle}</p>
         <div className="mt-6">{children}</div>
       </div>
-      {footer ? <div className="mt-6 text-sm text-ink-500">{footer}</div> : null}
+      {footer ? <div className="mt-6 text-sm text-ink-400">{footer}</div> : null}
     </div>
   );
 }
@@ -69,7 +69,7 @@ export function Field({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-ink-900">
+      <label htmlFor={id} className="text-sm font-medium text-white">
         {label}
       </label>
       <div className="relative">
@@ -85,9 +85,9 @@ export function Field({
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : hint ? `${id}-hint` : undefined}
           className={[
-            "h-11 w-full rounded-xl border bg-surface px-3.5 text-sm text-ink-900 placeholder:text-ink-400 focus:outline-none",
+            "h-11 w-full rounded-xl border bg-surface px-3.5 text-sm text-white placeholder:text-ink-400 focus:outline-none",
             isPassword ? "pr-11" : "",
-            error ? "border-danger-400 focus:border-danger-500" : "border-ink-200 focus:border-brand-400",
+            error ? "border-danger-400 focus:border-danger-500" : "border-ink-700 focus:border-brand-500/60",
           ].join(" ")}
         />
         {isPassword ? (
@@ -96,7 +96,7 @@ export function Field({
             onClick={() => setShowPassword((prev) => !prev)}
             aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
-            className="absolute inset-y-0 right-0 flex items-center justify-center rounded-r-xl px-3 text-ink-500 transition-colors hover:text-ink-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+            className="absolute inset-y-0 right-0 flex items-center justify-center rounded-r-xl px-3 text-ink-400 transition-colors hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
           >
             <Icon name={showPassword ? "eye-off" : "eye"} className="h-5 w-5" />
           </button>
@@ -107,7 +107,7 @@ export function Field({
           {error}
         </p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-xs text-ink-500">
+        <p id={`${id}-hint`} className="text-xs text-ink-400">
           {hint}
         </p>
       ) : null}
@@ -120,7 +120,7 @@ export function FormAlert({ message }: { message: string }) {
   return (
     <div
       role="alert"
-      className="rounded-xl border border-danger-300 bg-danger-100 px-4 py-3 text-sm text-danger-700"
+      className="rounded-xl border border-danger-500/40 bg-danger-500/15 px-4 py-3 text-sm text-danger-300"
     >
       {message}
     </div>
@@ -132,7 +132,7 @@ export function FormSuccess({ message }: { message: string }) {
   return (
     <div
       role="status"
-      className="rounded-xl border border-success-300 bg-success-100 px-4 py-3 text-sm text-success-700"
+      className="rounded-xl border border-success-500/40 bg-success-500/15 px-4 py-3 text-sm text-success-300"
     >
       {message}
     </div>

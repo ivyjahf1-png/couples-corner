@@ -34,7 +34,7 @@ export function Avatar({ name, kind = "person", size = "md", className }: Avatar
       aria-hidden
       className={[
         "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
-        kind === "couple" ? "bg-brand-100 text-brand-700" : "bg-ink-200 text-ink-700",
+        kind === "couple" ? "bg-brand-500/15 text-brand-300" : "bg-white/15 text-ink-200",
         sizeClasses[size],
         className ?? "",
       ]
@@ -44,7 +44,7 @@ export function Avatar({ name, kind = "person", size = "md", className }: Avatar
       {kind === "couple" ? (
         <span className="flex items-center gap-0.5">
           <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />
-          <span className="h-1.5 w-1.5 rounded-full bg-ink-500" />
+          <span className="h-1.5 w-1.5 rounded-full bg-white/25" />
         </span>
       ) : (
         initials
@@ -70,8 +70,8 @@ export function AvatarWithMeta({
     <div className="flex items-center gap-3">
       <Avatar name={name} kind={kind} size={size} />
       <div className="min-w-0">
-        <p className="truncate font-semibold text-ink-900">{name}</p>
-        {meta ? <p className="truncate text-sm text-ink-600">{meta}</p> : null}
+        <p className="truncate font-semibold text-white">{name}</p>
+        {meta ? <p className="truncate text-sm text-ink-300">{meta}</p> : null}
       </div>
       {children}
     </div>

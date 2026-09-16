@@ -49,7 +49,7 @@ export default function ForgotPasswordPage() {
       footer={
         <>
           Remembered it?{" "}
-          <Link href="/" className="font-semibold text-brand-700 hover:underline">
+          <Link href="/" className="font-semibold text-brand-300 hover:underline">
             Back to home
           </Link>
         </>

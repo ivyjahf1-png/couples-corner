@@ -20,7 +20,14 @@ export type IconName =
   | "plus"
   | "send"
   | "eye"
-  | "eye-off";
+  | "eye-off"
+  | "logout"
+  | "compass"
+  | "heart"
+  | "menu"
+  | "close"
+  | "crown"
+  | "chevron";
 
 /*
  * Tasteful, hand-drawn 24x24 line icons rendered with `currentColor` so they
@@ -140,6 +147,43 @@ const paths: Record<IconName, ReactNode> = {
       <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
     </>
   ),
+  logout: (
+    <>
+      <path d="M9 21 H5 a2 2 0 0 1-2-2 V5 a2 2 0 0 1 2-2 h4" />
+      <path d="M16 17 L21 12 L16 7" />
+      <path d="M21 12 H9" />
+    </>
+  ),
+  /* --- App navigation icons (bottom bar + drawer + sidebar) ------------- */
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M16 8 L13.6 13.6 L8 16 L10.4 10.4 Z" />
+    </>
+  ),
+  heart: (
+    <path d="M12 20.2 C12 20.2 3.8 15.1 3.8 9.6 C3.8 6.9 6 5 8.4 5 C10.1 5 11.4 5.9 12 7.2 C12.6 5.9 13.9 5 15.6 5 C18 5 20.2 6.9 20.2 9.6 C20.2 15.1 12 20.2 12 20.2 Z" />
+  ),
+  menu: (
+    <>
+      <path d="M4 7 H20" />
+      <path d="M4 12 H20" />
+      <path d="M4 17 H20" />
+    </>
+  ),
+  close: (
+    <>
+      <path d="M6 6 L18 18" />
+      <path d="M18 6 L6 18" />
+    </>
+  ),
+  crown: (
+    <>
+      <path d="M3.5 17 L5 7.5 L9.3 11.5 L12 6.5 L14.7 11.5 L19 7.5 L20.5 17 Z" />
+      <path d="M4 20 H20" />
+    </>
+  ),
+  chevron: <path d="M9.5 5 L16 12 L9.5 19" />,
 };
 
 interface IconProps {

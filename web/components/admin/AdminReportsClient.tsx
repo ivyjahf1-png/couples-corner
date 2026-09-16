@@ -69,8 +69,8 @@ export function AdminReportsClient({ initialReports }: Props) {
             className={[
               "rounded-full border px-3.5 py-1.5 text-sm font-medium transition",
               filter === f.value
-                ? "border-brand-600 bg-brand-100 text-brand-800"
-                : "border-ink-200 bg-surface text-ink-700 hover:bg-surface-muted",
+                ? "border-brand-600 bg-brand-500/15 text-brand-200"
+                : "border-ink-700 bg-surface text-ink-200 hover:bg-surface-muted",
             ].join(" ")}
           >
             {f.label}
@@ -79,11 +79,11 @@ export function AdminReportsClient({ initialReports }: Props) {
       </div>
 
       {shown.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ink-200 bg-surface-muted px-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-ink-700 bg-surface-muted px-6 py-16 text-center">
           <Icon name="flag" className="h-10 w-10 text-ink-400" />
           <div>
-            <p className="text-lg font-semibold text-ink-900">No reports</p>
-            <p className="mt-1 text-sm text-ink-600">
+            <p className="text-lg font-semibold text-white">No reports</p>
+            <p className="mt-1 text-sm text-ink-300">
               {filter ? `No ${filter} reports right now.` : "There are no reports in the queue."}
             </p>
           </div>
@@ -93,16 +93,16 @@ export function AdminReportsClient({ initialReports }: Props) {
           {shown.map((report) => (
             <article
               key={report.id}
-              className="rounded-2xl border border-ink-200 bg-surface p-5 shadow-sm"
+              className="rounded-2xl border border-ink-700 bg-surface p-5 shadow-sm"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-100 text-danger-700">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-danger-500/15 text-danger-300">
                     <Icon name="flag" className="h-5 w-5" />
                   </span>
                   <div>
-                    <p className="font-semibold text-ink-900">{report.reason}</p>
-                    <p className="text-xs text-ink-600">
+                    <p className="font-semibold text-white">{report.reason}</p>
+                    <p className="text-xs text-ink-300">
                       {report.entityType} · reported by {report.reporterName}
                     </p>
                   </div>
@@ -114,13 +114,13 @@ export function AdminReportsClient({ initialReports }: Props) {
               </div>
 
               {report.details ? (
-                <p className="mt-3 rounded-xl bg-surface-muted px-4 py-3 text-sm leading-6 text-ink-700">
+                <p className="mt-3 rounded-xl bg-surface-muted px-4 py-3 text-sm leading-6 text-ink-200">
                   {report.details}
                 </p>
               ) : null}
 
-              <p className="mt-2 text-xs text-ink-500">
-                Target: <code className="rounded bg-ink-100 px-1 py-0.5">{report.entityId}</code>
+              <p className="mt-2 text-xs text-ink-400">
+                Target: <code className="rounded bg-white/10 px-1 py-0.5">{report.entityId}</code>
               </p>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">

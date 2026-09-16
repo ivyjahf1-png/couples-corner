@@ -73,8 +73,8 @@ export default async function DashboardPage() {
           {/* Profile completion */}
           <Card className="flex flex-col gap-4">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold text-ink-900">Profile completion</h2>
-              <span className="text-sm font-semibold text-brand-700">{completion.percentage}%</span>
+              <h2 className="font-semibold text-ink-100">Profile completion</h2>
+              <span className="text-sm font-semibold text-brand-400">{completion.percentage}%</span>
             </div>
             <div
               role="progressbar"
@@ -82,18 +82,18 @@ export default async function DashboardPage() {
               aria-valuemin={0}
               aria-valuemax={100}
               aria-label="Profile completion"
-              className="h-2 overflow-hidden rounded-full bg-ink-100"
+              className="h-2 overflow-hidden rounded-full bg-ink-700/50"
             >
-              <div className="h-full rounded-full bg-brand-600" style={{ width: `${completion.percentage}%` }} />
+              <div className="h-full rounded-full bg-brand-500" style={{ width: `${completion.percentage}%` }} />
             </div>
             <ul className="grid gap-2 sm:grid-cols-2">
               {completionItems.map((item) => (
-                <li key={item.label} className="flex items-center gap-2 text-sm text-ink-700">
+                <li key={item.label} className="flex items-center gap-2 text-sm text-ink-300">
                   <span
                     aria-hidden
                     className={[
                       "flex h-5 w-5 items-center justify-center rounded-full",
-                      item.done ? "bg-success-100 text-success-700" : "bg-ink-100 text-ink-500",
+                      item.done ? "bg-success-800/50 text-success-300" : "bg-ink-700/50 text-ink-400",
                     ].join(" ")}
                   >
                     <Icon name={item.done ? "check" : "plus"} className="h-3 w-3" />
@@ -110,7 +110,7 @@ export default async function DashboardPage() {
           {/* Suggested connections */}
           <section aria-labelledby="suggested-heading" className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <h2 id="suggested-heading" className="font-semibold text-ink-900">Suggested for you</h2>
+              <h2 id="suggested-heading" className="font-semibold text-ink-100">Suggested for you</h2>
               <Button href="/discover" size="sm" variant="ghost">See all</Button>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -119,7 +119,7 @@ export default async function DashboardPage() {
               ))}
             </div>
             {usingDemo ? (
-              <p className="text-xs text-ink-500">
+              <p className="text-xs text-ink-400">
                 Suggestions use sample profiles for design review — real suggestions appear once the
                 community grows.
               </p>
@@ -128,18 +128,18 @@ export default async function DashboardPage() {
 
           {/* Recent activity */}
           <section aria-labelledby="activity-heading" className="flex flex-col gap-4">
-            <h2 id="activity-heading" className="font-semibold text-ink-900">Recent activity</h2>
-            <Card padding="none" className="divide-y divide-ink-200">
+            <h2 id="activity-heading" className="font-semibold text-white">Recent activity</h2>
+            <Card padding="none" className="divide-y divide-ink-700">
               {demoActivity.map((item) => (
                 <div key={item.id} className="flex items-center gap-3 px-5 py-3.5">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">
                     <Icon
                       name={item.kind === "message" ? "chat" : item.kind === "connection" ? "couple" : "sparkle"}
                       className="h-4 w-4"
                     />
                   </span>
-                  <p className="flex-1 text-sm text-ink-700">{item.text}</p>
-                  <span className="shrink-0 text-xs text-ink-500">{item.at}</span>
+                  <p className="flex-1 text-sm text-ink-200">{item.text}</p>
+                  <span className="shrink-0 text-xs text-ink-400">{item.at}</span>
                 </div>
               ))}
             </Card>
@@ -149,14 +149,14 @@ export default async function DashboardPage() {
         {/* Side column */}
         <div className="flex flex-col gap-6">
           <Card className="flex flex-col gap-3">
-            <h2 className="font-semibold text-ink-900">Quick actions</h2>
+            <h2 className="font-semibold text-white">Quick actions</h2>
             {quickActions.map((action) => (
               <a
                 key={action.href + action.label}
                 href={action.href}
-                className="flex items-center gap-3 rounded-xl border border-ink-200 bg-surface px-3 py-2.5 text-sm font-medium text-ink-800 transition hover:border-ink-300 hover:bg-surface-muted"
+                className="flex items-center gap-3 rounded-xl border border-ink-700 bg-surface px-3 py-2.5 text-sm font-medium text-ink-100 transition hover:border-ink-600 hover:bg-surface-muted"
               >
-                <Icon name={action.icon} className="h-4 w-4 text-brand-700" />
+                <Icon name={action.icon} className="h-4 w-4 text-brand-300" />
                 {action.label}
               </a>
             ))}
@@ -166,7 +166,7 @@ export default async function DashboardPage() {
 
           <Card className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-ink-900">Notifications</h2>
+              <h2 className="font-semibold text-white">Notifications</h2>
               <Button href="/notifications" size="sm" variant="ghost">View all</Button>
             </div>
             <ul className="flex flex-col gap-2">
@@ -180,8 +180,8 @@ export default async function DashboardPage() {
                     ].join(" ")}
                   />
                   <div>
-                    <p className="text-ink-700">{n.text}</p>
-                    <span className="text-xs text-ink-500">{n.at}</span>
+                    <p className="text-ink-200">{n.text}</p>
+                    <span className="text-xs text-ink-400">{n.at}</span>
                   </div>
                 </li>
               ))}
@@ -199,10 +199,10 @@ export default async function DashboardPage() {
               <Avatar name={profile?.displayName ?? "You"} size="md" />
             )}
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink-900">
+              <p className="truncate text-sm font-semibold text-white">
                 {profile?.displayName ?? session?.email ?? "Welcome"}
               </p>
-              <p className="truncate text-xs text-ink-600">
+              <p className="truncate text-xs text-ink-300">
                 {profile?.bio ?? "Your uploaded storage photo appears here."}
               </p>
             </div>

@@ -16,6 +16,7 @@ import {
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { MfaSection } from "@/components/settings/MfaSection";
 import { SessionsList } from "@/components/settings/SessionsList";
+import { LogoutButton } from "@/components/auth/LogoutButton";
 import { BlockedRowClient } from "./blocked/BlockedRowClient";
 import type { BlockedUser } from "@/lib/feature/types";
 
@@ -39,8 +40,8 @@ function Section({
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="scroll-mt-24 flex flex-col gap-4">
       <div>
-        <h2 id={`${id}-heading`} className="font-semibold text-ink-900">{title}</h2>
-        <p className="mt-0.5 text-sm text-ink-600">{description}</p>
+        <h2 id={`${id}-heading`} className="font-semibold text-white">{title}</h2>
+        <p className="mt-0.5 text-sm text-ink-300">{description}</p>
       </div>
       {children}
     </section>
@@ -51,8 +52,8 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-ink-900">{label}</p>
-        {hint ? <p className="text-sm text-ink-600">{hint}</p> : null}
+        <p className="text-sm font-medium text-white">{label}</p>
+        {hint ? <p className="text-sm text-ink-300">{hint}</p> : null}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
@@ -60,7 +61,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 }
 
 const inputClasses =
-  "h-10 w-full max-w-xs rounded-xl border border-ink-200 bg-surface px-3 text-sm text-ink-900 focus:border-brand-400 focus:outline-none";
+  "h-10 w-full max-w-xs rounded-xl border border-ink-700 bg-surface px-3 text-sm text-white focus:border-brand-500/60 focus:outline-none";
 
 export default async function SettingsPage() {
   const user = await getSessionUser();
@@ -104,9 +105,9 @@ export default async function SettingsPage() {
       <div className="flex max-w-3xl flex-col gap-10">
         {/* Account */}
         <Section id="account" title="Account" description="Your core identity on Couples Corner.">
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
             <Row label="Email" hint="Used for sign-in and notifications.">
-              <span className="text-sm text-ink-700">demo@couplescorner.app</span>
+              <span className="text-sm text-ink-200">demo@couplescorner.app</span>
             </Row>
             <Row label="Display name" hint="Shown on your profile and messages.">
               <input className={inputClasses} defaultValue="Demo User" aria-label="Display name" />
@@ -119,16 +120,16 @@ export default async function SettingsPage() {
 
         {/* Profile */}
         <Section id="profile" title="Profile" description="How you appear to others.">
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
             <div className="flex items-center gap-4 px-5 py-4">
               <Avatar name="Demo User" size="lg" />
               <div>
-                <p className="text-sm font-medium text-ink-900">Profile photo</p>
-                <p className="text-sm text-ink-600">Uploads arrive with Firebase Storage.</p>
+                <p className="text-sm font-medium text-white">Profile photo</p>
+                <p className="text-sm text-ink-300">Uploads arrive with Firebase Storage.</p>
               </div>
             </div>
             <Row label="About you" hint="A short intro shown on your profile.">
-              <span className="text-sm text-ink-600">Edit from your profile page</span>
+              <span className="text-sm text-ink-300">Edit from your profile page</span>
             </Row>
             <Row label="Interests" hint="Used to suggest meaningful connections.">
               <Chip tone="brand">4 added</Chip>
@@ -138,7 +139,7 @@ export default async function SettingsPage() {
 
         {/* Privacy */}
         <Section id="privacy" title="Privacy" description="Control who can find and see you.">
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
             <Row label="Profile visibility" hint="Who can view your full profile.">
               <select className={inputClasses} defaultValue="connections" aria-label="Profile visibility">
                 <option value="everyone">Everyone on Couples Corner</option>
@@ -147,36 +148,36 @@ export default async function SettingsPage() {
               </select>
             </Row>
             <Row label="Appear in discovery" hint="Allow your profile to appear in Discover.">
-              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-700" aria-label="Appear in discovery" />
+              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-500" aria-label="Appear in discovery" />
             </Row>
             <Row label="Show location" hint="Display your city on your profile.">
-              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-700" aria-label="Show location" />
+              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-500" aria-label="Show location" />
             </Row>
           </Card>
         </Section>
 
         {/* Notifications */}
         <Section id="notifications" title="Notifications" description="Choose what we tell you about.">
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
             <Row label="Connection requests" hint="When someone wants to connect.">
-              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-700" aria-label="Connection requests" />
+              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-500" aria-label="Connection requests" />
             </Row>
             <Row label="New messages" hint="When a connection messages you.">
-              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-700" aria-label="New messages" />
+              <input type="checkbox" defaultChecked className="h-5 w-5 accent-brand-500" aria-label="New messages" />
             </Row>
             <Row label="Product updates" hint="Occasional news about Couples Corner.">
-              <input type="checkbox" className="h-5 w-5 accent-brand-700" aria-label="Product updates" />
+              <input type="checkbox" className="h-5 w-5 accent-brand-500" aria-label="Product updates" />
             </Row>
           </Card>
         </Section>
 
         {/* Security */}
         <Section id="security" title="Security" description="Keep your account safe.">
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-ink-900">Password</p>
-                <p className="text-sm text-ink-600">
+                <p className="text-sm font-medium text-white">Password</p>
+                <p className="text-sm text-ink-300">
                   Verified against Supabase Auth — you&apos;ll need your current password.
                 </p>
               </div>
@@ -184,7 +185,7 @@ export default async function SettingsPage() {
                 {user ? (
                   <ChangePasswordForm />
                 ) : (
-                  <span className="text-sm text-ink-600">Sign in to manage</span>
+                  <span className="text-sm text-ink-300">Sign in to manage</span>
                 )}
               </div>
             </div>
@@ -193,18 +194,18 @@ export default async function SettingsPage() {
               {user ? (
                 <MfaSection enabled={mfaEnabled} factorId={mfaFactorId} loadError={mfaError} />
               ) : (
-                <span className="text-sm text-ink-600">Sign in to manage</span>
+                <span className="text-sm text-ink-300">Sign in to manage</span>
               )}
             </Row>
 
             <div className="px-5 py-4">
-              <p className="text-sm font-medium text-ink-900">Active sessions</p>
-              <p className="text-sm text-ink-600">Devices currently signed in.</p>
+              <p className="text-sm font-medium text-white">Active sessions</p>
+              <p className="text-sm text-ink-300">Devices currently signed in.</p>
             </div>
             {user ? (
               <SessionsList initialSessions={sessions} />
             ) : (
-              <p className="px-5 pb-5 text-sm text-ink-600">Sign in to manage</p>
+              <p className="px-5 pb-5 text-sm text-ink-300">Sign in to manage</p>
             )}
           </Card>
         </Section>
@@ -214,29 +215,29 @@ export default async function SettingsPage() {
           <Card padding="none">
             {blocked.length === 0 ? (
               <div className="px-5 py-8 text-center">
-                <p className="text-sm font-medium text-ink-900">No blocked users</p>
-                <p className="mt-1 text-sm text-ink-600">
+                <p className="text-sm font-medium text-white">No blocked users</p>
+                <p className="mt-1 text-sm text-ink-300">
                   When you block someone, they&apos;ll appear here and you can unblock them anytime.
                 </p>
                 <Link
                   href="/settings/blocked"
-                  className="mt-4 inline-block text-sm font-medium text-brand-700 hover:text-brand-800"
+                  className="mt-4 inline-block text-sm font-medium text-brand-300 hover:text-brand-200"
                 >
                   Manage blocked users
                 </Link>
               </div>
             ) : (
               <>
-                <div className="divide-y divide-ink-200">
+                <div className="divide-y divide-ink-700">
                   {blocked.slice(0, 5).map((entry) => (
                     <BlockedRowClient key={entry.id} entry={entry} />
                   ))}
                 </div>
                 {blocked.length > 5 ? (
-                  <div className="border-t border-ink-200 px-5 py-3 text-center">
+                  <div className="border-t border-ink-700 px-5 py-3 text-center">
                     <Link
                       href="/settings/blocked"
-                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                      className="text-sm font-medium text-brand-300 hover:text-brand-200"
                     >
                       View all {blocked.length} blocked users
                     </Link>
@@ -251,14 +252,17 @@ export default async function SettingsPage() {
         <Section
           id="account-management"
           title="Account management"
-          description="Take a break or leave â€” it&apos;s your corner."
+          description="Take a break or leave — it&apos;s your corner."
         >
-          <Card padding="none" className="divide-y divide-ink-200">
+          <Card padding="none" className="divide-y divide-ink-700">
+            <Row label="Log out" hint="End your session on this device and return to the login page.">
+              {user ? <LogoutButton /> : <span className="text-sm text-ink-300">Not signed in</span>}
+            </Row>
             <Row label="Deactivate account" hint="Temporarily hide your profile and pause activity.">
-              <span className="text-sm font-medium text-ink-700">Deactivate</span>
+              <span className="text-sm font-medium text-ink-200">Deactivate</span>
             </Row>
             <Row label="Delete account" hint="Permanently remove your account and data.">
-              <span className="text-sm font-medium text-danger-700">Delete account</span>
+              <span className="text-sm font-medium text-danger-300">Delete account</span>
             </Row>
           </Card>
         </Section>

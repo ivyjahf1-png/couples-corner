@@ -161,12 +161,50 @@ export async function ensureStorageBucket(
   if (!supabase) {
     throw new Error("Supabase not configured");
   }
+
+  // Check if the bucket exists
   const { error: getError } = await supabase.storage.getBucket(bucket);
+
+  // If no error, bucket exists — we're done.
   if (!getError) return;
+
+  // Bucket doesn't exist — attempt to create it.
+  // This requires the service_role key to have storage.admin privileges.
   const { error: createError } = await supabase.storage.createBucket(bucket, { public: true });
-  if (createError) {
-    throw new Error(`Could not create storage bucket "${bucket}": ${createError.message}`);
+
+  if (!createError) return;
+
+  // Determine the type of error and provide a helpful message.
+  const errMsg = createError.message ?? "";
+  const isBucketAlreadyExists =
+    errMsg.toLowerCase().includes("already exists") ||
+    errMsg.toLowerCase().includes("bucket already exists");
+
+  if (isBucketAlreadyExists) {
+    // Race condition: another request created the bucket between our check and create.
+    // This is fine — the bucket exists, so we can proceed.
+    return;
   }
+
+  // Check if it's a permissions error (common when service_role key lacks storage.admin)
+  const isPermissionsError =
+    errMsg.toLowerCase().includes("permission") ||
+    errMsg.toLowerCase().includes("forbidden") ||
+    errMsg.toLowerCase().includes("unauthorized");
+
+  if (isPermissionsError) {
+    throw new Error(
+      `Could not create storage bucket "${bucket}": ${createError.message}. ` +
+      `This usually means the SUPABASE_SERVICE_ROLE_KEY doesn't have storage.admin privileges. ` +
+      `Ensure you're using the service_role key (not the anon key) from Supabase Dashboard → Settings → API.`
+    );
+  }
+
+  // Other errors (network, Supabase API issues, etc.)
+  throw new Error(
+    `Could not create storage bucket "${bucket}": ${createError.message}. ` +
+    `If the bucket exists but creation failed, verify the bucket name and try again.`
+  );
 }
 
 export function photoStoragePathToApiUrl(storagePath: string): string {

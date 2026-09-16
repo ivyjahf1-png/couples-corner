@@ -70,8 +70,8 @@ export function LiveConversationThread({
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-        <p className="text-lg font-semibold text-ink-900">No messages yet</p>
-        <p className="text-sm text-ink-500">Send the first message to start the conversation.</p>
+        <p className="text-lg font-semibold text-white">No messages yet</p>
+        <p className="text-sm text-ink-400">Send the first message to start the conversation.</p>
         {!isConnected && (
           <p className="text-xs text-ink-400">Connecting to realtime…</p>
         )}
@@ -82,17 +82,17 @@ export function LiveConversationThread({
   return (
     <div className="flex flex-1 flex-col">
       {/* Connection indicator */}
-      <div className="flex items-center justify-between border-b border-ink-200 px-1 pb-2">
-        <span className="text-xs text-ink-500">
+      <div className="flex items-center justify-between border-b border-ink-700 px-1 pb-2">
+        <span className="text-xs text-ink-400">
           {messages.length} message{messages.length === 1 ? "" : "s"}
         </span>
         <span className="flex items-center gap-1.5 text-xs">
           <span
             className={`h-2 w-2 rounded-full ${
-              isConnected ? "bg-success-500" : "bg-ink-300"
+              isConnected ? "bg-success-500" : "bg-white/20"
             }`}
           />
-          <span className={isConnected ? "text-success-700" : "text-ink-400"}>
+          <span className={isConnected ? "text-success-300" : "text-ink-400"}>
             {isConnected ? "Live" : "Connecting…"}
           </span>
         </span>
@@ -117,7 +117,7 @@ export function LiveConversationThread({
                   "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
                   isMine
                     ? "rounded-br-md bg-brand-700 text-white"
-                    : "rounded-bl-md border border-ink-200 bg-surface text-ink-900",
+                    : "rounded-bl-md border border-ink-700 bg-surface text-white",
                 ].join(" ")}
               >
                 {message.body}
@@ -125,7 +125,7 @@ export function LiveConversationThread({
                   aria-hidden
                   className={[
                     "mt-1 block text-[11px]",
-                    isMine ? "text-white/70" : "text-ink-500",
+                    isMine ? "text-white/70" : "text-ink-400",
                   ].join(" ")}
                 >
                   {new Date(message.created_at).toLocaleTimeString([], {

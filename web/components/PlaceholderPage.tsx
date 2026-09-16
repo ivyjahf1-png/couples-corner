@@ -22,7 +22,7 @@ export function PlaceholderPage({
       <Chip tone="brand" leadingDot>
         Route scaffolded
       </Chip>
-      <h2 className="text-4xl font-semibold tracking-display text-ink-900">
+      <h2 className="text-4xl font-semibold tracking-display text-white">
         {title}
       </h2>
       {children}

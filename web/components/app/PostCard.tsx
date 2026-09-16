@@ -27,13 +27,13 @@ export function PostCard({ post }: { post: FeedPostView }) {
   }
 
   return (
-    <article className="rounded-2xl border border-ink-200 bg-surface shadow-card">
+    <article className="rounded-2xl border border-ink-700 bg-surface shadow-card">
       {/* Header */}
       <div className="flex items-start gap-3 p-5 pb-3">
         <Avatar name={post.authorName} kind={post.authorKind} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-ink-900">{post.authorName}</p>
-          <p className="text-xs text-ink-500">{post.at}</p>
+          <p className="truncate font-semibold text-white">{post.authorName}</p>
+          <p className="text-xs text-ink-400">{post.at}</p>
         </div>
 
         {/* Post menu */}
@@ -43,7 +43,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
             aria-label="Post options"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-400 hover:bg-white/10 hover:text-ink-100"
           >
             <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden>
               <circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" />
@@ -52,14 +52,14 @@ export function PostCard({ post }: { post: FeedPostView }) {
           {menuOpen ? (
             <div
               role="menu"
-              className="absolute right-0 top-9 z-10 w-44 overflow-hidden rounded-xl border border-ink-200 bg-surface py-1 shadow-lifted"
+              className="absolute right-0 top-9 z-10 w-44 overflow-hidden rounded-xl border border-ink-700 bg-surface py-1 shadow-lifted"
             >
               {post.canDelete ? (
                 <button
                   type="button"
                   role="menuitem"
                   onClick={() => { setMenuOpen(false); setConfirmDelete(true); }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger-700 hover:bg-danger-50"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-danger-300 hover:bg-danger-500/10"
                 >
                   <Icon name="flag" className="h-4 w-4" /> Delete post
                 </button>
@@ -81,7 +81,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
 
       {/* Body */}
       <div className="px-5 pb-3">
-        <p className="whitespace-pre-line text-sm leading-6 text-ink-800">{post.body}</p>
+        <p className="whitespace-pre-line text-sm leading-6 text-ink-100">{post.body}</p>
         {post.mediaCount && post.mediaCount > 0 ? (
           <div
             aria-label={`${post.mediaCount} attached media item${post.mediaCount === 1 ? "" : "s"}`}
@@ -92,7 +92,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
               <div
                 key={i}
                 aria-hidden
-                className="flex aspect-[4/3] items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-500"
+                className="flex aspect-[4/3] items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400"
               >
                 Photo {i + 1}
               </div>
@@ -102,14 +102,14 @@ export function PostCard({ post }: { post: FeedPostView }) {
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1 border-t border-ink-200 px-3 py-2">
+      <div className="flex items-center gap-1 border-t border-ink-700 px-3 py-2">
         <button
           type="button"
           onClick={toggleLike}
           aria-pressed={liked}
           className={[
             "flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition",
-            liked ? "text-brand-700" : "text-ink-600 hover:bg-ink-100 hover:text-ink-900",
+            liked ? "text-brand-300" : "text-ink-300 hover:bg-white/10 hover:text-white",
           ].join(" ").trim()}
         >
           <Icon name="sparkle" className="h-4 w-4" />
@@ -119,7 +119,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
           type="button"
           onClick={() => setCommentsOpen((v) => !v)}
           aria-expanded={commentsOpen}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink-600 transition hover:bg-ink-100 hover:text-ink-900"
+          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink-300 transition hover:bg-white/10 hover:text-white"
         >
           <Icon name="chat" className="h-4 w-4" />
           {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
@@ -151,19 +151,19 @@ export function CommentSection({ comments }: { comments: FeedPostView["comments"
   const list = comments ?? [];
 
   return (
-    <div className="border-t border-ink-200 bg-surface-muted px-5 py-4">
+    <div className="border-t border-ink-700 bg-surface-muted px-5 py-4">
       {list.length === 0 ? (
-        <p className="pb-2 text-sm text-ink-600">No comments yet — be the first to say something kind.</p>
+        <p className="pb-2 text-sm text-ink-300">No comments yet — be the first to say something kind.</p>
       ) : (
         <ul className="flex flex-col gap-3 pb-3">
           {list.map((comment) => (
             <li key={comment.id} className="flex items-start gap-2.5">
               <Avatar name={comment.authorName} size="sm" />
-              <div className="min-w-0 flex-1 rounded-2xl border border-ink-200 bg-surface px-3.5 py-2.5">
-                <p className="text-xs font-semibold text-ink-900">
-                  {comment.authorName} <span className="ml-1 font-normal text-ink-500">{comment.at}</span>
+              <div className="min-w-0 flex-1 rounded-2xl border border-ink-700 bg-surface px-3.5 py-2.5">
+                <p className="text-xs font-semibold text-white">
+                  {comment.authorName} <span className="ml-1 font-normal text-ink-400">{comment.at}</span>
                 </p>
-                <p className="text-sm leading-6 text-ink-800">{comment.body}</p>
+                <p className="text-sm leading-6 text-ink-100">{comment.body}</p>
               </div>
             </li>
           ))}
@@ -184,7 +184,7 @@ export function CommentSection({ comments }: { comments: FeedPostView["comments"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Write a comment…"
-          className="h-10 flex-1 rounded-xl border border-ink-200 bg-surface px-3.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-brand-400 focus:outline-none"
+          className="h-10 flex-1 rounded-xl border border-ink-700 bg-surface px-3.5 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
         />
         <button
           type="submit"

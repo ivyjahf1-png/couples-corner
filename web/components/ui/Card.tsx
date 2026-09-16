@@ -7,11 +7,11 @@ export type CardTag = "div" | "section" | "article" | "li" | "aside";
 const baseClasses = "rounded-2xl";
 
 const toneClasses: Record<CardTone, string> = {
-  raised: "border border-ink-200 bg-surface shadow-card",
-  flat: "border border-ink-200 bg-surface",
+  raised: "border border-ink-700/50 bg-surface shadow-card",
+  flat: "border border-ink-700/50 bg-surface",
   interactive:
-    "border border-ink-200 bg-surface shadow-card transition duration-150 hover:shadow-lifted hover:border-ink-300",
-  muted: "border border-ink-200 bg-surface-muted",
+    "border border-ink-700/50 bg-surface shadow-card transition duration-150 hover:shadow-lifted hover:border-ink-600",
+  muted: "border border-ink-700/30 bg-surface-muted",
 };
 
 const paddingClasses: Record<CardPadding, string> = {

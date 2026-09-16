@@ -21,7 +21,7 @@ interface FieldGroupProps {
 export function BackgroundFields({ formData, updateField, errors }: FieldGroupProps) {
   return (
     <Card as="section" className="flex flex-col gap-4" aria-label="Background">
-      <h2 className="font-semibold text-ink-900">Background</h2>
+      <h2 className="font-semibold text-white">Background</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <Combobox

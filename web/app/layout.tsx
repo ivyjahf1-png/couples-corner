@@ -26,10 +26,11 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
-  // Light theme: browsers should apply a light color scheme
-  // (affects form controls, scrollbars, and default backgrounds).
-  colorScheme: "light",
+  themeColor: "#0F172A",
+  // Dark theme: browsers apply a dark color scheme to native UI
+  // (form controls, scrollbars, default backgrounds) so they match the
+  // deep purple/navy canvas instead of flashing white.
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="app-canvas min-h-full flex flex-col text-foreground">
         <AuthModalProvider />
         <Suspense fallback={<RootLoading />}>
           {children}

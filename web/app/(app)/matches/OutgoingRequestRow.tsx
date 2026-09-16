@@ -11,8 +11,8 @@ export function OutgoingRequestRow({ person }: { person: ConnectionRowView }) {
     <div className="flex flex-wrap items-center gap-3 px-5 py-4">
       <Avatar name={person.name} kind={person.kind} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-ink-900">{person.name}</p>
-        <p className="truncate text-sm text-ink-600">{person.location}</p>
+        <p className="truncate font-semibold text-white">{person.name}</p>
+        <p className="truncate text-sm text-ink-300">{person.location}</p>
       </div>
       <ConfirmationDialog
         title="Cancel request?"

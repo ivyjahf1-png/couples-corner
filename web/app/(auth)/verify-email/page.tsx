@@ -100,13 +100,13 @@ export default function VerifyEmailPage() {
       title="Confirm your email"
       subtitle="A quick confirmation keeps the community safe and your account recoverable."
       footer={
-        <Link href="/" className="font-semibold text-brand-700 hover:underline">
+        <Link href="/" className="font-semibold text-brand-300 hover:underline">
           Back to home
         </Link>
       }
     >
       {mode === "checking" ? (
-        <p className="text-sm text-ink-600" role="status">Checking your link…</p>
+        <p className="text-sm text-ink-300" role="status">Checking your link…</p>
       ) : null}
 
       {mode === "done" ? (
@@ -116,7 +116,7 @@ export default function VerifyEmailPage() {
       {mode === "link" ? (
         <form onSubmit={handleComplete} className="flex flex-col gap-4" noValidate>
           {error ? <FormAlert message={error} /> : null}
-          <p className="text-sm leading-6 text-ink-600">
+          <p className="text-sm leading-6 text-ink-300">
             Opened your sign-in link on a different device or browser? Confirm the email
             address the link was sent to.
           </p>
@@ -134,7 +134,7 @@ export default function VerifyEmailPage() {
             <FormSuccess message="Your email is verified — everything is set." />
           ) : (
             <>
-              <p className="text-sm leading-6 text-ink-600">
+              <p className="text-sm leading-6 text-ink-300">
                 We sent you a verification email when you registered. Follow the link in it,
                 then come back here — or send it again below.
               </p>
