@@ -94,11 +94,5 @@ export interface Post {
   updatedAt: string;
 }
 
-export const MAX_USER_MEDIA = 10;
 export const MAX_POST_MEDIA = 4;
-export const MAX_MEDIA_BYTES = 50 * 1024 * 1024;
-
-export const ALLOWED_MEDIA_TYPES: string[] = [
-  "image/jpeg", "image/png", "image/webp", "image/gif",
-  "video/mp4", "video/webm", "video/quicktime"
-];
+export { MAX_USER_MEDIA_BYTES as MAX_MEDIA_BYTES, USER_MEDIA_MIME_TYPES as ALLOWED_MEDIA_TYPES } from "@/lib/utils/media-upload";

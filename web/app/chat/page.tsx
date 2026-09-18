@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRealtimeMessages, type RealtimeMessage } from "@/lib/hooks/useRealtimeMessages";
 import { Icon } from "@/components/landing/Icon";
+import { buildMessageInsert } from "@/lib/utils/message-payload";
 
 interface ChatMessage {
   id: string;
@@ -101,12 +102,16 @@ export default function ChatPage() {
     setSending(true);
     setError(null);
 
-    const { error: err } = await supabase.from("messages").insert({
-      conversation_id: CONVERSATION_ID,
-      sender_id: user.id,
-      type: "text",
-      body: body.trim(),
-    });
+    const { error: err } = await supabase.from("messages").insert(
+      // Shared builder mirrors `body` into the legacy `content` column so the
+      // insert succeeds even before migration 017 is applied.
+      buildMessageInsert({
+        conversationId: CONVERSATION_ID,
+        senderId: user.id,
+        body: body.trim(),
+        type: "text",
+      })
+    );
 
     if (err) {
       setError(err.message);

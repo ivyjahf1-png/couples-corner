@@ -21,8 +21,25 @@ create table if not exists public.user_media (
   caption text,
   is_profile_photo boolean not null default false,
   sort_order integer not null default 0,
-  created_at timestamptz not default now()
+  created_at timestamptz not null default now()
 );
+
+-- Friend graph (referenced by the posts 'friends' visibility policy)
+create table if not exists public.friends (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  friend_id uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, friend_id),
+  check (user_id <> friend_id)
+);
+
+alter table public.friends enable row level security;
+
+drop policy if exists "friends_select_own" on public.friends;
+create policy "friends_select_own" on public.friends
+  for select using (auth.uid() = user_id or auth.uid() = friend_id);
+
+create index if not exists idx_friends_friend on public.friends(friend_id);
 
 -- Index for fast lookups
 create index if not exists idx_posts_author on public.posts(author_id, created_at desc);
@@ -86,13 +103,15 @@ drop policy if exists "storage_select" on storage.objects;
 create policy "storage_select" on storage.objects
   for select using (bucket_id = 'user-media');
 
-drop policy if exists "storage_insert" on storage.objects
+drop policy if exists "storage_insert" on storage.objects;
+create policy "storage_insert" on storage.objects
   for insert with check (
     bucket_id = 'user-media'
     and auth.uid()::text = (storage.foldername(name))[1]
   );
 
-drop policy if exists "storage_delete" on storage.objects
+drop policy if exists "storage_delete" on storage.objects;
+create policy "storage_delete" on storage.objects
   for delete using (
     bucket_id = 'user-media'
     and auth.uid()::text = (storage.foldername(name))[1]

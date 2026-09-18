@@ -33,6 +33,8 @@ interface BaseButtonProps {
   className?: string;
   children: ReactNode;
   "aria-label"?: string;
+  /** Native tooltip text (title attribute) — works on disabled buttons too. */
+  title?: string;
 }
 
 interface LinkButtonProps extends BaseButtonProps {
@@ -66,6 +68,7 @@ export function Button(props: ButtonProps) {
     className,
     children,
     "aria-label": ariaLabel,
+    title,
   } = props;
 
   const classes = [
@@ -80,7 +83,7 @@ export function Button(props: ButtonProps) {
 
   if (props.href !== undefined) {
     return (
-      <Link href={props.href} className={classes} aria-label={ariaLabel}>
+      <Link href={props.href} className={classes} aria-label={ariaLabel} title={title}>
         {children}
       </Link>
     );
@@ -94,6 +97,7 @@ export function Button(props: ButtonProps) {
       form={props.form}
       className={classes}
       aria-label={ariaLabel}
+      title={title}
     >
       {children}
     </button>

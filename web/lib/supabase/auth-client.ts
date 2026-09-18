@@ -110,9 +110,17 @@ export async function signInWithEmail(email: string, password: string): Promise<
 }
 
 /**
- * Register with email + password. The Postgres trigger `handle_new_user`
- * automatically creates the profile row in `public.users` — no separate
- * client-side insert required, so RLS permission failures are avoided.
+ * Register with email + password, then provision the user's account record.
+ *
+ * After Supabase Auth creates the auth user, we call POST /api/auth/register
+ * to create the `users` and `profiles` rows server-side (via the service
+ * role client, bypassing RLS). This ensures new users are discoverable by
+ * default (`profiles.discoverable = true`, `users.status = 'active'`).
+ *
+ * NOTE: There is NO Postgres `handle_new_user` trigger in this codebase;
+ * account provisioning is performed exclusively through this API route.
+ * Omitting it leaves the user without a profile row, so they won't appear
+ * in discovery.
  */
 export async function registerAndProvision(
   email: string,
@@ -126,8 +134,7 @@ export async function registerAndProvision(
     password,
     options: {
       emailRedirectTo: `${window.location.origin}/verify-email`,
-      // Pass display_name in user_metadata so the trigger can populate the
-      // public.users row automatically.
+      // Pass display_name in user_metadata so it can be propagated server-side.
       data: displayName != null ? { display_name: displayName } : undefined,
     },
   });
@@ -139,9 +146,34 @@ export async function registerAndProvision(
   const {
     data: { session },
   } = await supabase.auth.getSession();
+
   if (session?.access_token) {
     await exchangeSessionCookie(session.access_token);
   }
+
+  // Provision the user's account record (users + profiles tables) so they
+  // appear in discovery with discoverable=true and status='active'.
+  // Best-effort: we don't block sign-in if provisioning fails — the user
+  // can still use auth, but may not appear in discovery until fixed.
+  try {
+    const res = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accessToken: session?.access_token,
+        displayName: displayName?.trim() || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "unknown");
+      console.warn("[auth] Profile provisioning failed:", res.status, errText);
+    }
+  } catch (provisionError) {
+    // Network error or route unavailable — log and continue so the user
+    // can still access the app.
+    console.warn("[auth] Profile provisioning error:", provisionError);
+  }
+
   return data.user;
 }
 

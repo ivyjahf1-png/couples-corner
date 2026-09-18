@@ -2,7 +2,7 @@ import "server-only";
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { uploadProfilePhoto } from "@/lib/server/profiles";
-import { recordAudit } from "@/lib/server/audit";
+import { recordAuditBestEffort } from "@/lib/server/audit";
 
 /**
  * POST /api/photos/profile
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
     const result = await uploadProfilePhoto(session.uid, file);
 
-    await recordAudit({
+    await recordAuditBestEffort({
       adminUserId: session.uid,
       action: "profile_photo_upload",
       targetRef: { type: "profilePhoto", id: result.path },
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...result });
   } catch (error) {
+    console.error("[profile-photo] upload failed", error);
     const message = error instanceof Error ? error.message : "Upload failed";
     return NextResponse.json({ error: message }, { status: 400 });
   }

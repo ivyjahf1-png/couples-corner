@@ -10,7 +10,7 @@ export type MediaType = "image" | "video";
 
 export type ContentPlacement =
   | "hero" | "homepage" | "dashboard" | "discover"
-  | "feed" | "matches" | "messages";
+  | "feed" | "matches" | "messages" | "events" | "testimonials";
 
 export const CONTENT_CATEGORIES: ContentCategory[] = [
   "advertisement", "photo", "video", "announcement", "featured",
@@ -20,6 +20,7 @@ export const CONTENT_STATUSES: ContentStatus[] = [
 ];
 export const CONTENT_PLACEMENTS: ContentPlacement[] = [
   "hero", "homepage", "dashboard", "discover", "feed", "matches", "messages",
+  "events", "testimonials",
 ];
 export const MEDIA_TYPES: MediaType[] = ["image", "video"];
 

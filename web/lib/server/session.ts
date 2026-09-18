@@ -5,8 +5,9 @@
  * -----------------
  * Sessions are httpOnly cookies created from a Supabase session.
  * The server verifies the session with the Supabase server client.
- * Role (`user` | `admin`) comes exclusively from the user's app_metadata
- * or a custom `role` field in the users table — never from a client-supplied
+ * Role (`user` | `admin`) comes exclusively from the `role` column of the
+ * `users` table, looked up by the verified session user ID — never from
+ * Supabase JWT metadata (app_metadata/user_metadata) or a client-supplied
  * value.
  */
 
@@ -157,12 +158,22 @@ export async function getCurrentSessionUser(
       // Session tracking must never break authentication.
     }
 
-    // Get the user's role and demo flag from the users table
-    const { data: userRecord } = await supabase
-      .from("users")
-      .select("role, is_demo")
-      .eq("id", userId)
-      .single();
+    // Get the user's role and demo flag from the users table. A failed lookup
+    // must never discard the verified identity — fall back to the least-
+    // privileged role ("user") so a transient DB error can't bounce the user
+    // out of the app. Admin is only ever granted from a confirmed row; the
+    // fallback can lower privilege, never raise it.
+    let userRecord: { role?: string | null; is_demo?: boolean | null } | null = null;
+    try {
+      const { data, error } = await supabase
+        .from("users")
+        .select("role, is_demo")
+        .eq("id", userId)
+        .single();
+      if (!error) userRecord = data;
+    } catch {
+      // Transient lookup failure — keep the session with the default role.
+    }
 
     const email = userEmail;
     const dbRole: SessionUser["role"] =

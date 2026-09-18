@@ -2,9 +2,24 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserProfile } from "@/lib/models/user";
-import type { ConnectionRequest, Connection } from "@/lib/models/connections";
 import type { ConnectionRowView, ProfileCardView } from "@/lib/feature/types";
 import { mapProfileCardRow, mapProfileRow, publicProfileSelectList, profilePhotoUrl } from "@/lib/server/profiles";
+import { hydrateDiscoveryProfile, isDiscoveryUserId } from "@/lib/utils/discovery-profile";
+
+// Keep discovery independent of unrelated profile-editing columns.
+const DISCOVERY_PROFILE_FIELDS = "user_id, display_name, bio, interests, location, country, date_of_birth, relationship_status, profile_type, photos";
+
+type DiscoveryDatabaseError = { code?: string; message: string; details?: string | null; hint?: string | null };
+
+function assertDiscoveryQuery(stage: string, error: DiscoveryDatabaseError | null): void {
+  if (!error) return;
+  // Server logs only: no credentials, query parameters, or returned account records.
+  console.error("[discover] Database query failed", {
+    stage, code: error.code, message: error.message, details: error.details, hint: error.hint,
+  });
+  throw new Error(`Discover query failed: ${stage} (${error.code ?? "unknown"})`, { cause: error });
+}
+
 
 /**
  * Discovery + matches queries (server-side).
@@ -67,19 +82,6 @@ function dbToUserProfile(row: unknown): UserProfile {
   return profile;
 }
 
-/** Build the servable `/api/photos/{uid}/{file}` URL for a profile card. */
-function photoApiUrl(card: ReturnType<typeof mapProfileCardRow>, fallbackUid: string): string | null {
-  if (!card || card.photos.length === 0) return null;
-  const primary = card.photos.find((p) => p.isPrimary) ?? card.photos[0];
-  const storagePath = primary?.storagePath;
-  if (!storagePath) return null;
-  const uid = card.id ?? fallbackUid;
-  const fileName = storagePath.split("/").pop();
-  if (!fileName) return null;
-  // Keep behavior identical to the rest of the app: servable via GET /api/photos/{uid}/{file}.
-  return `/api/photos/${uid}/${fileName}`;
-}
-
 /**
  * Profiles eligible for discovery, filtered and shaped for ProfileCard.
  */
@@ -93,15 +95,39 @@ export async function getDiscoverProfiles(
     throw new Error("Supabase not configured");
   }
 
-  // Get viewer profile for interest matching
-  const { data: viewerProfileRow } = await supabase
-    .from("profiles")
-    .select(publicProfileSelectList())
-    .eq("user_id", viewerUid)
-    .single();
+  if (!isDiscoveryUserId(viewerUid)) {
+    console.error("[discover] Invalid authenticated viewer UUID");
+    throw new Error("Invalid discovery viewer");
+  }
 
-  const viewerProfile = viewerProfileRow ? dbToUserProfile(viewerProfileRow) : null;
-  const viewerInterests = viewerProfile?.interests ?? [];
+  // Legacy profiles may have no owner. Never pass null IDs to users.id IN (...).
+  const { data: profileRows, error: profilesError } = await supabase
+    .from("profiles")
+    .select(DISCOVERY_PROFILE_FIELDS)
+    .not("user_id", "is", null)
+    .neq("user_id", viewerUid)
+    .eq("discoverable", true)
+    .eq("visibility", "public")
+    .limit(DISCOVERY_LIMIT);
+  assertDiscoveryQuery("profiles.candidates", profilesError);
+  const profileRowsTyped = (profileRows ?? []).filter(
+    (row) => isDiscoveryUserId(row.user_id)
+  );
+  if (profileRowsTyped.length !== (profileRows?.length ?? 0)) {
+    console.warn("[discover] Skipped profiles with invalid owner IDs");
+  }
+  if (!profileRowsTyped.length) return [];
+
+  // A missing viewer profile is normal during onboarding; a DB error is not.
+  const { data: viewerProfileRow, error: viewerError } = await supabase
+    .from("profiles")
+    .select("interests")
+    .eq("user_id", viewerUid)
+    .maybeSingle();
+  assertDiscoveryQuery("profiles.viewer_interests", viewerError);
+  const viewerInterests: string[] = Array.isArray(viewerProfileRow?.interests)
+    ? viewerProfileRow.interests.filter((interest: unknown): interest is string => typeof interest === "string")
+    : [];
 
   // Fetch connection/request/block data in parallel
   const [outgoingResult, incomingResult, conn1Result, conn2Result, blocksByMeResult, blocksOnMeResult] =
@@ -121,6 +147,19 @@ export async function getDiscoverProfiles(
       supabase.from("blocks").select("blocked_id").eq("blocker_id", viewerUid),
       supabase.from("blocks").select("blocker_id").eq("blocked_id", viewerUid),
     ]);
+
+  // Fail closed: silently treating a failed block query as empty is unsafe.
+  const relatedQueries = [
+    ["connection_requests.outgoing", outgoingResult],
+    ["connection_requests.incoming", incomingResult],
+    ["connections.user1", conn1Result],
+    ["connections.user2", conn2Result],
+    ["blocks.by_viewer", blocksByMeResult],
+    ["blocks.on_viewer", blocksOnMeResult],
+  ] as const;
+  for (const [stage, result] of relatedQueries) {
+    assertDiscoveryQuery(stage, result.error);
+  }
 
   // Build Sets for filtering
   const outgoingIds = new Set<string>();
@@ -148,18 +187,19 @@ export async function getDiscoverProfiles(
     ...(blocksOnMeResult.data ?? []).map((b: { blocker_id: string }) => b.blocker_id),
   ]);
 
-  // Query discoverable profiles (never use .select("*") against profiles)
-  let query = supabase
-    .from("profiles")
-    .select(publicProfileSelectList())
-    .eq("discoverable", true)
-    .eq("visibility", "public")
-    .limit(DISCOVERY_LIMIT);
-
-  const { data: profileRows } = await query;
-  if (!profileRows) return [];
-
-  const profiles = profileRows.map(dbToUserProfile);
+  // Account display fields are provisioned separately from profile details.
+  // Only fetch public display fields for this bounded set of candidates.
+  const { data: accounts, error: accountsError } = await supabase
+    .from("users")
+    .select("id, display_name, username, avatar_url, country, status")
+    .in("id", profileRowsTyped.map((row) => row.user_id))
+    .eq("status", "active");
+  assertDiscoveryQuery("users.public_display_fields", accountsError);
+  const accountsById = new Map((accounts ?? []).map((account) => [account.id, account]));
+  const profiles = profileRowsTyped.flatMap((row) => {
+    const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id));
+    return hydrated ? [dbToUserProfile(hydrated)] : [];
+  });
 
   // Apply filters
   const filtered = profiles.filter((p) => {

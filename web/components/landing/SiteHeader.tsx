@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
 import { Icon } from "@/components/landing/Icon";
 import { openAuthModal } from "@/components/auth/AuthModals";
@@ -19,8 +20,9 @@ const navLinks: { label: string; href: string }[] = [
  * on small screens.
  */
 export function SiteHeader() {
+  const pathname = usePathname();
   return (
-    <header className="sticky top-0 z-40 border-b border-ink-700 bg-background/95 backdrop-blur">
+    <header className={`${pathname === "/" ? "sticky" : "relative md:sticky"} top-0 z-30 border-b border-ink-700 bg-background/95 backdrop-blur`}>
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-4 sm:px-6 lg:px-10">
         <Logo as="div" />
 

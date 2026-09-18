@@ -2,6 +2,8 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Conversation, Message } from "@/lib/models";
+import { buildMessageInsert } from "@/lib/utils/message-payload";
+import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 
 /**
  * Couples Corner — server-side messaging service.
@@ -36,12 +38,20 @@ export async function listConversations(userId: string): Promise<ConversationRow
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("conversations")
     .select("*")
     .contains("participant_user_ids", [userId])
     .order("last_message_at", { ascending: false })
     .limit(100);
+
+  if (error) {
+    console.error("[messaging] Conversations query failed", {
+      userId,
+      ...supabaseErrorDetail(error),
+    });
+    throw error;
+  }
 
   return (data as ConversationRow[] | null) ?? [];
 }
@@ -51,11 +61,18 @@ export async function getConversation(conversationId: string): Promise<Conversat
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("conversations")
     .select("*")
     .eq("id", conversationId)
     .single();
+
+  if (error && error.code !== "PGRST116") {
+    console.error("[messaging] Conversation lookup failed", {
+      conversationId,
+      ...supabaseErrorDetail(error),
+    });
+  }
 
   return (data as ConversationRow | null) ?? null;
 }
@@ -65,12 +82,20 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messages")
     .select("*")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(500);
+
+  if (error) {
+    console.error("[messaging] Messages query failed", {
+      conversationId,
+      ...supabaseErrorDetail(error),
+    });
+    throw error;
+  }
 
   return (data as MessageRow[] | null) ?? [];
 }
@@ -86,18 +111,31 @@ export async function sendMessage(params: {
   if (!supabase) throw new Error("Supabase not configured");
 
   const now = new Date().toISOString();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("messages")
-    .insert({
-      conversation_id: params.conversationId,
-      sender_id: params.senderId,
-      type: params.type ?? "text",
-      body: params.body,
-      created_at: now,
-      updated_at: now,
-    })
+    .insert(
+      buildMessageInsert({
+        conversationId: params.conversationId,
+        senderId: params.senderId,
+        body: params.body,
+        type: params.type ?? "text",
+        createdAt: now,
+        updatedAt: now,
+      })
+    )
     .select("*")
     .single();
+
+  // Never swallow the database exception — it is the only way to diagnose a
+  // failed send (e.g. 23502 NOT NULL on a legacy column, 42501 RLS denial).
+  if (error) {
+    console.error("[messaging] Message insert failed", {
+      conversationId: params.conversationId,
+      senderId: params.senderId,
+      ...supabaseErrorDetail(error),
+    });
+    throw error;
+  }
 
   // Update conversation's last_message_at
   await supabase

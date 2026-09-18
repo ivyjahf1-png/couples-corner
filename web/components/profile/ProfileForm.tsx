@@ -33,7 +33,9 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
   } = useProfileForm(initialData, mode);
 
   const initialPhoto = (() => {
-    const storagePath = initialData?.photos?.[0]?.storagePath;
+    const photo = initialData?.photos?.find((item) => item.isPrimary) ?? initialData?.photos?.[0];
+    if (photo?.publicUrl) return photo.publicUrl;
+    const storagePath = photo?.storagePath;
     if (!storagePath) return initialData?.user?.avatarUrl ?? null;
     const fileName = storagePath.split("/").pop();
     if (!fileName) return initialData?.user?.avatarUrl ?? null;

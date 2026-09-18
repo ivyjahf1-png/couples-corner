@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { Icon } from "@/components/landing/Icon";
 import { sendMessageAction } from "@/lib/actions/messaging";
+import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
 
 interface MessageComposerProps {
   conversationId: string;
@@ -16,7 +17,7 @@ interface MessageComposerProps {
 export function MessageComposer({ conversationId, onSent }: MessageComposerProps) {
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useActionError();
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -31,7 +32,7 @@ export function MessageComposer({ conversationId, onSent }: MessageComposerProps
       setBody("");
       onSent?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to send message");
+      setError(failureMessage(err, "Could not send your message. Check the conversation before retrying."));
     } finally {
       setBusy(false);
     }

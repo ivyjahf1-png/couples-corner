@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/server/audit";
+import { requireActorUuid } from "@/lib/server/actor";
 import type {
   SupportTicket,
   SupportTicketCategory,
@@ -77,22 +78,28 @@ export async function updateSupportTicket(
   }
 
   const now = new Date().toISOString();
+  // `admin_user_id` is a uuid column: resolve a real actor before attributing
+  // the change instead of forwarding a possibly blank/pseudo uid.
+  const touchesActorColumn = Boolean(input.status) || typeof input.adminReply === "string";
+  const actorUid = touchesActorColumn
+    ? await requireActorUuid(adminUid, "support ticket update")
+    : adminUid;
   const updates: Record<string, unknown> = { updated_at: now };
 
   if (input.status) {
     updates.status = input.status;
-    updates.admin_user_id = adminUid;
+    updates.admin_user_id = actorUid;
     if (input.status === "resolved") updates.resolved_at = now;
   }
   if (typeof input.adminReply === "string") {
     updates.admin_reply = input.adminReply.trim() || null;
-    updates.admin_user_id = adminUid;
+    updates.admin_user_id = actorUid;
   }
 
   await supabase.from("support_tickets").update(updates).eq("id", id);
 
   await recordAudit({
-    adminUserId: adminUid,
+    adminUserId: actorUid,
     action: `support_ticket.${input.status ?? "reply"}`,
     targetRef: { type: "support_ticket", id },
   });

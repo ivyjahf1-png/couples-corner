@@ -39,7 +39,7 @@
   --foreground: #ffffff;
   /* Root canvas: the landing page's deep purple → navy gradient, applied to
      <body> so every screen shares one seamless background. */
-  --background-gradient: linear-gradient(135deg, #3b0764 0%, #581c87 50%, #020617 100%);
+  --background-gradient: linear-gradient(135deg, #3b0764 0%, #581c87 50%, #0f172a 100%);
   --surface: #1E293B;
   --surface-muted: #334155;
   --border: #334155;
@@ -446,7 +446,7 @@ input::placeholder, textarea::placeholder {
 }
 
 .app-drawer-scrim {
-  background-color: rgb(2 6 23 / 0.72);
+  background-color: rgb(15 23 42 / 0.72);
   -webkit-backdrop-filter: blur(2px);
   backdrop-filter: blur(2px);
 }

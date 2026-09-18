@@ -3,6 +3,8 @@
 import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { RiskSignalType } from "@/lib/models";
+import { buildMessageInsert } from "@/lib/utils/message-payload";
+import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { scanMessage, addRiskSignal } from "@/lib/server/safety";
 
 /**
@@ -53,40 +55,67 @@ export async function sendMessageWithScan(args: {
   const signal = scanMessage(body);
 
   // Insert message
-  const { data: messageRow } = await supabase
+  const { data: messageRow, error: insertError } = await supabase
     .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      body,
-      created_at: now,
-      status: "sent",
-    })
+    .insert(
+      buildMessageInsert({
+        conversationId,
+        senderId,
+        body,
+        status: "sent",
+        createdAt: now,
+        updatedAt: now,
+      })
+    )
     .select("id")
     .single();
 
+  // A failed insert previously went unnoticed and then crashed on the
+  // `messageRow!.id` reads below. Surface and log the exact exception instead.
+  if (insertError || !messageRow) {
+    const detail = insertError
+      ? supabaseErrorDetail(insertError)
+      : { message: "Message insert returned no row" };
+    console.error("[outbox] Message insert failed", {
+      conversationId,
+      senderId,
+      ...detail,
+    });
+    throw insertError ?? new Error("Could not send your message. Please try again.");
+  }
+
   // Update conversation
-  await supabase
+  const { error: conversationError } = await supabase
     .from("conversations")
     .update({
       last_message_at: now,
-      last_message_id: messageRow!.id,
+      last_message_id: messageRow.id,
       updated_at: now,
     })
     .eq("id", conversationId);
+
+  if (conversationError) {
+    // The message itself was stored — log the bookkeeping failure without
+    // failing the send, so the thread ordering can be repaired later.
+    console.error("[outbox] Conversation timestamp update failed", {
+      conversationId,
+      messageId: messageRow.id,
+      ...supabaseErrorDetail(conversationError),
+    });
+  }
 
   // Risk signal is written separately; a future background job will aggregate.
   if (signal) {
     void addRiskSignal({
       targetUserId: senderId,
       type: signal,
-      context: `message:${messageRow!.id}`,
+      context: `message:${messageRow.id}`,
       source: "client_message_send",
       score: signalScore(signal),
     });
   }
 
-  return { id: messageRow!.id };
+  return { id: messageRow.id };
 }
 
 /**

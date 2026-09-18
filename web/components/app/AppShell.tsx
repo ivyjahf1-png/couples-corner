@@ -1,3 +1,4 @@
+import { MobileHomeHeader } from "@/components/app/MobileBackHeader";
 import Link from "next/link";
 import { AppSidebar, AppMobileNav } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
@@ -38,7 +39,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Mobile top bar — frosted navy with high-contrast white icons. */}
-      <header className="app-top-bar sticky top-0 z-30 border-b md:hidden">
+      <MobileHomeHeader>
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/dashboard" aria-label="Couples Corner home">
             <Logo as="span" />
@@ -60,7 +61,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           </div>
         </div>
-      </header>
+      </MobileHomeHeader>
 
       <div className="flex w-full md:pl-72">
         {/* Fixed left-hand navy rail (tablet + desktop) */}

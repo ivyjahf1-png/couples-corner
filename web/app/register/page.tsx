@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { PasswordInput } from "@/components/auth/PasswordInput";
 import { OAuthButtons } from "@/components/auth/OAuthButtons";
+import { Logo } from "@/components/ui/Logo";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -62,9 +63,9 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-slate-950 text-white">
       <nav className="border-b border-white/10 bg-purple-950/80 px-4 py-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-7xl items-center justify-between">
-          <Link href="/" className="text-xl font-bold">
-            Couple<span className="text-orange-400">&apos;s</span> Corner
+                                <div className="mx-auto flex max-w-7xl items-center justify-between">
+          <Link href="/" className="flex items-center" aria-label="Couples Corner home">
+            <Logo as="span" />
           </Link>
         </div>
       </nav>

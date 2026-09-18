@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
-import { ConnectionButton } from "@/components/app/ConnectionButton";
+import { ProfileConnectionActions } from "@/components/app/ProfileConnectionActions";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { BlockDialog } from "@/components/app/BlockDialog";
 
@@ -96,7 +96,10 @@ export default async function PublicProfilePage({
           {/* Actions */}
           {!isSelf && (
             <div className="flex flex-wrap items-center gap-2">
-              <ConnectionButton state="none" />
+              <ProfileConnectionActions
+                targetUserId={userId}
+                viewerUid={session?.uid ?? null}
+              />
               <ReportDialog
                 targetLabel={profile.displayName}
                 entityType="user"

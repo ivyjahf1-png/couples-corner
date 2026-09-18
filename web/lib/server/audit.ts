@@ -10,6 +10,7 @@ import "server-only";
  */
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { resolveActorUuid } from "@/lib/server/actor";
 
 export interface AuditEntry {
   adminUserId: string;
@@ -22,7 +23,15 @@ export interface AuditEntry {
   at?: string;
 }
 
-/** Append an audit entry (server-side only). */
+/**
+ * Append an audit entry (server-side only).
+ *
+ * `audit_logs.admin_user_id` is a `uuid` column: forwarding a blank value (an
+ * unresolved session uid) or a non-uuid pseudo id would be rejected by Postgres
+ * with `invalid input syntax for type uuid: ""`. The actor is therefore resolved
+ * to a real UUID first; when none can be established the entry is skipped with a
+ * warning instead of writing a corrupt row.
+ */
 export async function recordAudit(entry: AuditEntry): Promise<void> {
   const supabase = getSupabaseServerClient();
 
@@ -30,8 +39,17 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
     throw new Error("Supabase not configured");
   }
 
+  const actorUid = await resolveActorUuid(entry.adminUserId);
+  if (!actorUid) {
+    console.warn("[audit] skipped — no resolvable admin uuid:", {
+      action: entry.action,
+      targetRef: entry.targetRef,
+    });
+    return;
+  }
+
   await supabase.from("audit_logs").insert({
-    admin_user_id: entry.adminUserId,
+    admin_user_id: actorUid,
     action: entry.action,
     target_ref: entry.targetRef,
     reason: entry.reason,

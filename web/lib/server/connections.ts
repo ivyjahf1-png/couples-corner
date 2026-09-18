@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ConnectionRequest, Connection } from "@/lib/models/connections";
+import type { ConnectionState } from "@/lib/feature/types";
 import { createNotification } from "./notifications";
 import { profileSelectList } from "./profiles";
 
@@ -50,6 +51,54 @@ async function assertUnderRateLimit(fromUid: string): Promise<void> {
   }
 }
 
+/**
+ * Resolve the connection UI state between the signed-in viewer and a profile.
+ * Returns the ConnectionState plus the request/connection ids needed to act.
+ */
+export async function getConnectionState(
+  viewerUid: string | null,
+  profileUid: string
+): Promise<{ state: ConnectionState; requestId: string | null; connectionId: string | null }> {
+  if (!viewerUid || viewerUid === profileUid) {
+    return { state: viewerUid === profileUid ? "self" : "none", requestId: null, connectionId: null };
+  }
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
+  const [{ data: outgoing }, { data: incoming }, { data: connection }] = await Promise.all([
+    supabase
+      .from("connection_requests")
+      .select("id, status")
+      .eq("from_user_id", viewerUid)
+      .eq("to_user_id", profileUid)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("connection_requests")
+      .select("id, status")
+      .eq("from_user_id", profileUid)
+      .eq("to_user_id", viewerUid)
+      .eq("status", "pending")
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("connections")
+      .select("id")
+      .eq("id", pairIdOf(viewerUid, profileUid))
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (connection) return { state: "connected", requestId: null, connectionId: connection.id as string };
+  if (incoming) return { state: "incoming_pending", requestId: incoming.id as string, connectionId: null };
+  if (outgoing) return { state: "outgoing_pending", requestId: outgoing.id as string, connectionId: null };
+  return { state: "none", requestId: null, connectionId: null };
+}
+
 /** Send a connection request. Prevents self/duplicate/blocked/rate-limited sends. */
 export async function sendConnectionRequest(fromUid: string, toUid: string): Promise<void> {
   if (fromUid === toUid) throw new Error("You can't connect with yourself");
@@ -59,12 +108,24 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
     throw new Error("Supabase not configured");
   }
   const now = new Date().toISOString();
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
 
-  await assertNotBlocked(fromUid, toUid);
-  await assertUnderRateLimit(fromUid);
-
-  // Duplicate guard: any pending request in either direction.
-  const [{ data: outgoing }, { data: incoming }] = await Promise.all([
+  // All guard reads are independent — run them concurrently so the request
+  // insert isn't serialized behind six round-trips on slow mobile networks.
+  const [
+    { data: blockedRow },
+    { count: recentCount },
+    { data: outgoing },
+    { data: incoming },
+    { data: existingConnection },
+    { data: targetProfile },
+  ] = await Promise.all([
+    supabase.from("blocks").select("id").eq("id", pairIdOf(fromUid, toUid)).limit(1).maybeSingle(),
+    supabase
+      .from("connection_requests")
+      .select("*", { count: "exact", head: true })
+      .eq("from_user_id", fromUid)
+      .gt("created_at", since),
     supabase
       .from("connection_requests")
       .select("id")
@@ -72,7 +133,7 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
       .eq("to_user_id", toUid)
       .eq("status", "pending")
       .limit(1)
-      .single(),
+      .maybeSingle(),
     supabase
       .from("connection_requests")
       .select("id")
@@ -80,32 +141,25 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
       .eq("to_user_id", fromUid)
       .eq("status", "pending")
       .limit(1)
-      .single(),
+      .maybeSingle(),
+    supabase.from("connections").select("id").eq("id", pairIdOf(fromUid, toUid)).limit(1).maybeSingle(),
+    supabase.from("profiles").select(profileSelectList()).eq("user_id", toUid).limit(1).maybeSingle(),
   ]);
 
+  if (blockedRow) throw new Error("You can't connect with this person");
+  if (recentCount && recentCount >= REQUESTS_PER_HOUR) {
+    throw new Error("You're sending requests too quickly — try again later");
+  }
   if (outgoing) throw new Error("Request already sent");
   if (incoming) throw new Error("This person already sent you a request — check Matches");
-
-  const { data: existingConnection } = await supabase
-    .from("connections")
-    .select("id")
-    .eq("id", pairIdOf(fromUid, toUid))
-    .single();
-
   if (existingConnection) throw new Error("You're already connected");
-
-  const { data: targetProfile } = await supabase
-    .from("profiles")
-    .select(profileSelectList())
-    .eq("user_id", toUid)
-    .single();
 
   const targetData = targetProfile as Record<string, unknown> | null;
   const notifyOnConnection = (
     targetData?.preferences as { notify_on_connection?: boolean } | undefined
   )?.notify_on_connection;
 
-  const { data: created } = await supabase
+  const { data: created, error: insertError } = await supabase
     .from("connection_requests")
     .insert({
       from_user_id: fromUid,
@@ -120,13 +174,23 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
     .select("id")
     .single();
 
+  // `created` is null whenever the insert fails (RLS, constraint, rate limit
+  // trigger, connectivity) — `created!.id` then crashed with
+  // "Cannot read properties of null (reading 'id')". Surface the real reason.
+  if (insertError) {
+    throw new Error(insertError.message || "Couldn't send your request. Please try again.");
+  }
+  if (!created?.id) {
+    throw new Error("Couldn't send your request. Please try again.");
+  }
+
   if (notifyOnConnection !== false) {
     await createNotification({
       recipientId: toUid,
       type: "connection_request",
       actorId: fromUid,
       entityType: "connectionRequest",
-      entityId: created!.id,
+      entityId: created.id,
       title: "New connection request",
       body: "Someone would like to connect with you.",
     });
@@ -194,8 +258,9 @@ export async function respondToConnectionRequest(
       .eq("id", requestId);
   } else {
     // Create connection and update request
+    const pairId = pairIdOf(pre.from_user_id, pre.to_user_id);
     await supabase.from("connections").insert({
-      id: pairIdOf(pre.from_user_id, pre.to_user_id),
+      id: pairId,
       user1_id: pre.from_user_id < pre.to_user_id ? pre.from_user_id : pre.to_user_id,
       user2_id: pre.from_user_id < pre.to_user_id ? pre.to_user_id : pre.from_user_id,
       connected_at: now,
@@ -209,10 +274,30 @@ export async function respondToConnectionRequest(
       .update({
         status: "accepted",
         responded_at: now,
-        connection_id: pairIdOf(pre.from_user_id, pre.to_user_id),
+        connection_id: pairId,
         updated_at: now,
       })
       .eq("id", requestId);
+
+    // Initialize the 1:1 chat room immediately so both users see an active
+    // conversation on /messages and the matches page. Idempotent: skip if a
+    // direct conversation between the pair already exists.
+    const { data: existing } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("type", "direct")
+      .contains("participant_user_ids", [pre.from_user_id, pre.to_user_id])
+      .limit(1)
+      .maybeSingle();
+    if (!existing) {
+      await supabase.from("conversations").insert({
+        type: "direct",
+        participant_user_ids: [pre.from_user_id, pre.to_user_id],
+        created_by_id: uid,
+        created_at: now,
+        updated_at: now,
+      });
+    }
   }
 
   if (accept) {

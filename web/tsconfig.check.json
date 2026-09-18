@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [],
+  "files": [
+    "lib/server/session.ts",
+    "lib/auth/authorization.ts",
+    "app/admin/layout.tsx"
+  ]
+}

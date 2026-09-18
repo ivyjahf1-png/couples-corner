@@ -4,7 +4,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentSessionUser } from "@/lib/server/session";
-import { MAX_USER_MEDIA } from "@/lib/models/user";
+import { validateMediaFile } from "@/lib/utils/media-upload";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
 import {
   completeOnboarding,
@@ -26,37 +26,30 @@ export async function uploadUserMediaAction(
   caption?: string
 ): Promise<MediaUploadResult> {
   try {
+    await requireSessionUid(userId);
     const supabase = getSupabaseServerClient();
     if (!supabase) {
       return { ok: false, error: "Supabase not configured" };
     }
 
-    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/webm"];
-    if (!allowed.includes(file.type)) {
-      return { ok: false, error: `Unsupported file type: ${file.type}` };
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      return { ok: false, error: "File too large (max 50 MB)" };
-    }
-
-    const { count } = await supabase
-      .from("user_media")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId);
-
-    if (count !== null && count >= MAX_USER_MEDIA) {
-      return { ok: false, error: `You can only upload up to ${MAX_USER_MEDIA} media items. Please delete one first.` };
+    const validationError = validateMediaFile(file);
+    if (validationError) {
+      return { ok: false, error: validationError };
     }
 
     const mediaType = file.type.startsWith("video/") ? "video" : "image";
 
-    const { data: maxRow } = await supabase
+    const { data: maxRow, error: orderError } = await supabase
       .from("user_media")
       .select("sort_order")
       .eq("user_id", userId)
       .order("sort_order", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
+    if (orderError) {
+      console.error("[user-media] lookup failed", orderError);
+      return { ok: false, error: "Media storage is not ready. Contact support to check the database migration." };
+    }
     const sortOrder = (maxRow?.sort_order ?? -1) + 1;
 
     const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
@@ -110,6 +103,7 @@ export async function deleteUserMediaAction(
   userId: string
 ): Promise<{ ok: boolean; error?: string }> {
   try {
+    await requireSessionUid(userId);
     const supabase = getSupabaseServerClient();
     if (!supabase) {
       return { ok: false, error: "Supabase not configured" };

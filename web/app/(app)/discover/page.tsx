@@ -1,4 +1,4 @@
-import { requireUser } from "@/lib/auth/authorization";
+import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
@@ -20,42 +20,19 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
 
   const filters = parseDiscoveryFilters(sp);
 
+  let profiles: Awaited<ReturnType<typeof getDiscoverProfiles>> | null = null;
+  let failed = false;
   try {
-    const profiles = await getDiscoverProfiles(session.uid, filters);
-
-    return (
-      <div className="flex flex-col gap-8">
-        <PageHeader
-          eyebrow="Discover"
-          title="Find your people"
-          subtitle="Real profiles from the Couples Corner community, filtered your way. Connections always start with a request."
-        />
-
-        <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />
-
-        {/* Promotional slot — admins place banner ads here (placement "discover"). */}
-        <div className="mt-8">
-          <ContentSlot placement="discover" />
-        </div>
-
-        {profiles.length === 0 ? (
-          <EmptyState
-            icon="discover"
-            title="No profiles found"
-            body="No profiles match these filters yet. Try widening your search or check back soon — the community is growing."
-          />
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {profiles.map((profile) => (
-              <ProfileCard key={profile.id} profile={profile} />
-            ))}
-          </div>
-        )}
-      </div>
-    );
+    profiles = await getDiscoverProfiles(session.uid, filters);
   } catch (error) {
-    console.error("DiscoverPage error:", error);
+    if (isRedirectOrNotFoundError(error)) throw error;
+    console.error("[discover] Fetch failed", {
+      message: error instanceof Error ? error.message : "Unexpected discovery fetch error",
+    });
+    failed = true;
+  }
 
+  if (failed || profiles === null) {
     return (
       <div className="flex flex-col gap-8">
         <PageHeader eyebrow="Discover" title="Find your people" />
@@ -66,4 +43,35 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
       </div>
     );
   }
+
+  return (
+    <div className="flex flex-col gap-8">
+      <PageHeader
+        eyebrow="Discover"
+        title="Find your people"
+        subtitle="Real profiles from the Couples Corner community, filtered your way. Connections always start with a request."
+      />
+
+      <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />
+
+      {/* Promotional slot — admins place banner ads here (placement "discover"). */}
+      <div className="mt-8">
+        <ContentSlot placement="discover" />
+      </div>
+
+      {profiles.length === 0 ? (
+        <EmptyState
+          icon="discover"
+          title="No profiles found"
+          body="No profiles match these filters yet. Try widening your search or check back soon — the community is growing."
+        />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {profiles.map((profile) => (
+            <ProfileCard key={profile.id} profile={profile} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

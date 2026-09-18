@@ -2,6 +2,7 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/server/audit";
+import { requireActorUuid } from "@/lib/server/actor";
 import type { Report, RiskFlag, ReportStatus } from "@/lib/models";
 import type { AppRole, UserStatus } from "@/lib/models/common";
 
@@ -86,18 +87,21 @@ export async function updateReportStatus(
   if (!supabase) throw new Error("Supabase not configured");
 
   const now = new Date().toISOString();
+  // `handled_by_admin_id` is a uuid column: resolve a real actor so a blank or
+  // pseudo uid can never be written as "".
+  const actorUid = await requireActorUuid(adminUid, "report review");
   await supabase
     .from("reports")
     .update({
       status,
-      handled_by_admin_id: adminUid,
+      handled_by_admin_id: actorUid,
       resolution_note: note?.trim() || null,
       updated_at: now,
     })
     .eq("id", reportId);
 
   await recordAudit({
-    adminUserId: adminUid,
+    adminUserId: actorUid,
     action: `report.${status}`,
     targetRef: { type: "report", id: reportId },
     reason: note?.trim() || undefined,

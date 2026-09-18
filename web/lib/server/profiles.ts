@@ -1,7 +1,8 @@
 ﻿import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { recordAudit } from "./audit";
+import { recordAudit, recordAuditBestEffort } from "./audit";
+import { validateMediaFile } from "@/lib/utils/media-upload";
 import { scanMessage, addRiskSignal } from "./safety";
 import type { ProfilePhoto, UserProfile, User } from "@/lib/models/user";
 import type { ProfileVisibility } from "@/lib/models";
@@ -219,7 +220,7 @@ export function profilePhotoUrl(
 ): string | null {
   if (!profile || profile.photos.length === 0) return null;
   const primary = profile.photos.find((p: ProfilePhoto) => p.isPrimary) ?? profile.photos[0];
-  return photoStoragePathToApiUrl(primary.storagePath);
+  return primary.publicUrl || photoStoragePathToApiUrl(primary.storagePath);
 }
 
 export function dbToUserProfile(row: unknown): UserProfile {
@@ -507,14 +508,8 @@ export async function completeOnboarding(uid: string, input: ProfileUpdateInput)
   await recordAudit({ adminUserId: uid, action: "update", targetRef: { type: "onboarding", id: uid }, reason: "onboarding completed" });
 }
 export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url: string; path: string }> {
-  const validTypes = ["image/jpeg", "image/png", "image/webp"];
-  if (!validTypes.includes(file.type)) {
-    throw new Error("Unsupported file type. Use JPG, PNG, or WebP.");
-  }
-  const maxBytes = 5 * 1024 * 1024;
-  if (file.size > maxBytes) {
-    throw new Error("Photo too large. Maximum size is 5 MB.");
-  }
+  const validationError = validateMediaFile(file, true);
+  if (validationError) throw new Error(validationError);
 
   const timestamp = Date.now();
   const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "");
@@ -523,6 +518,20 @@ export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url
   const supabase = getSupabaseServerClient();
   if (!supabase) {
     throw new Error("Supabase not configured");
+  }
+
+  const { data: profileRow, error: profileError } = await supabase
+    .from("profiles").select("photos").eq("user_id", uid).single();
+  if (profileError || !profileRow) {
+    console.error("[profile-photo] profile lookup failed", profileError);
+    throw new Error("Could not load your profile. Save your profile details first, then retry.");
+  }
+  const existing = profileRow.photos as ProfilePhoto[] | null;
+  if (existing !== null && (!Array.isArray(existing) || existing.some(
+    (photo) => !photo || typeof photo !== "object" || typeof photo.storagePath !== "string"
+  ))) {
+    console.error("[profile-photo] incompatible photos data; apply migration 015_profile_photos_jsonb_repair.sql");
+    throw new Error("Profile photo storage needs a database repair. Please contact support.");
   }
 
   await ensureStorageBucket(supabase, PROFILE_PHOTOS_BUCKET);
@@ -536,25 +545,27 @@ export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url
     throw new Error(`Failed to upload photo: ${uploadError.message}`);
   }
 
-  const { data: profileRow } = await supabase
-    .from("profiles")
-    .select("photos")
-    .eq("user_id", uid)
-    .single();
-
-  const existing = (profileRow as unknown as { photos?: ProfilePhoto[] } | null)?.photos;
-  const photos: ProfilePhoto[] = existing ? [...existing] : [];
-  photos.push({ id: path, storagePath: path, isPrimary: photos.length === 0 });
-
-  const allProfileUpdates: Record<string, unknown> = { photos, updated_at: new Date().toISOString() };
-  const KNOWN_PROFILE_COLUMNS = new Set<string>([...PROFILE_DB_FIELDS, "id"]);
-  for (const key of Object.keys(allProfileUpdates)) {
-    if (!KNOWN_PROFILE_COLUMNS.has(key)) delete allProfileUpdates[key];
+  const photos: ProfilePhoto[] = [
+    { id: path, storagePath: path, isPrimary: true },
+    ...(existing ?? []).map((photo) => ({ ...photo, isPrimary: false })),
+  ];
+  // Compare-and-swap prevents concurrent uploads from losing existing photos.
+  let save = supabase.from("profiles")
+    .update({ photos, updated_at: new Date().toISOString() }).eq("user_id", uid);
+  save = existing === null ? save.is("photos", null) : save.eq("photos", JSON.stringify(existing));
+  const { data: saved, error: saveError } = await save.select("user_id").single();
+  if (saveError || !saved) {
+    console.error("[profile-photo] save failed", saveError);
+    const { error: cleanupError } = await supabase.storage.from(PROFILE_PHOTOS_BUCKET).remove([path]);
+    if (cleanupError) console.error("[profile-photo] cleanup failed", cleanupError);
+    if (saveError?.code === "22P02" || saveError?.code === "42883") {
+      console.error("[profile-photo] check photos column type; apply migration 015_profile_photos_jsonb_repair.sql");
+      throw new Error("Profile photo storage needs a database repair. Please contact support.");
+    }
+    throw new Error("Photo could not be linked to your profile. Please retry.");
   }
 
-  await supabase.from("profiles").update(allProfileUpdates).eq("user_id", uid);
-
-  await recordAudit({ adminUserId: uid, action: "upload", targetRef: { type: "profilePhoto", id: path }, reason: "profile photo upload" });
+  await recordAuditBestEffort({ adminUserId: uid, action: "upload", targetRef: { type: "profilePhoto", id: path }, reason: "profile photo upload" });
 
   return { url: photoStoragePathToApiUrl(path), path };
 }

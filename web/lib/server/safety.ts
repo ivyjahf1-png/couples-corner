@@ -81,7 +81,7 @@ export async function createReport(input: {
     throw new Error("Supabase not configured");
   }
 
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("reports")
     .insert({
       reporter_id: input.reporterId,
@@ -97,7 +97,17 @@ export async function createReport(input: {
     .select("id")
     .single();
 
-  return data!.id;
+  // Supabase returns `data: null` whenever the insert fails (RLS, constraint,
+  // connectivity). Reading `data.id` unguarded crashed with
+  // "Cannot read properties of null (reading 'id')" instead of surfacing why.
+  if (error) {
+    throw new Error(error.message || "Could not submit your report. Please try again.");
+  }
+  if (!data?.id) {
+    throw new Error("Your report could not be recorded. Please try again.");
+  }
+
+  return data.id;
 }
 
 /** Canonical, order-independent pair id used by `blocks` (and connection lookups). */
@@ -115,12 +125,26 @@ export async function blockUser(blockerId: string, blockedId: string): Promise<v
     throw new Error("Supabase not configured");
   }
 
-  await supabase.from("blocks").insert({
+  // Canonical pair id makes re-blocking idempotent: the unique/PK insert
+  // conflict simply means the block already exists — not a failure.
+  const { error } = await supabase.from("blocks").insert({
     id: canonicalPairId(blockerId, blockedId),
     blocker_id: blockerId,
     blocked_id: blockedId,
     created_at: now,
   });
+
+  // The result was previously ignored entirely, so a failed insert (RLS,
+  // constraint, connectivity) still returned success and the UI reported
+  // "blocked" when nothing was written. Surface real failures; tolerate
+  // duplicates so blocking twice doesn't error the user.
+  if (error) {
+    const message = error.message || "";
+    if (/duplicate key|unique constraint|already exists|blocks_pkey/i.test(message)) {
+      return; // Already blocked — idempotent success.
+    }
+    throw new Error(message || "Could not block this member. Please try again.");
+  }
 }
 
 /** Unblock another user. Only the blocker may delete their block record. */

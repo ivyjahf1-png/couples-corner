@@ -5,6 +5,8 @@ import { Avatar } from "@/components/app/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
+import { PROFILE_PHOTO_MIME_TYPES, validateMediaFile } from "@/lib/utils/media-upload";
+import { uploadWithProgress } from "@/lib/utils/upload-progress";
 
 interface ProfilePhotoUploaderProps {
   uid: string;
@@ -13,8 +15,6 @@ interface ProfilePhotoUploaderProps {
   onUploadComplete: (url: string) => void;
 }
 
-const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
-const VALID_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export function ProfilePhotoUploader({
   uid,
@@ -26,15 +26,9 @@ export function ProfilePhotoUploader({
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const validateFile = useCallback((file: File): string | null => {
-    if (!VALID_TYPES.includes(file.type)) {
-      return "Unsupported file type. Use JPG, PNG, or WebP.";
-    }
-    if (file.size > MAX_BYTES) {
-      return "Photo too large. Maximum size is 5 MB.";
-    }
-    return null;
-  }, []);
+  const [progress, setProgress] = useState(0);
+  const [success, setSuccess] = useState(false);
+  const validateFile = useCallback((file: File) => validateMediaFile(file, true), []);
 
   const handleUpload = useCallback(async () => {
     const input = inputRef.current;
@@ -49,6 +43,8 @@ export function ProfilePhotoUploader({
 
     setUploading(true);
     setError(null);
+    setSuccess(false);
+    setProgress(0);
 
     try {
       // Attach a fresh Supabase access token: the httpOnly session cookie
@@ -64,24 +60,16 @@ export function ProfilePhotoUploader({
       formData.append("file", file);
       formData.append("uid", uid);
 
-      const response = await fetch("/api/photos/profile", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        const hint = data.hint ? ` ${data.hint}` : "";
-        throw new Error(`${data.error || "Upload failed"}${hint}`);
-      }
-
-      const result = await response.json();
+      const result = await uploadWithProgress("/api/photos/profile", formData,
+        { Authorization: `Bearer ${accessToken}` }, setProgress) as { url?: string };
+      if (!result.url) throw new Error("Upload response did not include a photo URL.");
       onUploadComplete(result.url);
+      setSuccess(true);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
   }, [uid, onUploadComplete, validateFile]);
 
@@ -144,15 +132,22 @@ export function ProfilePhotoUploader({
         ) : null}
       </div>
 
-      {error ? <p className="text-xs text-danger-300">{error}</p> : null}
+      {error ? <p role="alert" className="text-xs text-danger-300">{error}</p> : null}
+      {uploading ? <div role="status" className="w-full text-center text-xs text-ink-300">
+        <progress max={100} value={progress} aria-label="Photo upload progress" className="w-full" />
+        {progress === 100 ? "Saving photo…" : `Uploading ${progress}%`}
+      </div> : null}
+      {success && !error ? <p role="status" className="text-xs text-success-300">Photo saved successfully.</p> : null}
 
       <input
+        ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={PROFILE_PHOTO_MIME_TYPES.join(",")}
+        disabled={uploading}
         onChange={handleUpload}
         className="hidden"
       />
-      <p className="text-xs text-ink-400">JPG, PNG, or WebP up to 5 MB</p>
+      <p className="text-xs text-ink-400">JPEG, PNG, WebP, GIF, or AVIF up to 20 MB. Hosting limits may be lower.</p>
     </div>
   );
 }

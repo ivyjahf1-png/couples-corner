@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
+import { notifyFailure } from "@/components/ui/FailureToasts";
 
 interface BlockDialogProps {
   targetLabel: string;
@@ -28,7 +29,18 @@ export function BlockDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guard: without a signed-in viewer or a valid target uid there is nothing
+  // to block — the server would reject the write and the old flow crashed
+  // when the target id was null.
+  const canBlock = typeof targetUid === "string" && targetUid.trim().length > 0;
+
   async function toggleBlock() {
+    if (!canBlock) {
+      const message = "This member can't be blocked right now. Please try again later.";
+      setError(message);
+      notifyFailure(message);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -39,18 +51,26 @@ export function BlockDialog({
         const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Could not complete action");
       }
+      notifyFailure(`${targetLabel} is now blocked. You can unblock them anytime in Settings → Blocked users.`);
+      setOpen(false);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Something went wrong";
       setError(message);
+      notifyFailure(message);
     } finally {
       setBusy(false);
-      setOpen(false);
     }
   }
 
   return (
     <>
-      <Button size={triggerSize} variant={triggerVariant} onClick={() => setOpen(true)}>
+      <Button
+        size={triggerSize}
+        variant={triggerVariant}
+        onClick={() => setOpen(true)}
+        disabled={!canBlock}
+        title={canBlock ? undefined : "Blocking isn't available for this member"}
+      >
         {triggerLabel}
       </Button>
       <ConfirmationDialog

@@ -106,7 +106,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-20 backdrop-blur">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/40 p-4 pt-20 backdrop-blur">
       <div className="w-full max-w-2xl rounded-2xl bg-surface p-6 shadow-2xl">
         <h2 className="text-lg font-semibold text-white">
           {editingItem ? "Edit content" : `New ${category.replace(/s$/, "")}`}

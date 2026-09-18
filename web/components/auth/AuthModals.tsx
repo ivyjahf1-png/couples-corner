@@ -246,7 +246,7 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
 export function AuthModal({ which, onClose }: { which: AuthModalType; onClose: () => void }) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-900/60 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="dialog"
       aria-modal="true"

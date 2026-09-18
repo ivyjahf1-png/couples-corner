@@ -1,4 +1,9 @@
-import { requireUser } from "@/lib/auth/authorization";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization";
+import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
+import { LoadingState } from "@/components/app/LoadingState";
+import { ActiveChats } from "./ActiveChats";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
@@ -12,25 +17,42 @@ import { ContentSlot } from "@/components/content/ContentSlot";
 
 export const dynamic = "force-dynamic";
 
+export const metadata: Metadata = {
+  title: "Matches | Couples Corner",
+  description: "Manage your connections, match requests, and private chats.",
+};
+
+/** The (app) route group preserves the public URL /matches and its auth guard. */
 export default async function MatchesPage() {
   const session = await requireUser();
 
+  return (
+    <div className="flex flex-col gap-10">
+      <PageHeader
+        eyebrow="Connections"
+        title="Matches"
+        subtitle="Your connections, match requests, and active chats — all in one place."
+        actions={<Button href="/messages" variant="secondary">View messages</Button>}
+      />
+      <Suspense fallback={<LoadingState label="Loading active chats" rows={2} />}>
+        <ActiveChats uid={session.uid} />
+      </Suspense>
+      <Suspense fallback={<LoadingState label="Loading connections and match requests" />}>
+        <MatchConnections uid={session.uid} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <ContentSlot placement="matches" />
+      </Suspense>
+    </div>
+  );
+}
+
+async function MatchConnections({ uid }: { uid: string }) {
   try {
-    const overview = await getMatchesData(session.uid);
+    const overview = await getMatchesData(uid);
 
     return (
       <div className="flex flex-col gap-10">
-        <PageHeader
-          eyebrow="Connections"
-          title="Matches"
-          subtitle="Requests you've received, requests you've sent, and people you're connected with."
-        />
-
-        {/* Promotional slot — admins place banner ads here (placement "matches"). */}
-        <div>
-          <ContentSlot placement="matches" />
-        </div>
-
         {/* Incoming requests */}
         <section aria-labelledby="incoming-heading" className="flex flex-col gap-4">
           <h2 id="incoming-heading" className="font-semibold text-white">
@@ -107,15 +129,18 @@ export default async function MatchesPage() {
         </section>
       </div>
     );
-  } catch {
+  } catch (error) {
+    if (isRedirectOrNotFoundError(error)) throw error;
+    console.error("[matches] Connections/requests load failed", {
+      uid,
+      ...supabaseErrorDetail(error),
+    });
     return (
-      <div className="flex flex-col gap-8">
-        <PageHeader eyebrow="Connections" title="Matches" />
-        <ErrorState
-          title="Couldn't load your matches"
-          body="Something went wrong reaching your connections. Please try again."
-        />
-      </div>
+      <ErrorState
+        title="Couldn't load your matches"
+        body="Something went wrong reaching your connections. Please try again."
+        action={<Button href="/matches" variant="secondary">Try again</Button>}
+      />
     );
   }
 }

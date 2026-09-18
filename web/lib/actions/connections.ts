@@ -8,7 +8,30 @@ import {
   cancelConnectionRequest,
   respondToConnectionRequest,
   removeConnection,
+  getConnectionState,
 } from "@/lib/server/connections";
+
+import type { ConnectionState } from "@/lib/feature/types";
+
+export type { ConnectionState };
+
+export interface GetConnectionStateResult {
+  state: ConnectionState;
+  requestId: string | null;
+  connectionId: string | null;
+}
+
+/** Resolve the connection state between the signed-in viewer and a profile. */
+export async function getConnectionStateAction(targetUserId: string): Promise<GetConnectionStateResult> {
+  const user = await getCurrentSessionUser();
+  if (!user) return { state: "none", requestId: null, connectionId: null };
+  try {
+    return await getConnectionState(user.uid, targetUserId);
+  } catch (error) {
+    rethrowIfNavigation(error);
+    return { state: "none", requestId: null, connectionId: null };
+  }
+}
 
 /**
  * Connection server actions. Each action re-resolves the session server-side

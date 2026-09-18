@@ -52,11 +52,12 @@ export const appSecondaryNavItems: AppNavItem[] = [
 /** Mobile bottom bar — two links + the "Menu" button = exactly 3 items. */
 export const mobilePrimaryNavItems: AppNavItem[] = [
   { href: "/discover", label: "Discover", icon: "compass" },
-  { href: "/matches", label: "Matches", icon: "heart", alsoActiveFor: ["/messages"] },
+  { href: "/matches", label: "Matches & Messages", icon: "heart", alsoActiveFor: ["/messages"] },
 ];
 
 /** Destinations inside the mobile "Menu" drawer. */
 export const menuDrawerItems: AppNavItem[] = [
+  { href: "/messages", label: "Messages", icon: "chat" },
   { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/feed", label: "Feed", icon: "moments" },
@@ -159,14 +160,15 @@ function ActiveDot({ active }: { active: boolean }) {
  * plus the drawer the "Menu" tab opens. Hidden from `md` up, where the fixed
  * sidebar takes over.
  */
-export function AppMobileNav({ displayName, displayEmail, isDemo }: AppMobileNavProps) {
+export function AppMobileNav(props: AppMobileNavProps) {
+  const pathname = usePathname();
+  // Reset only the navigation UI when the route changes.
+  return <MobileNavigation key={pathname} {...props} />;
+}
+
+function MobileNavigation({ displayName, displayEmail, isDemo }: AppMobileNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
-
-  // A destination was chosen — dismiss the drawer.
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
 
   // While open: lock background scroll and support the Escape key.
   useEffect(() => {

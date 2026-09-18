@@ -1,6 +1,8 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { requireActorUuid } from "@/lib/server/actor";
+import { omitBlankUuids, toUuidOrNull } from "@/lib/utils/uuid";
 import type { ContentItem, ContentPlacement, ContentStatus } from "@/lib/models";
 
 /**
@@ -17,10 +19,28 @@ export interface ContentFilters {
   search?: string;
 }
 
+/** Allowed placements — must mirror the `content_placement_check` constraint
+ * (see supabase/migrations/011_content_table.sql + 014_content_placement_check_expand.sql). */
+const ALLOWED_PLACEMENTS: readonly ContentPlacement[] = [
+  "hero", "homepage", "dashboard", "discover",
+  "feed", "matches", "messages", "events", "testimonials",
+];
+
+/** Throws an explicit error for placements the DB check constraint would reject. */
+function assertValidPlacement(placement: string | null | undefined): void {
+  if (!placement || !ALLOWED_PLACEMENTS.includes(placement as ContentPlacement)) {
+    throw new Error(
+      `Invalid placement "${placement ?? ""}". Allowed values: ${ALLOWED_PLACEMENTS.join(", ")}.`
+    );
+  }
+}
+
 /** Convert snake_case DB row to camelCase ContentItem */
 function dbToContentItem(row: Record<string, unknown>): ContentItem {
-  const mediaUrls = (row.media_urls as string[] | null) ?? [];
-  const primaryMediaUrl = (row.media_url as string) ?? mediaUrls[0] ?? "";
+  // The content table has a single `media_url` column (migration 011) — no
+  // media_urls column. Derive the UI convenience array from it.
+  const primaryMediaUrl = (row.media_url as string) ?? "";
+  const mediaUrls = primaryMediaUrl ? [primaryMediaUrl] : [];
   return {
     id: row.id as string,
     category: row.category as ContentItem["category"],
@@ -83,9 +103,18 @@ export async function createContent(
     );
   }
 
-  const { data: created, error } = await supabase
-    .from("content")
-    .insert({
+  // Resolve a real UUID for the author columns. A blank client uid ("" left by
+  // an unresolved session lookup) would otherwise go straight to Postgres and
+  // fail with `invalid input syntax for type uuid: ""`.
+  const actorUid = await requireActorUuid(adminUid, "content creation");
+
+  // Guard against content_placement_check violations before the row reaches
+  // Postgres — surface an actionable message instead of a raw constraint error.
+  assertValidPlacement(data.placement);
+
+  // Normalise every UUID key (empty/malformed → key dropped, never "").
+  const row = omitBlankUuids(
+    {
       category: data.category,
       title: data.title,
       description: data.description,
@@ -102,22 +131,34 @@ export async function createContent(
       target_audience: data.targetAudience,
       created_at: now,
       updated_at: now,
-      created_by: adminUid,
-      updated_by: adminUid,
-    })
+      created_by: actorUid,
+      updated_by: actorUid,
+    },
+    ["id", "created_by", "updated_by"]
+  );
+
+  const { data: created, error } = await supabase
+    .from("content")
+    .insert(row)
     .select("id")
     .single();
 
+  if (error || !created) {
+    // Most commonly an empty/malformed UUID reaching a uuid column, or the
+    // table missing entirely (run 011_content_table.sql).
+    throw new Error(error?.message ?? "Failed to create content");
+  }
+
   // Write audit log
   await supabase.from("audit_logs").insert({
-    admin_user_id: adminUid,
+    admin_user_id: actorUid,
     action: "content.create",
-    target_ref: { type: "content", id: created!.id },
+    target_ref: { type: "content", id: created.id },
     details: { title: data.title, category: data.category, status: data.status },
     created_at: now,
   });
 
-  return created!.id;
+  return created.id as string;
 }
 
 export async function updateContent(
@@ -132,7 +173,18 @@ export async function updateContent(
     throw new Error("Supabase not configured");
   }
 
-  const updates: Record<string, unknown> = { updated_at: now, updated_by: adminUid };
+  // A blank/malformed target id must never reach Postgres as "" — validate it
+  // here so the failure is a clear application error, not a uuid syntax error.
+  const contentId = toUuidOrNull(id);
+  if (!contentId) throw new Error("Invalid content id.");
+
+  // `updated_by` is `uuid not null`: resolve a real UUID instead of forwarding
+  // a possibly empty client value.
+  const actorUid = await requireActorUuid(adminUid, "content update");
+
+  if (data.placement !== undefined) assertValidPlacement(data.placement);
+
+  const updates: Record<string, unknown> = { updated_at: now, updated_by: actorUid };
   if (data.category !== undefined) updates.category = data.category;
   if (data.title !== undefined) updates.title = data.title;
   if (data.description !== undefined) updates.description = data.description;
@@ -148,13 +200,14 @@ export async function updateContent(
   if (data.endAt !== undefined) updates.end_at = data.endAt;
   if (data.targetAudience !== undefined) updates.target_audience = data.targetAudience;
 
-  await supabase.from("content").update(updates).eq("id", id);
+  const { error } = await supabase.from("content").update(updates).eq("id", contentId);
+  if (error) throw new Error(error.message);
 
   // Write audit log
   await supabase.from("audit_logs").insert({
-    admin_user_id: adminUid,
+    admin_user_id: actorUid,
     action: "content.update",
-    target_ref: { type: "content", id },
+    target_ref: { type: "content", id: contentId },
     details: { changes: Object.keys(data) },
     created_at: now,
   });
@@ -169,21 +222,26 @@ export async function deleteContent(id: string, adminUid: string): Promise<void>
   }
 
   // Get content info before deletion for audit
+  const contentId = toUuidOrNull(id);
+  if (!contentId) throw new Error("Invalid content id.");
+
+  const actorUid = await requireActorUuid(adminUid, "content deletion");
+
   const { data: content } = await supabase
     .from("content")
     .select("title")
-    .eq("id", id)
+    .eq("id", contentId)
     .single();
 
   if (!content) throw new Error("Content not found");
 
-  await supabase.from("content").delete().eq("id", id);
+  await supabase.from("content").delete().eq("id", contentId);
 
   // Write audit log
   await supabase.from("audit_logs").insert({
-    admin_user_id: adminUid,
+    admin_user_id: actorUid,
     action: "content.delete",
-    target_ref: { type: "content", id },
+    target_ref: { type: "content", id: contentId },
     details: { title: content.title },
     created_at: now,
   });

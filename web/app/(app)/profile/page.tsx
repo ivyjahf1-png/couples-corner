@@ -1,3 +1,5 @@
+import { UserMediaGallery } from "@/components/app/UserMediaGallery";
+
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
@@ -56,6 +58,7 @@ export default async function ProfilePage() {
         </Card>
 
         <div className="flex flex-col gap-6">
+          <UserMediaGallery uid={session.uid} />
           {/* About */}
           <Card as="section" className="flex flex-col gap-3" aria-label="About">
             <h2 className="font-semibold text-white">About</h2>

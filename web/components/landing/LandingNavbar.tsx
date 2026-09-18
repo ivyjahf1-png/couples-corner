@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { Logo } from "@/components/ui/Logo";
 
 interface LandingNavbarProps {
   signUpHref?: string;
@@ -29,15 +30,8 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
       <nav className="sticky top-0 z-50 border-b border-white/10 bg-purple-950/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <svg className="h-8 w-8 text-orange-400" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-              <circle cx="12" cy="12" r="5" fill="currentColor" opacity="0.9" />
-              <circle cx="20" cy="12" r="5" fill="currentColor" opacity="0.9" />
-              <circle cx="16" cy="20" r="4" fill="currentColor" opacity="0.7" />
-            </svg>
-            <span className="text-lg font-bold tracking-tight">
-              Couple<span className="text-orange-400">'s</span> Corner
-            </span>
+          <Link href="/" className="flex items-center group" aria-label="Couples Corner home">
+            <Logo as="span" />
           </Link>
 
           {/* Desktop nav */}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { REPORT_REASONS, type ReportReason } from "@/lib/models/safety";
+import { notifyFailure } from "@/components/ui/FailureToasts";
 
 export interface ReportDialogProps {
   targetLabel: string;
@@ -28,8 +29,16 @@ export function ReportDialog({
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  // Guard: a report without a valid entity id can never be recorded — the
+  // server would reject it and previous unguarded flows crashed on null ids.
+  const canSubmit = typeof entityId === "string" && entityId.trim().length > 0;
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!canSubmit) {
+      setError("This content can't be reported right now. Please try again later.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -43,8 +52,11 @@ export function ReportDialog({
         throw new Error(data.error || "Could not submit report");
       }
       setSubmitted(true);
+      notifyFailure(`Report about ${targetLabel} submitted. Thank you for keeping the community safe.`);
     } catch (error) {
-      setError(error instanceof Error ? error.message : "Something went wrong");
+      const message = error instanceof Error ? error.message : "Something went wrong";
+      setError(message);
+      notifyFailure(message);
     } finally {
       setBusy(false);
     }
@@ -59,7 +71,13 @@ export function ReportDialog({
 
   return (
     <>
-      <Button size={triggerSize} variant={triggerVariant} onClick={() => setOpen(true)}>
+      <Button
+        size={triggerSize}
+        variant={triggerVariant}
+        onClick={() => setOpen(true)}
+        disabled={!canSubmit}
+        title={canSubmit ? undefined : "Reporting isn't available for this item"}
+      >
         {triggerLabel}
       </Button>
 
