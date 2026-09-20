@@ -94,8 +94,22 @@ export function ProfileConnectionActions({
         disabled={pending}
         pending={pending}
         outgoingLabel="Request Sent"
-        onConnect={() => run(() => sendConnectionAction(targetUserId))}
-        onCancel={() => run(() => cancelRequestAction(requestId ?? ""))}
+        onConnect={() => {
+          const targetId = targetUserId?.trim();
+          if (!targetId) {
+            reportError("This profile can't accept connection requests right now.");
+            return;
+          }
+          run(() => sendConnectionAction(targetId));
+        }}
+        onCancel={() => {
+          const rid = requestId?.trim();
+          if (!rid) {
+            reportError("This request is no longer available.");
+            return;
+          }
+          run(() => cancelRequestAction(rid));
+        }}
       />
       {error ? (
         <p role="alert" className="text-xs text-danger-300">{error}</p>

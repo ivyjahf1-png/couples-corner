@@ -68,7 +68,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {profiles.map((profile) => (
-            <ProfileCard key={profile.id} profile={profile} />
+            profile?.id ? <ProfileCard key={profile.id} profile={profile} /> : null
           ))}
         </div>
       )}

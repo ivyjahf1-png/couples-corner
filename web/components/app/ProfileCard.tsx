@@ -25,24 +25,30 @@ import type { ProfileCardView } from "@/lib/feature/types";
  * Connect button renders disabled instead of throwing
  * "Cannot read properties of null (reading 'id')".
  */
-export function ProfileCard({ profile }: { profile: ProfileCardView }) {
+export function ProfileCard({ profile }: { profile: ProfileCardView | null | undefined }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const [error, reportError] = useActionError();
+
+  // Guard: profile object itself may be null/undefined at runtime (e.g. a
+  // stale list entry) — render nothing rather than crashing on `.id`.
+  if (!profile) return null;
+
   const connection = sent ? "outgoing_pending" : profile.connection;
 
   // Guard: no valid target id → nothing to connect to. Render read-only.
-  const hasTargetId = typeof profile.id === "string" && profile.id.trim().length > 0;
-  const name = profile.name?.trim() || "Community member";
+  const hasTargetId = typeof profile?.id === "string" && (profile?.id ?? "").trim().length > 0;
+  const name = profile?.name?.trim() || "Community member";
 
   async function connect() {
-    if (!hasTargetId || busy || connection !== "none") return;
+    const targetId = profile?.id?.trim();
+    if (!targetId || !hasTargetId || busy || connection !== "none") return;
     setBusy(true);
     reportError(null);
     try {
-      const result = await sendConnectionAction(profile.id);
+      const result = await sendConnectionAction(targetId);
       if (!result.ok) {
         reportError(failureMessage(result.error || "Couldn't send your request. Please try again.", result.error || "Couldn't send your request. Check your connection and try again."));
         return;
@@ -78,7 +84,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
             <Avatar name={name} kind={profile.kind} size="md" className="bg-gradient-to-br from-brand-500/25 via-brand-600/10 to-ink-700/40 ring-1 ring-white/10" />
           )}
           <div className="min-w-0">
-            <h3 className="truncate font-semibold text-white"><Link href={`/profile/${encodeURIComponent(profile.id)}`}>{name}</Link></h3>
+            <h3 className="truncate font-semibold text-white"><Link href={`/profile/${encodeURIComponent(profile?.id ?? "")}`}>{name}</Link></h3>
             <p className="truncate text-sm text-ink-300">{profile.location?.trim() || "Location not shared"}</p>
           </div>
         </div>
@@ -130,7 +136,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
           </Button>
         )}
       </div>
-      <Link href={`/profile/${encodeURIComponent(profile.id)}`} className="text-sm font-semibold text-orange-300 hover:underline">
+      <Link href={`/profile/${encodeURIComponent(profile?.id ?? "")}`} className="text-sm font-semibold text-orange-300 hover:underline">
         View profile
       </Link>
       {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
