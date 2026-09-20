@@ -1,10 +1,10 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 
 export type ChipTone = "neutral" | "brand" | "success" | "danger";
 
 const toneClasses: Record<ChipTone, string> = {
-  neutral: "bg-white/10 text-ink-200",
-  brand: "bg-brand-500/15 text-brand-300",
+  neutral: "border border-white/10 bg-white/[0.03] text-ink-200",
+  brand: "bg-[#FF5722] text-white shadow-sm shadow-orange-500/20",
   success: "bg-success-500/15 text-success-300",
   danger: "bg-danger-500/15 text-danger-300",
 };

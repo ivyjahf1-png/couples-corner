@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -64,7 +64,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView }) {
         : "New";
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-ink-700 bg-surface p-5 shadow-card transition duration-150 hover:border-ink-600 hover:shadow-lifted">
+    <article className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-5 shadow-card transition duration-150 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 hover:bg-white/[0.05]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           {profile.avatarUrl && failedPhoto !== profile.avatarUrl ? (

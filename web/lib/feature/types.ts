@@ -67,16 +67,42 @@ export interface NotificationView {
   href?: string;
 }
 
-/** View model for the /messages conversation list. */
+/** Conversation participant summary card (top of chat) */
+export interface ConversationParticipantSummary {
+  id: string;
+  name: string;
+  kind: "person" | "couple";
+  avatarUrl: string | null;
+  verified: boolean;
+  location: string | null;
+  lifestyleTags: string[];
+  photos: { id?: string; storagePath?: string; isPrimary?: boolean; publicUrl?: string | null }[];
+  personalitySimilarity: number;
+}
+
+/** A pre-seeded chat starter for newly opened conversations */
+export interface ChatStarter {
+  id: string;
+  body: string;
+}
+
+/** A pre-seeded chat starter for newly opened conversations */
+export interface ChatStarter {
+  id: string;
+  body: string;
+}
+
+/** One row in the /messages conversation list. */
 export interface ConversationSummaryView {
   id: string;
   name: string;
   kind: ProfileKind;
+  /** Last-message preview text. */
   preview: string;
+  /** Preformatted relative timestamp shown on the row's right edge. */
   at: string;
+  /** Unread message count (0 hides the badge). */
   unread: number;
-  /** Whether the conversation participant is someone the user has blocked. */
-  blocked?: boolean;
 }
 
 /** A single message bubble — mirrors models/messaging.ts Message. */

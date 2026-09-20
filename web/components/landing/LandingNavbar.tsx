@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useState } from "react";
@@ -27,7 +27,7 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
 
   return (
     <>
-      <nav className="sticky top-0 z-50 border-b border-white/10 bg-purple-950/80 backdrop-blur-md">
+      <nav className="sticky top-0 z-50 border-b border-white/10 bg-[#0B1120]/85 backdrop-blur-xl shadow-lg transition-colors hover:border-orange-500/40">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center group" aria-label="Couples Corner home">
@@ -40,14 +40,14 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
               <Link
                 key={link.href}
                 href={link.href}
-                className="rounded-md px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                className="rounded-md px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-orange-400"
               >
                 {link.label}
               </Link>
             ))}
             <Link
               href={signInHref}
-              className="ml-2 rounded-md px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+              className="ml-2 rounded-md px-3 py-2 text-sm font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-orange-400"
             >
               Log in
             </Link>
@@ -57,7 +57,7 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
           <div className="flex items-center gap-3">
             <Link
               href={signUpHref}
-              className="hidden sm:inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:from-orange-400 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-purple-950"
+              className="hidden sm:inline-flex items-center justify-center rounded-xl bg-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:bg-[#F4511E] focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 focus:ring-offset-slate-900"
             >
               Sign Up
             </Link>
@@ -82,13 +82,13 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
 
         {/* Mobile dropdown */}
         {mobileMenuOpen && (
-          <div className="sm:hidden border-t border-white/10 bg-purple-950/95 backdrop-blur-md">
+          <div className="sm:hidden border-t border-white/10 bg-[#0B1120]/95 backdrop-blur-xl">
             <div className="space-y-1 px-4 py-3">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="block rounded-md px-3 py-2 text-base font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                  className="block rounded-md px-3 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-orange-400"
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   {link.label}
@@ -96,14 +96,14 @@ export function LandingNavbar({ signUpHref = "/register", signInHref = "/login" 
               ))}
               <Link
                 href={signInHref}
-                className="block rounded-md px-3 py-2 text-base font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+                className="block rounded-md px-3 py-2 text-base font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-orange-400"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Log in
               </Link>
               <Link
                 href={signUpHref}
-                className="block rounded-md bg-gradient-to-r from-orange-500 to-orange-600 px-3 py-2 text-base font-semibold text-white text-center transition hover:from-orange-400 hover:to-orange-500"
+                className="block rounded-md bg-[#FF5722] px-3 py-2 text-base font-semibold text-white text-center transition hover:bg-[#F4511E]"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Sign Up

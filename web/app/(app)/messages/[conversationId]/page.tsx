@@ -1,73 +1,71 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Avatar } from "@/components/app/Avatar";
-import { LiveConversationThread } from "@/components/app/LiveConversationThread";
+import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
+import { LiveChatThread } from "@/components/app/LiveChatThread";
 import { MessageComposer } from "@/components/app/MessageComposer";
-import { getConversationAction, getMessagesAction } from "@/lib/actions/messaging";
+import {
+  getConversationChatDataAction,
+  markConversationReadAction,
+} from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 
-/**
- * A single conversation thread with Supabase Realtime.
- *
- * Server-fetches the conversation and initial messages, then hands off to
- * a client component that subscribes to postgres_changes for live updates.
- */
-export default async function ConversationPage({
-  params,
-}: {
+interface ConversationPageProps {
   params: Promise<{ conversationId: string }>;
-}) {
+}
+
+/**
+ * A single conversation thread.
+ *
+ * Server-fetches the conversation + participant profile + a seeded chat
+ * starter, then hands off to client components that subscribe to
+ * Supabase Realtime and render the bottom input bar.
+ */
+export default async function ConversationPage({ params }: ConversationPageProps) {
   const { conversationId } = await params;
+  const user = await getCurrentSessionUser();
 
-  const [conversation, initialMessages, user] = await Promise.all([
-    getConversationAction(conversationId),
-    getMessagesAction(conversationId),
-    getCurrentSessionUser(),
-  ]);
+  const chatData = await getConversationChatDataAction(conversationId);
+  if (!chatData || !user) {
+    notFound();
+  }
 
-  if (!conversation) notFound();
+    const { conversation, summary, starter, initialMessages } = chatData;
 
-  // Derive a display name from participant info (simplified)
-  const title = `Conversation`;
+  // Mark messages read on first load so the Chat tab badge clears.
+  void markConversationReadAction(conversationId);
 
   return (
-    <div className="flex h-full min-h-[70dvh] flex-col gap-4">
-      {/* Thread header */}
-      <div className="flex items-center gap-3 border-b border-ink-700 pb-4">
-        <Link
-          href="/messages"
-          aria-label="Back to conversations"
-          className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10 lg:hidden"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
-            <path d="M14 6 L8 12 L14 18" />
-          </svg>
-        </Link>
-        <Avatar name={title} kind="person" />
-        <div className="min-w-0">
-          <h1 className="truncate font-semibold text-white">{title}</h1>
-          <p className="text-xs text-ink-300">
-            Private conversation · {conversation.type === "couple" ? "couple" : "individual"}
-          </p>
+    <div className="flex h-[100dvh] max-h-[100dvh] flex-col gap-0">
+      {/* Fixed top: back + summary card */}
+      <div className="flex-shrink-0 border-b border-ink-700/70 bg-slate-950/80">
+        <div className="flex items-center gap-3 px-4 py-3">
+          <Link
+            href="/messages"
+            aria-label="Back to conversations"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+              <path d="M14 6 L8 12 L14 18" />
+            </svg>
+          </Link>
+          <span className="text-sm font-medium text-ink-300">
+            {conversation.type === "couple" ? "Couple chat" : "Private chat"}
+          </span>
         </div>
+        <ConversationSummaryCard summary={summary} expanded />
       </div>
 
-      {/* Live message thread */}
-      <LiveConversationThread
+                   {/* Scrollable message thread */}
+      <LiveChatThread
         conversationId={conversationId}
-        currentUserId={user?.uid ?? ""}
-        initialMessages={initialMessages.map((m) => ({
-          id: m.id,
-          conversation_id: m.conversation_id,
-          sender_id: m.sender_id,
-          type: m.type,
-          body: m.body,
-          created_at: m.created_at,
-        }))}
+        starter={starter}
+        currentUserId={user.uid}
+        initialMessages={initialMessages ?? []}
       />
 
-      {/* Composer */}
+      {/* Sticky bottom: composer */}
       <MessageComposer conversationId={conversationId} />
     </div>
   );
 }
+

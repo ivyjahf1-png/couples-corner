@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -44,15 +44,9 @@ export const appNavItems: AppNavItem[] = [
 export const appSecondaryNavItems: AppNavItem[] = [
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
-  { href: "/subscription", label: "Subscription", icon: "crown" },
+  { href: "/subscription", label: "VIP Membership", icon: "crown" },
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/settings", label: "Settings", icon: "settings" },
-];
-
-/** Mobile bottom bar — two links + the "Menu" button = exactly 3 items. */
-export const mobilePrimaryNavItems: AppNavItem[] = [
-  { href: "/discover", label: "Discover", icon: "compass" },
-  { href: "/matches", label: "Matches & Messages", icon: "heart", alsoActiveFor: ["/messages"] },
 ];
 
 /** Destinations inside the mobile "Menu" drawer. */
@@ -62,7 +56,7 @@ export const menuDrawerItems: AppNavItem[] = [
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
-  { href: "/subscription", label: "Subscription", icon: "crown" },
+  { href: "/subscription", label: "VIP Membership", icon: "crown" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
@@ -83,7 +77,7 @@ function SidebarLink({ item, active }: { item: AppNavItem; active: boolean }) {
       aria-current={active ? "page" : undefined}
       className={[
         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition",
-        active ? "bg-white/[0.08] text-white" : "text-slate-300 hover:bg-white/5 hover:text-white",
+        active ? "bg-white/[0.08] text-white" : "text-ink-300 hover:bg-white/5 hover:text-white",
       ].join(" ")}
     >
       <span
@@ -97,7 +91,7 @@ function SidebarLink({ item, active }: { item: AppNavItem; active: boolean }) {
         name={item.icon}
         className={[
           "h-5 w-5 shrink-0 transition-colors",
-          active ? "text-orange-400" : "text-slate-400 group-hover:text-white",
+          active ? "text-orange-400" : "text-ink-400 group-hover:text-white",
         ].join(" ")}
       />
       <span className="truncate">{item.label}</span>
@@ -134,14 +128,31 @@ interface AppMobileNavProps {
   displayName: string;
   displayEmail: string;
   isDemo: boolean;
+  unreadCount?: number;
 }
 
-/** Shared tab styling: big, crisp icons over the navy bar. */
+/** One tab in the mobile bottom bar. */
+interface MobileTab extends AppNavItem {
+  /** Renders the unread-messages badge on this tab (Messages). */
+  showBadge?: boolean;
+}
+
+/** Mobile bottom-bar tabs — Home · Moments · Messages · Me. */
+const mobileTabs: MobileTab[] = [
+  { href: "/home", icon: "home", label: "Home" },
+  { href: "/moments", icon: "sparkle", label: "Moments" },
+  { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
+  { href: "/profile", icon: "profile", label: "Me" },
+];
+
+/** Shared tab styling: solid orange for active, glowing for hovers. */
 function mobileTabClasses(active: boolean) {
   return [
     "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
     "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active ? "text-orange-300" : "text-slate-300 hover:text-white",
+    active
+      ? "text-[#FF5722] font-semibold"
+      : "text-slate-400 hover:text-orange-400",
   ].join(" ");
 }
 
@@ -150,15 +161,29 @@ function ActiveDot({ active }: { active: boolean }) {
   return (
     <span
       aria-hidden
-      className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-orange-400"
+      className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#FF5722]"
     />
   );
 }
 
+function UnreadBadge({ count }: { count: number }) {
+  if (count <= 0) return null;
+  const display = count > 99 ? "99+" : String(count);
+  return (
+    <span
+      aria-label={`${count} unread messages`}
+      className="absolute -top-0.5 right-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FF5722] px-1 text-[10px] font-bold leading-4 text-white"
+    >
+      {display}
+    </span>
+  );
+}
+
 /**
- * Mobile chrome: the 3-item bottom bar (Discover · Matches & Messages · Menu)
- * plus the drawer the "Menu" tab opens. Hidden from `md` up, where the fixed
- * sidebar takes over.
+ * Mobile chrome: a 4-item bottom bar (Home · Moments · Chat · Me) rendered as
+ * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
+ * `md` up, where the fixed sidebar takes over. The "Menu" drawer is retained
+ * for secondary destinations.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -166,7 +191,12 @@ export function AppMobileNav(props: AppMobileNavProps) {
   return <MobileNavigation key={pathname} {...props} />;
 }
 
-function MobileNavigation({ displayName, displayEmail, isDemo }: AppMobileNavProps) {
+function MobileNavigation({
+  displayName,
+  displayEmail,
+  isDemo,
+  unreadCount = 0,
+}: AppMobileNavProps) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -185,53 +215,38 @@ function MobileNavigation({ displayName, displayEmail, isDemo }: AppMobileNavPro
     };
   }, [menuOpen]);
 
-  const menuTabActive = menuDrawerItems.some((item) => isActive(pathname, item));
-
   return (
     <>
       <nav
         aria-label="Primary"
         className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
       >
-        <ul className="mx-auto grid max-w-lg grid-cols-3">
-          {mobilePrimaryNavItems.map((item) => {
-            const active = isActive(pathname, item);
-            // The middle tab is the shared Matches + Messages surface.
-            return (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  aria-current={active ? "page" : undefined}
-                  aria-label={item.href === "/matches" ? "Matches & Messages" : item.label}
-                  className={mobileTabClasses(active)}
-                >
-                  <span className="relative flex items-center justify-center">
-                    <Icon name={item.icon} className="h-6 w-6" />
-                    <ActiveDot active={active} />
-                  </span>
-                  <span className="mt-1">{item.label}</span>
-                </Link>
-              </li>
-            );
-          })}
-
-          <li>
-            <button
-              type="button"
-              onClick={() => setMenuOpen(true)}
-              aria-expanded={menuOpen}
-              aria-haspopup="dialog"
-              aria-label="Menu and profile"
-              className={mobileTabClasses(menuTabActive)}
-            >
-              <span className="relative flex items-center justify-center">
-                <Icon name="menu" className="h-6 w-6" />
-                <ActiveDot active={menuTabActive} />
-              </span>
-              <span className="mt-1">Menu</span>
-            </button>
-          </li>
-        </ul>
+        <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <ul className="mx-auto grid max-w-sm grid-cols-4">
+            {mobileTabs.map((item) => {
+              const active = isActive(pathname, item);
+              return (
+                <li key={item.href} className="relative">
+                  <Link
+                    href={item.href}
+                    aria-current={active ? "page" : undefined}
+                    aria-label={item.label}
+                    className={mobileTabClasses(active)}
+                  >
+                    <span className="relative flex items-center justify-center">
+                      <Icon name={item.icon} className="h-5 w-5" />
+                      {item.showBadge && unreadCount > 0 ? (
+                        <UnreadBadge count={unreadCount} />
+                      ) : null}
+                      {active ? <ActiveDot active={active} /> : null}
+                    </span>
+                    <span className="mt-1">{item.label}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </nav>
 
       {menuOpen ? (
@@ -286,18 +301,18 @@ function MobileNavigation({ displayName, displayEmail, isDemo }: AppMobileNavPro
                           "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition",
                           active
                             ? "bg-white/10 text-white"
-                            : "text-slate-200 hover:bg-white/5 hover:text-white",
+                            : "text-ink-200 hover:bg-white/5 hover:text-white",
                         ].join(" ")}
                       >
                         <Icon
                           name={item.icon}
                           className={[
                             "h-5 w-5 shrink-0",
-                            active ? "text-orange-400" : "text-slate-400 group-hover:text-white",
+                            active ? "text-orange-400" : "text-ink-400 group-hover:text-white",
                           ].join(" ")}
                         />
                         <span className="flex-1 truncate">{item.label}</span>
-                        <Icon name="chevron" className="h-4 w-4 text-slate-500" />
+                        <Icon name="chevron" className="h-4 w-4 text-ink-500" />
                       </Link>
                     </li>
                   );

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -78,8 +78,8 @@ export function getInsightArticle(slug: string): InsightArticle | undefined {
 
 export default function InsightsPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-slate-950 text-white">
-      <nav className="border-b border-white/10 bg-purple-950/80 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] text-white">
+      <nav className="border-b border-white/10 bg-[#0B1120]/80 px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-bold">
             Couple<span className="text-orange-400">'s</span> Corner
@@ -108,7 +108,7 @@ export default function InsightsPage() {
               key={article.title}
               href={`/insights/${article.slug}`}
               aria-label={`${article.title} — read the full guide`}
-              className="group block rounded-xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-1 hover:border-purple-400/40 hover:bg-white/10 hover:shadow-xl hover:shadow-purple-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-purple-950 active:translate-y-0 active:scale-[0.99] active:border-orange-400/50 active:bg-white/10"
+              className="group block rounded-xl border border-white/10 bg-white/5 p-6 transition hover:-translate-y-1 hover:border-orange-400/40 hover:bg-white/10 hover:shadow-xl hover:shadow-orange-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:scale-[0.99] active:border-orange-400/50 active:bg-white/10"
             >
               <h3 className="text-lg font-bold text-white transition group-hover:text-orange-200">{article.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-white/60">

@@ -7,6 +7,9 @@ import { Icon } from "@/components/landing/Icon";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
+import { getMembership } from "@/lib/server/subscription";
+import { WalletMenu } from "@/components/app/WalletMenu";
+import { emptyWallet, type WalletView } from "@/lib/models/wallet";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { demoActivity, demoNotifications, demoProfileViews } from "@/lib/demo/demo-data";
@@ -29,6 +32,10 @@ function photoSrc(uid: string, storagePath?: string | null): string | null {
 export default async function DashboardPage() {
   const session = await getSessionUser();
   const { profile } = session ? await getOwnProfile(session.uid) : { profile: null };
+  let membership: WalletView = emptyWallet();
+  if (session) {
+    membership = await getMembership(session.uid);
+  }
   const ownPhotoSrc =
     session && profile?.photos?.[0]?.storagePath
       ? photoSrc(session.uid, profile.photos[0].storagePath)
@@ -148,13 +155,15 @@ export default async function DashboardPage() {
 
         {/* Side column */}
         <div className="flex flex-col gap-6">
+          <WalletMenu initial={membership} variant="card" />
+
           <Card className="flex flex-col gap-3">
             <h2 className="font-semibold text-white">Quick actions</h2>
             {quickActions.map((action) => (
               <a
                 key={action.href + action.label}
                 href={action.href}
-                className="flex items-center gap-3 rounded-xl border border-ink-700 bg-surface px-3 py-2.5 text-sm font-medium text-ink-100 transition hover:border-ink-600 hover:bg-surface-muted"
+                className="flex items-center gap-3 rounded-xl border border-orange-500/30 bg-slate-900/90 px-3 py-2.5 text-sm font-medium text-ink-100 shadow-lg shadow-orange-500/5 transition-colors hover:border-orange-500/60"
               >
                 <Icon name={action.icon} className="h-4 w-4 text-brand-300" />
                 {action.label}

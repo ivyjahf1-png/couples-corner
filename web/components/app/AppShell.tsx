@@ -6,14 +6,19 @@ import { Logo } from "@/components/ui/Logo";
 import { Icon } from "@/components/landing/Icon";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { getUnreadCountAction } from "@/lib/actions/messaging";
+import { getMembership } from "@/lib/server/subscription";
+import { WalletMenu } from "@/components/app/WalletMenu";
+import { emptyWallet, type WalletView } from "@/lib/models/wallet";
 
 /**
  * Authenticated-app shell — VISUAL LAYER ONLY.
  *
  * Chrome:
  *   • md and up (tablet / PC): one fixed left-hand deep-navy (#0F172A) rail.
- *   • below md (phone): a frosted navy top bar plus a strictly 3-item bottom
- *     bar whose "Menu" tab opens the secondary-navigation drawer.
+ *   • below md (phone): a frosted navy top bar plus a 4-tab floating glass
+ *     capsule (Home · Moments · Chat · Me). The "Menu" drawer is retained
+ *     behind the app shell for secondary destinations.
  *
  * PRESERVATION CONSTRAINT: the session lookup below is unchanged and the demo
  * banner keeps its original /api/auth/logout target. Nothing in this file
@@ -25,6 +30,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const isDemo = user?.isDemo ?? false;
   const displayName = user?.email ? user.email.split("@")[0] : "User";
   const displayEmail = user?.email ?? "demo@couplescorner.app";
+
+  const unreadCount = (await getUnreadCountAction()) ?? 0;
+
+  // Uniform membership view — VIP Membership tier + coin balance for the header
+  // wallet chip / drawer. Degrades to the empty wallet when signed out.
+  let membership: WalletView = emptyWallet();
+  if (user) {
+    membership = await getMembership(user.uid);
+  }
 
   return (
     <div className="app-canvas min-h-dvh text-foreground">
@@ -45,6 +59,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <Logo as="span" />
           </Link>
           <div className="flex items-center gap-2">
+            <WalletMenu initial={membership} />
             <Link
               href="/notifications"
               aria-label="Alerts"
@@ -75,7 +90,8 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <AppSidebar />
 
           <div className="border-t border-white/10 p-3">
-            <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+            <WalletMenu initial={membership} variant="card" />
+            <div className={`mt-3 flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
               <Avatar name={displayName} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{displayName}</p>
@@ -87,7 +103,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
                 </span>
               )}
             </div>
-            <LogoutButton className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white" />
           </div>
         </aside>
 
@@ -96,7 +111,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      <AppMobileNav displayName={displayName} displayEmail={displayEmail} isDemo={isDemo} />
+      <AppMobileNav
+        displayName={displayName}
+        displayEmail={displayEmail}
+        isDemo={isDemo}
+        unreadCount={unreadCount}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { usePathname } from "next/navigation";
 import { Logo } from "@/components/ui/Logo";
@@ -22,7 +22,7 @@ const navLinks: { label: string; href: string }[] = [
 export function SiteHeader() {
   const pathname = usePathname();
   return (
-    <header className={`${pathname === "/" ? "sticky" : "relative md:sticky"} top-0 z-30 border-b border-ink-700 bg-background/95 backdrop-blur`}>
+    <header className={`${pathname === "/" ? "sticky" : "relative md:sticky"} top-0 z-30 border-b border-white/5 bg-[#0B1120]/90 backdrop-blur-xl`}>
       <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-4 sm:px-6 lg:px-10">
         <Logo as="div" />
 
@@ -44,7 +44,7 @@ export function SiteHeader() {
           <details className="md:hidden">
             <summary
               aria-label="Open menu"
-              className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10"
+              className="flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-ink-200 hover:bg-white/10"
             >
               <span aria-hidden className="flex flex-col gap-1">
                 <span className="h-0.5 w-4 rounded-full bg-current" />
@@ -53,7 +53,7 @@ export function SiteHeader() {
             </summary>
             <nav
               aria-label="Secondary"
-              className="absolute left-4 right-4 top-full z-50 rounded-xl border border-ink-700 bg-surface p-3 shadow-lifted"
+              className="absolute left-4 right-4 top-full z-50 rounded-xl border border-white/10 bg-white/[0.03] p-3 shadow-lifted"
             >
               <ul className="flex flex-col gap-1">
                 {navLinks.map((link) => (
@@ -82,7 +82,7 @@ export function SiteHeader() {
           <button
             type="button"
             onClick={() => openAuthModal("login")}
-            className="hidden h-10 rounded-xl border border-ink-700 bg-surface px-4 text-sm font-medium text-ink-200 transition hover:border-ink-600 hover:bg-white/10 sm:inline-flex sm:items-center"
+            className="hidden h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-ink-200 transition hover:border-ink-600 hover:bg-white/10 sm:inline-flex sm:items-center"
           >
             Log in
           </button>

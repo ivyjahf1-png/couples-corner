@@ -27,7 +27,7 @@ export function AuthShell({
       <Link href="/" className="mb-8" aria-label="Couples Corner home">
         <Logo as="span" />
       </Link>
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-surface p-8 shadow-card">
+      <div className="w-full max-w-md rounded-2xl border border-orange-500/30 bg-slate-900/90 p-8 shadow-lg shadow-orange-500/10 transition-colors hover:border-orange-500/60">
         <h1 className="text-2xl font-semibold tracking-display text-foreground">{title}</h1>
         <p className="mt-2 text-sm leading-6 text-ink-400">{subtitle}</p>
         <div className="mt-6">{children}</div>
@@ -87,7 +87,7 @@ export function Field({
           className={[
             "h-11 w-full rounded-xl border bg-surface px-3.5 text-sm text-white placeholder:text-ink-400 focus:outline-none",
             isPassword ? "pr-11" : "",
-            error ? "border-danger-400 focus:border-danger-500" : "border-ink-700 focus:border-brand-500/60",
+            error ? "border-danger-400 focus:border-danger-500" : "border-orange-500/25 bg-slate-900/90 focus:border-[#FF5722] hover:border-orange-500/50",
           ].join(" ")}
         />
         {isPassword ? (

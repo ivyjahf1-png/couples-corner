@@ -43,7 +43,7 @@ export default async function AdminDashboardPage() {
     { label: "Total Users", value: formatNumber(metrics.totalUsers), icon: "profile" as IconName, tone: "bg-brand-500/15 text-brand-300" },
     { label: "New Today", value: formatNumber(metrics.newUsersToday), icon: "sparkle" as IconName, tone: "bg-success-500/15 text-success-300" },
     { label: "New Couples", value: formatNumber(metrics.newCouplesToday), icon: "couple" as IconName, tone: "bg-brand-500/15 text-brand-300" },
-    { label: "Active Subs", value: formatNumber(metrics.activeSubscriptions), icon: "bell" as IconName, tone: "bg-success-500/15 text-success-300" },
+    { label: "Active VIP Members", value: formatNumber(metrics.activeSubscriptions), icon: "bell" as IconName, tone: "bg-success-500/15 text-success-300" },
     { label: "Open Reports", value: formatNumber(metrics.openReports), icon: "flag" as IconName, tone: "bg-danger-500/15 text-danger-300" },
     { label: "Support Tickets", value: formatNumber(metrics.openSupportTickets), icon: "chat" as IconName, tone: "bg-brand-500/15 text-brand-300" },
   ];

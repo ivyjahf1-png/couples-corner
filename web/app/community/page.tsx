@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 export const metadata = {
   title: "Community — Couple's Corner",
@@ -28,8 +28,8 @@ const questions = [
 
 export default function CommunityPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-slate-950 text-white">
-      <nav className="border-b border-white/10 bg-purple-950/80 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] text-white">
+      <nav className="border-b border-white/10 bg-[#0B1120]/80 px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-bold">
             Couple<span className="text-orange-400">'s</span> Corner
@@ -56,7 +56,7 @@ export default function CommunityPage() {
           <h2 className="text-xl font-bold text-white">Recent Questions</h2>
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white transition hover:from-orange-400 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400"
+            className="inline-flex items-center justify-center rounded-xl bg-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#F4511E] focus:outline-none focus:ring-2 focus:ring-orange-400"
           >
             Ask a Question
           </Link>
@@ -66,7 +66,7 @@ export default function CommunityPage() {
             <Link
               key={q.id}
               href={`/community/${q.id}`}
-              className="block rounded-xl border border-white/10 bg-white/5 p-5 transition hover:border-purple-400/40 hover:bg-white/10"
+              className="block rounded-xl border border-white/10 bg-white/5 p-5 transition hover:border-orange-400/40 hover:bg-white/10"
             >
               <h3 className="text-lg font-semibold text-white">{q.title}</h3>
               <p className="mt-1 text-sm text-white/60">

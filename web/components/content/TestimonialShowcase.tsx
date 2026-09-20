@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useState } from "react";
 import { MediaCarousel, type CarouselMedia } from "@/components/content/MediaCarousel";
@@ -23,7 +23,7 @@ export function TestimonialShowcase({ items, captions, links }: TestimonialShowc
 
   if (items.length === 0) {
     return (
-      <div className="flex h-64 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+      <div className="flex h-64 w-full items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
         <p className="px-6 text-center text-sm text-white/50">
           Success stories coming soon — check back after our next featured couples are announced.
         </p>
@@ -36,7 +36,7 @@ export function TestimonialShowcase({ items, captions, links }: TestimonialShowc
   const activeLink = links?.[active.url];
 
   return (
-    <figure className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 shadow-2xl">
+    <figure className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl">
       <MediaCarousel
         items={items}
         title="Couples' success stories"

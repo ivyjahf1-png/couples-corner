@@ -184,7 +184,7 @@ export default function ChatPage() {
                   className={[
                     "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
                     isMine
-                      ? "rounded-br-md bg-gradient-to-r from-orange-500 to-orange-600 text-white"
+                      ? "rounded-br-md bg-[#FF5722] text-white"
                       : "rounded-bl-md border border-ink-700 bg-surface text-white",
                   ].join(" ")}
                 >

@@ -19,8 +19,8 @@ export default async function InsightArticlePage({ params }: { params: Promise<{
   if (!article) notFound();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-950 via-purple-900 to-slate-950 text-white">
-      <nav className="border-b border-white/10 bg-purple-950/80 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#0B1120] text-white">
+      <nav className="border-b border-white/10 bg-[#0B1120]/80 px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="text-xl font-bold">
             Couple<span className="text-orange-400">'s</span> Corner

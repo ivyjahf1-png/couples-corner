@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -40,11 +40,11 @@ export function HeroMediaCarousel({ slides }: { slides: HeroSlide[] }) {
 
   if (!current) return null;
   const external = /^https?:\/\//i.test(current.destinationUrl ?? "");
-  const ctaClass = "pointer-events-auto inline-flex w-fit items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:from-orange-400 hover:to-orange-500";
+  const ctaClass = "pointer-events-auto inline-flex w-fit items-center gap-2 rounded-xl bg-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#F4511E]";
 
   return (
     <div
-      className="group relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/5 shadow-2xl shadow-purple-950/50 ring-1 ring-white/5 backdrop-blur-sm transition-shadow duration-700 hover:shadow-orange-900/20"
+      className="group relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/40 ring-1 ring-white/5 backdrop-blur-md transition-shadow duration-700 hover:shadow-orange-900/20"
       role="region"
       aria-roledescription="carousel"
       aria-label="Featured hero media"
@@ -69,7 +69,7 @@ export function HeroMediaCarousel({ slides }: { slides: HeroSlide[] }) {
           <img key={`${current.id}:${position}`} src={current.url} alt={current.title} className="h-full w-full transform object-cover transition-transform duration-700 group-hover:scale-105" loading="eager" />
         )}
         {/* Soft gradient overlay at the bottom for depth + text legibility. */}
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-purple-950/90 via-purple-950/30 to-transparent" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1120]/90 via-[#1E293B]/30 to-transparent" />
         {/* Floating glassmorphism badge (top-left). */}
         <span className="pointer-events-none absolute left-4 top-4 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3.5 py-1.5 text-xs font-semibold tracking-wide text-white shadow-lg backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-orange-400" aria-hidden="true" />

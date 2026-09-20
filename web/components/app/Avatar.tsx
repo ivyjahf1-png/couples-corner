@@ -11,6 +11,7 @@ const sizeClasses: Record<AvatarSize, string> = {
 
 interface AvatarProps {
   name: string;
+  src?: string | null;
   /** "couple" renders the two-dot duo mark instead of initials. */
   kind?: "person" | "couple";
   size?: AvatarSize;
@@ -21,7 +22,20 @@ interface AvatarProps {
  * Initials avatar placeholder. Photos will come from Cloud Storage later;
  * for now every avatar is a deterministic, warm-toned initials disc.
  */
-export function Avatar({ name, kind = "person", size = "md", className }: AvatarProps) {
+export function Avatar({ name, src, kind = "person", size = "md", className }: AvatarProps) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        className={[
+          "h-full w-full rounded-full object-cover",
+          sizeClasses[size],
+        ].join(" ")}
+      />
+    );
+  }
+
   const initials = name
     .split(/[\s&]+/)
     .filter(Boolean)

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import Link from "next/link";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
@@ -16,11 +16,11 @@ const sizeClasses: Record<ButtonSize, string> = {
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-500/20 hover:from-orange-400 hover:to-orange-500 active:from-orange-600 active:to-orange-700",
+    "bg-[#FF5722] text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[#F4511E] active:bg-[#E64A19]",
   secondary:
-    "border border-ink-600 bg-surface text-ink-100 hover:border-ink-500 hover:bg-surface-muted active:bg-white/10",
+    "border border-white/10 bg-white/[0.03] text-ink-100 hover:border-orange-500/40 hover:bg-white/[0.06] active:bg-white/[0.10]",
   ghost:
-    "border border-orange-400/60 bg-transparent text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 active:bg-orange-500/20",
+    "border border-orange-500/30 bg-transparent text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 active:bg-orange-500/20",
   danger:
     "border border-danger-500/40 bg-danger-500/15 text-danger-300 hover:border-danger-400 hover:bg-danger-500/20 active:bg-danger-500/25",
 };

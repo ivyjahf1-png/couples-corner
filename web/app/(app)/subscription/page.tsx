@@ -34,7 +34,7 @@ export default async function SubscriptionPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        eyebrow="Subscription"
+        eyebrow="VIP Membership"
         title="Choose your plan"
         subtitle="Unlock premium features and get the most out of Couples Corner."
       />
@@ -101,7 +101,7 @@ export default async function SubscriptionPage() {
                   variant={isActive ? "secondary" : plan.recommended ? "primary" : "secondary"}
                   disabled={isActive}
                 >
-                  {isActive ? "Current plan" : "Subscribe"}
+                  {isActive ? "Current plan" : "Get VIP Membership"}
                 </Button>
               </div>
             </Card>

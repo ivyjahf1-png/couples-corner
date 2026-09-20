@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { getPublishedForPlacement } from "@/lib/server/content";
 import { MediaCarousel, type CarouselMedia } from "./MediaCarousel";
@@ -47,14 +47,14 @@ export async function LandingFeatureMedia() {
               href={item.destinationUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:from-orange-400 hover:to-orange-500"
+              className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-xl bg-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#F4511E]"
             >
               {item.buttonText}
             </a>
           ) : (
             <a
               href={item.destinationUrl}
-              className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:from-orange-400 hover:to-orange-500"
+              className="mt-auto inline-flex w-fit items-center gap-1.5 rounded-xl bg-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#F4511E]"
             >
               {item.buttonText}
             </a>
@@ -64,7 +64,7 @@ export async function LandingFeatureMedia() {
         return (
           <article
             key={item.id}
-            className="flex flex-col overflow-hidden rounded-3xl border border-white/15 bg-white/5 shadow-2xl shadow-purple-950/50 backdrop-blur-sm transition hover:border-white/25"
+            className="flex flex-col overflow-hidden rounded-3xl border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/40 backdrop-blur-md transition hover:border-orange-500/30"
           >
             {carouselItems.length > 0 ? (
               <MediaCarousel

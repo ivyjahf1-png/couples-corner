@@ -1,0 +1,266 @@
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx
+  271:6   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:271:6
+  269 |       }
+  270 |     }
+> 271 |   }, [state.tokens, pendingMoves]);
+      |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  272 |
+  273 |   /* ── Turn flow ───────────────────────────────────────────────────── */
+  274 |   useEffect(() => {                                                                                                                                                                                                                                                                                                                                react-hooks/refs
+  271:7   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:271:7
+  269 |       }
+  270 |     }
+> 271 |   }, [state.tokens, pendingMoves]);
+      |       ^^^^^^^^^^^^ Cannot access ref value during render
+  272 |
+  273 |   /* ── Turn flow ───────────────────────────────────────────────────── */
+  274 |   useEffect(() => {                                                                                                                                                                                                                                                                                                                                               react-hooks/refs
+  280:6   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:280:6
+  278 |       onGameOver(state.winner === 0);
+  279 |     }
+> 280 |   }, [state.winner, onGameOver]);
+      |      ^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  281 |
+  282 |   const roll = useCallback(() => {
+  283 |     const current = stateRef.current;                                                                                                                                                                                                                                                                                                                            react-hooks/refs
+  280:7   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:280:7
+  278 |       onGameOver(state.winner === 0);
+  279 |     }
+> 280 |   }, [state.winner, onGameOver]);
+      |       ^^^^^^^^^^^^ Cannot access ref value during render
+  281 |
+  282 |   const roll = useCallback(() => {
+  283 |     const current = stateRef.current;                                                                                                                                                                                                                                                                                                                                         react-hooks/refs
+  338:6   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:338:6
+  336 |       return () => window.clearTimeout(id);
+  337 |     }
+> 338 |   }, [state.turn, state.dice, state.winner, roll]);
+      |      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  339 |
+  340 |   const moveToken = useCallback((token: number) => {
+  341 |     const s = stateRef.current;                                                                                                                                                                                                                                                                      react-hooks/refs
+  338:7   error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:338:7
+  336 |       return () => window.clearTimeout(id);
+  337 |     }
+> 338 |   }, [state.turn, state.dice, state.winner, roll]);
+      |       ^^^^^^^^^^ Cannot access ref value during render
+  339 |
+  340 |   const moveToken = useCallback((token: number) => {
+  341 |     const s = stateRef.current;                                                                                                                                                                                                                                                                                                       react-hooks/refs
+  338:19  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:338:19
+  336 |       return () => window.clearTimeout(id);
+  337 |     }
+> 338 |   }, [state.turn, state.dice, state.winner, roll]);
+      |                   ^^^^^^^^^^ Cannot access ref value during render
+  339 |
+  340 |   const moveToken = useCallback((token: number) => {
+  341 |     const s = stateRef.current;                                                                                                                                                                                                                                                                                          react-hooks/refs
+  338:31  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:338:31
+  336 |       return () => window.clearTimeout(id);
+  337 |     }
+> 338 |   }, [state.turn, state.dice, state.winner, roll]);
+      |                               ^^^^^^^^^^^^ Cannot access ref value during render
+  339 |
+  340 |   const moveToken = useCallback((token: number) => {
+  341 |     const s = stateRef.current;                                                                                                                                                                                                                                                                            react-hooks/refs
+  349:19  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:349:19
+  347 |   }, []);
+  348 |
+> 349 |   const canRoll = state.turn === 0 && state.dice === null && state.winner === null;
+      |                   ^^^^^^^^^^ Cannot access ref value during render
+  350 |
+  351 |   return (
+  352 |     <div className="flex flex-col items-center gap-4 p-4 sm:p-6">                                                                                                                                                                                                                                                                                                          react-hooks/refs
+  349:39  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:349:39
+  347 |   }, []);
+  348 |
+> 349 |   const canRoll = state.turn === 0 && state.dice === null && state.winner === null;
+      |                                       ^^^^^^^^^^ Cannot access ref value during render
+  350 |
+  351 |   return (
+  352 |     <div className="flex flex-col items-center gap-4 p-4 sm:p-6">                                                                                                                                                                                                                                                                                      react-hooks/refs
+  349:62  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:349:62
+  347 |   }, []);
+  348 |
+> 349 |   const canRoll = state.turn === 0 && state.dice === null && state.winner === null;
+      |                                                              ^^^^^^^^^^^^ Cannot access ref value during render
+  350 |
+  351 |   return (
+  352 |     <div className="flex flex-col items-center gap-4 p-4 sm:p-6">                                                                                                                                                                                                                                                             react-hooks/refs
+  355:12  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:355:12
+  353 |       <div className="flex w-full max-w-xl flex-wrap items-center justify-between gap-2 text-sm">
+  354 |         <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-semibold">
+> 355 |           {state.winner !== null
+      |            ^^^^^^^^^^^^ Cannot access ref value during render
+  356 |             ? state.winner === 0
+  357 |               ? "🏆 You win!"
+  358 |               : `🏆 ${PLAYER_NAMES[state.winner]} wins`                                                                                                                            react-hooks/refs
+  356:15  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:356:15
+  354 |         <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 font-semibold">
+  355 |           {state.winner !== null
+> 356 |             ? state.winner === 0
+      |               ^^^^^^^^^^^^ Cannot access ref value during render
+  357 |               ? "🏆 You win!"
+  358 |               : `🏆 ${PLAYER_NAMES[state.winner]} wins`
+  359 |             : `Turn: ${PLAYER_NAMES[state.turn]}`}                                                                                                                                                                        react-hooks/refs
+  358:36  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:358:36
+  356 |             ? state.winner === 0
+  357 |               ? "🏆 You win!"
+> 358 |               : `🏆 ${PLAYER_NAMES[state.winner]} wins`
+      |                                    ^^^^^^^^^^^^ Cannot access ref value during render
+  359 |             : `Turn: ${PLAYER_NAMES[state.turn]}`}
+  360 |         </span>
+  361 |         <span                                                                                                                                                                                                                                                          react-hooks/refs
+  359:37  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:359:37
+  357 |               ? "🏆 You win!"
+  358 |               : `🏆 ${PLAYER_NAMES[state.winner]} wins`
+> 359 |             : `Turn: ${PLAYER_NAMES[state.turn]}`}
+      |                                     ^^^^^^^^^^ Cannot access ref value during render
+  360 |         </span>
+  361 |         <span
+  362 |           className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-slate-900 text-2xl font-extrabold shadow-lg"                                                                                                                                         react-hooks/refs
+  363:39  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:363:39
+  361 |         <span
+  362 |           className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-slate-900 text-2xl font-extrabold shadow-lg"
+> 363 |           aria-label={`Dice showing ${state.dice ?? "none"}`}
+      |                                       ^^^^^^^^^^ Cannot access ref value during render
+  364 |         >
+  365 |           {state.dice ?? "🎲"}
+  366 |         </span>                                                                                                                                                                         react-hooks/refs
+  363:39  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:363:39
+  361 |         <span
+  362 |           className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/20 bg-slate-900 text-2xl font-extrabold shadow-lg"
+> 363 |           aria-label={`Dice showing ${state.dice ?? "none"}`}
+      |                                       ^^^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  364 |         >
+  365 |           {state.dice ?? "🎲"}
+  366 |         </span>                                                                                                                                                               react-hooks/refs
+  365:12  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:365:12
+  363 |           aria-label={`Dice showing ${state.dice ?? "none"}`}
+  364 |         >
+> 365 |           {state.dice ?? "🎲"}
+      |            ^^^^^^^^^^ Cannot access ref value during render
+  366 |         </span>
+  367 |       </div>
+  368 |                                                                                                                                                                                                                                                                                                                                                        react-hooks/refs
+  365:12  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:365:12
+  363 |           aria-label={`Dice showing ${state.dice ?? "none"}`}
+  364 |         >
+> 365 |           {state.dice ?? "🎲"}
+      |            ^^^^^^^^^^^^^^^^^^ Cannot access ref value during render
+  366 |         </span>
+  367 |       </div>
+  368 |                                                                                                                                                                                                                                                                                                                                                react-hooks/refs
+  382:29  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:382:29
+  380 |         <div className="flex flex-wrap items-center justify-center gap-2">
+  381 |           <span className="text-sm text-white/60">Move token:</span>
+> 382 |           {pendingMoves.map((token) => (
+      |                             ^^^^^^^^^^^^
+> 383 |             <button
+      | ^^^^^^^^^^^^^^^^^^^
+> 384 |               key={token}
+      …
+      | ^^^^^^^^^^^^^^^^^^^
+> 398 |             </button>
+      | ^^^^^^^^^^^^^^^^^^^
+> 399 |           ))}
+      | ^^^^^^^^^^^^ Cannot access ref value during render
+  400 |         </div>
+  401 |       ) : null}
+  402 |              react-hooks/refs
+  411:39  error  Error: Cannot access refs during render
+
+React refs are values that are not needed for rendering. Refs should only be accessed outside of render, such as in event handlers or effects. Accessing a ref value (the `current` property) during render can cause your component not to update as expected (https://react.dev/reference/react/useRef).
+
+C:\Users\HomePC\Documents\couple's conner\web\components\games\LudoGame.tsx:411:39
+  409 |           className="rounded-xl bg-gradient-to-r from-orange-500 to-orange-600 px-8 py-3 text-base font-semibold text-white shadow-xl shadow-orange-500/25 transition hover:from-orange-400 hover:to-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-400 disabled:cursor-not-allowed disabled:opacity-40"
+  410 |         >
+> 411 |           {canRoll ? "Roll dice 🎲" : state.dice !== null ? "Moving…" : "Waiting…"}
+      |                                       ^^^^^^^^^^ Cannot access ref value during render
+  412 |         </button>
+  413 |       </div>
+  414 |     </div>  react-hooks/refs
+
+✖ 21 problems (21 errors, 0 warnings)
+

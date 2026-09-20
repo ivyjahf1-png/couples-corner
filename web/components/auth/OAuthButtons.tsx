@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -50,7 +50,7 @@ export function OAuthButtons({ redirectTo = "/onboarding", className = "" }: OAu
           <div className="w-full border-t border-white/15" />
         </div>
         <div className="relative flex justify-center">
-          <span className="bg-purple-950 px-3 text-sm text-white/50">or continue with</span>
+          <span className="bg-[#0B1120] px-3 text-sm text-white/50">or continue with</span>
         </div>
       </div>
 

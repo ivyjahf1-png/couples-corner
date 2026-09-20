@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import type { ContentItem } from "@/lib/models/content";
 
 /**
@@ -10,7 +10,7 @@ import type { ContentItem } from "@/lib/models/content";
 export function EventsBoard({ items }: { items: ContentItem[] }) {
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-white/10 bg-white/5 px-6 py-10 text-center">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.02] border border-white/6 px-6 py-10 text-center">
         <p className="text-sm text-white/60">
           No upcoming meetups right now — new events are announced here as soon as our team posts them.
         </p>
@@ -23,7 +23,7 @@ export function EventsBoard({ items }: { items: ContentItem[] }) {
       {items.map((item) => (
         <li
           key={item.id}
-          className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/5 transition hover:border-orange-400/40 hover:bg-white/10"
+          className="group flex flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] transition hover:border-orange-500/30 hover:bg-white/[0.05]"
         >
           {item.mediaUrl && item.mediaType === "image" ? (
             /* eslint-disable-next-line @next/next/no-img-element */

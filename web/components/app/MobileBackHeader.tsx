@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 const titles: Record<string, string> = {
   discover: "Discover", explore: "Explore", matches: "Matches", messages: "Messages",
   notifications: "Alerts", feed: "Community feed", profile: "Profile", settings: "Settings",
-  subscription: "Subscription", onboarding: "Get started", couple: "Your couple",
+  subscription: "VIP Membership", onboarding: "Get started", couple: "Your couple",
   u: "Member profile", chat: "Chat", community: "Community", events: "Events",
   insights: "Insights", about: "About us", login: "Sign in", register: "Create account",
   "forgot-password": "Reset password", "verify-email": "Verify email", legal: "Legal",
@@ -18,7 +18,7 @@ const titles: Record<string, string> = {
 export function MobileHomeHeader({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   if (pathname !== "/dashboard") return null;
-  return <header className="app-top-bar sticky top-0 z-30 border-b pt-[env(safe-area-inset-top)] md:hidden">{children}</header>;
+  return <header className="app-top-bar sticky top-0 z-30 border-b border-white/5 border-white/5 pt-[env(safe-area-inset-top)] md:hidden">{children}</header>;
 }
 
 /** Shared mobile-only recovery navigation; never depends on session or database data. */
@@ -37,9 +37,9 @@ export function MobileBackHeader() {
   }
 
   return (
-    <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b pt-[env(safe-area-inset-top)] md:hidden">
+    <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b border-white/5 border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
       <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
-        <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+        <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
         </button>
         <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">{titles[segment] ?? "Couple’s Corner"}</p>

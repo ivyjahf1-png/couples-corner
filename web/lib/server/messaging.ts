@@ -77,6 +77,34 @@ export async function getConversation(conversationId: string): Promise<Conversat
   return (data as ConversationRow | null) ?? null;
 }
 
+/**
+ * Count unread messages across all of the user's conversations — messages
+ * sent by someone else that have no read_at timestamp yet. Used by the
+ * mobile bottom bar's Chat badge. Fails soft (returns 0) so the badge can
+ * never break navigation.
+ */
+export async function countUnreadMessages(userId: string): Promise<number> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return 0;
+
+  try {
+    const conversations = await listConversations(userId);
+    if (conversations.length === 0) return 0;
+
+    const { count, error } = await supabase
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .in("conversation_id", conversations.map((c) => c.id))
+      .neq("sender_id", userId)
+      .is("read_at", null);
+
+    if (error) return 0;
+    return count ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
 /** Fetch messages for a conversation, ordered oldest first. */
 export async function listMessages(conversationId: string): Promise<MessageRow[]> {
   const supabase = getSupabaseServerClient();
@@ -169,4 +197,28 @@ export async function createConversation(params: {
     .single();
 
   return (data as ConversationRow | null) ?? null;
+}
+
+/**
+ * Mark every message in a conversation as read for the acting user.
+ * Safe to call repeatedly — only messages that are unread and from the
+ * other participant get touched.
+ */
+export async function markConversationRead(params: {
+  conversationId: string;
+  userId: string;
+}): Promise<void> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return;
+
+  const now = new Date().toISOString();
+
+  await supabase
+    .from("messages")
+    .update({ read_at: now, updated_at: now })
+    .eq("conversation_id", params.conversationId)
+    .neq("sender_id", params.userId)
+    .is("read_at", null)
+    .select("id")
+    .limit(1);
 }

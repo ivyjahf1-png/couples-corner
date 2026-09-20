@@ -22,7 +22,7 @@ export interface ContentFilters {
 /** Allowed placements — must mirror the `content_placement_check` constraint
  * (see supabase/migrations/011_content_table.sql + 014_content_placement_check_expand.sql). */
 const ALLOWED_PLACEMENTS: readonly ContentPlacement[] = [
-  "hero", "homepage", "dashboard", "discover",
+  "auth", "hero", "homepage", "dashboard", "discover",
   "feed", "matches", "messages", "events", "testimonials",
 ];
 

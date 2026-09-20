@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { HeroSlide } from "@/lib/utils/hero-slides";
 
@@ -24,7 +24,7 @@ export function HeroImageMarquee({ slides }: { slides: HeroSlide[] }) {
 
   return (
     <div
-      className="hero-marquee relative mx-auto w-full max-w-5xl overflow-hidden rounded-[2.5rem] shadow-2xl shadow-purple-950/60"
+      className="hero-marquee relative mx-auto w-full max-w-5xl overflow-hidden rounded-[2.5rem] shadow-2xl shadow-black/50"
       role="region"
       aria-roledescription="marquee"
       aria-label="Featured couples moments gallery"
@@ -45,7 +45,7 @@ export function HeroImageMarquee({ slides }: { slides: HeroSlide[] }) {
           <li
             key={`${slide.id}:${i}`}
             aria-hidden={i >= slides.length}
-            className="hero-marquee-card relative w-56 shrink-0 overflow-hidden rounded-3xl border border-white/10 shadow-2xl shadow-purple-950/60 ring-1 ring-orange-400/20 transition-shadow duration-500 hover:shadow-orange-500/30 sm:w-72"
+            className="hero-marquee-card relative w-56 shrink-0 overflow-hidden rounded-3xl border border-white/10 shadow-2xl shadow-black/50 ring-1 ring-orange-400/20 transition-shadow duration-500 hover:shadow-orange-500/30 sm:w-72"
           >
             <div className="aspect-[4/5] w-full sm:aspect-[3/4]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -58,7 +58,7 @@ export function HeroImageMarquee({ slides }: { slides: HeroSlide[] }) {
               />
             </div>
             {/* Bottom gradient overlay for depth + caption legibility. */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-purple-950/85 via-purple-950/10 to-transparent" aria-hidden="true" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1120]/85 via-[#1E293B]/10 to-transparent" aria-hidden="true" />
             {/* Floating glassmorphism caption badge. */}
             <div className="pointer-events-none absolute inset-x-3 bottom-3">
               <p className="inline-flex max-w-full items-center gap-1.5 truncate rounded-2xl border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white shadow-lg backdrop-blur-md">
