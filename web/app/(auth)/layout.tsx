@@ -13,7 +13,9 @@ export default async function AuthLayout({
   await requireGuest();
   return (
     <section data-zone="auth" className="flex min-h-full flex-1 flex-col">
-      {children}
+      <div className="cc-mobile-container flex flex-1 flex-col justify-center">
+        {children}
+      </div>
     </section>
   );
 }

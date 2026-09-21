@@ -2,7 +2,7 @@ import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
-import { ProfileCard } from "@/components/app/ProfileCard";
+import { DiscoverCardStack } from "@/components/app/DiscoverCardStack";
 import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
@@ -66,11 +66,8 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
           body="No profiles match these filters yet. Try widening your search or check back soon — the community is growing."
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {profiles.map((profile) => (
-            profile?.id ? <ProfileCard key={profile.id} profile={profile} /> : null
-          ))}
-        </div>
+        /* Tinder-style deck: left/right tap zones + 5-icon action bar. */
+        <DiscoverCardStack profiles={profiles.filter((p) => p?.id)} />
       )}
     </div>
   );

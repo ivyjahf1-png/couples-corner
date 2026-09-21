@@ -120,7 +120,7 @@ export default async function DashboardPage() {
               <h2 id="suggested-heading" className="font-semibold text-ink-100">Suggested for you</h2>
               <Button href="/discover" size="sm" variant="ghost">See all</Button>
             </div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {suggestions.map((suggestion) => (
                 <ProfileCard key={suggestion.id} profile={suggestion} />
               ))}

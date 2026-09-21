@@ -50,8 +50,14 @@ export function EventsBoard({ items }: { items: ContentItem[] }) {
                   View details →
                 </Link>
               ) : <span />}
-              <time className="text-xs text-white/40" dateTime={item.startAt}>
-                Posted {new Date(item.startAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              <time className="text-xs text-white/40" dateTime={item?.startAt ?? undefined}>
+                {(() => {
+                  // Guard: a missing/invalid startAt must never throw a
+                  // RangeError (Invalid Date) and crash the board.
+                  const parsed = item?.startAt ? new Date(item.startAt) : null;
+                  if (!parsed || Number.isNaN(parsed.getTime())) return "Recently posted";
+                  return `Posted ${parsed.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+                })()}
               </time>
             </div>
           </div>

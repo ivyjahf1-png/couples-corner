@@ -23,6 +23,12 @@ export default async function ProfilePage() {
     VISIBILITY_OPTIONS.find((o) => o.value === profile?.visibility)?.label ?? "Private";
   const couple = null; // couple profiles are managed separately.
 
+  // Completion ring geometry (SVG donut, brand-orange progress on navy).
+  const pct = Math.min(Math.max(completion?.percentage ?? 0, 0), 100);
+  const ringRadius = 60;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringDash = (pct / 100) * ringCircumference;
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -31,6 +37,13 @@ export default async function ProfilePage() {
         subtitle="This is what potential connections see. Keep it warm, honest, and current."
         actions={<Button href="/profile/edit" variant="secondary">Edit profile</Button>}
       />
+
+      {/* Shortcut row: Settings · Edit Profile · Add Media */}
+      <div className="flex flex-wrap gap-3">
+        <Button href="/settings" variant="secondary" size="sm">Settings</Button>
+        <Button href="/profile/edit" variant="secondary" size="sm">Edit profile</Button>
+        <Button href="/profile#media" variant="secondary" size="sm">Add media</Button>
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Identity */}
@@ -58,7 +71,42 @@ export default async function ProfilePage() {
         </Card>
 
         <div className="flex flex-col gap-6">
-          <UserMediaGallery uid={session.uid} />
+          {/* Completion ring */}
+          <Card as="section" className="flex flex-col gap-4" aria-label="Profile completion ring">
+            <h2 className="font-semibold text-white">Profile completion</h2>
+            <div className="flex items-center gap-5">
+              <svg viewBox="0 0 140 140" className="h-32 w-32 shrink-0" role="img" aria-label={`Profile ${pct}% complete`}>
+                <circle cx="70" cy="70" r={ringRadius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="10" />
+                <circle
+                  cx="70" cy="70" r={ringRadius} fill="none"
+                  stroke="url(#completionGradient)" strokeWidth="10" strokeLinecap="round"
+                  strokeDasharray={`${ringDash} ${ringCircumference - ringDash}`}
+                  transform="rotate(-90 70 70)"
+                />
+                <defs>
+                  <linearGradient id="completionGradient" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#FB923C" />
+                    <stop offset="100%" stopColor="#FF5722" />
+                  </linearGradient>
+                </defs>
+                <text x="70" y="74" textAnchor="middle" className="fill-white text-xl font-bold">{pct}%</text>
+              </svg>
+              <div className="flex flex-col gap-2">
+                {completion.missing.length > 0 ? (
+                  <p className="text-sm text-ink-300">Add: {completion.missing.join(", ")}</p>
+                ) : (
+                  <p className="text-sm text-success-300">Your profile is complete. Nice work!</p>
+                )}
+                <Button size="sm" variant="secondary" href="/profile/edit">
+                  {completion.percentage < 100 ? "Continue setup" : "Edit details"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div id="media">
+            <UserMediaGallery uid={session.uid} />
+          </div>
           {/* About */}
           <Card as="section" className="flex flex-col gap-3" aria-label="About">
             <h2 className="font-semibold text-white">About</h2>
@@ -85,34 +133,6 @@ export default async function ProfilePage() {
                 Add interests to improve your Discover suggestions.
               </p>
             )}
-          </Card>
-
-          {/* Completion */}
-          <Card as="section" className="flex flex-col gap-3" aria-label="Profile completion">
-            <h2 className="font-semibold text-white">Profile completion</h2>
-            <div
-              role="progressbar"
-              aria-valuenow={completion.percentage}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Profile completion"
-              className="h-2 overflow-hidden rounded-full bg-white/10"
-            >
-              <div
-                className="h-full rounded-full bg-brand-600"
-                style={{ width: `${completion.percentage}%` }}
-              />
-            </div>
-            {completion.missing.length > 0 ? (
-              <p className="text-sm text-ink-300">
-                Add: {completion.missing.join(", ")}
-              </p>
-            ) : (
-              <p className="text-sm text-success-300">Your profile is complete. Nice work!</p>
-            )}
-            <Button size="sm" variant="secondary" href="/profile/edit">
-              {completion.percentage < 100 ? "Continue setup" : "Edit details"}
-            </Button>
           </Card>
 
           {/* Couple information */}

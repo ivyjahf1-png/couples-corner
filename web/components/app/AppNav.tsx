@@ -137,12 +137,13 @@ interface MobileTab extends AppNavItem {
   showBadge?: boolean;
 }
 
-/** Mobile bottom-bar tabs — Home · Moments · Messages · Me. */
+/** Mobile bottom-bar tabs — the exact 5-icon sequence: Flame/Home · Explore · Likes · Chat · Profile. */
 const mobileTabs: MobileTab[] = [
-  { href: "/home", icon: "home", label: "Home" },
-  { href: "/moments", icon: "sparkle", label: "Moments" },
-  { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
-  { href: "/profile", icon: "profile", label: "Me" },
+  { href: "/dashboard", icon: "flame", label: "Home" },
+  { href: "/discover", icon: "compass", label: "Explore" },
+  { href: "/matches", icon: "heart", label: "Likes" },
+  { href: "/messages", icon: "chat", label: "Chat", showBadge: true },
+  { href: "/profile", icon: "profile", label: "Profile" },
 ];
 
 /** Shared tab styling: solid orange for active, glowing for hovers. */
@@ -222,7 +223,7 @@ function MobileNavigation({
         className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
       >
         <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <ul className="mx-auto grid max-w-sm grid-cols-4">
+          <ul className="mx-auto grid max-w-md grid-cols-5">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
               return (

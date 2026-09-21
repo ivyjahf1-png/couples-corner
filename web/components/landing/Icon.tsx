@@ -27,7 +27,10 @@ export type IconName =
   | "menu"
   | "close"
   | "crown"
-  | "chevron";
+  | "chevron"
+  | "flame"
+  | "rewind"
+  | "star";
 
 /*
  * Tasteful, hand-drawn 24x24 line icons rendered with `currentColor` so they
@@ -184,6 +187,19 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   chevron: <path d="M9.5 5 L16 12 L9.5 19" />,
+  /* --- Discover action-bar icons ----------------------------------------- */
+  flame: (
+    <path d="M12 21 C8 21 6 18.2 6 14.8 C6 11.6 8 9.2 10 7 C10.4 9 11.2 10 12.4 10.6 C12 8.6 12.6 6 14.6 4 C14.4 6.4 15.6 7.6 16.8 9.2 C18.2 11 18 13.4 18 14.8 C18 18.2 16 21 12 21 Z" />
+  ),
+  rewind: (
+    <>
+      <path d="M11 6 L4 12 L11 18 Z" />
+      <path d="M20 6 L13 12 L20 18 Z" />
+    </>
+  ),
+  star: (
+    <path d="M12 3.5 L14.4 9 L20.5 9.7 L16 13.7 L17.2 19.8 L12 16.7 L6.8 19.8 L8 13.7 L3.5 9.7 L9.6 9 Z" />
+  ),
 };
 
 interface IconProps {
