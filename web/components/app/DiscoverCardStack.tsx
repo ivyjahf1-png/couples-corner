@@ -9,6 +9,7 @@ import { sendConnectionAction } from "@/lib/actions/connections";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
 import type { ProfileCardView } from "@/lib/feature/types";
 import { useCoinGate } from "@/lib/hooks/useCoinGate";
+import { ProfileDetailSheet } from "@/components/app/ProfileDetailSheet";
 
 /**
  * Discover — swipe-deck style profile card stack (VISUAL MIGRATION ONLY).
@@ -49,6 +50,8 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [error, reportError] = useActionError();
   const { coinModalOpen, setCoinModalOpen, requireCoins } = useCoinGate();
+  // Half-page bottom sheet with the full profile (center tap / View full profile).
+  const [detailOpen, setDetailOpen] = useState(false);
 
   // Never index out of range — clamp on every render.
   const total = Array.isArray(profiles) ? profiles.length : 0;
@@ -140,8 +143,15 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/85 to-transparent" />
 
             {/* Click zones: left half = previous, right half = next. */}
-            <button type="button" aria-label="Previous profile" onClick={goPrev} disabled={safeIndex <= 0} className="absolute inset-y-0 left-0 z-10 w-1/2 cursor-w-resize disabled:cursor-default" />
-            <button type="button" aria-label="Next profile" onClick={goNext} disabled={safeIndex >= total - 1} className="absolute inset-y-0 right-0 z-10 w-1/2 cursor-e-resize disabled:cursor-default" />
+            <button type="button" aria-label="Previous profile" onClick={goPrev} disabled={safeIndex <= 0} className="absolute inset-y-0 left-0 z-10 w-1/3 cursor-w-resize disabled:cursor-default" />
+            {/* Center tap opens the full-profile bottom sheet. */}
+            <button
+              type="button"
+              aria-label={`View full profile — ${name}`}
+              onClick={() => setDetailOpen(true)}
+              className="absolute inset-y-0 left-1/3 z-10 w-1/3 cursor-pointer"
+            />
+            <button type="button" aria-label="Next profile" onClick={goNext} disabled={safeIndex >= total - 1} className="absolute inset-y-0 right-0 z-10 w-1/3 cursor-e-resize disabled:cursor-default" />
 
             {/* Deck counter */}
             <span className="absolute left-4 top-4 z-20 rounded-full border border-white/10 bg-[#0F172A]/80 px-3 py-1 text-xs font-medium text-ink-200 backdrop-blur">
@@ -171,10 +181,24 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   ))}
                 </ul>
               ) : null}
-              <a href={`/profile/${encodeURIComponent(current?.id ?? "")}`} className="text-sm font-semibold text-orange-300 hover:underline">View full profile</a>
+              <button
+                type="button"
+                onClick={() => setDetailOpen(true)}
+                className="text-left text-sm font-semibold text-orange-300 hover:underline"
+              >
+                View full profile
+              </button>
               {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
             </div>
           </div>
+
+          {/* Full-profile bottom sheet (comprehensive details). */}
+          <ProfileDetailSheet
+            profileId={current?.id}
+            name={name}
+            open={detailOpen}
+            onClose={() => setDetailOpen(false)}
+          />
 
           {/* --------------------------------------- 5-icon action bar */}
           <nav aria-label="Profile actions" className="flex w-full items-center justify-center gap-3">

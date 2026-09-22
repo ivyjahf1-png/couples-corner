@@ -11,7 +11,6 @@ import { getMembership } from "@/lib/server/subscription";
 import { WalletMenu } from "@/components/app/WalletMenu";
 import { emptyWallet, type WalletView } from "@/lib/models/wallet";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
-import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { demoActivity, demoNotifications, demoProfileViews } from "@/lib/demo/demo-data";
 
 export const dynamic = "force-dynamic";
@@ -57,63 +56,21 @@ export default async function DashboardPage() {
     }
   }
 
-  const completion = computeProfileCompletion(profile);
-  const completionItems = completion.missing.length > 0
-    ? [
-        ...completion.completed.map((label) => ({ label, done: true })),
-        ...completion.missing.map((label) => ({ label, done: false })),
-      ]
-    : completion.completed.map((label) => ({ label, done: true }));
-
+  // Profile completion tracking now lives on the Profile page.
   return (
     <div className="flex flex-col gap-10">
       <PageHeader
         eyebrow="Welcome back"
         title="Your corner"
-        subtitle="A quiet home base for your relationship life — connections, conversations, and moments in one place."
+        subtitle="A quiet home base for your relationship life — connections, chats, and moments in one place."
         actions={<Button href="/discover">Discover</Button>}
       />
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main column */}
         <div className="flex flex-col gap-6 lg:col-span-2">
-          {/* Profile completion */}
-          <Card className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="font-semibold text-ink-100">Profile completion</h2>
-              <span className="text-sm font-semibold text-brand-400">{completion.percentage}%</span>
-            </div>
-            <div
-              role="progressbar"
-              aria-valuenow={completion.percentage}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="Profile completion"
-              className="h-2 overflow-hidden rounded-full bg-ink-700/50"
-            >
-              <div className="h-full rounded-full bg-brand-500" style={{ width: `${completion.percentage}%` }} />
-            </div>
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {completionItems.map((item) => (
-                <li key={item.label} className="flex items-center gap-2 text-sm text-ink-300">
-                  <span
-                    aria-hidden
-                    className={[
-                      "flex h-5 w-5 items-center justify-center rounded-full",
-                      item.done ? "bg-success-800/50 text-success-300" : "bg-ink-700/50 text-ink-400",
-                    ].join(" ")}
-                  >
-                    <Icon name={item.done ? "check" : "plus"} className="h-3 w-3" />
-                  </span>
-                  <span className={item.done ? "line-through opacity-60" : ""}>{item.label}</span>
-                </li>
-              ))}
-            </ul>
-            <div>
-              <Button href="/profile" size="sm" variant="secondary">Continue setup</Button>
-            </div>
-          </Card>
-
+          {/* Profile completion has moved to the Profile page — main column
+              now leads with suggested connections. */}
           {/* Suggested connections */}
           <section aria-labelledby="suggested-heading" className="flex flex-col gap-4">
             <div className="flex items-center justify-between">

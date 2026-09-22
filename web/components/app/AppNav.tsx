@@ -11,10 +11,10 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
  * Couples Corner — app navigation (VISUAL SHELL ONLY).
  *
  * Layout contract:
- *   • Mobile (<768px): a strictly 3-item bottom bar —
- *       Discover | Matches & Messages | Menu.
- *     "Menu" opens a right-hand drawer holding the secondary destinations
- *     (Home, Profile, Feed, Alerts, Subscription, Settings) + sign out.
+ *   • Mobile (<768px): a 4-item bottom bar — Home | Moments | Messages | Me.
+ *     "Moments" points at the community feed route (`/feed`). The "Menu"
+ *     drawer (opened from the top bar) holds the secondary destinations
+ *     (Messages, Home, Profile, Feed, Alerts, Subscription, Settings) + sign out.
  *   • Tablet + desktop (≥768px): one fixed left-hand navy (#0F172A) sidebar
  *     carrying the complete navigation.
  *
@@ -36,6 +36,7 @@ export interface AppNavItem {
 export const appNavItems: AppNavItem[] = [
   { href: "/dashboard", label: "Home", icon: "home" },
   { href: "/discover", label: "Discover", icon: "compass" },
+  { href: "/likes", label: "Likes", icon: "flame" },
   { href: "/matches", label: "Matches", icon: "heart" },
   { href: "/messages", label: "Messages", icon: "chat" },
 ];
@@ -137,13 +138,16 @@ interface MobileTab extends AppNavItem {
   showBadge?: boolean;
 }
 
-/** Mobile bottom-bar tabs — the exact 5-icon sequence: Flame/Home · Explore · Likes · Chat · Profile. */
+/**
+ * Mobile bottom-bar tabs — the exact 5-tab sequence: Home · Explore · Likes · Messages · Me.
+ * Every href is an absolute app route verified to exist in `app/(app)/**`.
+ */
 const mobileTabs: MobileTab[] = [
-  { href: "/dashboard", icon: "flame", label: "Home" },
+  { href: "/dashboard", icon: "home", label: "Home" },
   { href: "/discover", icon: "compass", label: "Explore" },
-  { href: "/matches", icon: "heart", label: "Likes" },
-  { href: "/messages", icon: "chat", label: "Chat", showBadge: true },
-  { href: "/profile", icon: "profile", label: "Profile" },
+  { href: "/likes", icon: "heart", label: "Likes" },
+  { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
+  { href: "/profile", icon: "profile", label: "Me" },
 ];
 
 /** Shared tab styling: solid orange for active, glowing for hovers. */
@@ -181,7 +185,7 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 /**
- * Mobile chrome: a 4-item bottom bar (Home · Moments · Chat · Me) rendered as
+ * Mobile chrome: a 5-item bottom bar (Home · Explore · Likes · Messages · Me) rendered as
  * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
  * `md` up, where the fixed sidebar takes over. The "Menu" drawer is retained
  * for secondary destinations.

@@ -20,7 +20,7 @@ interface LiveConversationThreadProps {
 }
 
 /**
- * Live conversation thread with Supabase Realtime subscription.
+ * Live chat thread with Supabase Realtime subscription.
  *
  * Merges initial (server-fetched) messages with realtime INSERT/UPDATE
  * events so new messages appear instantly without a page refresh.
@@ -71,7 +71,7 @@ export function LiveConversationThread({
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
         <p className="text-lg font-semibold text-white">No messages yet</p>
-        <p className="text-sm text-ink-400">Send the first message to start the conversation.</p>
+        <p className="text-sm text-ink-400">Send the first message to start the chat.</p>
         {!isConnected && (
           <p className="text-xs text-ink-400">Connecting to realtime…</p>
         )}

@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
 import { DiscoverCardStack } from "@/components/app/DiscoverCardStack";
 import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
+import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { ContentSlot } from "@/components/content/ContentSlot";
@@ -45,7 +46,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="relative flex flex-col gap-8 pb-20">
       <PageHeader
         eyebrow="Discover"
         title="Find your people"
@@ -66,9 +67,12 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
           body="No profiles match these filters yet. Try widening your search or check back soon — the community is growing."
         />
       ) : (
-        /* Tinder-style deck: left/right tap zones + 5-icon action bar. */
+        /* Couple's Corner-style deck: left/right tap zones + 5-icon action bar. */
         <DiscoverCardStack profiles={profiles.filter((p) => p?.id)} />
       )}
+
+      {/* Floating Game Center Button (client component boundary) */}
+      <GameCenterButton />
     </div>
   );
 }

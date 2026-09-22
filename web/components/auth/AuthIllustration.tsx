@@ -24,7 +24,7 @@ export async function AuthIllustration({ className = "" }: { className?: string 
 
   if (imageUrl) {
     return (
-      <div className={`relative h-44 overflow-hidden ${className}`}>
+      <div className={`relative h-36 overflow-hidden sm:h-44 ${className}`}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={imageUrl}
@@ -46,7 +46,7 @@ export async function AuthIllustration({ className = "" }: { className?: string 
   // Branded fallback illustration — two interlocking hearts on the app gradient.
   return (
     <div
-      className={`relative flex h-44 items-center justify-center overflow-hidden bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#0B1120] ${className}`}
+      className={`relative flex h-36 items-center justify-center overflow-hidden bg-gradient-to-br from-[#1E293B] via-[#0F172A] to-[#0B1120] sm:h-44 ${className}`}
       role="img"
       aria-label="Couples Corner illustration"
     >

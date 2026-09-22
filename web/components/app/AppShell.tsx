@@ -17,7 +17,7 @@ import { emptyWallet, type WalletView } from "@/lib/models/wallet";
  * Chrome:
  *   • md and up (tablet / PC): one fixed left-hand deep-navy (#0F172A) rail.
  *   • below md (phone): a frosted navy top bar plus a 4-tab floating glass
- *     capsule (Home · Moments · Chat · Me). The "Menu" drawer is retained
+ *     capsule (Home · Moments · Messages · Me). The "Menu" drawer is retained
  *     behind the app shell for secondary destinations.
  *
  * PRESERVATION CONSTRAINT: the session lookup below is unchanged and the demo

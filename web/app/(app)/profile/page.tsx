@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/app/EmptyState";
+import { LocationSharing } from "@/components/app/LocationSharing";
 import { VISIBILITY_OPTIONS } from "@/lib/models";
 
 export default async function ProfilePage() {
@@ -102,6 +103,15 @@ export default async function ProfilePage() {
                 </Button>
               </div>
             </div>
+          </Card>
+
+          {/* Location detection — worldwide geolocation support */}
+          <Card as="section" className="flex flex-col gap-3" aria-label="Location detection">
+            <h2 className="font-semibold text-white">Location</h2>
+            <p className="text-sm text-ink-300">
+              {profile?.location?.trim() ? `Current: ${profile.location}` : "No location set yet."}
+            </p>
+            <LocationSharing />
           </Card>
 
           <div id="media">

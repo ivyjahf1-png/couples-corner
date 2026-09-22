@@ -10,8 +10,8 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-950 text-white">
-      <nav className="border-b border-orange-500/30 bg-slate-900/90 px-4 py-4 sm:px-6 lg:px-8">
+    <div className="flex min-h-[100dvh] flex-col bg-slate-950 text-white">
+      <nav className="shrink-0 border-b border-orange-500/30 bg-slate-900/90 px-4 py-4 sm:px-6 lg:px-8">
         <div className="mx-auto flex max-w-7xl items-center justify-between">
           <Link href="/" className="flex items-center" aria-label="Couples Corner home">
             <Logo as="span" />
@@ -19,12 +19,12 @@ export default function LoginPage() {
         </div>
       </nav>
 
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center px-4 py-16 sm:px-6">
-        <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl shadow-black/40">
+      <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-16">
+        <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl shadow-black/40">
           {/* Dynamic illustration — loads from the admin panel's "auth" placement. */}
           <AuthIllustration />
 
-          <div className="p-8">
+          <div className="p-5 sm:p-8">
             <h1 className="text-2xl font-bold tracking-display text-white">Login</h1>
             <p className="mt-1.5 text-sm text-white/60">
               Welcome back to Couple&apos;s Corner. Sign in to continue your journey.

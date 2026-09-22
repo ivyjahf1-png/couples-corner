@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Conversation, Message } from "@/lib/models";
 import { buildMessageInsert } from "@/lib/utils/message-payload";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
+import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
 
 /**
  * Couples Corner — server-side messaging service.
@@ -221,4 +222,119 @@ export async function markConversationRead(params: {
     .is("read_at", null)
     .select("id")
     .limit(1);
+}
+
+/* ------------------------------------------------------------------ *
+ * Inbox summaries — one row per conversation with the other
+ * participant's name, last-message preview, timestamp and unread
+ * badge. Additive: existing functions are untouched.
+ * ------------------------------------------------------------------ */
+
+export interface InboxSummaryRow {
+  id: string;
+  type: Conversation["type"];
+  name: string;
+  kind: "person" | "couple";
+  avatarUrl: string | null;
+  preview: string;
+  lastMessageAt: string | null;
+  unread: number;
+}
+
+/** Best-effort last-message preview + unread counts across all conversations. */
+export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  try {
+    const conversations = await listConversations(userId);
+    if (conversations.length === 0) return [];
+
+    const convIds = conversations.map((c) => c.id);
+
+    const [msgResult, unreadResult, profilesResult] = await Promise.all([
+      supabase
+        .from("messages")
+        .select("conversation_id, sender_id, body, type, read_at, created_at")
+        .in("conversation_id", convIds)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+      supabase
+        .from("messages")
+        .select("conversation_id")
+        .in("conversation_id", convIds)
+        .neq("sender_id", userId)
+        .is("read_at", null)
+        .limit(1000),
+      supabase.from("profiles").select(profileSelectList()),
+    ]);
+
+    // Fail soft per-query — a messages error still renders names.
+    const msgRows = (msgResult.data ?? []) as unknown as Array<{
+      conversation_id: string;
+      sender_id: string;
+      body: string | null;
+      type: string;
+      read_at: string | null;
+      created_at: string;
+    }>;
+    const unreadRows = (unreadResult.data ?? []) as unknown as Array<{ conversation_id: string }>;
+    const profileRows = (profilesResult.data ?? []) as unknown as Array<Record<string, unknown>>;
+
+    // Last message per conversation (rows are newest-first).
+    const lastByConv = new Map<string, (typeof msgRows)[number]>();
+    for (const m of msgRows) {
+      if (!lastByConv.has(m.conversation_id)) lastByConv.set(m.conversation_id, m);
+    }
+    const unreadByConv = new Map<string, number>();
+    for (const u of unreadRows) {
+      unreadByConv.set(u.conversation_id, (unreadByConv.get(u.conversation_id) ?? 0) + 1);
+    }
+
+    // Participant display names from profiles (id matches user_id).
+    const profileById = new Map<string, { name: string; kind: "person" | "couple"; avatarUrl: string | null }>();
+    for (const row of profileRows) {
+      const profile = mapProfileRow(row);
+      if (!profile?.userId) continue;
+      const photos = profile.photos ?? [];
+      const primary = photos.find((p) => p?.isPrimary) ?? photos[0] ?? null;
+      profileById.set(profile.userId, {
+        name: profile.displayName?.trim() || "Member",
+        kind: profile.kind,
+        avatarUrl:
+          primary?.publicUrl ??
+          (primary?.storagePath
+            ? `/api/photos/${profile.userId}/${primary.storagePath.split("/").pop() ?? ""}`
+            : null),
+      });
+    }
+
+    return conversations
+      .map((c) => {
+        const otherId =
+          c.participant_user_ids?.find((id) => id && id !== userId) ?? null;
+        const other = otherId ? profileById.get(otherId) : undefined;
+        const last = lastByConv.get(c.id);
+        const preview =
+          last?.type === "text" && last.body
+            ? last.body
+            : last
+              ? "Sent an attachment"
+              : "";
+        return {
+          id: c.id,
+          type: c.type,
+          name: other?.name ?? "Chat",
+          kind: other?.kind ?? (c.type === "couple" ? "couple" : "person"),
+          avatarUrl: other?.avatarUrl ?? null,
+          preview,
+          lastMessageAt: c.last_message_at ?? last?.created_at ?? null,
+          unread: unreadByConv.get(c.id) ?? 0,
+        };
+      })
+      .filter((row) => Boolean(row.id));
+  } catch (error) {
+    console.error("[messaging] inbox summaries failed", supabaseErrorDetail(error as never));
+    return [];
+  }
 }

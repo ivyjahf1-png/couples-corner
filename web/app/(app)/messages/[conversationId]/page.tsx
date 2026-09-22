@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
-import { LiveChatThread } from "@/components/app/LiveChatThread";
+import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MessageComposer } from "@/components/app/MessageComposer";
 import {
   getConversationChatDataAction,
@@ -20,7 +20,7 @@ interface ConversationPageProps {
  * starter, then hands off to client components that subscribe to
  * Supabase Realtime and render the bottom input bar.
  */
-export default async function ConversationPage({ params }: ConversationPageProps) {
+export default async function MessagesPage({ params }: ConversationPageProps) {
   const { conversationId } = await params;
   const user = await getCurrentSessionUser();
 
@@ -29,7 +29,7 @@ export default async function ConversationPage({ params }: ConversationPageProps
     notFound();
   }
 
-    const { conversation, summary, starter, initialMessages } = chatData;
+  const { conversation, summary, initialMessages } = chatData;
 
   // Mark messages read on first load so the Chat tab badge clears.
   void markConversationReadAction(conversationId);
@@ -41,7 +41,7 @@ export default async function ConversationPage({ params }: ConversationPageProps
         <div className="flex items-center gap-3 px-4 py-3">
           <Link
             href="/messages"
-            aria-label="Back to conversations"
+            aria-label="Back to Messages"
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
@@ -56,9 +56,8 @@ export default async function ConversationPage({ params }: ConversationPageProps
       </div>
 
                    {/* Scrollable message thread */}
-      <LiveChatThread
+      <LiveConversationThread
         conversationId={conversationId}
-        starter={starter}
         currentUserId={user.uid}
         initialMessages={initialMessages ?? []}
       />

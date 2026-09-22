@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/landing/Icon";
+import { PhoneMockup } from "@/components/landing/PhoneMockup";
 import type { HeroSlide } from "@/lib/utils/hero-slides";
 
 /** Idle dwell time before an image (admin ad) slide auto-advances. */
@@ -128,11 +129,15 @@ export function HeroMediaCard({
     return (
       <div className={frameClass} role="img" aria-label={fallbackTitle}>
         <div className="hero-photo absolute inset-0" aria-hidden="true" />
+        {/* Phone frame mockup — replaces the previous placeholder artwork. */}
+        <div className="absolute inset-x-0 top-0 flex justify-center pt-8 sm:pt-10">
+          <PhoneMockup />
+        </div>
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-3xl bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent"
           aria-hidden="true"
         />
-        <div className="absolute inset-x-0 bottom-0 flex flex-col items-start justify-end gap-4 p-6 pb-16 sm:p-8 sm:pb-16">
+        <div className="absolute inset-x-0 bottom-0 flex flex-col items-start justify-end gap-3 p-6 pb-10 sm:p-8 sm:pb-12">
           <h2 className="max-w-sm text-2xl font-bold leading-snug tracking-tight text-white sm:text-3xl">
             {fallbackTitle}
           </h2>

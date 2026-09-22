@@ -9,6 +9,7 @@ import { buildHeroSlides } from "@/lib/utils/hero-slides";
 import type { CarouselMedia } from "@/components/content/MediaCarousel";
 import { Icon } from "@/components/landing/Icon";
 import { INSIGHT_ARTICLES } from "@/app/insights/page";
+import { OverlappingPhotoShowcase } from "@/components/content/OverlappingPhotoShowcase";
 
 // Render on every request so admin-uploaded media on the homepage placement
 // appears instantly when published (no cached stale copy).
@@ -17,11 +18,20 @@ export const dynamic = "force-dynamic";
 export default async function LandingPage() {
   // Fetched per request (dynamic = force-dynamic) so newly published admin
   // events and testimonials appear instantly, without a rebuild.
-  const [events, testimonialItems, heroItems] = await Promise.all([
+  const [events, testimonialItems, heroItems, homepageItems] = await Promise.all([
     getPublishedForPlacement("events"),
     getPublishedForPlacement("testimonials"),
     getPublishedForPlacement("hero"),
+    getPublishedForPlacement("homepage"),
   ]);
+
+  // Admin-uploaded photos for the overlapping/crossing photo-box section.
+  // Only published image media is used; slots without a photo show branded
+  // placeholders so the section never looks broken.
+  const overlapPhotos = homepageItems
+    .filter((item) => item.mediaType === "image" && item.mediaUrl)
+    .slice(0, 3)
+    .map((item) => ({ url: item.mediaUrl, alt: item.title || "Couple's Corner community" }));
 
   // Admin-uploaded hero media (image ads + videos) for the featured hero card.
   const heroSlides = buildHeroSlides(heroItems);
@@ -178,6 +188,16 @@ export default async function LandingPage() {
              <p className="mt-4 text-lg text-white/60">
                Authentic profiles. Verified connections. Intentional matching — because meaningful relationships deserve a platform built for trust.
              </p>
+           </div>
+
+           {/* Overlapping / crossing photo boxes — admin-uploaded homepage
+               photos, with branded placeholders for empty slots. */}
+           <div className="mt-16">
+             <h3 className="mb-4 text-center text-2xl font-bold text-white sm:text-3xl">Real Couples, Real Moments</h3>
+             <p className="mx-auto max-w-xl text-center text-sm text-white/60">
+               A glimpse of the community — every photo below is managed live from the admin panel.
+             </p>
+             <OverlappingPhotoShowcase photos={overlapPhotos} />
            </div>
 
            {/* How It Works: 3-Step Guide */}
