@@ -18,6 +18,7 @@ import { MfaSection } from "@/components/settings/MfaSection";
 import { SessionsList } from "@/components/settings/SessionsList";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { BlockedRowClient } from "./blocked/BlockedRowClient";
+import { ClearCacheButton } from "@/components/settings/ClearCacheButton";
 import type { BlockedUser } from "@/lib/feature/types";
 
 /**
@@ -248,6 +249,42 @@ export default async function SettingsPage() {
           </Card>
         </Section>
 
+        {/* SOYO-style quick settings menu */}
+        <Section id="quick-settings" title="Quick settings" description="Account, wallet and app preferences at a glance.">
+          <Card padding="none" className="divide-y divide-ink-700">
+            <Link href="/settings/blocked" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+              <span className="text-sm font-medium text-white">Bind account</span>
+              <span aria-hidden className="text-ink-400">›</span>
+            </Link>
+            <Link href="/subscription" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+              <span className="text-sm font-medium text-white">Charge settings</span>
+              <span aria-hidden className="text-ink-400">›</span>
+            </Link>
+            <Row label="Rights Center" hint="Your VIP & SVIP benefits live here.">
+              <span aria-hidden className="text-ink-400">›</span>
+            </Row>
+            <Row label="Chat settings" hint="Read receipts, who can message you.">
+              <span aria-hidden className="text-ink-400">›</span>
+            </Row>
+            <Link href="/settings/blocked" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+              <span className="text-sm font-medium text-white">Blocked List</span>
+              <span aria-hidden className="text-ink-400">›</span>
+            </Link>
+            <Row label="Language" hint="English (US)">
+              <span aria-hidden className="text-ink-400">›</span>
+            </Row>
+            <Row label="Clear cache" hint="Free up temporary files on this device.">
+              <ClearCacheButton />
+            </Row>
+            <Row label="About SOYO" hint="Version 1.0.0 — Couple's Corner">
+              <span aria-hidden className="text-ink-400">›</span>
+            </Row>
+            <Row label="Sign out" hint="End your session on this device.">
+              {user ? <LogoutButton /> : <span className="text-sm text-ink-300">Not signed in</span>}
+            </Row>
+          </Card>
+        </Section>
+
         {/* Account management */}
         <Section
           id="account-management"
@@ -266,6 +303,20 @@ export default async function SettingsPage() {
             </Row>
           </Card>
         </Section>
+
+        {/* Footer links */}
+        <footer aria-label="Legal and support links" className="flex flex-col items-center gap-2 pb-6 pt-2 text-center">
+          <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-ink-400">
+            <Link href="/legal/privacy" className="hover:text-ink-200">Privacy Policy</Link>
+            <span aria-hidden>·</span>
+            <Link href="/legal/terms" className="hover:text-ink-200">Terms of Service</Link>
+            <span aria-hidden>·</span>
+            <Link href="/contact" className="hover:text-ink-200">Contact us</Link>
+          </nav>
+          <Link href="/settings#account-management" className="text-xs text-danger-300/80 hover:text-danger-300">
+            Delete Account
+          </Link>
+        </footer>
       </div>
     </div>
   );
