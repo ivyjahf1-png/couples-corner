@@ -6,7 +6,7 @@ import type { ConversationSummaryView } from "@/lib/feature/types";
 export function ConversationItem({ conversation }: { conversation: ConversationSummaryView }) {
   return (
     <Link
-      href={`/messages/${conversation.id}`}
+      href={`/messages/${conversation.id}` as never}
       className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-surface-muted"
     >
       <Avatar name={conversation.name} kind={conversation.kind} />

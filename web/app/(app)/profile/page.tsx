@@ -1,4 +1,5 @@
 import { UserMediaGallery } from "@/components/app/UserMediaGallery";
+import { ProfileCard } from "@/components/app/ProfileCard";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
@@ -11,6 +12,8 @@ import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/app/EmptyState";
 import { LocationSharing } from "@/components/app/LocationSharing";
 import { VISIBILITY_OPTIONS } from "@/lib/models";
+import { demoProfileViews } from "@/lib/demo/demo-data";
+import type { ProfileCardView } from "@/lib/feature/types";
 
 export default async function ProfilePage() {
   const session = await getSessionUser();
@@ -157,6 +160,23 @@ export default async function ProfilePage() {
               />
             )}
           </Card>
+
+          {/* Suggested profiles — ProfileCard component showing name, handle, and interests */}
+          <section aria-labelledby="suggested-heading" className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 id="suggested-heading" className="font-semibold text-ink-100">
+                Suggested for you
+              </h2>
+              <Button href="/discover" size="sm" variant="ghost">
+                See all
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {demoProfileViews.slice(0, 4).map((suggestion) => (
+                <ProfileCard key={suggestion.id} profile={suggestion as ProfileCardView} />
+              ))}
+            </div>
+          </section>
         </div>
       </div>
     </div>

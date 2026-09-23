@@ -8,7 +8,7 @@ import { getPublishedForPlacement } from "@/lib/server/content";
 import { buildHeroSlides } from "@/lib/utils/hero-slides";
 import type { CarouselMedia } from "@/components/content/MediaCarousel";
 import { Icon } from "@/components/landing/Icon";
-import { INSIGHT_ARTICLES } from "@/app/insights/page";
+import { INSIGHT_ARTICLES } from "@/lib/data/insights";
 import { OverlappingPhotoShowcase } from "@/components/content/OverlappingPhotoShowcase";
 
 // Render on every request so admin-uploaded media on the homepage placement

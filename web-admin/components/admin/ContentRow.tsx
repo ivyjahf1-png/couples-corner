@@ -42,7 +42,7 @@ export function ContentRow({ item, onEdit, adminUid }: ContentRowProps) {
             /* eslint-disable @next/next/no-img-element */
             <img src={item.thumbnailUrl ?? item.mediaUrl} alt="" className="h-12 w-16 shrink-0 rounded-lg border border-orange-500/30 object-cover" />
           ) : (
-            <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-slate-800">
+                        <div className="flex h-12 w-16 shrink-0 items-center justify-center rounded-lg border border-orange-500/30 bg-slate-900/90">
               <Icon name="moments" className="h-5 w-5 text-orange-400" />
             </div>
           )}

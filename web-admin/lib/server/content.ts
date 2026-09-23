@@ -30,6 +30,7 @@ function dbToContentItem(row: Record<string, unknown>): ContentItem {
     startAt: row.start_at as string,
     endAt: row.end_at as string,
     targetAudience: row.target_audience as string | undefined,
+    location: (row.location as string | null) ?? undefined,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
     createdBy: row.created_by as string,
@@ -79,6 +80,7 @@ export async function createContent(
       start_at: data.startAt,
       end_at: data.endAt,
       target_audience: data.targetAudience ?? null,
+      location: data.location ?? null,
       created_by: adminUid,
       updated_by: adminUid,
       created_at: now,
@@ -124,7 +126,9 @@ export async function updateContent(
   if (data.description !== undefined) updates.description = data.description;
   if (data.mediaType !== undefined) updates.media_type = data.mediaType;
   if (data.mediaUrl !== undefined) updates.media_url = data.mediaUrl;
-  if (data.mediaUrls !== undefined) updates.media_urls = data.mediaUrls;
+  // NOTE: `content` has no `media_urls` column (migration 011) — writing it
+  // made every update fail with PGRST204 ("Could not find the 'media_urls'
+  // column"). The primary image lives in `media_url`, already handled above.
   if (data.thumbnailUrl !== undefined) updates.thumbnail_url = data.thumbnailUrl;
   if (data.buttonText !== undefined) updates.button_text = data.buttonText;
   if (data.destinationUrl !== undefined) updates.destination_url = data.destinationUrl;
@@ -134,6 +138,7 @@ export async function updateContent(
   if (data.startAt !== undefined) updates.start_at = data.startAt;
   if (data.endAt !== undefined) updates.end_at = data.endAt;
   if (data.targetAudience !== undefined) updates.target_audience = data.targetAudience;
+  if (data.location !== undefined) updates.location = data.location;
 
   await supabase.from("content").update(updates).eq("id", id);
   await supabase.from("audit_logs").insert({

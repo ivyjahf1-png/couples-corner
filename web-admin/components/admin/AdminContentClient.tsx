@@ -51,7 +51,7 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-2xl border border-orange-500/30 bg-slate-900 p-3 text-center shadow-md">
+                    <div key={s.label} className="rounded-2xl border border-orange-500/30 bg-slate-900/90 p-3 text-center shadow-md">
             <p className="text-2xl font-bold text-white">{s.value}</p>
             <p className="text-xs text-orange-300">{s.label}</p>
           </div>
@@ -106,7 +106,7 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
 
       {/* Content list */}
       {filtered.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-orange-500/30 bg-slate-900/50 px-6 py-16 text-center">
+                  <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-orange-500/30 bg-slate-900/90 px-6 py-16 text-center">
           <Icon name="moments" className="h-10 w-10 text-orange-400" />
           <div>
             <p className="text-lg font-semibold text-white">No {CATEGORY_LABELS[activeTab].toLowerCase()} yet</p>
@@ -121,10 +121,10 @@ export function AdminContentClient({ initialContent, stats, adminUid }: Props) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-orange-500/30 bg-slate-900">
+                <div className="overflow-hidden rounded-2xl border border-orange-500/30 bg-slate-900/90">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-orange-500/20 bg-slate-800">
+                            <thead className="border-b border-orange-500/30 bg-slate-900/90">
                 <tr>
                   <th className="px-4 py-3 font-medium text-orange-200">Content</th>
                   <th className="hidden px-4 py-3 font-medium text-orange-200 sm:table-cell">Status</th>

@@ -29,7 +29,7 @@ export function MobileBackHeader() {
   if (!segment || pathname === "/dashboard") return null;
 
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
-  const fallback = isAppPage ? "/dashboard" : "/";
+  const fallback = (isAppPage ? "/dashboard" : "/") as never;
 
   function goBack() {
     if (window.history.length > 1) router.back();

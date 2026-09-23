@@ -239,7 +239,13 @@ export interface InboxSummaryRow {
   preview: string;
   lastMessageAt: string | null;
   unread: number;
+  /** True when the other participant was active in the last 5 minutes
+   *  AND opted into showing online status. */
+  isOnline: boolean;
 }
+
+/** A participant counts as "online" if seen within this window. */
+const ONLINE_WINDOW_MS = 5 * 60_000;
 
 /** Best-effort last-message preview + unread counts across all conversations. */
 export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow[]> {
@@ -252,7 +258,7 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
 
     const convIds = conversations.map((c) => c.id);
 
-    const [msgResult, unreadResult, profilesResult] = await Promise.all([
+    const [msgResult, unreadResult, profilesResult, sessionsResult] = await Promise.all([
       supabase
         .from("messages")
         .select("conversation_id, sender_id, body, type, read_at, created_at")
@@ -267,6 +273,13 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
         .is("read_at", null)
         .limit(1000),
       supabase.from("profiles").select(profileSelectList()),
+      supabase
+        .from("user_sessions")
+        .select("user_id, last_seen_at, revoked_at")
+        .in(
+          "user_id",
+          conversations.flatMap((c) => c.participant_user_ids ?? []).filter((id) => id && id !== userId)
+        ),
     ]);
 
     // Fail soft per-query — a messages error still renders names.
@@ -280,6 +293,20 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     }>;
     const unreadRows = (unreadResult.data ?? []) as unknown as Array<{ conversation_id: string }>;
     const profileRows = (profilesResult.data ?? []) as unknown as Array<Record<string, unknown>>;
+    const sessionRows = (sessionsResult.data ?? []) as unknown as Array<{
+      user_id: string;
+      last_seen_at: string | null;
+      revoked_at: string | null;
+    }>;
+
+    // Most recent session activity per participant (for online dots).
+    const lastSeenByUser = new Map<string, number>();
+    for (const s of sessionRows) {
+      if (!s?.user_id || s.revoked_at || !s.last_seen_at) continue;
+      const at = new Date(s.last_seen_at).getTime();
+      if (Number.isNaN(at)) continue;
+      if (at > (lastSeenByUser.get(s.user_id) ?? 0)) lastSeenByUser.set(s.user_id, at);
+    }
 
     // Last message per conversation (rows are newest-first).
     const lastByConv = new Map<string, (typeof msgRows)[number]>();
@@ -292,7 +319,10 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     }
 
     // Participant display names from profiles (id matches user_id).
-    const profileById = new Map<string, { name: string; kind: "person" | "couple"; avatarUrl: string | null }>();
+    const profileById = new Map<
+      string,
+      { name: string; kind: "person" | "couple"; avatarUrl: string | null; showOnlineStatus: boolean }
+    >();
     for (const row of profileRows) {
       const profile = mapProfileRow(row);
       if (!profile?.userId) continue;
@@ -306,6 +336,8 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           (primary?.storagePath
             ? `/api/photos/${profile.userId}/${primary.storagePath.split("/").pop() ?? ""}`
             : null),
+        showOnlineStatus:
+          (profile.preferences as Record<string, unknown> | undefined)?.show_online_status === true,
       });
     }
 
@@ -330,6 +362,11 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           preview,
           lastMessageAt: c.last_message_at ?? last?.created_at ?? null,
           unread: unreadByConv.get(c.id) ?? 0,
+          isOnline: Boolean(
+            otherId &&
+              other?.showOnlineStatus &&
+              Date.now() - (lastSeenByUser.get(otherId) ?? 0) <= ONLINE_WINDOW_MS
+          ),
         };
       })
       .filter((row) => Boolean(row.id));

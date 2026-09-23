@@ -46,7 +46,7 @@ export default async function AdminLayout({
             </div>
             <AdminNav />
           </aside>
-          <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
+          <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:px-12">
             <section data-zone="admin" className="flex flex-1 flex-col">
               <ErrorBoundary feature="Admin Panel">
                 <div className="mx-auto flex max-w-xl flex-col gap-6 text-center">
@@ -109,7 +109,7 @@ export default async function AdminLayout({
             </div>
           </div>
         </aside>
-        <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10">
+        <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:px-12">
           <section data-zone="admin" className="flex flex-1 flex-col">
             <ErrorBoundary feature="Admin Panel">
               {children}

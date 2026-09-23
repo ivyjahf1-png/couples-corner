@@ -1,8 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, type FormEvent, type ChangeEvent } from "react";
+import { useState, useRef, useEffect, useMemo, type FormEvent, type ChangeEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
+import {
+  AD_COPY_SUGGESTIONS,
+  AD_COPY_THEMES,
+} from "@/lib/data/ad-copy-suggestions";
 import {
   CONTENT_PLACEMENTS,
   CONTENT_STATUSES,
@@ -17,9 +21,8 @@ import {
 import {
   createContentAction,
   updateContentAction,
-  uploadContentMedia,
-  uploadMultipleContentMedia,
 } from "@/lib/actions/content";
+import { uploadMediaFromBrowser } from "@/lib/utils/media-upload";
 
 interface ContentFormProps {
   category: ContentCategory;
@@ -31,9 +34,9 @@ interface ContentFormProps {
 const MAX_FILES = 10;
 
 const inputClass =
-  "mt-1 w-full rounded-lg border border-orange-500/30 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40";
+  "mt-1 w-full rounded-lg border border-orange-500/30 bg-slate-900/90 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 [color-scheme:dark] focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 [&>option]:bg-slate-900 [&>option]:text-slate-100";
 
-const labelClass = "text-sm font-medium text-orange-100";
+const labelClass = "text-sm font-medium text-slate-100";
 
 function isoToInput(iso: string): string {
   const d = new Date(iso);
@@ -74,6 +77,10 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   const [busy, setBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [fileSlots, setFileSlots] = useState<FileSlot[]>([]);
+  const [copyTheme, setCopyTheme] = useState<string>("");
+  const [copySearch, setCopySearch] = useState<string>("");
+  const [copyOpen, setCopyOpen] = useState(false);
+  const copyBoxRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileSlotsRef = useRef<FileSlot[]>([]);
   fileSlotsRef.current = fileSlots;
@@ -199,18 +206,37 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
     try {
       if (editingItem) {
         if (fileSlots.length > 0) {
+          // Upload DIRECTLY from the browser to Supabase Storage (binary
+          // streams — no fetch() of local/blob paths, no Server Action body).
           setUploadProgress(`Uploading ${fileSlots.length} file${fileSlots.length > 1 ? "s" : ""}…`);
-          const result = await uploadMultipleContentMedia(editingItem.id, fileSlots.map((s) => s.file));
+          const { result, warnings } = await uploadMediaFromBrowser(
+            editingItem.id,
+            fileSlots.map((s) => s.file)
+          );
+          if (result.mediaUrls.length === 0) {
+            throw new Error(
+              warnings.length > 0 ? `Upload failed: ${warnings.join("; ")}` : "Upload failed."
+            );
+          }
           payload.mediaUrl = result.mediaUrls[0];
           payload.mediaUrls = result.mediaUrls;
           payload.thumbnailUrl = result.mediaUrls[0];
+          if (warnings.length > 0) setUploadProgress(`Uploaded with warnings: ${warnings.join("; ")}`);
         }
         await updateContentAction(editingItem.id, payload, adminUid);
       } else {
         const contentId = crypto.randomUUID();
         if (fileSlots.length > 0) {
           setUploadProgress(`Uploading ${fileSlots.length} file${fileSlots.length > 1 ? "s" : ""}…`);
-          const result = await uploadMultipleContentMedia(contentId, fileSlots.map((s) => s.file));
+          const { result, warnings } = await uploadMediaFromBrowser(
+            contentId,
+            fileSlots.map((s) => s.file)
+          );
+          if (result.mediaUrls.length === 0) {
+            throw new Error(
+              warnings.length > 0 ? `Upload failed: ${warnings.join("; ")}` : "Upload failed."
+            );
+          }
           payload.mediaUrl = result.mediaUrls[0];
           payload.mediaUrls = result.mediaUrls;
           payload.thumbnailUrl = result.mediaUrls[0];
@@ -229,9 +255,49 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   const acceptedTypes = [...CONTENT_UPLOAD.imageTypes, ...CONTENT_UPLOAD.videoTypes].join(",");
   const canAddMore = fileSlots.length < MAX_FILES;
 
+  const copyFiltered = useMemo(() => {
+    const q = copySearch.trim().toLowerCase();
+    return AD_COPY_SUGGESTIONS.filter(
+      (s) =>
+        (!copyTheme || s.theme === copyTheme) &&
+        (!q || s.title.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
+    );
+  }, [copyTheme, copySearch]);
+
+  // Show up to all 500 matches in the scrollable dropdown (fully virtualized
+  // by the browser's overflow scroll — responsive on mobile/tablet/desktop).
+  const copyMatches = useMemo(() => copyFiltered.slice(0, 500), [copyFiltered]);
+  const copyTotal = AD_COPY_SUGGESTIONS.length;
+
+  useEffect(() => {
+    if (!copyOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (copyBoxRef.current && !copyBoxRef.current.contains(e.target as Node)) setCopyOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [copyOpen]);
+
+  function applySuggestion(id: string) {
+    const found = AD_COPY_SUGGESTIONS.find((s) => s.id === id);
+    if (!found) return;
+    setTitle(found.title);
+    setDescription(found.description);
+    setCopyOpen(false);
+  }
+
+  function surpriseMe() {
+    const pool = copyMatches.length > 0 ? copyMatches : AD_COPY_SUGGESTIONS;
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if (pick) {
+      setTitle(pick.title);
+      setDescription(pick.description);
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-orange-500/30 bg-slate-950 p-6 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-orange-500/30 bg-slate-900/90 p-6 shadow-2xl shadow-orange-500/10">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-white">
             {editingItem ? "Edit" : "Create"} {category}
@@ -242,6 +308,46 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {category === "advertisement" && (
+            <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-3 sm:p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-white">
+                  Ad copy ideas <span className="ml-1 rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-200">500 suggestions</span>
+                </p>
+                <button type="button" onClick={surpriseMe} className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-200 hover:bg-orange-500/20">
+                  Surprise me
+                </button>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <select value={copyTheme} onChange={(e) => setCopyTheme(e.target.value)} className={inputClass} aria-label="Filter suggestions by theme">
+                  <option value="">All {copyTotal} ideas — every theme</option>
+                  {AD_COPY_THEMES.map((t) => (<option key={t} value={t}>{t}</option>))}
+                </select>
+                <input value={copySearch} onChange={(e) => { setCopySearch(e.target.value); setCopyOpen(true); }} onFocus={() => setCopyOpen(true)} className={inputClass} placeholder="Search 500 titles & descriptions…" aria-label="Search ad copy suggestions" />
+              </div>
+              <div ref={copyBoxRef} className="relative mt-2">
+                <button type="button" onClick={() => setCopyOpen((v) => !v)} aria-expanded={copyOpen} className="w-full rounded-lg border border-orange-500/30 bg-slate-900 px-3 py-2 text-left text-sm text-slate-200 hover:border-orange-500/60">
+                  {copyMatches.length > 0 ? `Browse ${copyMatches.length} matching idea${copyMatches.length === 1 ? "" : "s"}…` : "No matches — try another theme or keyword"}
+                </button>
+                {copyOpen && (
+                  <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-xl border border-orange-500/30 bg-slate-950 shadow-2xl">
+                    {copyMatches.map((s) => (
+                      <li key={s.id}>
+                        <button type="button" onClick={() => applySuggestion(s.id)} className="flex w-full flex-col gap-0.5 px-3 py-2 text-left hover:bg-orange-500/10">
+                          <span className="text-sm font-medium text-white">{s.title}</span>
+                          <span className="line-clamp-2 text-xs text-slate-400">{s.description}</span>
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-orange-300/70">{s.theme}</span>
+                        </button>
+                      </li>
+                    ))}
+                    {copyMatches.length === 0 && (
+                      <li className="px-3 py-4 text-center text-xs text-slate-400">No suggestions match. Clear the search or pick another theme.</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
           <label className={labelClass}>Title<input value={title} onChange={(e) => setTitle(e.target.value)} className={inputClass} placeholder="Summer campaign" /></label>
           <label className={labelClass}>Description<textarea value={description} onChange={(e) => setDescription(e.target.value)} className={inputClass} rows={2} placeholder="Optional description" /></label>
 
@@ -286,7 +392,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
                   ))}
                 </div>
                 {canAddMore && (
-                  <label className="cursor-pointer self-start rounded-lg border border-orange-500/30 bg-purple-900 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-500/20">
+                  <label className="cursor-pointer self-start rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-200 hover:bg-orange-500/20">
                     + Add more ({fileSlots.length}/{MAX_FILES})
                     <input ref={fileInputRef} type="file" accept={acceptedTypes} multiple onChange={handleFileChange} className="hidden" />
                   </label>

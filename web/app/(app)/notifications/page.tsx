@@ -3,6 +3,8 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { NotificationItem } from "@/components/app/NotificationItem";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { ContentSlot } from "@/components/content/ContentSlot";
+import { AdvertCardGrid } from "@/components/content/AdvertCardGrid";
 import { demoNotificationViews } from "@/lib/demo/demo-data";
 
 /**
@@ -42,6 +44,13 @@ export default function NotificationsPage() {
           ))}
         </Card>
       )}
+
+      {/* Sponsored / featured content — admin-managed promotional banners and cards */}
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold text-white">Sponsored</h2>
+        <ContentSlot placement="notifications" />
+        <AdvertCardGrid placement="notifications" limit={10} columns={3} />
+      </div>
     </div>
   );
 }

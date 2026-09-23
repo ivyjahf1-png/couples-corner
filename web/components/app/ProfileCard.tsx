@@ -38,6 +38,10 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
 
   const connection = sent ? "outgoing_pending" : profile.connection;
 
+  // Full profile destination — discovery profiles carry an explicit href;
+  // anything else falls back to the canonical /profile/{id} route.
+  const profileHref = profile.href?.trim() || `/profile/${encodeURIComponent(profile?.id ?? "")}`;
+
   // Guard: no valid target id → nothing to connect to. Render read-only.
   const hasTargetId = typeof profile?.id === "string" && (profile?.id ?? "").trim().length > 0;
   const name = profile?.name?.trim() || "Community member";
@@ -70,7 +74,11 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
         : "New";
 
   return (
-    <article className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-5 shadow-card transition duration-150 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 hover:bg-white/[0.05]">
+    <Link
+      href={profileHref as never}
+      aria-label={`View ${name}'s full profile`}
+      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-5 shadow-card transition duration-150 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 hover:bg-white/[0.05]"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           {profile.avatarUrl && failedPhoto !== profile.avatarUrl ? (
@@ -84,7 +92,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
             <Avatar name={name} kind={profile.kind} size="md" className="bg-gradient-to-br from-brand-500/25 via-brand-600/10 to-ink-700/40 ring-1 ring-white/10" />
           )}
           <div className="min-w-0">
-            <h3 className="truncate font-semibold text-white"><Link href={`/profile/${encodeURIComponent(profile?.id ?? "")}`}>{name}</Link></h3>
+            <h3 className="truncate font-semibold text-white">{name}</h3>
             <p className="truncate text-sm text-ink-300">{profile.location?.trim() || "Location not shared"}</p>
           </div>
         </div>
@@ -113,7 +121,13 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
         <p className="text-xs uppercase tracking-wide text-ink-400">Intentional Member · Interests to be revealed</p>
       )}
 
-      <div className="mt-auto flex items-center justify-between gap-2 pt-1">
+      {/* Action row — clicks stay on the buttons (stopPropagation) so the
+          card-level Link doesn't navigate underneath them. */}
+      <div
+        className="mt-auto flex items-center justify-between gap-2 pt-1"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
         {typeof profile.sharedInterests === "number" && profile.sharedInterests > 0 ? (
           <span className="text-xs font-medium text-brand-300">
             {profile.sharedInterests} shared interest{profile.sharedInterests === 1 ? "" : "s"}
@@ -122,12 +136,13 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
           <span />
         )}
         {!hasTargetId ? (
-          <Button size="sm" variant="secondary" disabled title="This profile can't accept requests right now">
-            Connect
-          </Button>
+          <span className="text-sm font-medium text-orange-300">View profile →</span>
         ) : connection === "none" ? (
-          busy ? <Button size="sm" disabled>Sending…</Button> :
+          busy ? (
+            <Button size="sm" disabled>Sending…</Button>
+          ) : (
             <ConnectionButton state={connection} onConnect={connect} />
+          )
         ) : connection === "self" ? (
           <Button size="sm" href="/profile">Your profile</Button>
         ) : (
@@ -136,10 +151,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
           </Button>
         )}
       </div>
-      <Link href={`/profile/${encodeURIComponent(profile?.id ?? "")}`} className="text-sm font-semibold text-orange-300 hover:underline">
-        View profile
-      </Link>
       {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
-    </article>
+    </Link>
   );
 }

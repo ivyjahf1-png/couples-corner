@@ -23,7 +23,7 @@ export interface ContentFilters {
  * (see supabase/migrations/011_content_table.sql + 014_content_placement_check_expand.sql). */
 const ALLOWED_PLACEMENTS: readonly ContentPlacement[] = [
   "auth", "hero", "homepage", "dashboard", "discover",
-  "feed", "matches", "messages", "events", "testimonials",
+  "feed", "matches", "messages", "events", "testimonials", "notifications",
 ];
 
 /** Throws an explicit error for placements the DB check constraint would reject. */

@@ -4,7 +4,7 @@ import "server-only";
 import { revalidatePath } from "next/cache";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
 import { requireAdminDev } from "@/lib/auth/authorization";
-import { listReports, listUsersForModeration, setUserStatus, updateReportStatus } from "@/lib/server/admin";
+import { listReports, listUsersForModeration, setUserStatus, setUserSubscriptionTier, setUserCoinBalance, updateReportStatus } from "@/lib/server/admin";
 import type { ReportStatus } from "@/lib/models";
 
 /** Fetch the report moderation queue (optionally by status). */
@@ -48,5 +48,21 @@ export async function setUserStatusAction(
 ): Promise<void> {
   const admin = await requireAdminDev();
   await setUserStatus(uid, status, admin.uid, reason);
+  revalidatePath("/admin/users");
+}
+
+/** Uniform wallet/tier update used by the admin quick-edit modal. */
+export async function updateUserWalletAction(
+  uid: string,
+  patch: { subscriptionTier?: "free" | "premium" | "vip"; coinBalance?: number },
+  reason?: string
+): Promise<void> {
+  const admin = await requireAdminDev();
+  if (patch.subscriptionTier !== undefined) {
+    await setUserSubscriptionTier(uid, patch.subscriptionTier, admin.uid, reason);
+  }
+  if (patch.coinBalance !== undefined) {
+    await setUserCoinBalance(uid, patch.coinBalance, admin.uid, reason);
+  }
   revalidatePath("/admin/users");
 }

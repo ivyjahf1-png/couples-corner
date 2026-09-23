@@ -8,6 +8,7 @@ import { Chip } from "@/components/ui/Chip";
 import { ProfileConnectionActions } from "@/components/app/ProfileConnectionActions";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { BlockDialog } from "@/components/app/BlockDialog";
+import { PublicMediaGallery } from "@/components/app/PublicMediaGallery";
 
 export default async function PublicProfilePage({
   params,
@@ -76,6 +77,11 @@ export default async function PublicProfilePage({
             )}
           </Card>
 
+          {/* Uploaded photos & videos — same gallery used on the own-profile page. */}
+          <section id="media" aria-label="Photos and videos">
+            <PublicMediaGallery uid={userId} />
+          </section>
+
           {/* Relationship type */}
           {profile.profileType || profile.relationshipStatus ? (
             <Card as="section" className="flex flex-col gap-3" aria-label="Relationship">
@@ -99,6 +105,7 @@ export default async function PublicProfilePage({
               <ProfileConnectionActions
                 targetUserId={userId}
                 viewerUid={session?.uid ?? null}
+                size="md"
               />
               <ReportDialog
                 targetLabel={profile.displayName}

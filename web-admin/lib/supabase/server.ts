@@ -57,9 +57,25 @@ export function getSupabaseServiceRoleKey(): string {
  * catches the problem early with a descriptive error instead of letting it
  * propagate as a cryptic JWS failure.
  */
+/**
+ * Validate a Supabase service-role key.
+ *
+ * Two key formats exist:
+ *  - Legacy JWT service keys ("eyJhbGci….….…") — three dot-separated
+ *    base64url segments.
+ *  - New API keys ("sb_secret_…" / "sb_publishable_…") — opaque strings with
+ *    NO dot segments. Rejecting these here silently disabled the whole admin
+ *    data connection (every write failed with "Supabase not configured"),
+ *    so they are now accepted explicitly.
+ */
 function isValidJwt(key: string): boolean {
   if (!key || typeof key !== "string") return false;
-  const parts = key.split(".");
+  const trimmed = key.trim();
+  if (!trimmed) return false;
+  if (trimmed.startsWith("sb_secret_") || trimmed.startsWith("sb_publishable_")) {
+    return true;
+  }
+  const parts = trimmed.split(".");
   if (parts.length !== 3) return false;
   // Each segment must be non-empty base64url (A-Z, a-z, 0-9, '-', '_')
   return parts.every((p) => p.length > 0 && /^[A-Za-z0-9_-]+$/.test(p));

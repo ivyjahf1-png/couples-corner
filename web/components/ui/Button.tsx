@@ -38,7 +38,7 @@ interface BaseButtonProps {
 }
 
 interface LinkButtonProps extends BaseButtonProps {
-  href: string;
+  href: string & {};
 }
 
 interface ButtonButtonProps extends BaseButtonProps {
@@ -83,7 +83,7 @@ export function Button(props: ButtonProps) {
 
   if (props.href !== undefined) {
     return (
-      <Link href={props.href} className={classes} aria-label={ariaLabel} title={title}>
+      <Link href={props.href as never} className={classes} aria-label={ariaLabel} title={title}>
         {children}
       </Link>
     );

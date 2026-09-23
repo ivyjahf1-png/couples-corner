@@ -13,11 +13,11 @@ export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProp
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex max-w-2xl flex-col gap-2">
-        {eyebrow ? <Chip tone="brand">{eyebrow}</Chip> : null}
-        <h1 className="text-2xl font-semibold tracking-display text-foreground sm:text-3xl">
+        {eyebrow ? <Chip tone="brand" className="border border-[#FF5722]/30 bg-[#FF5722]/10 text-[#FF5722]">{eyebrow}</Chip> : null}
+        <h1 className="text-2xl font-semibold tracking-display text-slate-100 sm:text-3xl">
           {title}
         </h1>
-        {subtitle ? <p className="text-base leading-relaxed text-ink-600">{subtitle}</p> : null}
+        {subtitle ? <p className="text-base leading-relaxed text-slate-300">{subtitle}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
     </div>

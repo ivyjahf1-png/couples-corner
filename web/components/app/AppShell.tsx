@@ -3,13 +3,10 @@ import Link from "next/link";
 import { AppSidebar, AppMobileNav } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
-import { Icon } from "@/components/landing/Icon";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
-import { getMembership } from "@/lib/server/subscription";
-import { WalletMenu } from "@/components/app/WalletMenu";
-import { emptyWallet, type WalletView } from "@/lib/models/wallet";
+import { NotificationBell } from "@/components/app/NotificationBell";
 
 /**
  * Authenticated-app shell — VISUAL LAYER ONLY.
@@ -26,19 +23,15 @@ import { emptyWallet, type WalletView } from "@/lib/models/wallet";
  * only layout, styling and which nav component is rendered where.
  */
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  const user = await getCurrentSessionUser();
+  // Parallel fetch — session and unread count resolve together instead of
+  // serially, so the shell paints as soon as the session is known.
+  const [user, unreadCount] = await Promise.all([
+    getCurrentSessionUser(),
+    getUnreadCountAction(),
+  ]);
   const isDemo = user?.isDemo ?? false;
   const displayName = user?.email ? user.email.split("@")[0] : "User";
   const displayEmail = user?.email ?? "demo@couplescorner.app";
-
-  const unreadCount = (await getUnreadCountAction()) ?? 0;
-
-  // Uniform membership view — VIP Membership tier + coin balance for the header
-  // wallet chip / drawer. Degrades to the empty wallet when signed out.
-  let membership: WalletView = emptyWallet();
-  if (user) {
-    membership = await getMembership(user.uid);
-  }
 
   return (
     <div className="app-canvas min-h-dvh text-foreground">
@@ -59,14 +52,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <Logo as="span" />
           </Link>
           <div className="flex items-center gap-2">
-            <WalletMenu initial={membership} />
-            <Link
-              href="/notifications"
-              aria-label="Alerts"
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-            >
-              <Icon name="bell" className="h-5 w-5" />
-            </Link>
+            <NotificationBell />
             <Link
               href="/profile"
               aria-label="Your profile"
@@ -90,8 +76,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           <AppSidebar />
 
           <div className="border-t border-white/10 p-3">
-            <WalletMenu initial={membership} variant="card" />
-            <div className={`mt-3 flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
+            <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
               <Avatar name={displayName} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-white">{displayName}</p>
@@ -106,8 +91,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 md:px-8 md:pb-12 lg:px-10">
-          <div className="cc-dashboard mx-auto w-full max-w-7xl">{children}</div>
+        <main
+          className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:pb-12"
+        >
+          <div className="mx-auto w-full max-w-[88rem]">{children}</div>
         </main>
       </div>
 

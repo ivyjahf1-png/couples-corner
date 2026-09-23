@@ -17,5 +17,5 @@ jobs:
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_COUPLES_CONNER }}
-          projectId: couples-conner
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_COUPLE_S_CORNER }}
+          projectId: couple-s-corner

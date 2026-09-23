@@ -10,7 +10,8 @@ export type MediaType = "image" | "video";
 
 export type ContentPlacement =
   | "auth" | "hero" | "homepage" | "dashboard" | "discover"
-  | "feed" | "matches" | "messages" | "events" | "testimonials";
+  | "feed" | "matches" | "messages" | "events" | "testimonials"
+  | "notifications";
 
 export const CONTENT_CATEGORIES: ContentCategory[] = [
   "advertisement", "photo", "video", "announcement", "featured",
@@ -20,7 +21,7 @@ export const CONTENT_STATUSES: ContentStatus[] = [
 ];
 export const CONTENT_PLACEMENTS: ContentPlacement[] = [
   "auth", "hero", "homepage", "dashboard", "discover", "feed", "matches",
-  "messages", "events", "testimonials",
+  "messages", "events", "testimonials", "notifications",
 ];
 /**
  * Read a scheduling value from an API/Server-Action payload.

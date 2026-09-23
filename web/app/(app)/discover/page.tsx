@@ -7,7 +7,6 @@ import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
-import { ContentSlot } from "@/components/content/ContentSlot";
 
 export const dynamic = "force-dynamic";
 
@@ -54,11 +53,6 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
       />
 
       <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />
-
-      {/* Promotional slot — admins place banner ads here (placement "discover"). */}
-      <div className="mt-8">
-        <ContentSlot placement="discover" />
-      </div>
 
       {profiles.length === 0 ? (
         <EmptyState

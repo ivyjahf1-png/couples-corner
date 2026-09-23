@@ -48,7 +48,7 @@ export function NotificationItem({ notification }: { notification: NotificationV
 
   return (
     <Link
-      href={href}
+      href={href as never}
       aria-current={notification.unread ? "true" : undefined}
       className={["flex items-start gap-3 px-5 py-4 transition hover:bg-surface-muted focus-visible:bg-surface-muted", notification.unread ? "bg-brand-500/10" : ""].join(" ").trim()}
     >

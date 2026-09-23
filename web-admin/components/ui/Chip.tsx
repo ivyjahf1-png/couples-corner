@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 export type ChipTone = "neutral" | "brand" | "success" | "danger";
 
 const toneClasses: Record<ChipTone, string> = {
-  neutral: "bg-ink-100 text-ink-700",
-  brand: "bg-brand-100 text-brand-700",
-  success: "bg-success-100 text-success-700",
-  danger: "bg-danger-100 text-danger-700",
+  neutral: "bg-slate-700/30 text-slate-300",
+  brand: "bg-[#FF5722] text-white",
+  success: "bg-emerald-900/40 text-emerald-300",
+  danger: "bg-red-900/40 text-red-300",
 };
 
 interface ChipProps {

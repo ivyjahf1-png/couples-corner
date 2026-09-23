@@ -83,7 +83,7 @@ export default function AdminSettingsPage() {
       <PageHeader
         eyebrow="Settings"
         title="Platform configuration"
-        subtitle="Manage global platform settings, subscription tiers, and feature flags."
+        subtitle="Manage global platform settings, VIP Membership tiers, and feature flags."
       />
 
       {/* Subscription tiers */}
@@ -93,7 +93,7 @@ export default function AdminSettingsPage() {
             <Icon name="sparkle" className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-lg font-semibold text-white">Subscription tiers</h2>
+            <h2 className="text-lg font-semibold text-white">VIP Membership tiers</h2>
             <p className="text-sm text-slate-300">Configure pricing and features for each tier.</p>
           </div>
         </div>

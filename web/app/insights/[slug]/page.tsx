@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getInsightArticle, INSIGHT_ARTICLES } from "@/app/insights/page";
+import { INSIGHT_ARTICLES, getInsightArticle } from "@/lib/data/insights";
 
 export function generateStaticParams() {
   return INSIGHT_ARTICLES.map((article) => ({ slug: article.slug }));

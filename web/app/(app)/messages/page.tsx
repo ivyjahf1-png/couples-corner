@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
-import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/app/Avatar";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
@@ -33,6 +32,7 @@ export default async function MessagesPage() {
     preview: string;
     lastMessageAt: string | null;
     unread: number;
+    isOnline: boolean;
     isBot?: boolean;
   }> = [
     ...(Array.isArray(conversations) ? conversations : [])
@@ -46,6 +46,7 @@ export default async function MessagesPage() {
         preview: c.preview,
         lastMessageAt: c.lastMessageAt,
         unread: c.unread,
+        isOnline: c.isOnline,
       })),
     ...(Array.isArray(botThreads) ? botThreads : [])
       .filter((b) => b?.personaId)
@@ -58,6 +59,7 @@ export default async function MessagesPage() {
         preview: b.preview,
         lastMessageAt: b.lastMessageAt,
         unread: b.unread,
+        isOnline: false,
         isBot: true,
       })),
   ].sort((a, b) => {
@@ -94,11 +96,14 @@ export default async function MessagesPage() {
             Active chats <span className="text-ink-500">({activeChats.length})</span>
           </h2>
 
-          <Card padding="none" className="divide-y divide-ink-700 overflow-hidden">
+          {/* Flat, borderless list — rows sit directly on the navy canvas. */}
+          <ul className="flex flex-col">
             {activeChats.filter((c) => c?.key).map((chat) => (
-              <ChatRow key={chat.key} chat={chat} />
+              <li key={chat.key}>
+                <ChatRow chat={chat} />
+              </li>
             ))}
-          </Card>
+          </ul>
         </section>
       )}
 
@@ -117,6 +122,7 @@ type ActiveChatRow = {
   preview: string;
   lastMessageAt: string | null;
   unread: number;
+  isOnline: boolean;
   isBot?: boolean;
 };
 function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefined }) {
@@ -127,8 +133,8 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
 
   return (
     <Link
-      href={conversation.href}
-      className="flex items-center gap-3 px-4 py-3 transition hover:bg-surface-muted"
+      href={conversation.href as never}
+      className="flex items-center gap-4 px-1 py-3 transition-colors hover:bg-white/5 sm:px-2"
     >
       <div className="relative shrink-0">
         {conversation.avatarUrl ? (
@@ -138,8 +144,14 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
             className="h-11 w-11 rounded-full object-cover"
           />
         ) : (
-          <Avatar name={name} size="md" className="bg-brand-500/15 text-brand-300" />
+          <Avatar name={name} kind={conversation.kind} size="md" className="bg-brand-500/15 text-brand-300" />
         )}
+        {conversation.isOnline ? (
+          <span
+            aria-label="Online"
+            className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0F172A] bg-emerald-400"
+          />
+        ) : null}
         {unread > 0 ? (
           <span
             aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
@@ -160,7 +172,9 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
       </div>
 
       {at ? (
-        <span className="shrink-0 text-[11px] text-ink-400">{at}</span>
+        <span className={["shrink-0 text-[11px]", unread > 0 ? "text-brand-300" : "text-ink-400"].join(" ")}>
+          {at}
+        </span>
       ) : null}
     </Link>
   );

@@ -6,7 +6,9 @@ import { Icon } from "@/components/landing/Icon";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
 import { SUBSCRIPTION_PLANS } from "@/lib/models/subscription";
-import { getActiveSubscription } from "@/lib/server/subscription";
+import { getActiveSubscription, getMembership } from "@/lib/server/subscription";
+import { emptyWallet, type WalletView } from "@/lib/models/wallet";
+import { WalletMenu } from "@/components/app/WalletMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,14 @@ export default async function SubscriptionPage() {
   const activeSub = await getActiveSubscription(session.uid);
   const activePlan = activeSub ? SUBSCRIPTION_PLANS.find((p) => p.tier === activeSub.tier) : null;
 
+  // Wallet + tier details live here (relocated from the Home page).
+  let membership: WalletView = emptyWallet();
+  try {
+    membership = await getMembership(session.uid);
+  } catch {
+    membership = emptyWallet();
+  }
+
   const monthlyPrice = SUBSCRIPTION_PLANS.find((p) => p.tier === "monthly")!.priceUsd;
 
   return (
@@ -38,6 +48,11 @@ export default async function SubscriptionPage() {
         title="Choose your plan"
         subtitle="Unlock premium features and get the most out of Couples Corner."
       />
+
+      {/* Wallet — tier badge, coin balance and the purchase/upgrade drawer. */}
+      <section aria-label="Your wallet and tier">
+        <WalletMenu initial={membership} variant="card" />
+      </section>
 
       {activePlan ? (
         <Card tone="muted" className="border border-success-500/40 bg-success-500/10">

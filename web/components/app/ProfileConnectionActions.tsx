@@ -20,9 +20,12 @@ import type { ConnectionState } from "@/lib/feature/types";
 export function ProfileConnectionActions({
   targetUserId,
   viewerUid,
+  size = "sm",
 }: {
   targetUserId: string;
   viewerUid: string | null;
+  /** Button size — profile pages use "md" for a prominent primary action. */
+  size?: "sm" | "md";
 }) {
   const [state, setState] = useState<ConnectionState>(viewerUid ? "none" : "none");
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -91,6 +94,7 @@ export function ProfileConnectionActions({
     <div className="flex flex-col items-start gap-1">
       <ConnectionButton
         state={state}
+        size={size}
         disabled={pending}
         pending={pending}
         outgoingLabel="Request Sent"
