@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/authorization";
 import {
   createConversation,
+  findConversationBetweenUsers,
   getConversation,
   listConversations,
   listMessages,
@@ -62,6 +63,90 @@ export async function sendMessageAction(params: {
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Couldn't send your message",
+    };
+  }
+}
+
+/** Maximum length of a First Impression body (matches the discovery overlay).
+ *  Module-private: "use server" files may only export async functions. */
+const IMPRESSION_MAX_LENGTH = 500;
+
+/** Outcome of a First Impressions send, including the thread it landed in. */
+export interface FirstImpressionResult extends ActionResult {
+  /** Conversation id the message was written to — used to deep-link the inbox. */
+  conversationId?: string;
+  /** True when this send opened a brand-new conversation. */
+  created?: boolean;
+}
+
+/**
+ * Send a First Impression — the introductory message composed from a discovery
+ * card or a public profile.
+ *
+ * The message is stored as an ordinary `text` message inside a real `direct`
+ * conversation, so it shows up in the Messages inbox for both people straight
+ * away. The conversation is created on the first send and reused on every
+ * later send, which keeps the inbox free of duplicate threads for one pair.
+ *
+ * Sending to yourself is rejected — a user can never open a chat with
+ * themselves (same guard as the profile/discovery surfaces).
+ */
+export async function sendFirstImpressionAction(params: {
+  recipientId: string;
+  body: string;
+}): Promise<FirstImpressionResult> {
+  const user = await requireUser();
+  const recipientId = (params.recipientId ?? "").trim();
+  const body = (params.body ?? "").trim().slice(0, IMPRESSION_MAX_LENGTH);
+
+  if (!recipientId) {
+    return { ok: false, error: "That profile can't receive messages right now." };
+  }
+  if (recipientId === user.uid) {
+    return { ok: false, error: "You can't send an impression to yourself." };
+  }
+  if (!body) {
+    return { ok: false, error: "Write a short introduction before sending." };
+  }
+
+  try {
+    let conversation = await findConversationBetweenUsers(user.uid, recipientId);
+    let created = false;
+
+    if (!conversation) {
+      conversation = await createConversation({
+        type: "direct",
+        participantUserIds: [user.uid, recipientId],
+        createdById: user.uid,
+      });
+      created = true;
+    }
+
+    if (!conversation?.id) {
+      return { ok: false, error: "Couldn't open a conversation. Please try again." };
+    }
+
+    await sendMessage({
+      conversationId: conversation.id,
+      senderId: user.uid,
+      body,
+      type: "text",
+    });
+
+    // The inbox list and the thread itself both change on a send.
+    revalidatePath("/messages");
+    revalidatePath(`/messages/${conversation.id}`);
+
+    return { ok: true, conversationId: conversation.id, created };
+  } catch (error) {
+    rethrowIfNavigation(error);
+    console.error("[messaging] First Impression send failed", {
+      recipientId,
+      ...supabaseErrorDetail(error as never),
+    });
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Couldn't send your impression",
     };
   }
 }
@@ -153,6 +238,11 @@ export async function getConversationChatDataAction(
   if (!result) return null;
 
   const { conversation, otherProfile } = result;
+
+  // A thread without another participant is not a conversation — this blocks a
+  // user from ever opening (or being routed into) a chat with themselves.
+  const others = (conversation.participant_user_ids ?? []).filter((id) => id !== user.uid);
+  if (others.length === 0) return null;
 
   let initialMessages = await listMessages(conversationId);
 

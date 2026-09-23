@@ -573,3 +573,299 @@ input::placeholder, textarea::placeholder {
 .cc-cta:active {
   transform: translateY(0);
 }
+
+/* ============================================================================
+   Soft-3D neumorphic interaction layer
+   ----------------------------------------------------------------------------
+   Sleek circular / pill controls with a physical, pressed-in feel. Built on the
+   dark navy canvas (#0F172A) with the accent blue (#38BDF8) and orange
+   (#FF5722) brand tokens, so every icon button and CTA shares one look.
+   Guarantees: >=44px touch targets on mobile, a visible keyboard focus ring,
+   a real pressed state, and no grey mobile tap flash.
+   ========================================================================== */
+
+:root {
+  --nm-canvas: #0f172a;
+  --nm-canvas-deep: #0b1120;
+  --nm-highlight: rgb(255 255 255 / 0.07);
+  --nm-shade: rgb(2 6 23 / 0.85);
+  --nm-blue: #38bdf8;
+  --nm-orange: #ff5722;
+  --nm-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Kill the grey tap flash on every interactive surface. */
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* --- Raised ("popped out") surface: icon buttons, secondary pills ---------- */
+.nm-raised {
+  background-image: linear-gradient(145deg, #17233d, #0d1526);
+  box-shadow:
+    inset 0 1px 0 0 var(--nm-highlight),
+    0 10px 22px -12px var(--nm-shade),
+    0 1px 2px 0 rgb(2 6 23 / 0.6);
+  transition:
+    box-shadow 0.22s var(--nm-ease),
+    transform 0.16s var(--nm-ease),
+    border-color 0.22s var(--nm-ease),
+    color 0.22s var(--nm-ease);
+}
+.nm-raised:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.1),
+    0 14px 28px -14px var(--nm-shade),
+    0 0 0 1px rgb(255 255 255 / 0.06);
+}
+.nm-raised:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.975);
+  box-shadow:
+    inset 0 3px 8px 0 rgb(2 6 23 / 0.9),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.05),
+    0 2px 6px -4px var(--nm-shade);
+}
+
+/* --- Inset ("pressed in") surface: ghost buttons, toggles, fields ---------- */
+.nm-inset {
+  background-image: linear-gradient(145deg, #0c1322, #131f36);
+  box-shadow:
+    inset 0 2px 6px 0 rgb(2 6 23 / 0.85),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.04),
+    0 1px 0 0 rgb(255 255 255 / 0.03);
+  transition:
+    box-shadow 0.22s var(--nm-ease),
+    transform 0.16s var(--nm-ease),
+    border-color 0.22s var(--nm-ease);
+}
+.nm-inset:hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 0.18);
+}
+.nm-inset:active:not(:disabled) {
+  box-shadow:
+    inset 0 4px 10px 0 rgb(2 6 23 / 0.95),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.03);
+}
+/* --- Circular icon button base -------------------------------------------- */
+.nm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  color: #e2e8f0;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.nm-icon:disabled,
+.nm-icon[aria-disabled="true"] {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.nm-icon:focus-visible,
+.nm-pill:focus-visible,
+.nm-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Sizes — `sm` is still a full 44px touch target. */
+.nm-icon--sm {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+.nm-icon--md {
+  width: 3rem;
+  height: 3rem;
+}
+.nm-icon--lg {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+/* --- Pill variant: icon + label ------------------------------------------- */
+.nm-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding-inline: 1.1rem;
+  border-radius: 999px;
+  border: 1px solid rgb(255 255 255 / 0.1);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* --- Accent tones (shared by .nm-icon and .nm-pill) ----------------------- */
+.nm-tone-neutral {
+  color: #e2e8f0;
+}
+.nm-tone-neutral:hover:not(:disabled) {
+  border-color: rgb(255 255 255 / 0.22);
+}
+
+.nm-tone-blue {
+  color: #bae6fd;
+}
+.nm-tone-blue:hover:not(:disabled) {
+  border-color: rgb(56 189 248 / 0.55);
+  color: #e0f2fe;
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+    0 12px 26px -14px rgb(56 189 248 / 0.95),
+    0 0 0 1px rgb(56 189 248 / 0.35);
+}
+
+.nm-tone-orange {
+  color: #ffd8c7;
+}
+.nm-tone-orange:hover:not(:disabled) {
+  border-color: rgb(255 87 34 / 0.55);
+  color: #fff1e9;
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+    0 12px 26px -14px rgb(255 87 34 / 0.95),
+    0 0 0 1px rgb(255 87 34 / 0.35);
+}
+
+.nm-tone-rose {
+  color: #fecdd3;
+}
+.nm-tone-rose:hover:not(:disabled) {
+  border-color: rgb(244 63 94 / 0.55);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+    0 12px 26px -14px rgb(244 63 94 / 0.95),
+    0 0 0 1px rgb(244 63 94 / 0.35);
+}
+
+.nm-tone-success {
+  color: #bbf7d0;
+}
+.nm-tone-success:hover:not(:disabled) {
+  border-color: rgb(34 197 94 / 0.55);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+    0 12px 26px -14px rgb(34 197 94 / 0.95),
+    0 0 0 1px rgb(34 197 94 / 0.3);
+}
+
+/* --- Button primitive variants (components/ui/Button.tsx) ----------------- */
+.nm-btn {
+  position: relative;
+  isolation: isolate;
+  touch-action: manipulation;
+  user-select: none;
+}
+.nm-btn::after {
+  /* Hairline inner rim — gives the 3D edge its crisp border. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+.nm-btn--primary {
+  background-image: linear-gradient(145deg, #ff7a45 0%, #ff5722 55%, #e64a19 100%);
+  color: #fff;
+  border-color: rgb(255 152 0 / 0.5);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.28),
+    0 12px 26px -12px rgb(255 87 34 / 0.85),
+    0 2px 4px 0 rgb(2 6 23 / 0.5);
+}
+.nm-btn--primary:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.35),
+    0 16px 32px -12px rgb(255 87 34 / 1),
+    0 0 0 1px rgb(255 152 0 / 0.35);
+}
+.nm-btn--primary:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985);
+  background-image: linear-gradient(145deg, #e64a19 0%, #d84315 100%);
+  box-shadow:
+    inset 0 3px 8px 0 rgb(120 30 0 / 0.7),
+    0 2px 6px -4px rgb(2 6 23 / 0.7);
+}
+
+.nm-btn--secondary {
+  color: #f1f5f9;
+  border-color: rgb(255 255 255 / 0.12);
+  background-image: linear-gradient(145deg, #17233d, #0d1526);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.08),
+    0 10px 22px -12px rgb(2 6 23 / 0.85),
+    0 1px 2px 0 rgb(2 6 23 / 0.6);
+}
+.nm-btn--secondary:hover:not(:disabled) {
+  border-color: rgb(56 189 248 / 0.4);
+  color: #f8fafc;
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.12),
+    0 14px 28px -14px rgb(2 6 23 / 0.9),
+    0 0 0 1px rgb(56 189 248 / 0.22);
+}
+.nm-btn--secondary:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985);
+  box-shadow:
+    inset 0 3px 8px 0 rgb(2 6 23 / 0.9),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.05);
+}
+
+.nm-btn--ghost {
+  background-image: linear-gradient(145deg, #0c1322, #131f36);
+  color: #fdba74;
+  border-color: rgb(255 87 34 / 0.35);
+  box-shadow:
+    inset 0 2px 6px 0 rgb(2 6 23 / 0.85),
+    inset 0 -1px 0 0 rgb(255 255 255 / 0.04);
+}
+.nm-btn--ghost:hover:not(:disabled) {
+  color: #ffedd5;
+  border-color: rgb(255 87 34 / 0.6);
+}
+.nm-btn--ghost:active:not(:disabled) {
+  box-shadow: inset 0 4px 10px 0 rgb(2 6 23 / 0.95);
+}
+
+.nm-btn--danger {
+  color: #fecaca;
+  border-color: rgb(239 68 68 / 0.45);
+  background-image: linear-gradient(145deg, #3a1520, #240d14);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06),
+    0 10px 22px -14px rgb(239 68 68 / 0.8);
+}
+.nm-btn--danger:hover:not(:disabled) {
+  color: #fee2e2;
+  border-color: rgb(248 113 113 / 0.65);
+}
+.nm-btn--danger:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985);
+  box-shadow: inset 0 3px 8px 0 rgb(80 10 20 / 0.8);
+}
+
+/* Reduce motion: keep the design, drop the physical movement. */
+@media (prefers-reduced-motion: reduce) {
+  .nm-raised,
+  .nm-inset,
+  .nm-btn {
+    transition: box-shadow 0.2s linear, border-color 0.2s linear;
+  }
+  .nm-raised:active:not(:disabled),
+  .nm-inset:active:not(:disabled),
+  .nm-btn:active:not(:disabled) {
+    transform: none;
+  }
+}

@@ -170,7 +170,7 @@ export function WalletMenu({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close wallet"
-                className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 hover:bg-white/10"
+                className="nm-icon nm-raised nm-tone-blue h-11 w-11"
               >
                 ✕
               </button>

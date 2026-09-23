@@ -7,6 +7,7 @@ import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
+import { Button } from "@/components/ui/Button";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
         eyebrow="Discover"
         title="Find your people"
         subtitle="Real profiles from the Couples Corner community, filtered your way. Connections always start with a request."
+        actions={<Button href="/explore" variant="ghost">Browse grid</Button>}
       />
 
       <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />

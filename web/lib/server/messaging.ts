@@ -201,6 +201,42 @@ export async function createConversation(params: {
 }
 
 /**
+ * Find the existing 1:1 conversation that contains both users, if any.
+ *
+ * Used by the First Impressions flow so an introductory message never creates
+ * a duplicate thread: the first send opens the conversation, every later send
+ * lands in the same one. Returns null when the two users have never talked.
+ */
+export async function findConversationBetweenUsers(
+  userA: string,
+  userB: string
+): Promise<ConversationRow | null> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("*")
+    .contains("participant_user_ids", [userA])
+    .contains("participant_user_ids", [userB])
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[messaging] Conversation lookup between users failed", {
+      userA,
+      userB,
+      ...supabaseErrorDetail(error),
+    });
+    return null;
+  }
+
+  const rows = (data as ConversationRow[] | null) ?? [];
+  // Guard against a group/couple thread that merely contains both ids.
+  return rows.find((row) => (row.participant_user_ids ?? []).length === 2) ?? rows[0] ?? null;
+}
+
+/**
  * Mark every message in a conversation as read for the acting user.
  * Safe to call repeatedly — only messages that are unread and from the
  * other participant get touched.

@@ -6,23 +6,31 @@ export type ButtonSize = "sm" | "md" | "lg";
 
 const baseClasses =
   "inline-flex items-center justify-center gap-2 rounded-xl font-medium " +
-  "transition duration-150 disabled:pointer-events-none disabled:opacity-60";
+  "transition duration-150 disabled:pointer-events-none disabled:opacity-60 " +
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+  "focus-visible:ring-offset-[#0B1120] ";
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: "h-8 px-3 text-sm",
-  md: "h-10 px-4 text-sm",
-  lg: "h-12 px-6 text-base",
+  sm: "h-9 px-3.5 text-sm",
+  md: "h-11 px-5 text-sm",
+  lg: "h-12 px-7 text-base",
 };
 
+/**
+ * 3D soft-neumorphic surfaces. Every variant paints its own depth model in
+ * `app/globals.css` (`.nm-btn--*`): a bright top rim, a deep drop shadow and
+ * a pressed state that sinks into the page. An accent-blue focus ring keeps
+ * the controls keyboard-accessible over the dark navy canvas.
+ */
 const variantClasses: Record<ButtonVariant, string> = {
   primary:
-    "bg-[#FF5722] text-white shadow-lg shadow-orange-500/20 transition-colors hover:bg-[#F4511E] active:bg-[#E64A19]",
+    "nm-btn nm-btn--primary border border-orange-400/40 focus-visible:ring-orange-400/70",
   secondary:
-    "border border-white/10 bg-white/[0.03] text-ink-100 hover:border-orange-500/40 hover:bg-white/[0.06] active:bg-white/[0.10]",
+    "nm-btn nm-btn--secondary border border-white/12 bg-gradient-to-b from-[#1E293B] to-[#0F172A] hover:from-[#263449] focus-visible:ring-sky-400/70",
   ghost:
-    "border border-orange-500/30 bg-transparent text-orange-300 hover:border-orange-400 hover:bg-orange-500/10 active:bg-orange-500/20",
+    "nm-btn nm-btn--ghost border bg-[#0F172A]/40 hover:bg-[#0F172A]/70 focus-visible:ring-sky-400/60",
   danger:
-    "border border-danger-500/40 bg-danger-500/15 text-danger-300 hover:border-danger-400 hover:bg-danger-500/20 active:bg-danger-500/25",
+    "nm-btn nm-btn--danger border hover:bg-danger-500/15 focus-visible:ring-danger-400/70",
 };
 
 interface BaseButtonProps {

@@ -6,6 +6,7 @@ import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
 import { Chip } from "@/components/ui/Chip";
 import { sendConnectionAction } from "@/lib/actions/connections";
+import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
 import type { ProfileCardView } from "@/lib/feature/types";
 import { useCoinGate } from "@/lib/hooks/useCoinGate";
@@ -46,6 +47,8 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
   const [impressionsModal, setImpressionsModal] = useState(false);
   const [impressionsText, setImpressionsText] = useState("");
   const [impressionsSent, setImpressionsSent] = useState(false);
+  const [impressionsBusy, setImpressionsBusy] = useState(false);
+  const [impressionConversationId, setImpressionConversationId] = useState<string | null>(null);
   const [likeBusy, setLikeBusy] = useState(false);
   const [likedIds, setLikedIds] = useState<string[]>([]);
   const [error, reportError] = useActionError();
@@ -105,13 +108,37 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
     setSuperLikeModal(true);
   }
 
-  function sendFirstImpressions() {
+  async function sendFirstImpressions() {
     const body = impressionsText.trim();
-    if (!body) return;
+    const targetId = current?.id?.trim();
+    if (!body || !targetId || impressionsBusy) return;
     // Coin gate: while offline-testing mode is on, this is a free message.
     if (!requireCoins("first_impression").allowed) return;
-    setImpressionsSent(true);
-    setImpressionsText("");
+
+    setImpressionsBusy(true);
+    reportError(null);
+    try {
+      // The impression is written into a real conversation server-side, so it
+      // appears immediately in the Messages inbox for both people.
+      const result = await sendFirstImpressionAction({ recipientId: targetId, body });
+      if (!result.ok) {
+        reportError(
+          failureMessage(
+            result.error || "Couldn't send your impression. Please try again.",
+            "Couldn't send your impression. Check your connection and try again."
+          )
+        );
+        return;
+      }
+      setImpressionsText("");
+      setImpressionConversationId(result.conversationId ?? null);
+      setImpressionsSent(true);
+      router.refresh();
+    } catch (err) {
+      reportError(failureMessage(err, "Couldn't send your impression. Check your connection and try again."));
+    } finally {
+      setImpressionsBusy(false);
+    }
   }
 
   const name = current?.name?.trim() || "Community member";
@@ -204,27 +231,27 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
           <nav aria-label="Profile actions" className="flex w-full items-center justify-center gap-3">
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-amber-300 transition hover:bg-white/10 disabled:opacity-40">
+              className="nm-icon nm-raised nm-tone-orange h-12 w-12 text-amber-300">
               <Icon name="rewind" className="h-5 w-5" />
             </button>
             {/* Pass */}
             <button type="button" onClick={goNext} disabled={safeIndex >= total - 1} aria-label="Pass — next profile" title="Pass"
-              className="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-rose-400 transition hover:bg-white/10 disabled:opacity-40">
+              className="nm-icon nm-raised nm-tone-rose h-14 w-14 text-rose-400">
               <Icon name="close" className="h-6 w-6" />
             </button>
             {/* Super Like — opens the Get Super Likes tier modal */}
             <button type="button" onClick={openSuperLikes} aria-label="Super Like — get Super Likes" title="Super Like"
-              className="flex h-14 w-14 items-center justify-center rounded-full border border-brand-400/30 bg-brand-500/15 text-brand-300 transition hover:bg-brand-500/25">
+              className="nm-icon nm-raised nm-tone-blue h-14 w-14 text-brand-300">
               <Icon name="star" className="h-6 w-6" />
             </button>
             {/* Like */}
             <button type="button" onClick={() => void likeCurrent()} disabled={likeBusy || liked || !current?.id} aria-label="Like this profile" title="Like"
-              className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-lg shadow-orange-500/25 transition hover:brightness-110 disabled:opacity-50">
+              className="nm-icon h-14 w-14 border-orange-300/40 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-lg shadow-orange-500/30 transition hover:brightness-110 disabled:opacity-50">
               <Icon name="heart" className="h-6 w-6" />
             </button>
             {/* First Impressions — opens the message overlay */}
             <button type="button" onClick={() => { setImpressionsSent(false); setImpressionsModal(true); }} aria-label="Send First Impressions" title="First Impressions"
-              className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-sky-300 transition hover:bg-white/10">
+              className="nm-icon nm-raised nm-tone-blue h-12 w-12 text-sky-300">
               <Icon name="send" className="h-5 w-5" />
             </button>
           </nav>
