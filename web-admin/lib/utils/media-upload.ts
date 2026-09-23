@@ -119,7 +119,16 @@ export async function uploadMediaFromBrowser(
     // collect the message so the form can surface it in its error banner.
     if (uploadError) {
       console.error("Storage upload error:", uploadError.message);
-      warnings.push(`${file.name}: ${uploadError.message}`);
+      const msg = uploadError.message ?? "";
+      // RLS violation = the deployed Storage policies don't allow this
+      // anon-key admin upload yet. Canonical fix: run migration
+      // web/supabase/migrations/029_media_admin_upload.sql in the Supabase
+      // SQL editor (adds media_storage_admin_* policies). Retrying via the
+      // service-role Server Action also bypasses RLS.
+      const hint = /row-level security|42501|policy|not authorized|permission denied/i.test(msg)
+        ? " (Storage RLS rejected the upload — run migration 029_media_admin_upload.sql in Supabase → SQL Editor, confirm your users.role = 'admin', then retry)"
+        : "";
+      warnings.push(`${file.name}: ${msg}${hint}`);
       continue;
     }
 

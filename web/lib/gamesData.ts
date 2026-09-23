@@ -8,7 +8,15 @@
  * any server-only coin logic lives in lib/server/games.ts.
  */
 
-export type GameKind = "iframe" | "builtin-ludo";
+export type GameKind =
+  | "iframe"
+  | "builtin-ludo"
+  | "builtin-memory"
+  | "builtin-tictactoe"
+  | "builtin-trivia"
+  | "builtin-word"
+  | "builtin-slots"
+  | "builtin-slide";
 
 export type GameBadge = "Hot" | "New" | "Multiplayer" | "Recommended";
 
@@ -326,8 +334,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "A strategy quiz duel — best of five rounds wins.",
     badge: "Multiplayer",
     category: "Strategy",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/clash-of-clues/",
+    kind: "builtin-trivia",
     gradient: "from-sky-500 via-blue-600 to-slate-700",
     emoji: "🧠",
     stake: 10,
@@ -340,8 +347,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Drop discs, build four in a row, claim victory.",
     badge: "Multiplayer",
     category: "Strategy",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/connect-four-fireside/",
+    kind: "builtin-tictactoe",
     gradient: "from-sky-400 via-blue-600 to-indigo-800",
     emoji: "🔵",
     stake: 10,
@@ -368,8 +374,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Flip the pairs and keep your streak alive.",
     badge: "Hot",
     category: "Casual",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/memory-match-hearts/",
+    kind: "builtin-memory",
     gradient: "from-rose-400 via-pink-500 to-fuchsia-700",
     emoji: "💞",
     stake: 0,
@@ -396,8 +401,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Slide the tiles and reach the golden heart.",
     badge: "Hot",
     category: "Casual",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/2048-hearts/",
+    kind: "builtin-slide",
     gradient: "from-amber-300 via-orange-500 to-red-600",
     emoji: "💛",
     stake: 5,
@@ -410,8 +414,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Guess the word of the day before your partner does.",
     badge: "New",
     category: "Casual",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/word-puzzle-whispers/",
+    kind: "builtin-word",
     gradient: "from-emerald-400 via-teal-500 to-cyan-700",
     emoji: "🔤",
     stake: 5,
@@ -424,8 +427,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Who knows the other better? Prove it in trivia.",
     badge: "Multiplayer",
     category: "Casual",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/trivia-couple-cup/",
+    kind: "builtin-trivia",
     gradient: "from-orange-400 via-amber-500 to-sky-700",
     emoji: "❓",
     stake: 5,
@@ -452,8 +454,7 @@ export const GAMES_REGISTRY: GameRegistryEntry[] = [
     tagline: "Unlock the tomb's reels and chase the pharaoh's gold.",
     badge: "Hot",
     category: "Slots",
-    kind: "iframe",
-    embedUrl: "https://html5.gamedistribution.com/golden-pharaoh-spins/",
+    kind: "builtin-slots",
     gradient: "from-yellow-400 via-amber-600 to-yellow-800",
     emoji: "🏺",
     stake: 10,

@@ -21,6 +21,7 @@ import {
 import {
   createContentAction,
   updateContentAction,
+  uploadMultipleContentMedia,
 } from "@/lib/actions/content";
 import { uploadMediaFromBrowser } from "@/lib/utils/media-upload";
 
@@ -209,18 +210,32 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
           // Upload DIRECTLY from the browser to Supabase Storage (binary
           // streams — no fetch() of local/blob paths, no Server Action body).
           setUploadProgress(`Uploading ${fileSlots.length} file${fileSlots.length > 1 ? "s" : ""}…`);
-          const { result, warnings } = await uploadMediaFromBrowser(
-            editingItem.id,
-            fileSlots.map((s) => s.file)
-          );
-          if (result.mediaUrls.length === 0) {
+          const files = fileSlots.map((s) => s.file);
+          let mediaUrls: string[] = [];
+          let warnings: string[] = [];
+          try {
+            const direct = await uploadMediaFromBrowser(editingItem.id, files);
+            mediaUrls = direct.result.mediaUrls;
+            warnings = direct.warnings;
+          } catch (directErr) {
+            warnings = [directErr instanceof Error ? directErr.message : String(directErr)];
+          }
+          if (mediaUrls.length === 0) {
+            // Direct upload blocked (e.g. Storage RLS) — fall back to the
+            // service-role Server Action, which bypasses RLS entirely.
+            setUploadProgress(`Direct upload blocked — retrying via server…`);
+            const server = await uploadMultipleContentMedia(editingItem.id, files);
+            mediaUrls = server.mediaUrls;
+            if (server.thumbnailUrl) payload.thumbnailUrl = server.thumbnailUrl;
+          }
+          if (mediaUrls.length === 0) {
             throw new Error(
               warnings.length > 0 ? `Upload failed: ${warnings.join("; ")}` : "Upload failed."
             );
           }
-          payload.mediaUrl = result.mediaUrls[0];
-          payload.mediaUrls = result.mediaUrls;
-          payload.thumbnailUrl = result.mediaUrls[0];
+          payload.mediaUrl = mediaUrls[0];
+          payload.mediaUrls = mediaUrls;
+          payload.thumbnailUrl = mediaUrls[0];
           if (warnings.length > 0) setUploadProgress(`Uploaded with warnings: ${warnings.join("; ")}`);
         }
         await updateContentAction(editingItem.id, payload, adminUid);
@@ -228,18 +243,32 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
         const contentId = crypto.randomUUID();
         if (fileSlots.length > 0) {
           setUploadProgress(`Uploading ${fileSlots.length} file${fileSlots.length > 1 ? "s" : ""}…`);
-          const { result, warnings } = await uploadMediaFromBrowser(
-            contentId,
-            fileSlots.map((s) => s.file)
-          );
-          if (result.mediaUrls.length === 0) {
+          const files = fileSlots.map((s) => s.file);
+          let mediaUrls: string[] = [];
+          let warnings: string[] = [];
+          try {
+            const direct = await uploadMediaFromBrowser(contentId, files);
+            mediaUrls = direct.result.mediaUrls;
+            warnings = direct.warnings;
+          } catch (directErr) {
+            warnings = [directErr instanceof Error ? directErr.message : String(directErr)];
+          }
+          if (mediaUrls.length === 0) {
+            // Direct upload blocked (e.g. Storage RLS) — fall back to the
+            // service-role Server Action, which bypasses RLS entirely.
+            setUploadProgress(`Direct upload blocked — retrying via server…`);
+            const server = await uploadMultipleContentMedia(contentId, files);
+            mediaUrls = server.mediaUrls;
+            if (server.thumbnailUrl) payload.thumbnailUrl = server.thumbnailUrl;
+          }
+          if (mediaUrls.length === 0) {
             throw new Error(
               warnings.length > 0 ? `Upload failed: ${warnings.join("; ")}` : "Upload failed."
             );
           }
-          payload.mediaUrl = result.mediaUrls[0];
-          payload.mediaUrls = result.mediaUrls;
-          payload.thumbnailUrl = result.mediaUrls[0];
+          payload.mediaUrl = mediaUrls[0];
+          payload.mediaUrls = mediaUrls;
+          payload.thumbnailUrl = mediaUrls[0];
         }
         await createContentAction(payload, adminUid, contentId);
       }

@@ -4,6 +4,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameEntry } from "@/lib/games";
 import { LudoGame } from "@/components/games/LudoGame";
+import { MemoryMatchGame } from "@/components/games/MemoryMatchGame";
+import { TicTacToeGame } from "@/components/games/TicTacToeGame";
+import { TriviaGame } from "@/components/games/TriviaGame";
+import { WordGame } from "@/components/games/WordGame";
+import { SlotsGame } from "@/components/games/SlotsGame";
+import { SlideGame } from "@/components/games/SlideGame";
 
 /**
  * Game player container — /games/[id].
@@ -35,6 +41,7 @@ export function GamePlayer({
   const [fullscreen, setFullscreen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [session, setSession] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const stakeTakenRef = useRef(game.stake <= 0);
@@ -201,6 +208,55 @@ export function GamePlayer({
           ) : game.kind === "builtin-ludo" ? (
             /* Built-in canvas Ludo engine — VS-Bot multiplayer logic. */
             <LudoGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-memory" ? (
+            <MemoryMatchGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-tictactoe" ? (
+            <TicTacToeGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-trivia" ? (
+            <TriviaGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-word" ? (
+            <WordGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-slots" ? (
+            <SlotsGame
+              key={session}
+              muted={muted}
+              onGameOver={(won) => {
+                void settle(won);
+              }}
+            />
+          ) : game.kind === "builtin-slide" ? (
+            <SlideGame
+              key={session}
               muted={muted}
               onGameOver={(won) => {
                 void settle(won);
@@ -231,6 +287,7 @@ export function GamePlayer({
                 type="button"
                 onClick={() => {
                   stakeTakenRef.current = false;
+                  setSession((s) => s + 1);
                   setState(game.stake > 0 ? "buy-in" : "playing");
                 }}
                 className="rounded-xl bg-[#FF5722] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:bg-[#F4511E]"
