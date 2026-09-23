@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { respondRequestAction } from "@/lib/actions/connections";
