@@ -150,15 +150,21 @@ const mobileTabs: MobileTab[] = [
   { href: "/profile", icon: "profile", label: "Me" },
 ];
 
-/** Shared tab styling: solid orange for active, glowing for hovers. */
+/**
+ * Shared tab styling: smooth rounded pill + soft glowing gradient active state
+ * (image_25 reference). `nav-pill` / `nav-pill--active` come from globals.css;
+ * `nav-pill--tab` keeps the icon-above-label column layout inside the pill.
+ */
 function mobileTabClasses(active: boolean) {
   return [
+    "nav-pill nav-pill--tab",
+    active ? "nav-pill--active font-semibold" : "",
     "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
     "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active
-      ? "text-[#FF5722] font-semibold"
-      : "text-slate-400 hover:text-orange-400",
-  ].join(" ");
+    active ? "" : "text-slate-400 hover:text-orange-400",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function ActiveDot({ active }: { active: boolean }) {

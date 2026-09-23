@@ -856,6 +856,198 @@ button,
   box-shadow: inset 0 3px 8px 0 rgb(80 10 20 / 0.8);
 }
 
+/* ========================================================================
+   image_25 reference — BOTTOM NAVIGATION PILLS (part B)
+   Smooth rounded pill layout + soft glowing gradient active state.
+   ==================================================================== */
+.nav-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 9999px;
+  color: #94a3b8;
+  border: 1px solid transparent;
+  transition: transform 0.15s ease, box-shadow 0.22s ease, background-color 0.22s ease,
+    border-color 0.22s ease, color 0.22s ease;
+  touch-action: manipulation;
+  user-select: none;
+}
+.nav-pill:hover {
+  color: #f1f5f9;
+  background-color: rgb(255 255 255 / 0.06);
+  border-color: rgb(255 255 255 / 0.1);
+}
+.nav-pill:active:not(:disabled) {
+  transform: translateY(1px) scale(0.98);
+}
+.nav-pill--active,
+.nav-pill--active:hover {
+  color: #fff;
+  background-color: transparent;
+  background-image: linear-gradient(135deg, #fb923c 0%, #ff5722 52%, #ea580c 100%);
+  border-color: rgb(255 183 77 / 0.55);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.38),
+    0 0 0 1px rgb(255 145 0 / 0.25),
+    0 8px 20px -8px rgb(255 87 34 / 0.8),
+    0 0 22px -2px rgb(249 115 22 / 0.55);
+}
+.nav-pill--active:active:not(:disabled) {
+  transform: translateY(1px) scale(0.97);
+  box-shadow:
+    inset 0 3px 8px 0 rgb(120 30 0 / 0.6),
+    0 0 18px -2px rgb(249 115 22 / 0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-pill {
+    transition: box-shadow 0.2s linear, border-color 0.2s linear, color 0.2s linear;
+  }
+  .nav-pill:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Bottom-bar tab variant: pill keeps the icon stacked above its label. */
+.nav-pill--tab {
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 3.25rem;
+  gap: 0.25rem;
+  padding: 0.375rem 0.25rem;
+}
+
+/* ==========================================================================
+   Discovery deck action buttons — glossy 3D dark glass circles
+   (Rewind · Pass · Super-like · Like · Send)
+   ========================================================================== */
+.deck-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  color: #e2e8f0;
+  background-image: linear-gradient(160deg, rgba(51, 65, 85, 0.92) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(2, 6, 23, 0.98) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
+    0 10px 22px -10px rgba(2, 6, 23, 0.95),
+    0 0 0 1px rgba(255, 255, 255, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  touch-action: manipulation;
+  user-select: none;
+}
+.deck-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.6),
+    0 14px 28px -10px rgba(2, 6, 23, 1),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+.deck-btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.96);
+  box-shadow:
+    inset 0 4px 10px 0 rgba(2, 6, 23, 0.9),
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
+}
+.deck-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.deck-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
+    0 0 0 2px #0f172a,
+    0 0 0 4px rgba(249, 115, 22, 0.7);
+}
+
+/* Rewind / back — neutral steel with a cool rim glow. */
+.deck-btn--rewind {
+  color: #93c5fd;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+.deck-btn--rewind:hover:not(:disabled) {
+  color: #bfdbfe;
+  border-color: rgba(96, 165, 250, 0.6);
+}
+
+/* Pass / close — subtle red-dark tint. */
+.deck-btn--pass {
+  color: #fca5a5;
+  background-image: linear-gradient(160deg, rgba(70, 28, 34, 0.92) 0%, rgba(30, 12, 18, 0.96) 60%, rgba(10, 4, 8, 0.98) 100%);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+.deck-btn--pass:hover:not(:disabled) {
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.65);
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -6px 12px 0 rgba(10, 4, 8, 0.7),
+    0 12px 26px -10px rgba(239, 68, 68, 0.55);
+}
+
+/* Super-like — star with an amber/gold rim glow. */
+.deck-btn--star {
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.4);
+}
+.deck-btn--star:hover:not(:disabled) {
+  color: #fef3c7;
+  border-color: rgba(251, 191, 36, 0.7);
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
+    0 12px 26px -10px rgba(245, 158, 11, 0.6);
+}
+
+/* Like — prominent heart with a glowing red circular aura. */
+.deck-btn--like {
+  color: #fff;
+  background-image: radial-gradient(circle at 32% 26%, #ff6b6b 0%, #ef4444 45%, #b91c1c 100%);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 3px 4px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -8px 14px 0 rgba(127, 29, 29, 0.6),
+    0 12px 30px -8px rgba(239, 68, 68, 0.85),
+    0 0 22px 2px rgba(239, 68, 68, 0.45);
+}
+.deck-btn--like:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow:
+    inset 0 3px 4px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -8px 14px 0 rgba(127, 29, 29, 0.55),
+    0 16px 34px -8px rgba(239, 68, 68, 1),
+    0 0 30px 4px rgba(239, 68, 68, 0.6);
+}
+.deck-btn--like:active:not(:disabled) {
+  transform: translateY(1px) scale(0.94);
+}
+
+/* Send / message — accent-blue glass with a cyan rim glow. */
+.deck-btn--send {
+  color: #a5f3fc;
+  border-color: rgba(34, 211, 238, 0.35);
+}
+.deck-btn--send:hover:not(:disabled) {
+  color: #cffafe;
+  border-color: rgba(34, 211, 238, 0.65);
+  box-shadow:
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
+    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
+    0 12px 26px -10px rgba(6, 182, 212, 0.55);
+}
+
 /* Reduce motion: keep the design, drop the physical movement. */
 @media (prefers-reduced-motion: reduce) {
   .nm-raised,

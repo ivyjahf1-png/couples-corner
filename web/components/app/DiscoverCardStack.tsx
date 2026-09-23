@@ -231,27 +231,27 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
           <nav aria-label="Profile actions" className="flex w-full items-center justify-center gap-3">
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"
-              className="nm-icon nm-raised nm-tone-orange h-12 w-12 text-amber-300">
+              className="deck-btn deck-btn--rewind h-12 w-12">
               <Icon name="rewind" className="h-5 w-5" />
             </button>
             {/* Pass */}
             <button type="button" onClick={goNext} disabled={safeIndex >= total - 1} aria-label="Pass — next profile" title="Pass"
-              className="nm-icon nm-raised nm-tone-rose h-14 w-14 text-rose-400">
+              className="deck-btn deck-btn--pass h-14 w-14">
               <Icon name="close" className="h-6 w-6" />
             </button>
             {/* Super Like — opens the Get Super Likes tier modal */}
             <button type="button" onClick={openSuperLikes} aria-label="Super Like — get Super Likes" title="Super Like"
-              className="nm-icon nm-raised nm-tone-blue h-14 w-14 text-brand-300">
+              className="deck-btn deck-btn--star h-14 w-14">
               <Icon name="star" className="h-6 w-6" />
             </button>
             {/* Like */}
             <button type="button" onClick={() => void likeCurrent()} disabled={likeBusy || liked || !current?.id} aria-label="Like this profile" title="Like"
-              className="nm-icon h-14 w-14 border-orange-300/40 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-lg shadow-orange-500/30 transition hover:brightness-110 disabled:opacity-50">
+              className="deck-btn deck-btn--like h-14 w-14">
               <Icon name="heart" className="h-6 w-6" />
             </button>
             {/* First Impressions — opens the message overlay */}
             <button type="button" onClick={() => { setImpressionsSent(false); setImpressionsModal(true); }} aria-label="Send First Impressions" title="First Impressions"
-              className="nm-icon nm-raised nm-tone-blue h-12 w-12 text-sky-300">
+              className="deck-btn deck-btn--send h-12 w-12">
               <Icon name="send" className="h-5 w-5" />
             </button>
           </nav>
