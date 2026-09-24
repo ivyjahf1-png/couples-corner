@@ -4,15 +4,10 @@ import { useState } from "react";
 import { Check, Share2 } from "lucide-react";
 
 const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-function makeInviteCode(): string {
-  const digits = Array.from({ length: 2 }, () => Math.floor(Math.random() * 10)).join("");
-  const letters = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join("");
-  return `${digits}${letters}`;
-}
 
-export function InviteLinkButton({ userId: _userId }: { userId: string }) {
+export function InviteLinkButton({ userCode }: { userCode?: string | null }) {
   const [copied, setCopied] = useState(false);
-  const [code] = useState(makeInviteCode);
+  const code = userCode && /^\d{2}[A-Z]{4}$/.test(userCode) ? userCode : "00JOIN";
   const link = typeof window === "undefined" ? `/invite/${code}` : `${window.location.origin}/invite/${code}`;
   async function share() {
     const data = { title: "Join me on Couple's Corner", text: "Join our community on Couple's Corner", url: link };

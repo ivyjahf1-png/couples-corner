@@ -324,6 +324,9 @@ export default async function LandingPage() {
             <Link href="/events" className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-6 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/10 hover:text-white focus:outline-none focus:ring-2 focus:ring-orange-400">See all events</Link>
           </div>
         </div>
+        <div className="mx-auto mt-10 flex justify-center">
+          <Link href="/feed" className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/25 transition hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300">Open the live creator feed <span aria-hidden="true">→</span></Link>
+        </div>
       </section>
       {/* Couple's Milestones — success-stories testimonial showcase (testimonials placement). */}
       <section className="bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] py-20 sm:py-24" aria-labelledby="stories-heading">

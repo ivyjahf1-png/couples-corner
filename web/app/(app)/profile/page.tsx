@@ -101,7 +101,7 @@ export default async function ProfilePage() {
               </span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <CopyIdButton value={session.uid} label={`ID: ${shortId}`} />
+              <CopyIdButton value={shortId} label={`ID: ${shortId}`} />
               <span className="text-[11px] font-medium text-ink-300">
                 {completion.percentage}% profile complete
               </span>
@@ -207,7 +207,7 @@ export default async function ProfilePage() {
         <p className="mt-0.5 text-xs text-ink-200">
           Connect to unlock couples features together.
         </p>
-        <InviteLinkButton userId={profile?.userId ?? session.uid} />
+        <InviteLinkButton userCode={profile?.userCode} />
       </section>
 
       {/* --------------------------------------- 4. Recommended games row */}
