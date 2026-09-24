@@ -37,7 +37,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
     <div className="flex h-[100dvh] min-h-0 flex-col gap-0 overflow-hidden bg-slate-950 md:h-[calc(100dvh-7rem)]">
       {/* Fixed top: slim messenger header (no Private-chat card, no badges) */}
       <div className="flex-shrink-0">
-        <ChatHeader summary={summary} />
+        <ChatHeader summary={summary} currentUserId={user.uid} conversationId={conversationId} />
       </div>
 
       {/* Scrollable message thread */}

@@ -10,12 +10,16 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
 interface ChatHeaderProps {
   summary: ConversationParticipantSummary | null;
+  conversationId: string;
+  currentUserId: string;
   isOnline?: boolean;
   statusText?: string;
 }
 
 export function ChatHeader({
   summary,
+  conversationId,
+  currentUserId,
   isOnline = true,
   statusText,
 }: ChatHeaderProps) {
@@ -158,7 +162,7 @@ export function ChatHeader({
           </div>
         ) : null}
       </div>
-      {call ? <CallOverlay mode={call} summary={summary} onClose={() => setCall(null)} /> : null}
+      {call ? <CallOverlay mode={call} summary={summary} conversationId={conversationId} currentUserId={currentUserId} onClose={() => setCall(null)} /> : null}
     </div>
   );
 }
