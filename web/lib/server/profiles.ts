@@ -28,6 +28,7 @@ export interface ProfileUpdateInput {
 
 export const PROFILE_DB_FIELDS = [
   "user_id",
+  "user_code",
   "display_name",
   "bio",
   "interests",
@@ -68,6 +69,7 @@ export function mapProfileRow(row: Record<string, unknown> | null): UserProfile 
   return {
     id: r.user_id as string,
     userId: r.user_id as string,
+    userCode: typeof r.user_code === "string" ? r.user_code : null,
     displayName: (r.display_name as string) ?? "",
     visibility: (r.visibility as ProfileVisibility) ?? "public",
     discoverable: r.discoverable == null ? true : Boolean(r.discoverable),
@@ -281,6 +283,27 @@ export async function getOwnProfile(uid: string): Promise<{
     user: userRow ? dbToUser(userRow) : null,
     profile: profileRow ? dbToUserProfile(profileRow) : null,
   };
+}
+
+/** Look up a public profile by its exact five-character public code. */
+export async function getProfileByUserCode(
+  code: string,
+  viewerUid: string | null
+): Promise<UserProfile | null> {
+  const normalized = code.trim().toUpperCase();
+  if (!/^[A-Z0-9]{5}$/.test(normalized)) return null;
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+  const { data } = await supabase
+    .from("profiles")
+    .select(profileSelectList())
+    .eq("user_code", normalized)
+    .limit(1)
+    .maybeSingle();
+  if (!data) return null;
+  const profile = dbToUserProfile(data);
+  if (profile.visibility === "private" && viewerUid !== profile.userId) return null;
+  return profile;
 }
 
 export async function getVisibleProfile(

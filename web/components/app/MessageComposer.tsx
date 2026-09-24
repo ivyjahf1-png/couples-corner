@@ -17,6 +17,8 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
   const [error, reportError] = useActionError();
+  const [showEmoji, setShowEmoji] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -78,6 +80,11 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 outline-none transition-colors focus:border-purple-500/60 disabled:opacity-60"
           disabled={pending}
         />
+        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" aria-label="Choose an image" />
+        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Choose image" className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:flex">▧</button>
+        <button type="button" onClick={() => setShowEmoji((value) => !value)} aria-label="Select emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10">☺</button>
+        <button type="button" aria-label="Record voice note" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-400/10 text-purple-200 transition hover:bg-purple-400/20">🎙</button>
+        {showEmoji ? <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border border-white/10 bg-[#1E293B] p-2 shadow-xl">{["❤️", "✨", "😂", "👍"].map((emoji) => <button key={emoji} type="button" onClick={() => { setValue((current) => `${current}${emoji}`); setShowEmoji(false); }} className="rounded-lg p-1 text-xl hover:bg-white/10" aria-label={`Insert ${emoji}`}>{emoji}</button>)}</div> : null}
         {/* Circular send button */}
         <button
           type="submit"

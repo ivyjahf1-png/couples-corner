@@ -7,6 +7,7 @@ import { getGameWallet } from "@/lib/server/games";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
+import { InviteLinkButton } from "@/components/profile/InviteLinkButton";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -39,7 +40,7 @@ export default async function ProfilePage() {
 
   const name = profile?.displayName || user?.displayName || "Your name";
   const photo = profile?.photos?.[0];
-  const shortId = session.uid.slice(0, 8).toUpperCase();
+  const shortId = profile?.userCode ?? "—";
   const level = Math.max(1, Math.floor((completion?.percentage ?? 0) / 10));
 
   const statCells = [
@@ -67,7 +68,7 @@ export default async function ProfilePage() {
       trailing: <span className="text-xs font-semibold text-danger-400">Uncertified</span>,
     },
     { label: "Customer service", emoji: "🎧", href: "/settings" },
-    { label: "User Feedback", emoji: "💬", href: "/settings" },
+    { label: "User Feedback", emoji: "💬", href: "/feedback" },
     { label: "Settings", emoji: "⚙️", href: "/settings" },
   ];
 
@@ -206,12 +207,7 @@ export default async function ProfilePage() {
         <p className="mt-0.5 text-xs text-ink-200">
           Connect to unlock couples features together.
         </p>
-        <Link
-          href="/discover"
-          className="mt-3 inline-flex items-center rounded-full border border-white/15 bg-gradient-to-r from-orange-500 to-rose-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-orange-900/30 transition hover:brightness-110"
-        >
-          Invite
-        </Link>
+        <InviteLinkButton userId={profile?.userId ?? session.uid} />
       </section>
 
       {/* --------------------------------------- 4. Recommended games row */}
@@ -260,10 +256,10 @@ export default async function ProfilePage() {
       {/* ---------------------------- 5. Quick actions (coloured glass tiles) */}
       <section aria-label="Quick actions" className="grid grid-cols-4 gap-3">
         {[
-          { label: "Tasks", emoji: "📋", href: "/moments", tone: "glam-tile--warm" },
+          { label: "Tasks", emoji: "📋", href: "/task", tone: "glam-tile--warm" },
           { label: "Income", emoji: "💰", href: "/subscription", tone: "glam-tile--aqua" },
           { label: "Store", emoji: "🛍️", href: "/subscription", tone: "glam-tile--rose" },
-          { label: "Aristocracy", emoji: "🏰", href: "/subscription", tone: "glam-tile--violet" },
+          { label: "Aristocracy", emoji: "🏰", href: "/aristocracy", tone: "glam-tile--violet" },
         ].map((action) => (
           <Link
             key={action.label}

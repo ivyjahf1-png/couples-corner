@@ -20,6 +20,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [following, setFollowing] = useState(false);
 
   function toggleLike() {
     // TODO(Firebase): optimistic write to posts/{id}/likes/{uid}.
@@ -33,8 +34,13 @@ export function PostCard({ post }: { post: FeedPostView }) {
       <div className="flex items-start gap-3 p-5 pb-3">
         <Avatar name={post.authorName} kind={post.authorKind} />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-semibold text-white">{post.authorName}</p>
+          <div className="flex min-w-0 items-center gap-1.5">
+            <a href={post.authorHref ?? "#"} className="truncate font-semibold text-white hover:text-brand-300">{post.authorName}</a>
+            {post.verified ? <span title="Verified creator" className="text-xs text-sky-300">✓</span> : null}
+            {post.vip ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">VIP</span> : null}
+          </div>
           <p className="text-xs text-ink-400">{post.at}</p>
+          <a href={post.authorHref ?? "#"} className="mt-1 text-[11px] font-medium text-brand-300 hover:text-brand-200">View creator profile →</a>
         </div>
 
         {/* Post menu */}
@@ -83,22 +89,16 @@ export function PostCard({ post }: { post: FeedPostView }) {
       {/* Body */}
       <div className="px-5 pb-3">
         <p className="whitespace-pre-line text-sm leading-6 text-ink-100">{post.body}</p>
-        {post.mediaCount && post.mediaCount > 0 ? (
-          <div
-            aria-label={`${post.mediaCount} attached media item${post.mediaCount === 1 ? "" : "s"}`}
-            className="mt-3 grid gap-1.5"
-            style={{ gridTemplateColumns: `repeat(${Math.min(post.mediaCount, 2)}, minmax(0, 1fr))` }}
-          >
-            {Array.from({ length: Math.min(post.mediaCount, 4) }).map((_, i) => (
-              <div
-                key={i}
-                aria-hidden
-                className="flex aspect-[4/3] items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400"
-              >
-                Photo {i + 1}
-              </div>
+        {post.mediaUrls?.length ? (
+          <div className="mt-3 grid gap-1.5" style={{ gridTemplateColumns: `repeat(${Math.min(post.mediaUrls.length, 2)}, minmax(0, 1fr))` }}>
+            {post.mediaUrls.slice(0, 4).map((url, i) => url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
+              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[4/3] w-full rounded-xl bg-black object-cover" />
+            ) : (
+              <img key={`${url}-${i}`} src={url} alt={`Post photo ${i + 1}`} className="aspect-[4/3] w-full rounded-xl bg-surface-muted object-cover" />
             ))}
           </div>
+        ) : post.mediaCount ? (
+          <div className="mt-3 flex aspect-video items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400">Creator media preview</div>
         ) : null}
       </div>
 
@@ -124,6 +124,9 @@ export function PostCard({ post }: { post: FeedPostView }) {
           onClick={() => setCommentsOpen((v) => !v)}
           ariaLabel={commentsOpen ? "Hide comments" : "Show comments"}
         />
+        <button type="button" onClick={() => setFollowing((v) => !v)} className={`ml-auto rounded-full px-3 py-1.5 text-xs font-semibold transition ${following ? "bg-emerald-500/15 text-emerald-300" : "bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"}`}>
+          {following ? "Following" : "Follow"}
+        </button>
       </div>
 
       {/* Comments */}

@@ -54,6 +54,7 @@ export async function provisionUser(
   const profilePayload: Record<string, unknown> = {
     id: uid,
     user_id: uid,
+    user_code: null,
     display_name: displayName?.trim() || email.split("@")[0],
     bio: null,
     interests: [],
@@ -78,6 +79,7 @@ export async function provisionUser(
   const KNOWN_PROFILE_COLUMNS = new Set([
     "id",
     "user_id",
+    "user_code",
     "display_name",
     "bio",
     "interests",

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
@@ -5,6 +6,7 @@ import { Icon, type IconName } from "@/components/landing/Icon";
 import { HomeMemberRow } from "@/components/app/HomeMemberRow";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
+import { getProfileByUserCode } from "@/lib/server/profiles";
 import { getNearbyProfiles } from "@/lib/server/nearby";
 import { demoProfileViews } from "@/lib/demo/demo-data";
 import type { ProfileCardView } from "@/lib/feature/types";
@@ -64,8 +66,15 @@ const quickActions: {
   },
 ];
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await getSessionUser();
+  const { q } = await searchParams;
+  const found = q?.trim() ? await getProfileByUserCode(q, session?.uid ?? null).catch(() => null) : null;
+  if (found) redirect(`/profile/${found.userId}`);
 
   const [liveSuggestions, liveNearby] = await Promise.all([
     session
@@ -111,6 +120,13 @@ export default async function DashboardPage() {
             A quiet home base for your relationship life — connections, chats, and moments in
             one place.
           </p>
+          <form action="/dashboard" method="get" role="search" className="mt-2 flex max-w-xl gap-2">
+            <label className="sr-only" htmlFor="user-id-search">Search by 5-character user ID</label>
+            <input id="user-id-search" name="q" inputMode="text" pattern="[A-Za-z0-9]{5}" maxLength={5} defaultValue={q?.trim() ?? ""} placeholder="Enter 5-character User ID" className="min-w-0 flex-1 rounded-xl border border-amber-300/30 bg-slate-950/80 px-4 py-3 text-sm uppercase tracking-[0.25em] text-white placeholder:normal-case placeholder:tracking-normal focus:border-amber-300 focus:outline-none" />
+            <button type="submit" className="rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-amber-300">Search</button>
+          </form>
+          {q?.trim() && !/^[A-Za-z0-9]{5}$/.test(q.trim()) ? <p className="text-sm text-danger-300">Enter exactly 5 letters or numbers.</p> : null}
+          {q?.trim() && /^[A-Za-z0-9]{5}$/.test(q.trim()) ? <p className="text-sm text-danger-300">No public profile matches that User ID.</p> : null}
           <div className="mt-1 flex flex-wrap items-center gap-3">
             <Button href="/discover" size="lg" className="shadow-lg shadow-orange-900/30">
               <Icon name="compass" className="h-5 w-5" />

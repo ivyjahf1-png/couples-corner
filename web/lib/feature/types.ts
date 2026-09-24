@@ -123,7 +123,10 @@ export interface FeedPostView {
   authorHref?: string;
   at: string;
   body: string;
-  /** Number of attached media items (rendered as a placeholder grid). */
+  authorAvatar?: string | null;
+  verified?: boolean;
+  vip?: boolean;
+  mediaUrls?: string[];
   mediaCount?: number;
   likeCount: number;
   commentCount: number;

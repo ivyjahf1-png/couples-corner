@@ -19,6 +19,11 @@ import { CATEGORY_TABS, type GameCategory } from "@/lib/gamesData";
 
 type TabKey = GameCategory | "All";
 
+const WINNERS = Array.from({ length: 84 }, (_, index) => ({
+  name: ["Amara", "Jade", "Zoe", "Nia", "Luna", "Kai", "Maya", "Ravi"][index % 8],
+  amount: 120 + ((index * 37) % 880),
+}));
+
 export function GameCenterHub({
   coinBalance: initialBalance,
   authenticated,
@@ -135,7 +140,20 @@ export function GameCenterHub({
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
+        <section aria-label="Live winners" className="mt-6 overflow-hidden rounded-2xl border border-amber-300/30 bg-slate-950/80 shadow-[0_0_24px_rgba(251,191,36,0.12)]">
+          <div className="flex items-center gap-3 border-b border-amber-300/20 px-4 py-3">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
+            <strong className="text-sm text-amber-100">Live winners</strong>
+            <span className="text-xs text-white/45">Today&apos;s celebration</span>
+          </div>
+          <div className="game-winner-marquee overflow-hidden py-3" role="marquee" aria-label="Recent winners">
+            <div className="game-winner-track flex w-max items-center gap-8 px-4">
+              {[...WINNERS, ...WINNERS].map((winner, index) => <span key={`${winner.name}-${index}`} className="whitespace-nowrap text-sm text-white/70"><b className="text-amber-300">{winner.name}</b> won <span className="text-emerald-300">🪙 {winner.amount.toLocaleString()}</span></span>)}
+            </div>
+          </div>
+        </section>
+
+        <main className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
         {/* ── Reward banners ─────────────────────────────────────────── */}
         <section aria-label="Rewards" className="grid gap-4 sm:grid-cols-3">
           {/* Ranking banner */}

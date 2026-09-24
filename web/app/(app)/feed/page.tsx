@@ -1,4 +1,7 @@
+import { FeedUploadModal } from "@/components/app/FeedUploadModal";
+import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
 import { getPublicFeed } from "@/lib/actions/profile";
+
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
@@ -24,6 +27,10 @@ function mapFeedPosts(
     authorKind: "person",
     at: post.createdAt,
     body: post.content,
+    authorAvatar: post.authorAvatar,
+    verified: false,
+    vip: false,
+    mediaUrls: post.mediaUrls,
     mediaCount: post.mediaUrls.length > 0 ? post.mediaUrls.length : undefined,
     likeCount: 0,
     commentCount: 0,
@@ -45,6 +52,8 @@ export default async function FeedPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <FeedCreateLauncher />
+
       <PageHeader
         eyebrow="Community"
         title="Feed"

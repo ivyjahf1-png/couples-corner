@@ -1615,4 +1615,14 @@ button,
     animation: none;
   }
 }
+/* Store and invite affordances are intentionally understated on the dark canvas. */
+.glass-action { transition: transform 160ms ease, border-color 160ms ease; }
+.glass-action:hover { transform: translateY(-1px); }
+@media (prefers-reduced-motion: reduce) { .glass-action:hover { transform: none; } }
 
+
+
+
+.game-winner-track { animation: game-winner-slide 90s linear infinite; }
+@keyframes game-winner-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@media (prefers-reduced-motion: reduce) { .game-winner-track { animation: none; } }

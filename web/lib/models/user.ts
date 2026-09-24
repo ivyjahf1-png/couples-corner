@@ -42,6 +42,7 @@ export interface User {
 export interface UserProfile {
   id: string;
   userId: string;
+  userCode?: string | null;
   displayName: string;
   profileType: "single" | "coupled" | "open" | null;
   bio: string | null;
