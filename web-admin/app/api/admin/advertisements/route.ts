@@ -29,6 +29,13 @@ export async function POST(request: NextRequest) {
     }
 
     const s = (v: unknown): string => (typeof v === "string" ? v : "");
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Optional UUID inputs must never be forwarded as empty strings: PostgreSQL
+    // rejects `""` before it can apply its foreign-key/default semantics.
+    const optionalUuid = (value: unknown): string | null => {
+      const candidate = typeof value === "string" ? value.trim() : "";
+      return candidate ? candidate : null;
+    };
     const errors: string[] = [];
     if (!s(body.category)) errors.push("category is required.");
     if (!s(body.title).trim()) errors.push("title is required.");
@@ -80,10 +87,19 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date().toISOString();
+    const rawId = optionalUuid(body.id);
+    if (rawId && !uuidRe.test(rawId)) {
+      return NextResponse.json({ error: "id must be a valid UUID when provided." }, { status: 400 });
+    }
+    const requestedActor = optionalUuid(body.adminUid);
+    if (requestedActor && !uuidRe.test(requestedActor)) {
+      return NextResponse.json({ error: "adminUid must be a valid UUID when provided." }, { status: 400 });
+    }
+
     let actorUid: string;
     try {
       actorUid = await requireActorUuid(
-        typeof body.adminUid === "string" ? body.adminUid : session.uid,
+        requestedActor ?? session.uid,
         "advertisement creation"
       );
     } catch (e) {
@@ -93,8 +109,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawId = typeof body.id === "string" ? body.id.trim() : "";
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const row: Record<string, unknown> = {
       ...payload,
       created_by: actorUid,
@@ -102,7 +116,7 @@ export async function POST(request: NextRequest) {
       created_at: now,
       updated_at: now,
     };
-    if (uuidRe.test(rawId)) row.id = rawId;
+    if (rawId && uuidRe.test(rawId)) row.id = rawId;
 
     const { data, error } = await supabase.from("content").insert(row).select("id").single();
     if (error) {
