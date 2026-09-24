@@ -7,7 +7,7 @@ Write-Host "Done."
 
 Write-Host ""
 Write-Host "=== Step 2: Verify .next is gone ==="
-$webDir = "C:\Users\HomePC\Documents\couple's conner\web"
+$webDir = $PSScriptRoot
 if (Test-Path "$webDir\.next") {
     Write-Host "WARNING: .next still exists, removing..."
     Remove-Item "$webDir\.next" -Recurse -Force

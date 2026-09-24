@@ -1,2 +1,4 @@
 Set objShell = CreateObject("WScript.Shell")
-objShell.Run "cmd.exe /c cd /d ""C:\Users\HomePC\Documents\couple's conner\web"" && npm run dev -- --port 3000", 0, False
+Set objFso = CreateObject("Scripting.FileSystemObject")
+webDir = objFso.GetParentFolderName(WScript.ScriptFullName)
+objShell.Run "cmd.exe /c cd /d """ & webDir & """ && npm run dev -- --port 3000", 0, False

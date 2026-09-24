@@ -14,7 +14,8 @@ import { Logo } from "@/components/ui/Logo";
  *   - a synthetic admin session when no Supabase/Session is available
  *
  * In production, the real admin role in the users table is authoritative;
- * allowlisted emails (e.g. 8gregwilliams@gmail.com) are also promoted.
+ * allowlisted emails (configured through the ADMIN_ALLOWLIST_EMAILS
+ * environment variable) are also promoted.
  * See lib/auth/authorization.ts for the source of that logic.
  */
 export default async function AdminLayout({

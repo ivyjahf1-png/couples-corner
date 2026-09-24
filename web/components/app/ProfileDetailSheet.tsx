@@ -107,8 +107,15 @@ export function ProfileDetailSheet({
         {/* BODY-PLACEHOLDER */}
         {loading ? (
           <div className="flex flex-col gap-3 px-5 py-10" aria-busy="true">
+            <span role="status" aria-live="polite" className="sr-only">
+              Loading profile
+            </span>
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-4 w-full max-w-sm animate-pulse rounded-full bg-white/[0.06]" />
+              <span
+                key={i}
+                aria-hidden
+                className={`sk sk--line block h-4 ${i === 0 ? "w-full max-w-sm" : i === 1 ? "w-4/5 max-w-xs" : "w-3/5 max-w-[12rem]"}`}
+              />
             ))}
           </div>
         ) : !detail ? (

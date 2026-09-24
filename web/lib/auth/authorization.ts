@@ -43,20 +43,20 @@ export interface SessionUser {
 /**
  * Developer / early-access admin override.
  *
- * IMPORTSANT: This is a controlled, maintainable bypass so that authenticated
- * local developers (and the platform owner) can use the admin surface without
- * first promoting their Supabase `users` row to `admin`. Two conditions apply;
- * if either is true, `getCurrentSessionUser` promotes the role to `admin`:
+ * IMPORTANT: no personal email is hardcoded here. The allowlist is read from
+ * the `ADMIN_ALLOWLIST_EMAILS` environment variable (comma-separated), so a
+ * deployment opts specific operators into admin without committing their
+ * address to the repository:
  *
- *   1. `NODE_ENV === "development"`  — any authenticated user is treated as
- *      admin locally. The real admin role still governs production.
- *   2. The user's email is in ALLOWED_ADMIN_EMAILS. This allowlist works in ANY
- *      environment (including production staging) so the owner can access the
- *      admin dashboard from a real deployment before the DB role is set.
+ *   ADMIN_ALLOWLIST_EMAILS=ops@your-domain.com,second-admin@your-domain.com
+ *
+ * The authoritative production role always remains the `users.role` column;
+ * this allowlist is only an early-access convenience (see README / .env.example).
  */
-export const ALLOWED_ADMIN_EMAILS: readonly string[] = [
-  "8gregwilliams@gmail.com",
-];
+export const ALLOWED_ADMIN_EMAILS: readonly string[] = (process.env.ADMIN_ALLOWLIST_EMAILS ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
 
 /** Normalized allowlist for O(1) membership checks. */
 const ALLOWED_ADMIN_EMAILS_NORMALIZED = new Set(
@@ -150,8 +150,9 @@ export async function requireAdmin(): Promise<SessionUser> {
  * Returns an admin SessionUser immediately when:
  *   - Running in development (NODE_ENV === "development") — any authenticated
  *     user is promoted to admin locally.
- *   - The user's email is in ALLOWED_ADMIN_EMAILS (e.g. 8gregwilliams@gmail.com)
- *     in any environment.
+ *   - The user's email is in ALLOWED_ADMIN_EMAILS (configured per deployment
+ *     through the ADMIN_ALLOWLIST_EMAILS environment variable) in any
+ *     environment.
  *
  * When Supabase is not configured and there is no session cookie at all:
  *   - In development: returns a synthetic admin SessionUser so the admin UI

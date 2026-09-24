@@ -10,6 +10,7 @@ import type { CarouselMedia } from "@/components/content/MediaCarousel";
 import { Icon } from "@/components/landing/Icon";
 import { INSIGHT_ARTICLES } from "@/lib/data/insights";
 import { OverlappingPhotoShowcase } from "@/components/content/OverlappingPhotoShowcase";
+import { AdvertBanner } from "@/components/content/AdvertBanner";
 
 // Render on every request so admin-uploaded media on the homepage placement
 // appears instantly when published (no cached stale copy).
@@ -35,6 +36,12 @@ export default async function LandingPage() {
 
   // Admin-uploaded hero media (image ads + videos) for the featured hero card.
   const heroSlides = buildHeroSlides(heroItems);
+
+  // First published homepage photo rendered inside the hero phone-mockup
+  // screen (null → the mockup keeps its branded CSS preview).
+  const phoneScreenImage = homepageItems.find(
+    (item) => item.mediaType === "image" && item.mediaUrl
+  );
 
   const testimonialMedia = testimonialItems.map(
     (item): CarouselMedia => ({ url: item.mediaUrl, kind: item.mediaType })
@@ -76,10 +83,19 @@ export default async function LandingPage() {
 
           {/* Featured media card — 5 of the 12 columns on large screens. */}
           <div className="w-full lg:col-span-5">
-            <HeroMediaCard slides={heroSlides} />
+            <HeroMediaCard
+              slides={heroSlides}
+              phoneImageUrl={phoneScreenImage?.mediaUrl ?? null}
+            />
           </div>
         </div>
       </section>
+
+      {/* Auto-scrolling gallery of admin-published hero photos — renders only
+          when 2+ image slides exist (AdvertBanner handles its own fallbacks). */}
+      <div className="mx-auto w-full max-w-7xl px-6 pb-2 pt-6 sm:px-8">
+        <AdvertBanner />
+      </div>
       <section className="bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] py-20 sm:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">

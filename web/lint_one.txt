@@ -1,0 +1,11 @@
+
+C:\Users\HomePC\Documents\couple's conner\web\components\app\DiscoverFiltersSync.tsx
+   3:10  warning  'defaultDiscoveryFilters' is defined but never used  @typescript-eslint/no-unused-vars
+   4:10  warning  'parseDiscoveryFilters' is defined but never used    @typescript-eslint/no-unused-vars
+  13:39  warning  'filters' is defined but never used                  @typescript-eslint/no-unused-vars
+  13:48  warning  'resultCount' is defined but never used              @typescript-eslint/no-unused-vars
+  15:9   warning  'params' is assigned a value but never used          @typescript-eslint/no-unused-vars
+  17:9   warning  'updateFilters' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+✖ 6 problems (0 errors, 6 warnings)
+

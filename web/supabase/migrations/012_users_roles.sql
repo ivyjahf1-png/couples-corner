@@ -217,12 +217,14 @@ create index if not exists users_created_at_idx  on public.users (created_at des
 -- 9. Promote the platform owner to admin
 -- ------------------------------------------------------------
 -- Idempotent: matches on email and is a no-op when no such row exists. Mirrors
--- ALLOWED_ADMIN_EMAILS in web/lib/auth/authorization.ts (the owner also gets
--- admin through that allowlist, but the DB role is the production source of
--- truth). Copy the line and change the address to promote anyone else.
+-- ALLOWED_ADMIN_EMAILS in web/lib/auth/authorization.ts (configured per
+-- deployment through the ADMIN_ALLOWLIST_EMAILS env var, so no operator
+-- address is committed), while the DB role stays the production source of
+-- truth. Replace the placeholder below with the operator's address to promote
+-- them, or leave it as-is (the no-op placeholder grants nothing).
 update public.users
 set role = 'admin', updated_at = now()
-where lower(email) = lower('8gregwilliams@gmail.com');
+where lower(email) = lower('admin@example.com');
 
 -- ------------------------------------------------------------
 -- 10. Reload PostgREST's schema cache so the new column is visible

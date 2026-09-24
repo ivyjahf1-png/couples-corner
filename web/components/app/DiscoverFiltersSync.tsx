@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { defaultDiscoveryFilters, type DiscoveryFilters } from "@/lib/feature/types";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";

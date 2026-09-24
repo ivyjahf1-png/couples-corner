@@ -1,8 +1,14 @@
 import { Icon } from "@/components/landing/Icon";
 
-/** Consistent loading placeholder used across app surfaces. */
+/**
+ * Instant glass skeleton used across app surfaces.
+ *
+ * Replaces the old `animate-pulse` grey boxes: the shapes mirror real content
+ * (avatar + two text lines), the sheen comes from the shared `.sk` token, and
+ * the label is screen-reader-only — no visible "Loading…" box anywhere.
+ */
 export function LoadingState({
-  label = "Loading…",
+  label = "Loading",
   rows = 3,
   className,
 }: {
@@ -14,6 +20,7 @@ export function LoadingState({
     <div
       role="status"
       aria-live="polite"
+      aria-busy="true"
       className={["flex flex-col gap-3", className ?? ""].join(" ").trim()}
     >
       <span className="sr-only">{label}</span>
@@ -21,9 +28,15 @@ export function LoadingState({
         <div
           key={i}
           aria-hidden
-          className="h-20 animate-pulse rounded-2xl border border-ink-700 bg-surface-muted"
-          style={{ animationDelay: `${i * 120}ms` }}
-        />
+          className="sk sk--glass flex items-center gap-4 rounded-2xl p-4"
+          style={{ animationDelay: `${i * 90}ms` }}
+        >
+          <span className="sk sk--avatar block h-11 w-11" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <span className="sk sk--line block w-2/5" />
+            <span className="sk sk--line block h-2.5 w-3/5" />
+          </div>
+        </div>
       ))}
     </div>
   );
@@ -46,3 +59,4 @@ export function DotLoader({ className }: { className?: string }) {
 export function LoadingIcon() {
   return <Icon name="sparkle" className="h-4 w-4" />;
 }
+

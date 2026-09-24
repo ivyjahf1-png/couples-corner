@@ -21,6 +21,8 @@ export interface HeroMediaCardProps {
   fallbackDescription?: string;
   fallbackHref?: string;
   fallbackLabel?: string;
+  /** Optional admin-uploaded photo rendered inside the phone mockup's screen. */
+  phoneImageUrl?: string | null;
 }
 
 /**
@@ -43,6 +45,7 @@ export function HeroMediaCard({
   fallbackDescription = "Relationship insights, a supportive community, and local meetups — everything you need to grow together.",
   fallbackHref = "/about",
   fallbackLabel = "See how it works",
+  phoneImageUrl = null,
 }: HeroMediaCardProps) {
   const [position, setPosition] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -131,7 +134,7 @@ export function HeroMediaCard({
         <div className="hero-photo absolute inset-0" aria-hidden="true" />
         {/* Phone frame mockup — replaces the previous placeholder artwork. */}
         <div className="absolute inset-x-0 top-0 flex justify-center pt-8 sm:pt-10">
-          <PhoneMockup />
+          <PhoneMockup imageUrl={phoneImageUrl} />
         </div>
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0 rounded-b-3xl bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent"

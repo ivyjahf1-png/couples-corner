@@ -208,17 +208,19 @@ interface IconProps {
   className?: string;
   /** Accessible label for icon-only contexts. */
   label?: string;
+  /** Render a solid glyph (used for the deck Like heart / Super-like star). */
+  filled?: boolean;
 }
 
 /** Renders a single line icon. Pass `label` when the icon is meaningful alone. */
-export function Icon({ name, className, label }: IconProps) {
+export function Icon({ name, className, label, filled }: IconProps) {
   const size = className ?? "h-6 w-6";
   return (
     <svg
       viewBox="0 0 24 24"
-      fill="none"
+      fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth={filled ? 0 : 1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden={label ? undefined : "true"}

@@ -1,6 +1,6 @@
 @echo off
 echo Writing settings page...
-copy con "c:\Users\HomePC\Documents\couple's conner\web-admin\app\admin\settings\page.tsx" >nul
+copy con "%~dp0web-admin\app\admin\settings\page.tsx" >nul
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

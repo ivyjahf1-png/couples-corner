@@ -43,3 +43,16 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# local build / check artifacts (never commit — they contain machine paths)
+*.log
+*.err
+tsc_*.txt
+eslint_*.txt
+build_*.txt
+href_dump.txt
+ts-files.txt
+typecheck-*.txt
+npm-install-out.txt
+chat-schema.txt
+

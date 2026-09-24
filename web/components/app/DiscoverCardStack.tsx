@@ -245,9 +245,9 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               <Icon name="star" className="h-6 w-6" />
             </button>
             {/* Like */}
-            <button type="button" onClick={() => void likeCurrent()} disabled={likeBusy || liked || !current?.id} aria-label="Like this profile" title="Like"
-              className="deck-btn deck-btn--like h-14 w-14">
-              <Icon name="heart" className="h-6 w-6" />
+            <button type="button" onClick={() => void likeCurrent()} disabled={likeBusy || liked || !current?.id} aria-label="Like this profile" title="Like" data-liked={liked ? "true" : undefined}
+              className={`deck-btn deck-btn--like h-16 w-16 ${liked ? "is-liked" : ""}`}>
+              <Icon name="heart" className="h-7 w-7" filled={liked} />
             </button>
             {/* First Impressions — opens the message overlay */}
             <button type="button" onClick={() => { setImpressionsSent(false); setImpressionsModal(true); }} aria-label="Send First Impressions" title="First Impressions"

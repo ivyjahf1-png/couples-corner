@@ -23,11 +23,11 @@ export function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="app-canvas flex min-h-dvh flex-col items-center justify-center px-4 py-12">
-      <Link href="/" className="mb-8" aria-label="Couples Corner home">
+    <div className="app-canvas flex min-h-dvh flex-col items-center justify-center px-4 py-8 sm:py-12">
+      <Link href="/" className="mb-6 sm:mb-8" aria-label="Couples Corner home">
         <Logo as="span" />
       </Link>
-      <div className="w-full max-w-md rounded-2xl border border-orange-500/30 bg-slate-900/90 p-8 shadow-lg shadow-orange-500/10 transition-colors hover:border-orange-500/60">
+      <div className="w-full max-w-md rounded-2xl border border-orange-500/30 bg-slate-900/90 p-5 shadow-lg shadow-orange-500/10 transition-colors hover:border-orange-500/60 sm:p-8">
         <h1 className="text-2xl font-semibold tracking-display text-foreground">{title}</h1>
         <p className="mt-2 text-sm leading-6 text-ink-400">{subtitle}</p>
         <div className="mt-6">{children}</div>

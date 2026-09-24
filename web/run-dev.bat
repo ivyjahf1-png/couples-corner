@@ -1,3 +1,3 @@
 @echo off
-cd /d "C:\Users\HomePC\Documents\couple's conner\web"
+cd /d "%~dp0"
 call npm run dev -- --port 3000

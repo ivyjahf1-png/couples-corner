@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-Set-Location "C:\Users\HomePC\Documents\couple's conner\web-admin"
+Set-Location $PSScriptRoot
 
 $replacements = @(
     # Order matters: longer/more-specific patterns first

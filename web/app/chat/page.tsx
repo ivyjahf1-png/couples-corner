@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRealtimeMessages, type RealtimeMessage } from "@/lib/hooks/useRealtimeMessages";
 import { Icon } from "@/components/landing/Icon";
+import { BubbleSkeleton } from "@/components/app/Skeleton";
 import { buildMessageInsert } from "@/lib/utils/message-payload";
 
 interface ChatMessage {
@@ -122,11 +123,22 @@ export default function ChatPage() {
   }
 
   if (loading) {
+    // Instant chat skeleton — same header + bubble geometry as the real thread,
+    // so the thread swaps in with no spinner and no layout jump.
     return (
-      <div className="app-canvas flex min-h-dvh items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Icon name="sparkle" className="h-8 w-8 animate-pulse text-brand-500" />
-          <p className="text-sm text-ink-400">Loading chat…</p>
+      <div className="app-canvas mx-auto flex h-dvh max-w-3xl flex-col" aria-busy="true">
+        <span role="status" aria-live="polite" className="sr-only">
+          Opening chat
+        </span>
+        <header className="flex items-center gap-3 border-b border-ink-700 bg-surface px-4 py-3" aria-hidden>
+          <span className="sk sk--avatar block h-10 w-10" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <span className="sk sk--line block w-32" />
+            <span className="sk sk--line block h-2.5 w-48" />
+          </div>
+        </header>
+        <div className="flex-1 overflow-hidden">
+          <BubbleSkeleton bubbles={5} />
         </div>
       </div>
     );

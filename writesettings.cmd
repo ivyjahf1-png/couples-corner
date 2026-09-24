@@ -1,6 +1,6 @@
 @echo off
-REM Write the settings page
-cat > "c:\Users\HomePC\Documents\couple's conner\web-admin\app\admin\settings\page.tsx" << 'ENDOFFILE'
+REM Write the settings page (relative to this script's folder)
+cat > "%~dp0web-admin\app\admin\settings\page.tsx" << 'ENDOFFILE'
 import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -99,11 +99,11 @@ export default function AdminSettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={labelClass}>
               Support email
-              <input type="email" defaultValue="iremidetimmy398@gmail.com" className={inputClass} />
+              <input type="email" defaultValue="support@your-domain.com" className={inputClass} />
             </label>
             <label className={labelClass}>
               WhatsApp number
-              <input type="tel" defaultValue="0807 556 6434" className={inputClass} />
+              <input type="tel" placeholder="+234 800 000 0000" className={inputClass} />
             </label>
           </div>
           <div className="mt-4 flex justify-end">

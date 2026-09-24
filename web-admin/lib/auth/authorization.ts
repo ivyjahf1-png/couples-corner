@@ -35,10 +35,17 @@ export interface SessionUser {
   isDemo: boolean;
 }
 
-/** Developer / early-access admin override. */
-export const ALLOWED_ADMIN_EMAILS: readonly string[] = [
-  "8gregwilliams@gmail.com",
-];
+/**
+ * Developer / early-access admin override.
+ *
+ * No personal email is hardcoded. The allowlist is read from the
+ * `ADMIN_ALLOWLIST_EMAILS` environment variable (comma-separated); the
+ * authoritative production role remains the `users.role` column.
+ */
+export const ALLOWED_ADMIN_EMAILS: readonly string[] = (process.env.ADMIN_ALLOWLIST_EMAILS ?? "")
+  .split(",")
+  .map((entry) => entry.trim())
+  .filter(Boolean);
 
 /** Normalized allowlist for O(1) membership checks. */
 const ALLOWED_ADMIN_EMAILS_NORMALIZED = new Set(

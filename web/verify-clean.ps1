@@ -1,6 +1,6 @@
 $ErrorActionPreference = "SilentlyContinue"
 
-$web = "C:\Users\HomePC\Documents\couple's conner\web"
+$web = $PSScriptRoot
 
 function WriteStatus($label, $value, $color = "White") {
     Write-Host "$label : $value" -ForegroundColor $color

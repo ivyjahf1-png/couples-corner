@@ -922,8 +922,8 @@ button,
 }
 
 /* ==========================================================================
-   Discovery deck action buttons — glossy 3D dark glass circles
-   (Rewind · Pass · Super-like · Like · Send)
+   Discovery deck action buttons — 3D soft-neumorphic glassmorphism
+   (Rewind · Pass · Super-like · Like · Send) — ref image_1.png
    ========================================================================== */
 .deck-btn {
   position: relative;
@@ -932,33 +932,73 @@ button,
   justify-content: center;
   border-radius: 9999px;
   color: #e2e8f0;
-  background-image: linear-gradient(160deg, rgba(51, 65, 85, 0.92) 0%, rgba(15, 23, 42, 0.96) 55%, rgba(2, 6, 23, 0.98) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 42%, transparent 62%),
+    linear-gradient(145deg, #33415c 0%, #1b2740 48%, #0d1526 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  isolation: isolate;
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
-    0 10px 22px -10px rgba(2, 6, 23, 0.95),
-    0 0 0 1px rgba(255, 255, 255, 0.04);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.55);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease, border-color 0.3s ease, color 0.3s ease, background 0.3s ease;
   touch-action: manipulation;
   user-select: none;
 }
+/* Glassmorphism gloss — soft white gradient sweep across the top of the circle */
+.deck-btn::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 7%;
+  width: 72%;
+  height: 46%;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.34), rgba(255, 255, 255, 0.09) 60%, transparent);
+  filter: blur(1.5px);
+  pointer-events: none;
+  z-index: 1;
+}
+/* Bounce-light reflection along the bottom rim for the lifted 3D feel */
+.deck-btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  width: 56%;
+  height: 22%;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.07);
+  filter: blur(3px);
+  pointer-events: none;
+  z-index: 1;
+}
+.deck-btn > svg {
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
 .deck-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-2px) scale(1.06);
+  border-color: rgba(255, 255, 255, 0.3);
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.6),
-    0 14px 28px -10px rgba(2, 6, 23, 1),
+    0 22px 40px -8px rgba(0, 0, 0, 0.75),
+    0 6px 14px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.5),
     0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 .deck-btn:active:not(:disabled) {
-  transform: translateY(1px) scale(0.96);
+  transform: translateY(1px) scale(0.95);
   box-shadow:
+    0 8px 18px -6px rgba(0, 0, 0, 0.7),
     inset 0 4px 10px 0 rgba(2, 6, 23, 0.9),
-    inset 0 -1px 0 0 rgba(255, 255, 255, 0.06);
+    inset 0 -1px 0 0 rgba(255, 255, 255, 0.08);
 }
 .deck-btn:disabled {
   opacity: 0.4;
@@ -967,97 +1007,590 @@ button,
 .deck-btn:focus-visible {
   outline: none;
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
     0 0 0 2px #0f172a,
     0 0 0 4px rgba(249, 115, 22, 0.7);
 }
 
-/* Rewind / back — neutral steel with a cool rim glow. */
+/* Rewind — soft yellow glass tint with matching rim + outer tinted glow. */
 .deck-btn--rewind {
-  color: #93c5fd;
-  border-color: rgba(96, 165, 250, 0.35);
+  color: #facc15;
+  border-color: rgba(250, 204, 21, 0.38);
+  box-shadow:
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.55),
+    0 0 16px 0 rgba(250, 204, 21, 0.2);
 }
 .deck-btn--rewind:hover:not(:disabled) {
-  color: #bfdbfe;
-  border-color: rgba(96, 165, 250, 0.6);
+  color: #fde047;
+  border-color: rgba(250, 204, 21, 0.65);
+}
+.deck-btn--rewind > svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(250, 204, 21, 0.35));
 }
 
-/* Pass / close — subtle red-dark tint. */
+/* Pass — soft rose glass tint with matching rim + outer tinted glow. */
 .deck-btn--pass {
-  color: #fca5a5;
-  background-image: linear-gradient(160deg, rgba(70, 28, 34, 0.92) 0%, rgba(30, 12, 18, 0.96) 60%, rgba(10, 4, 8, 0.98) 100%);
-  border-color: rgba(248, 113, 113, 0.35);
+  color: #fb7185;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(255, 255, 255, 0.22) 0%, rgba(255, 255, 255, 0.05) 42%, transparent 62%),
+    linear-gradient(145deg, #4a2230 0%, #241019 55%, #100709 100%);
+  border-color: rgba(251, 113, 133, 0.4);
+  box-shadow:
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.36),
+    inset 0 -7px 14px 0 rgba(10, 4, 8, 0.6),
+    0 0 16px 0 rgba(251, 113, 133, 0.22);
 }
 .deck-btn--pass:hover:not(:disabled) {
-  color: #fecaca;
-  border-color: rgba(248, 113, 113, 0.65);
+  color: #fda4af;
+  border-color: rgba(251, 113, 133, 0.7);
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -6px 12px 0 rgba(10, 4, 8, 0.7),
-    0 12px 26px -10px rgba(239, 68, 68, 0.55);
+    0 22px 40px -8px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.42),
+    inset 0 -7px 14px 0 rgba(10, 4, 8, 0.55),
+    0 12px 28px -8px rgba(244, 63, 94, 0.55),
+    0 0 22px 2px rgba(251, 113, 133, 0.3);
+}
+.deck-btn--pass > svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(251, 113, 133, 0.4));
 }
 
-/* Super-like — star with an amber/gold rim glow. */
+/* Super-like — sky-blue glass with a star-blue rim glow. */
 .deck-btn--star {
-  color: #fde68a;
-  border-color: rgba(251, 191, 36, 0.4);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.42);
+  box-shadow:
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.55),
+    0 0 18px 0 rgba(56, 189, 248, 0.25);
 }
 .deck-btn--star:hover:not(:disabled) {
-  color: #fef3c7;
-  border-color: rgba(251, 191, 36, 0.7);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.75);
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
-    0 12px 26px -10px rgba(245, 158, 11, 0.6);
+    0 22px 40px -8px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.5),
+    0 12px 28px -8px rgba(14, 165, 233, 0.6),
+    0 0 24px 2px rgba(56, 189, 248, 0.35);
+}
+.deck-btn--star > svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(56, 189, 248, 0.45));
 }
 
-/* Like — prominent heart with a glowing red circular aura. */
+/* Like — idle green glass; ACTIVE = vibrant glowing red/pink ring + aura. */
 .deck-btn--like {
-  color: #fff;
-  background-image: radial-gradient(circle at 32% 26%, #ff6b6b 0%, #ef4444 45%, #b91c1c 100%);
-  border-color: rgba(255, 255, 255, 0.35);
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.42);
   box-shadow:
-    inset 0 3px 4px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -8px 14px 0 rgba(127, 29, 29, 0.6),
-    0 12px 30px -8px rgba(239, 68, 68, 0.85),
-    0 0 22px 2px rgba(239, 68, 68, 0.45);
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.55),
+    0 0 18px 0 rgba(74, 222, 128, 0.25);
 }
 .deck-btn--like:hover:not(:disabled) {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow:
-    inset 0 3px 4px 0 rgba(255, 255, 255, 0.5),
-    inset 0 -8px 14px 0 rgba(127, 29, 29, 0.55),
-    0 16px 34px -8px rgba(239, 68, 68, 1),
-    0 0 30px 4px rgba(239, 68, 68, 0.6);
+  color: #86efac;
+  border-color: rgba(74, 222, 128, 0.7);
+  transform: translateY(-2px) scale(1.07);
 }
-.deck-btn--like:active:not(:disabled) {
-  transform: translateY(1px) scale(0.94);
+.deck-btn--like > svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(74, 222, 128, 0.45));
+}
+/* A liked (active) Like button stays fully vivid even though it is disabled. */
+.deck-btn--like.is-liked:disabled,
+.deck-btn--like[data-liked="true"]:disabled {
+  opacity: 1;
+}
+/* Glamorous active state: glossy dark-red glass core, neon pink ring, aura. */
+.deck-btn--like.is-liked,
+.deck-btn--like[data-liked="true"] {
+  color: #ff6b8b;
+  border: 1.5px solid rgba(255, 45, 85, 0.9);
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.08) 38%, rgba(255, 45, 85, 0.24) 68%, rgba(20, 10, 18, 0.92) 100%),
+    linear-gradient(145deg, #3a1622 0%, #1e0f16 55%, #120a10 100%);
+  box-shadow:
+    0 0 0 2px rgba(255, 45, 85, 0.9),
+    0 0 22px 4px rgba(255, 45, 85, 0.65),
+    0 0 64px 10px rgba(255, 45, 85, 0.35),
+    0 14px 30px rgba(0, 0, 0, 0.6),
+    inset 0 2px 3px rgba(255, 255, 255, 0.45),
+    inset 0 -4px 8px rgba(0, 0, 0, 0.5);
+}
+.deck-btn--like.is-liked > svg,
+.deck-btn--like[data-liked="true"] > svg {
+  filter: drop-shadow(0 0 7px rgba(255, 45, 85, 0.95));
+  animation: deck-like-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes deck-like-pop {
+  0% { transform: scale(0.6); }
+  55% { transform: scale(1.18); }
+  100% { transform: scale(1); }
 }
 
-/* Send / message — accent-blue glass with a cyan rim glow. */
+/* Send / message — violet-purple glass with a matching rim glow. */
 .deck-btn--send {
-  color: #a5f3fc;
-  border-color: rgba(34, 211, 238, 0.35);
+  color: #c084fc;
+  border-color: rgba(192, 132, 252, 0.42);
+  box-shadow:
+    0 18px 34px -8px rgba(0, 0, 0, 0.7),
+    0 5px 12px rgba(0, 0, 0, 0.55),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.55),
+    0 0 18px 0 rgba(192, 132, 252, 0.25);
 }
 .deck-btn--send:hover:not(:disabled) {
-  color: #cffafe;
-  border-color: rgba(34, 211, 238, 0.65);
+  color: #d8b4fe;
+  border-color: rgba(192, 132, 252, 0.7);
   box-shadow:
-    inset 0 2px 3px 0 rgba(255, 255, 255, 0.22),
-    inset 0 -6px 12px 0 rgba(2, 6, 23, 0.65),
-    0 12px 26px -10px rgba(6, 182, 212, 0.55);
+    0 22px 40px -8px rgba(0, 0, 0, 0.75),
+    inset 0 2px 3px 0 rgba(255, 255, 255, 0.46),
+    inset 0 -7px 14px 0 rgba(2, 6, 23, 0.5),
+    0 12px 28px -8px rgba(168, 85, 247, 0.6),
+    0 0 24px 2px rgba(192, 132, 252, 0.35);
+}
+.deck-btn--send > svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 8px rgba(192, 132, 252, 0.45));
+}
+
+/* Pulsing aura halo for the active (liked) Like button. */
+.deck-btn--like.is-liked::after,
+.deck-btn--like[data-liked="true"]::after {
+  background: radial-gradient(circle, rgba(255, 45, 85, 0.35) 0%, transparent 70%);
+  filter: none;
+  animation: deck-like-aura 1.8s ease-out infinite;
+}
+@keyframes deck-like-aura {
+  0% { transform: translateX(-50%) scale(0.85); opacity: 0.9; }
+  70% { transform: translateX(-50%) scale(1.25); opacity: 0; }
+  100% { transform: translateX(-50%) scale(1.25); opacity: 0; }
 }
 
 /* Reduce motion: keep the design, drop the physical movement. */
 @media (prefers-reduced-motion: reduce) {
+  .deck-btn,
   .nm-raised,
   .nm-inset,
   .nm-btn {
-    transition: box-shadow 0.2s linear, border-color 0.2s linear;
+    transition: box-shadow 0.2s linear, border-color 0.2s linear, color 0.2s linear;
   }
+  .deck-btn:hover:not(:disabled),
+  .deck-btn:active:not(:disabled),
   .nm-raised:active:not(:disabled),
   .nm-inset:active:not(:disabled),
   .nm-btn:active:not(:disabled) {
     transform: none;
   }
+  .deck-btn--like.is-liked > svg,
+  .deck-btn--like[data-liked="true"] > svg,
+  .deck-btn--like.is-liked::after,
+  .deck-btn--like[data-liked="true"]::after {
+    animation: none;
+  }
 }
+
+/* ============================================================================
+   Professional interaction layer — glass actions, instant skeletons, and the
+   glamorous "Me" (profile) gradient system.
+   ----------------------------------------------------------------------------
+   Declared inside @layer components so Tailwind utilities (spacing, text size,
+   visibility, layout) can still override these tokens at the call site.
+   Motion is decorative only and is switched off under prefers-reduced-motion
+   (see the end of this file).
+   ========================================================================== */
+
+@layer components {
+  /* --------------------------------------------------------------------------
+     1. Glass panels — frosted, hairline-rimmed shells for hero/page headers.
+     ------------------------------------------------------------------------ */
+  .glass-panel {
+    position: relative;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-image: linear-gradient(
+      150deg,
+      rgb(255 255 255 / 0.08) 0%,
+      rgb(255 255 255 / 0.02) 42%,
+      rgb(255 255 255 / 0.05) 100%
+    );
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.14),
+      0 18px 40px -22px rgb(2 6 23 / 0.9);
+  }
+
+  /* Warming rim + brand aura ("Your corner" hero, profile headers). */
+  .glass-panel--glow {
+    border-color: rgb(255 138 76 / 0.28);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.16),
+      0 20px 44px -24px rgb(2 6 23 / 0.95),
+      0 0 42px -18px rgb(249 115 22 / 0.45);
+  }
+
+  /* --------------------------------------------------------------------------
+     2. Glass action buttons — like / comment / quick actions.
+        One anatomy: translucent glass core, hairline rim, crisp currentColor
+        icon, a real pressed state and an unmistakable active (selected) state.
+     ------------------------------------------------------------------------ */
+  .glass-action {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    background-color: rgb(255 255 255 / 0.045);
+    background-image: linear-gradient(
+      160deg,
+      rgb(255 255 255 / 0.12) 0%,
+      rgb(255 255 255 / 0.02) 55%,
+      rgb(255 255 255 / 0.07) 100%
+    );
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    color: var(--ink-200);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.22),
+      0 10px 22px -16px rgb(2 6 23 / 0.95);
+    transition:
+      color 0.18s ease,
+      border-color 0.18s ease,
+      background-color 0.18s ease,
+      box-shadow 0.2s ease,
+      transform 0.14s ease;
+  }
+  .glass-action:hover:not(:disabled) {
+    color: #ffffff;
+    border-color: rgb(255 255 255 / 0.3);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.3),
+      0 16px 30px -18px rgb(2 6 23 / 1);
+  }
+  .glass-action:active:not(:disabled) {
+    transform: translateY(1px) scale(0.98);
+    box-shadow:
+      inset 0 3px 8px 0 rgb(2 6 23 / 0.9),
+      inset 0 -1px 0 0 rgb(255 255 255 / 0.06);
+  }
+  .glass-action:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .glass-action:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .glass-action > svg {
+    flex: 0 0 auto;
+    filter: drop-shadow(0 1px 1px rgb(2 6 23 / 0.55));
+  }
+
+  /* Like — active: glossy rose core, neon rim + aura around the heart. */
+  .glass-action--like[aria-pressed="true"] {
+    color: #ff9db0;
+    border-color: rgb(255 45 85 / 0.75);
+    background-color: rgb(255 45 85 / 0.14);
+    background-image: radial-gradient(
+      circle at 50% 20%,
+      rgb(255 255 255 / 0.28) 0%,
+      rgb(255 255 255 / 0.05) 42%,
+      rgb(255 45 85 / 0.24) 100%
+    );
+    box-shadow:
+      0 0 0 1px rgb(255 45 85 / 0.5),
+      0 0 22px -2px rgb(255 45 85 / 0.55),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.35);
+  }
+  .glass-action--like[aria-pressed="true"] > svg {
+    filter: drop-shadow(0 0 6px rgb(255 45 85 / 0.85));
+    animation: glass-like-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  /* Comment — engaged (open) state reads clearly without shouting. */
+  .glass-action--comment[aria-expanded="true"] {
+    color: #a5d8ff;
+    border-color: rgb(56 189 248 / 0.6);
+    background-color: rgb(56 189 248 / 0.12);
+    box-shadow:
+      0 0 20px -6px rgb(56 189 248 / 0.5),
+      inset 0 1px 0 0 rgb(255 255 255 / 0.28);
+  }
+
+  /* Quiet variant for dense rows (dashboard suggestion / nearby lists). */
+  .glass-action--quiet {
+    background-image: linear-gradient(
+      160deg,
+      rgb(255 255 255 / 0.07) 0%,
+      rgb(255 255 255 / 0.015) 60%,
+      rgb(255 255 255 / 0.04) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.14),
+      0 6px 14px -12px rgb(2 6 23 / 0.9);
+  }
+}
+
+
+/* ============================================================================
+   Instant skeletons — perceived-instant data loading.
+   A glass hairline block with a single sweeping sheen: no blocking spinners
+   and no layout jump (each skeleton mirrors the content it stands in for).
+   ========================================================================== */
+
+@layer components {
+  .sk {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background-color: rgb(255 255 255 / 0.05);
+    border: 1px solid rgb(255 255 255 / 0.06);
+  }
+  .sk::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(255 255 255 / 0.1) 50%,
+      transparent 100%
+    );
+    animation: sk-sweep 1.15s ease-in-out infinite;
+  }
+  .sk--line { height: 0.75rem; border-radius: 9999px; }
+  .sk--title { height: 1.25rem; border-radius: 9999px; }
+  .sk--avatar { border-radius: 9999px; }
+  .sk--pill { border-radius: 9999px; }
+  .sk--card { border-radius: var(--radius-card); }
+  .sk--glass {
+    background-color: transparent;
+    background-image: linear-gradient(
+      150deg,
+      rgb(255 255 255 / 0.07) 0%,
+      rgb(255 255 255 / 0.02) 55%,
+      rgb(255 255 255 / 0.05) 100%
+    );
+    border-color: rgb(255 255 255 / 0.09);
+  }
+}
+
+
+/* ============================================================================
+   Glamour system — the "Me" page's shimmering mixed-colour gradients.
+   Aurora orbs drift behind a metallic conic hairline frame; the profile name
+   and chips carry a slow multi-hue sheen. Purely decorative: it never affects
+   layout, contrast of the data itself, or any query.
+   ========================================================================== */
+
+@layer components {
+  /* Aurora canvas: four soft colour fields over the dark theme canvas. */
+  .glam-shell {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border-radius: 2rem;
+    border: 1px solid rgb(255 255 255 / 0.1);
+  }
+  .glam-shell::before {
+    content: "";
+    position: absolute;
+    inset: -40%;
+    z-index: -1;
+    background-image:
+      radial-gradient(38% 32% at 18% 22%, rgb(255 138 76 / 0.6) 0%, transparent 70%),
+      radial-gradient(34% 30% at 82% 18%, rgb(236 72 153 / 0.55) 0%, transparent 72%),
+      radial-gradient(40% 36% at 72% 84%, rgb(99 102 241 / 0.55) 0%, transparent 74%),
+      radial-gradient(36% 34% at 10% 86%, rgb(56 189 248 / 0.5) 0%, transparent 72%);
+    filter: blur(26px) saturate(135%);
+    animation: glam-drift 18s ease-in-out infinite alternate;
+  }
+  .glam-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: linear-gradient(
+      180deg,
+      rgb(11 17 32 / 0.42) 0%,
+      rgb(11 17 32 / 0.78) 58%,
+      rgb(11 17 32 / 0.92) 100%
+    );
+  }
+
+  /* Metallic rainbow hairline frame that slowly pans its gradient. */
+  .glam-frame {
+    position: relative;
+    border-radius: var(--radius-card);
+    padding: 1px;
+    background-image: linear-gradient(
+      140deg,
+      rgb(253 186 116 / 0.9) 0%,
+      rgb(244 114 182 / 0.75) 24%,
+      rgb(129 140 248 / 0.8) 50%,
+      rgb(56 189 248 / 0.75) 74%,
+      rgb(253 186 116 / 0.9) 100%
+    );
+    background-size: 260% 260%;
+    animation: glam-sheen 14s linear infinite;
+    box-shadow: 0 22px 48px -26px rgb(2 6 23 / 0.95);
+  }
+  .glam-frame__inner {
+    border-radius: calc(var(--radius-card) - 1px);
+    background-image: linear-gradient(
+      180deg,
+      rgb(23 33 53 / 0.94) 0%,
+      rgb(12 18 33 / 0.97) 100%
+    );
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Frosted tile with a coloured aura — stats, wallet and quick actions. */
+  .glam-tile {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    border: 1px solid rgb(255 255 255 / 0.1);
+    background-image: linear-gradient(
+      155deg,
+      rgb(255 255 255 / 0.09) 0%,
+      rgb(255 255 255 / 0.02) 58%,
+      rgb(255 255 255 / 0.06) 100%
+    );
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.18),
+      0 16px 34px -24px rgb(2 6 23 / 0.95);
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.2s ease;
+  }
+  .glam-tile:hover {
+    transform: translateY(-2px);
+    border-color: rgb(255 255 255 / 0.24);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.24),
+      0 22px 40px -24px rgb(2 6 23 / 1);
+  }
+  .glam-tile--warm {
+    background-image: linear-gradient(155deg, rgb(251 146 60 / 0.24) 0%, rgb(255 255 255 / 0.02) 62%, rgb(253 186 116 / 0.1) 100%);
+    border-color: rgb(253 186 116 / 0.32);
+  }
+  .glam-tile--rose {
+    background-image: linear-gradient(155deg, rgb(244 114 182 / 0.22) 0%, rgb(255 255 255 / 0.02) 62%, rgb(255 45 85 / 0.1) 100%);
+    border-color: rgb(244 114 182 / 0.3);
+  }
+  .glam-tile--violet {
+    background-image: linear-gradient(155deg, rgb(129 140 248 / 0.24) 0%, rgb(255 255 255 / 0.02) 62%, rgb(168 85 247 / 0.1) 100%);
+    border-color: rgb(129 140 248 / 0.32);
+  }
+  .glam-tile--aqua {
+    background-image: linear-gradient(155deg, rgb(56 189 248 / 0.22) 0%, rgb(255 255 255 / 0.02) 62%, rgb(45 212 191 / 0.1) 100%);
+    border-color: rgb(56 189 248 / 0.3);
+  }
+}
+
+
+@layer components {
+  /* Multi-hue text sheen — the display name / headline moment on the Me page. */
+  .glam-text {
+    background-image: linear-gradient(
+      100deg,
+      #ffd7a8 0%,
+      #ff9ecb 22%,
+      #c4b5fd 46%,
+      #7dd3fc 68%,
+      #ffd7a8 100%
+    );
+    background-size: 280% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: glam-sheen 9s linear infinite;
+  }
+
+  /* Jewellery-style pill: translucent gem fill behind a hairline rim. */
+  .glam-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.18);
+    background-image: linear-gradient(
+      140deg,
+      rgb(253 186 116 / 0.22) 0%,
+      rgb(244 114 182 / 0.18) 50%,
+      rgb(129 140 248 / 0.22) 100%
+    );
+    color: #f8fafc;
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.25);
+  }
+
+  /* Neutral "glass badge" used for balances, levels and status pills. */
+  .glass-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    background-color: rgb(255 255 255 / 0.06);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.18);
+  }
+}
+
+/* --- Motion keyframes (decorative only) ----------------------------------- */
+@keyframes sk-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes glass-like-pop {
+  0% { transform: scale(0.65); }
+  55% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+@keyframes glam-sheen {
+  from { background-position: 0% 50%; }
+  to { background-position: 200% 50%; }
+}
+@keyframes glam-drift {
+  from { transform: translate3d(-2%, -1%, 0) scale(1); }
+  to { transform: translate3d(2%, 2%, 0) scale(1.08); }
+}
+
+/* Reduce motion: keep every colour and depth cue, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  .glass-action,
+  .glam-tile {
+    transition: box-shadow 0.2s linear, border-color 0.2s linear, color 0.2s linear;
+  }
+  .glass-action:hover:not(:disabled),
+  .glass-action:active:not(:disabled),
+  .glam-tile:hover {
+    transform: none;
+  }
+  .sk::after,
+  .glam-shell::before,
+  .glam-frame,
+  .glam-text,
+  .glass-action--like[aria-pressed="true"] > svg {
+    animation: none;
+  }
+}
+

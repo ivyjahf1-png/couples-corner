@@ -1,4 +1,6 @@
-// MessageComposer.tsx
+// MessageComposer.tsx — messenger-style bottom bar: plus button, dark pill
+// input ("Write a message"), circular send button. Sends via the existing
+// sendMessageAction server action; no Supabase linkage changes.
 "use client";
 
 import { useState, useRef } from "react";
@@ -37,12 +39,29 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#0F172A]/95 backdrop-blur-md border-t border-slate-800 p-3 shadow-2xl">
+    <div className="border-t border-white/10 bg-slate-950/90 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
       <form
         onSubmit={handleSubmit}
-        className="max-w-md mx-auto flex items-center gap-3 relative"
+        className="mx-auto flex w-full max-w-2xl items-center gap-2.5"
         aria-label="Send a message"
       >
+        {/* Circular plus / attach action */}
+        <button
+          type="button"
+          aria-label="More actions"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1E293B] text-ink-200 shadow-md transition hover:bg-white/10 hover:text-white"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14" />
+          </svg>
+        </button>
         <input
           ref={inputRef}
           type="text"
@@ -54,31 +73,31 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
               handleSubmit();
             }
           }}
-          placeholder="Type your message..."
-          className="flex-1 bg-slate-900 text-white placeholder-slate-400 border border-slate-700 rounded-full px-4 py-3 text-sm outline-none focus:border-[#2563EB] transition-colors disabled:opacity-60"
+          placeholder="Write a message"
+          aria-label="Write a message"
+          className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 outline-none transition-colors focus:border-purple-500/60 disabled:opacity-60"
           disabled={pending}
-          autoFocus
         />
+        {/* Circular send button */}
         <button
           type="submit"
           aria-label="Send message"
           disabled={pending || !value.trim()}
-          className="bg-[#2563EB] text-white w-11 h-11 rounded-full flex items-center justify-center shadow-md hover:bg-blue-600 transition-colors flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-950/40 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {/* Upward Arrow Icon */}
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            className="w-5 h-5" 
-            fill="none" 
-            viewBox="0 0 24 24" 
-            stroke="currentColor" 
-            strokeWidth={2.5}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-5 w-5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2.2}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
           </svg>
         </button>
         {error ? (
-          <p role="alert" className="absolute -top-7 left-0 text-xs text-red-400 bg-slate-900 px-2 py-1 rounded">
+          <p role="alert" className="absolute -top-7 left-0 rounded bg-slate-900 px-2 py-1 text-xs text-red-400">
             {error}
           </p>
         ) : null}

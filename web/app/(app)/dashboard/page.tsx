@@ -1,6 +1,8 @@
-import { PageHeader } from "@/components/app/PageHeader";
-import { Avatar } from "@/components/app/Avatar";
+import Link from "next/link";
+import { Chip } from "@/components/ui/Chip";
 import { Button } from "@/components/ui/Button";
+import { Icon, type IconName } from "@/components/landing/Icon";
+import { HomeMemberRow } from "@/components/app/HomeMemberRow";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { getNearbyProfiles } from "@/lib/server/nearby";
@@ -9,81 +11,176 @@ import type { ProfileCardView } from "@/lib/feature/types";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Home ("Your corner").
+ *
+ * Layout contract (reference layout):
+ *   1. Glass hero — "Your corner", the description line, and the prominent
+ *      Discover CTA.
+ *   2. Quick glass actions — the four destinations of the discovery loop.
+ *   3. "Suggested for you" — discoverable members.
+ *   4. "Near you" — distance-ranked members from shared locations.
+ *
+ * Performance contract: every read happens in ONE parallel round-trip, so the
+ * page streams as soon as the slowest query resolves — there is no serial
+ * await waterfall and therefore no blocking spinner. Both reads are fail-soft
+ * (a failure degrades to the demo fixtures / the existing empty copy).
+ */
+/** Quick glass actions — the four destinations of the discovery loop. */
+const quickActions: {
+  href: string;
+  label: string;
+  hint: string;
+  icon: IconName;
+  tone: string;
+}[] = [
+  {
+    href: "/discover",
+    label: "Discover",
+    hint: "Swipe profiles",
+    icon: "compass",
+    tone: "from-orange-500/30 to-amber-400/10 text-orange-200",
+  },
+  {
+    href: "/likes",
+    label: "Likes",
+    hint: "Who likes you",
+    icon: "flame",
+    tone: "from-rose-500/30 to-pink-400/10 text-rose-200",
+  },
+  {
+    href: "/messages",
+    label: "Messages",
+    hint: "Your chats",
+    icon: "chat",
+    tone: "from-sky-500/30 to-cyan-400/10 text-sky-200",
+  },
+  {
+    href: "/feed",
+    label: "Moments",
+    hint: "Community feed",
+    icon: "moments",
+    tone: "from-violet-500/30 to-fuchsia-400/10 text-violet-200",
+  },
+];
+
 export default async function DashboardPage() {
   const session = await getSessionUser();
 
-  // Live suggestions: prefer real discoverable profiles (storage photos render
-  // via /api/photos), falling back to design-review demo cards.
-  let suggestions: ProfileCardView[] = demoProfileViews;
-  let usingDemo = true;
-  if (session) {
-    try {
-      const live = await getDiscoverProfiles(session.uid);
-      if (live.length > 0) {
-        suggestions = live;
-        usingDemo = false;
-      }
-    } catch {
-      // Keep demo fallback when discovery is unavailable.
-    }
-  }
+  const [liveSuggestions, liveNearby] = await Promise.all([
+    session
+      ? getDiscoverProfiles(session.uid).catch(() => [] as ProfileCardView[])
+      : Promise.resolve([] as ProfileCardView[]),
+    session
+      ? getNearbyProfiles(session.uid).catch(() => [])
+      : Promise.resolve([]),
+  ]);
 
-  // "Near you" — distance-ranked members from shared locations (fail-soft).
-  let nearby: Awaited<ReturnType<typeof getNearbyProfiles>> = [];
-  if (session) {
-    try {
-      nearby = (await getNearbyProfiles(session.uid)).slice(0, 8);
-    } catch {
-      nearby = [];
-    }
-  }
+  // Live suggestions first; the design-review demo cards keep the section
+  // useful while the community is still growing.
+  const usingDemo = liveSuggestions.length === 0;
+  const suggestions: ProfileCardView[] = usingDemo ? demoProfileViews : liveSuggestions;
+  const nearby = liveNearby.slice(0, 8);
 
   return (
-    <div className="flex flex-col gap-10">
-      <PageHeader
-        eyebrow="Welcome back"
-        title="Your corner"
-        subtitle="A quiet home base for your relationship life — connections, chats, and moments in one place."
-        actions={<Button href="/discover">Discover</Button>}
-      />
-
-      {/* Suggested members */}
-      <section aria-labelledby="suggested-heading" className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 id="suggested-heading" className="font-semibold text-ink-100">Suggested for you</h2>
-          <Button href="/discover" size="sm" variant="ghost">See all</Button>
+    <div className="flex flex-col gap-8 pb-10">
+      {/* ------------------------------------------------ 1. Hero: Your corner */}
+      <section
+        aria-labelledby="corner-heading"
+        className="glass-panel glass-panel--glow relative overflow-hidden p-6 sm:p-8"
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-20 -top-24 h-60 w-60 rounded-full bg-orange-500/20 blur-3xl"
+        />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -bottom-24 -left-16 h-52 w-52 rounded-full bg-sky-500/10 blur-3xl"
+        />
+        <div className="relative flex flex-col gap-4">
+          <div>
+            <Chip tone="brand">Welcome back</Chip>
+          </div>
+          <h1
+            id="corner-heading"
+            className="cc-fluid-title text-3xl font-bold tracking-display text-white sm:text-4xl"
+          >
+            Your corner
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-ink-300 sm:text-base">
+            A quiet home base for your relationship life — connections, chats, and moments in
+            one place.
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <Button href="/discover" size="lg" className="shadow-lg shadow-orange-900/30">
+              <Icon name="compass" className="h-5 w-5" />
+              Discover
+            </Button>
+            <Button href="/likes" size="lg" variant="secondary">
+              See who liked you
+            </Button>
+          </div>
         </div>
+      </section>
+
+      {/* -------------------------------------------- 2. Quick glass actions */}
+      <section aria-label="Quick actions" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {quickActions.map((action) => (
+          <Link
+            key={action.href}
+            href={action.href}
+            className="glass-panel group flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5 hover:border-white/25"
+          >
+            <span
+              aria-hidden
+              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${action.tone}`}
+            >
+              <Icon name={action.icon} className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-semibold text-white">{action.label}</span>
+              <span className="block truncate text-xs text-ink-400">{action.hint}</span>
+            </span>
+          </Link>
+        ))}
+      </section>
+
+      {/* ------------------------------------------- 3. Suggested for you */}
+      <section aria-labelledby="suggested-heading" className="flex flex-col gap-4">
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 id="suggested-heading" className="text-lg font-semibold text-white">
+              Suggested for you
+            </h2>
+            <span className="glass-badge px-2 py-0.5 text-[11px] font-semibold text-brand-200">
+              {suggestions.length}
+            </span>
+          </div>
+          <Button href="/discover" size="sm" variant="ghost">
+            See all
+          </Button>
+        </header>
+
         <ul className="flex flex-col gap-2">
           {suggestions.slice(0, 4).map((suggestion) => (
             <li key={suggestion.id}>
-              <a
+              <HomeMemberRow
+                id={suggestion.id}
+                name={suggestion.name}
+                kind={suggestion.kind}
+                location={suggestion.location}
+                avatarUrl={suggestion.avatarUrl}
                 href={`/profile/${encodeURIComponent(suggestion.id)}`}
-                className="flex items-center gap-4 rounded-2xl px-3 py-3 transition-colors hover:bg-white/5"
-              >
-                <span className="shrink-0">
-                  {suggestion.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={suggestion.avatarUrl}
-                      alt={suggestion.name}
-                      className="h-11 w-11 rounded-full object-cover"
-                    />
-                  ) : (
-                    <Avatar name={suggestion.name} kind={suggestion.kind} size="md" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-white">
-                    {suggestion.name}
-                  </span>
-                  <span className="block truncate text-xs text-ink-400">
-                    {suggestion.location?.trim() || "Location not shared"}
-                  </span>
-                </span>
-              </a>
+                meta={
+                  typeof suggestion.sharedInterests === "number" && suggestion.sharedInterests > 0
+                    ? `${suggestion.sharedInterests} shared interest${suggestion.sharedInterests === 1 ? "" : "s"}`
+                    : null
+                }
+              />
             </li>
           ))}
         </ul>
+
         {usingDemo ? (
           <p className="text-xs text-ink-400">
             Suggestions use sample profiles for design review — real suggestions appear once the
@@ -92,46 +189,35 @@ export default async function DashboardPage() {
         ) : null}
       </section>
 
-      {/* Near You members */}
+      {/* ------------------------------------------------- 4. Near you */}
       <section aria-labelledby="nearby-heading" className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 id="nearby-heading" className="font-semibold text-ink-100">Near you</h2>
-          <Button href="/discover" size="sm" variant="ghost">See all</Button>
-        </div>
+        <header className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 id="nearby-heading" className="text-lg font-semibold text-white">
+              Near you
+            </h2>
+            <span className="glass-badge px-2 py-0.5 text-[11px] font-semibold text-brand-200">
+              {nearby.length}
+            </span>
+          </div>
+          <Button href="/discover" size="sm" variant="ghost">
+            See all
+          </Button>
+        </header>
+
         {nearby.length > 0 ? (
           <ul className="flex flex-col gap-2">
             {nearby.map((member) => (
               <li key={member.id}>
-                <a
+                <HomeMemberRow
+                  id={member.id}
+                  name={member.name}
+                  kind={member.kind}
+                  location={member.location}
+                  avatarUrl={member.avatarUrl}
                   href={`/profile/${encodeURIComponent(member.id)}`}
-                  className="flex items-center gap-4 rounded-2xl px-3 py-3 transition-colors hover:bg-white/5"
-                >
-                  <span className="shrink-0">
-                    {member.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={member.avatarUrl}
-                        alt={member.name}
-                        className="h-11 w-11 rounded-full object-cover"
-                      />
-                    ) : (
-                      <Avatar name={member.name} kind={member.kind} size="md" />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-white">{member.name}</span>
-                    <span className="block truncate text-xs text-ink-400">
-                      {member.location?.trim() || "Location not shared"}
-                    </span>
-                  </span>
-                  {member.distanceKm != null ? (
-                    <span className="shrink-0 text-xs text-brand-300">
-                      {member.distanceKm < 1
-                        ? "<1 km away"
-                        : `${Math.round(member.distanceKm)} km away`}
-                    </span>
-                  ) : null}
-                </a>
+                  distanceKm={member.distanceKm}
+                />
               </li>
             ))}
           </ul>
@@ -140,45 +226,6 @@ export default async function DashboardPage() {
             No members found nearby yet — share your location on your profile to appear here.
           </p>
         )}
-      </section>
-
-      {/* Recommended members */}
-      <section aria-labelledby="recommended-heading" className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 id="recommended-heading" className="font-semibold text-ink-100">Recommended</h2>
-          <Button href="/discover" size="sm" variant="ghost">See all</Button>
-        </div>
-        <ul className="flex flex-col gap-2">
-          {(suggestions.length > 4 ? suggestions.slice(4, 8) : demoProfileViews).map((pick) => (
-            <li key={`rec-${pick.id}`}>
-              <a
-                href={`/profile/${encodeURIComponent(pick.id)}`}
-                className="flex items-center gap-4 rounded-2xl px-3 py-3 transition-colors hover:bg-white/5"
-              >
-                <span className="shrink-0">
-                  {pick.avatarUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={pick.avatarUrl}
-                      alt={pick.name}
-                      className="h-11 w-11 rounded-full object-cover"
-                    />
-                  ) : (
-                    <Avatar name={pick.name} kind={pick.kind} size="md" />
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium text-white">
-                    {pick.name}
-                  </span>
-                  <span className="block truncate text-xs text-ink-400">
-                    {pick.location?.trim() || "Location not shared"}
-                  </span>
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
       </section>
     </div>
   );

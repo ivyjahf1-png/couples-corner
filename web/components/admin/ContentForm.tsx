@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import {
   CONTENT_PLACEMENTS,
   CONTENT_STATUSES,
+  CONTENT_UPLOAD,
   MEDIA_TYPES,
   type ContentCategory,
   type ContentItem,
@@ -16,6 +17,7 @@ import {
 import {
   createContentAction,
   updateContentAction,
+  uploadContentMedia,
 } from "@/lib/actions/content";
 
 interface ContentFormProps {
@@ -40,6 +42,9 @@ function defaultEnd(): string {
 const inputClass =
   "mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
 
+/** File types accepted by the media picker (mirrors server-side validation). */
+const ACCEPT_TYPES = [...CONTENT_UPLOAD.imageTypes, ...CONTENT_UPLOAD.videoTypes].join(",");
+
 export function ContentForm({ category, editingItem, adminUid, onClose }: ContentFormProps) {
   const [title, setTitle] = useState(editingItem?.title ?? "");
   const [description, setDescription] = useState(editingItem?.description ?? "");
@@ -60,10 +65,45 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   const [targetAudience, setTargetAudience] = useState(editingItem?.targetAudience ?? "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // File chosen in the picker — uploaded on submit (overrides pasted media URL).
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  // Captured after the first successful create so a retry following an upload
+  // failure updates the same row instead of creating a duplicate.
+  const [savedId, setSavedId] = useState<string | null>(editingItem?.id ?? null);
 
   function fail(msg: string) {
     setError(msg);
     setBusy(false);
+  }
+
+  /** Client-side gate before submit: type/size mirror the server checks. */
+  function handleFileChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setError(null);
+    if (!file) {
+      setMediaFile(null);
+      return;
+    }
+    const isImage = CONTENT_UPLOAD.imageTypes.some((t) => t === file.type);
+    const isVideo = CONTENT_UPLOAD.videoTypes.some((t) => t === file.type);
+    if (!isImage && !isVideo) {
+      e.target.value = "";
+      fail(
+        `Unsupported file type: ${file.type || "unknown"}. Allowed: JPEG, PNG, WebP, MP4, WebM.`
+      );
+      return;
+    }
+    const maxSize = isImage ? CONTENT_UPLOAD.maxImageBytes : CONTENT_UPLOAD.maxVideoBytes;
+    if (file.size > maxSize) {
+      e.target.value = "";
+      fail(
+        `File too large: ${(file.size / 1024 / 1024).toFixed(1)}MB. Max: ${(maxSize / 1024 / 1024).toFixed(1)}MB.`
+      );
+      return;
+    }
+    setMediaFile(file);
+    setMediaType(isVideo ? "video" : "image");
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -94,10 +134,47 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
     };
 
     try {
-      if (editingItem) {
-        await updateContentAction(editingItem.id, payload, adminUid);
+      // Persist the row first — the storage path needs the content id.
+      let contentId = savedId;
+      if (contentId) {
+        await updateContentAction(contentId, payload, adminUid);
       } else {
-        await createContentAction(payload, adminUid);
+        contentId = await createContentAction(payload, adminUid);
+        setSavedId(contentId);
+      }
+
+      // A selected file overrides the pasted media URL after upload.
+      if (mediaFile) {
+        setUploading(true);
+        try {
+          const { mediaUrl: uploadedUrl } = await uploadContentMedia(contentId, mediaFile);
+          const uploadedType: MediaType = mediaFile.type.startsWith("video/")
+            ? "video"
+            : "image";
+          await updateContentAction(
+            contentId,
+            {
+              mediaUrl: uploadedUrl,
+              mediaType: uploadedType,
+              // Default the poster to the uploaded image unless one was pasted.
+              thumbnailUrl:
+                uploadedType === "image"
+                  ? thumbnailUrl.trim() || uploadedUrl
+                  : thumbnailUrl.trim() || undefined,
+            },
+            adminUid
+          );
+          setMediaUrl(uploadedUrl);
+        } catch (uploadErr) {
+          setUploading(false);
+          fail(
+            `Content saved, but the file upload failed: ${
+              uploadErr instanceof Error ? uploadErr.message : "unknown error"
+            } — submit again to retry the upload.`
+          );
+          return;
+        }
+        setUploading(false);
       }
       onClose();
     } catch (err) {
@@ -134,10 +211,40 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
               </select>
             </label>
           </div>
-          <p className="text-xs text-ink-400">Provide a media URL below. Direct file uploads will be available in a future update.</p>
+          <p className="text-xs text-ink-400">
+            Upload a file (stored in Supabase Storage) or paste direct URLs below. A selected
+            file replaces the media URL on save.
+          </p>
+          <label className="text-sm font-medium text-ink-100">
+            Upload file{" "}
+            <span className="font-normal text-ink-400">(JPEG, PNG, WebP · MP4, WebM)</span>
+            <input
+              type="file"
+              accept={ACCEPT_TYPES}
+              onChange={handleFileChange}
+              className={`${inputClass} file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-white hover:file:bg-white/20`}
+            />
+          </label>
+          {mediaFile ? (
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-brand-500/30 bg-brand-500/10 px-3 py-2 text-sm text-white">
+              <span className="truncate">
+                {mediaFile.name}{" "}
+                <span className="text-ink-400">
+                  ({(mediaFile.size / 1024 / 1024).toFixed(1)}MB)
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setMediaFile(null)}
+                className="shrink-0 text-xs text-ink-400 transition hover:text-white"
+              >
+                Remove
+              </button>
+            </div>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium text-ink-100">
-              Media URL (blank to upload)
+              Media URL {mediaFile ? "(file overrides)" : "(blank to upload)"}
               <input value={mediaUrl} onChange={(e) => setMediaUrl(e.target.value)} className={inputClass} placeholder="https://…" />
             </label>
             <label className="text-sm font-medium text-ink-100">
@@ -186,7 +293,13 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
             <Button size="sm" variant="secondary" type="button" onClick={onClose} disabled={busy}>Cancel</Button>
             <Button size="sm" type="submit" disabled={busy}>
               {busy ? <Icon name="sparkle" className="h-4 w-4 animate-pulse" /> : null}
-              {busy ? "Saving…" : editingItem ? "Save changes" : "Create content"}
+              {busy
+                ? uploading
+                  ? "Uploading…"
+                  : "Saving…"
+                : editingItem || savedId
+                  ? "Save changes"
+                  : "Create content"}
             </Button>
           </div>
         </form>

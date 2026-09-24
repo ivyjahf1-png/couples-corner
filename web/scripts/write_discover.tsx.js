@@ -1,5 +1,5 @@
 ﻿const fs = require('fs');
-const path = 'C:/Users/HomePC/Documents/couple''s conner/web/components/app/DiscoverFiltersSync.tsx';
+const path = require('path').join(__dirname, '..', 'components', 'app', 'DiscoverFiltersSync.tsx');
 const content = `"use client";
 
 import { defaultDiscoveryFilters, type DiscoveryFilters } from "@/lib/feature/types";
@@ -33,7 +33,7 @@ export function DiscoverFiltersSync({ filters, resultCount }: Props) {
       const params = new URLSearchParams();
       for (const [key, value] of entries) params.set(key, value);
 
-      router.push("/discover" + (params.toString() ? `?${params.toString()}` : ""), {
+      router.push("/discover" + (params.toString() ? \`?\${params.toString()}\` : ""), {
         scroll: false,
       });
     },

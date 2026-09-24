@@ -1,6 +1,7 @@
 ﻿import Link from "next/link";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Icon, type IconName } from "@/components/landing/Icon";
+import { SUPPORT_EMAIL, HAS_WHATSAPP_SUPPORT, SUPPORT_WHATSAPP_URL } from "@/lib/site/contact";
 
 /** How Couples Corner protects you. Honest, no absolute safety claims. */
 function Feature({ icon, title, children }: { icon: IconName; title: string; children: React.ReactNode }) {
@@ -104,20 +105,25 @@ export default function SafetyPage() {
         <p className="mt-1 text-sm text-ink-300">
           Have a specific safety concern? Email{" "}
           <a
-            href="mailto:iremidetimmy398@gmail.com"
+            href={`mailto:${SUPPORT_EMAIL}`}
             className="text-brand-300 underline decoration-brand-500/50 underline-offset-2"
           >
-            iremidetimmy398@gmail.com
+            {SUPPORT_EMAIL}
           </a>
-          {" "}or{" "}
-          <a
-            href="https://wa.me/2348075566434"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-brand-300 underline decoration-brand-500/50 underline-offset-2"
-          >
-            chat with us on WhatsApp
-          </a>
+          {HAS_WHATSAPP_SUPPORT ? (
+            <>
+              {" "}
+              or{" "}
+              <a
+                href={SUPPORT_WHATSAPP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand-300 underline decoration-brand-500/50 underline-offset-2"
+              >
+                chat with us on WhatsApp
+              </a>
+            </>
+          ) : null}
           . We read every message and respond promptly.
         </p>
         <p className="mt-3 text-sm text-ink-300">

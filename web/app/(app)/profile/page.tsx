@@ -10,6 +10,22 @@ import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+/**
+ * "Me" — the signed-in member's own profile.
+ *
+ * Visual contract: a glamorous, luxury dark-canvas interface. An aurora canvas
+ * (`.glam-shell`) drifts warm orange, rose, indigo and aqua light behind a
+ * metallic conic hairline frame (`.glam-frame`); stats, balances, quick actions
+ * and menu rows sit on frosted glass tiles (`.glam-tile`) so every number stays
+ * crisp and readable. All motion is decorative (see `prefers-reduced-motion`
+ * in app/globals.css).
+ *
+ * PRESERVATION CONSTRAINT: the data contract is untouched — session lookup,
+ * `getOwnProfile`, `getProfileStats`, `getGameWallet` and
+ * `computeProfileCompletion` are the same calls in the same order, and every
+ * href below is the exact route this page already linked to. Only layout,
+ * tokens and ornament changed.
+ */
 export default async function ProfilePage() {
   const session = await getSessionUser();
   if (!session) return null; // requireUser() at the layout level already redirects.
@@ -24,6 +40,7 @@ export default async function ProfilePage() {
   const name = profile?.displayName || user?.displayName || "Your name";
   const photo = profile?.photos?.[0];
   const shortId = session.uid.slice(0, 8).toUpperCase();
+  const level = Math.max(1, Math.floor((completion?.percentage ?? 0) / 10));
 
   const statCells = [
     { label: "Friends", value: stats.friends },
@@ -56,28 +73,52 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-5 pb-10">
-      {/* ------------------------------------------------ 1. Header & stats */}
-      <section aria-label="Profile header" className="rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-5 shadow-card">
-        <div className="flex items-start gap-3">
-          {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`/api/photos/${session.uid}/${photo?.storagePath?.split("/")?.pop() ?? ""}`}
-              alt={name}
-              className="h-16 w-16 shrink-0 rounded-full object-cover ring-2 ring-brand-500/40"
-            />
-          ) : (
-            <Avatar name={name} size="lg" className="shrink-0" />
-          )}
+      {/* ------------------------------------------------ 1. Glamour header */}
+      <section aria-label="Profile header" className="glam-shell p-5 sm:p-6">
+        <div className="relative flex items-start gap-3">
+          <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-rose-400 to-indigo-400 p-[2px] shadow-lg shadow-rose-500/20">
+            <span className="block rounded-full bg-[#0B1120] p-[2px]">
+              {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`/api/photos/${session.uid}/${photo?.storagePath?.split("/")?.pop() ?? ""}`}
+                  alt={name}
+                  className="h-16 w-16 rounded-full object-cover"
+                />
+              ) : (
+                <Avatar name={name} size="lg" />
+              )}
+            </span>
+          </span>
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h1 className="truncate text-lg font-bold text-white">{name}</h1>
-              <span className="rounded-full bg-gradient-to-r from-amber-400 to-yellow-500 px-2 py-0.5 text-[10px] font-extrabold text-amber-950">VIP</span>
-              <span className="rounded-full border border-sky-400/40 bg-sky-500/15 px-2 py-0.5 text-[10px] font-bold text-sky-300">Lv.{Math.max(1, Math.floor((completion?.percentage ?? 0) / 10))}</span>
+              <h1 className="glam-text truncate text-xl font-extrabold tracking-display">{name}</h1>
+              <span className="glam-chip px-2 py-0.5 text-[10px] font-extrabold">VIP</span>
+              <span className="glass-badge px-2 py-0.5 text-[10px] font-bold text-sky-200">
+                Lv.{level}
+              </span>
             </div>
-            <div className="mt-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-2">
               <CopyIdButton value={session.uid} label={`ID: ${shortId}`} />
+              <span className="text-[11px] font-medium text-ink-300">
+                {completion.percentage}% profile complete
+              </span>
+            </div>
+
+            {/* Completion meter — a multi-hue sheen instead of a flat bar. */}
+            <div
+              role="progressbar"
+              aria-label="Profile completion"
+              aria-valuenow={completion.percentage}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
+            >
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400"
+                style={{ width: `${Math.max(4, Math.min(100, completion.percentage))}%` }}
+              />
             </div>
           </div>
 
@@ -85,69 +126,113 @@ export default async function ProfilePage() {
           <Link
             href="/likes"
             aria-label={`${stats.visitors} visitors — view visitors`}
-            className="relative flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white transition hover:bg-white/10"
+            className="glam-tile relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl text-white"
           >
             <span aria-hidden className="text-base">👣</span>
-            <span className="text-[10px] font-bold text-ink-300">{stats.visitors}</span>
+            <span className="text-[10px] font-bold text-ink-200">{stats.visitors}</span>
             {stats.visitors > 0 ? (
-              <span aria-hidden className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-[#0F172A]" />
+              <span
+                aria-hidden
+                className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-[#0B1120]"
+              />
             ) : null}
           </Link>
         </div>
 
-        {/* 4-column statistics bar */}
-        <dl className="mt-4 grid grid-cols-4 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-          {statCells.map((cell, i) => (
-            <div key={cell.label} className={`flex flex-col items-center gap-0.5 py-3 ${i > 0 ? "border-l border-white/10" : ""}`}>
-              <dd className="text-base font-bold text-white">{cell.value}</dd>
-              <dt className="text-[11px] text-ink-400">{cell.label}</dt>
+        {/* 4-column statistics bar — frosted tiles with a coloured aura each. */}
+        <dl className="relative mt-4 grid grid-cols-4 gap-2">
+          {statCells.map((cell) => (
+            <div
+              key={cell.label}
+              className="glam-tile flex flex-col items-center gap-0.5 rounded-2xl py-3"
+            >
+              <dd className="text-base font-extrabold tabular-nums text-white">{cell.value}</dd>
+              <dt className="text-[11px] text-ink-300">{cell.label}</dt>
             </div>
           ))}
         </dl>
       </section>
-      {/* --------------------------------- 2. Action cards + relationship */}
+
+      {/* --------------------------- 2. Balance + membership (glass tiles) */}
       <section aria-label="Wallet and membership" className="grid grid-cols-2 gap-3">
         <Link
           href="/subscription"
-          className="flex items-center gap-3 rounded-2xl border border-amber-300/30 bg-gradient-to-br from-amber-300 to-yellow-500 p-4 shadow-lg shadow-amber-500/20 transition hover:brightness-105"
+          className="glam-tile glam-tile--warm flex items-center gap-3 rounded-2xl p-4"
         >
-          <span aria-hidden className="text-2xl">🪙</span>
+          <span
+            aria-hidden
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-yellow-500 text-xl shadow-md shadow-amber-500/25"
+          >
+            🪙
+          </span>
           <span className="min-w-0">
-            <span className="block text-lg font-extrabold text-amber-950">{wallet.coinBalance}</span>
-            <span className="block text-[11px] font-semibold text-amber-900/80">Coins / Balance</span>
+            <span className="block text-lg font-extrabold tabular-nums text-amber-100">
+              {wallet.coinBalance}
+            </span>
+            <span className="block text-[11px] font-semibold text-amber-200/80">
+              Coins / Balance
+            </span>
           </span>
         </Link>
         <Link
           href="/subscription"
-          className="flex items-center gap-3 rounded-2xl border border-white/10 bg-gradient-to-br from-[#1E293B] to-[#0F172A] p-4 shadow-card transition hover:border-amber-300/40"
+          className="glam-tile glam-tile--violet flex items-center gap-3 rounded-2xl p-4"
         >
-          <span aria-hidden className="text-2xl">👑</span>
+          <span
+            aria-hidden
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-fuchsia-500 text-xl shadow-md shadow-indigo-500/25"
+          >
+            👑
+          </span>
           <span className="min-w-0">
-            <span className="block text-lg font-extrabold tracking-wide text-amber-300">SVIP</span>
-            <span className="block text-[11px] text-ink-400">Membership</span>
+            <span className="block text-lg font-extrabold tracking-wide text-violet-100">SVIP</span>
+            <span className="block text-[11px] font-semibold text-violet-200/80">Membership</span>
           </span>
         </Link>
       </section>
 
-      <section aria-label="Relationship" className="relative overflow-hidden rounded-2xl border border-sky-300/30 bg-gradient-to-br from-sky-200 to-sky-300 p-4 text-sky-950">
-        <span aria-hidden className="absolute -right-2 -top-2 text-5xl opacity-30">💖</span>
-        <span aria-hidden className="absolute bottom-1 right-10 text-3xl opacity-25">💕</span>
-        <p className="text-sm font-bold">Friend No Relation</p>
-        <p className="mt-0.5 text-xs text-sky-900/80">Connect to unlock couples features together.</p>
+      {/* --------------------------------------------- 3. Relationship card */}
+      <section
+        aria-label="Relationship"
+        className="glam-tile glam-tile--aqua relative overflow-hidden rounded-2xl p-4"
+      >
+        <span aria-hidden className="absolute -right-2 -top-3 text-5xl opacity-25">
+          💖
+        </span>
+        <span aria-hidden className="absolute bottom-1 right-12 text-3xl opacity-20">
+          💕
+        </span>
+        <p className="text-sm font-bold text-white">Friend No Relation</p>
+        <p className="mt-0.5 text-xs text-ink-200">
+          Connect to unlock couples features together.
+        </p>
         <Link
           href="/discover"
-          className="mt-3 inline-flex items-center rounded-full bg-slate-950 px-5 py-2 text-xs font-bold text-white shadow-md transition hover:bg-slate-900"
+          className="mt-3 inline-flex items-center rounded-full border border-white/15 bg-gradient-to-r from-orange-500 to-rose-500 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-orange-900/30 transition hover:brightness-110"
         >
           Invite
         </Link>
       </section>
 
-      {/* --------------------------------------- 3. Recommended games row */}
+      {/* --------------------------------------- 4. Recommended games row */}
       <section aria-labelledby="recommended-games-heading" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <h2 id="recommended-games-heading" className="font-semibold text-white">Recommended Games</h2>
-          <Link href="/games" aria-label="See all games" className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-ink-300 transition hover:bg-white/10 hover:text-white">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+          <h2 id="recommended-games-heading" className="font-semibold text-white">
+            Recommended Games
+          </h2>
+          <Link
+            href="/games"
+            aria-label="See all games"
+            className="glass-action glass-action--quiet h-8 w-8 justify-center p-0"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2.5}
+              aria-hidden="true"
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </Link>
@@ -158,44 +243,69 @@ export default async function ProfilePage() {
               <Link
                 href={`/games/${game.id}`}
                 aria-label={`Play ${game.title}`}
-                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br ${game.gradient} shadow-lg transition hover:-translate-y-0.5 hover:brightness-110`}
+                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br ${game.gradient} shadow-lg ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:brightness-110`}
               >
-                <span aria-hidden className="text-2xl">{game.emoji}</span>
-                <span className="px-1 text-center text-[10px] font-bold leading-tight text-white">{game.title}</span>
+                <span aria-hidden className="text-2xl">
+                  {game.emoji}
+                </span>
+                <span className="px-1 text-center text-[10px] font-bold leading-tight text-white">
+                  {game.title}
+                </span>
               </Link>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ------------------------------------ 4. Quick actions + list menu */}
+      {/* ---------------------------- 5. Quick actions (coloured glass tiles) */}
       <section aria-label="Quick actions" className="grid grid-cols-4 gap-3">
         {[
-          { label: "Tasks", emoji: "📋", href: "/moments" },
-          { label: "Income", emoji: "💰", href: "/subscription" },
-          { label: "Store", emoji: "🛍️", href: "/subscription" },
-          { label: "Aristocracy", emoji: "🏰", href: "/subscription" },
+          { label: "Tasks", emoji: "📋", href: "/moments", tone: "glam-tile--warm" },
+          { label: "Income", emoji: "💰", href: "/subscription", tone: "glam-tile--aqua" },
+          { label: "Store", emoji: "🛍️", href: "/subscription", tone: "glam-tile--rose" },
+          { label: "Aristocracy", emoji: "🏰", href: "/subscription", tone: "glam-tile--violet" },
         ].map((action) => (
           <Link
             key={action.label}
             href={action.href}
-            className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-300/25 bg-gradient-to-b from-amber-400/15 to-transparent p-3 transition hover:border-amber-300/50 hover:bg-amber-400/10"
+            className={`glam-tile ${action.tone} flex flex-col items-center gap-1.5 rounded-2xl p-3`}
           >
-            <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 to-yellow-500 text-lg shadow-md shadow-amber-500/25">{action.emoji}</span>
-            <span className="text-[11px] font-semibold text-amber-200">{action.label}</span>
+            <span
+              aria-hidden
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-lg shadow-md"
+            >
+              {action.emoji}
+            </span>
+            <span className="text-[11px] font-semibold text-white/90">{action.label}</span>
           </Link>
         ))}
       </section>
 
-      <nav aria-label="Profile menu" className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card">
-        <ul className="divide-y divide-white/5">
+      {/* --------------------------- 6. Menu rows (metallic hairline frame) */}
+      <nav aria-label="Profile menu" className="glam-frame">
+        <ul className="glam-frame__inner divide-y divide-white/5 overflow-hidden">
           {menuItems.map((item) => (
             <li key={item.label}>
-              <Link href={item.href} className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.04]">
-                <span aria-hidden className="flex h-9 w-9 items-center justify-center rounded-xl border border-amber-300/20 bg-amber-400/10 text-base">{item.emoji}</span>
+              <Link
+                href={item.href}
+                className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.05]"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-gradient-to-br from-white/12 to-white/[0.02] text-base shadow-sm"
+                >
+                  {item.emoji}
+                </span>
                 <span className="flex-1 text-sm font-medium text-white">{item.label}</span>
                 {item.trailing ?? null}
-                <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-ink-500" fill="none" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0 text-ink-400"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </Link>
@@ -204,24 +314,25 @@ export default async function ProfilePage() {
         </ul>
       </nav>
 
-      {/* Media gallery + about summary (kept from previous layout) */}
-      <div id="media">
+      {/* ------------------- 7. Media gallery + about (kept from previous layout) */}
+      <div id="media" className="glam-tile rounded-2xl p-3">
         <UserMediaGallery uid={session.uid} />
       </div>
 
       {profile?.bio?.trim() ? (
-        <section aria-label="About" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <h2 className="mb-1 font-semibold text-white">About me</h2>
-          <p className="text-sm leading-6 text-ink-300">{profile.bio}</p>
+        <section aria-label="About" className="glam-tile rounded-2xl p-4">
+          <h2 className="glam-text mb-1 text-sm font-bold uppercase tracking-wide">About me</h2>
+          <p className="text-sm leading-6 text-ink-200">{profile.bio}</p>
         </section>
       ) : null}
 
       <Link
         href="/profile/edit"
-        className="mx-auto inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-6 py-2.5 text-sm font-semibold text-orange-300 transition hover:border-orange-400 hover:bg-orange-500/20"
+        className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-amber-400/20 via-rose-400/20 to-indigo-400/20 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-md transition hover:from-amber-400/30 hover:via-rose-400/30 hover:to-indigo-400/30"
       >
         ✏️ Edit personal information
       </Link>
     </div>
   );
 }
+

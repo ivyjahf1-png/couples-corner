@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_DISPLAY } from "@/lib/site/contact";
 
 const inputClass = "mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm font-medium text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
 const labelClass = "text-sm font-semibold text-white";
@@ -13,8 +14,8 @@ export default function AdminSettingsPage() {
   const [payPublic, setPayPublic] = useState("");
   const [paySecret, setPaySecret] = useState("");
   const [payMsg, setPayMsg] = useState<string | null>(null);
-  const [contactEmail, setContactEmail] = useState("iremidetimmy398@gmail.com");
-  const [contactPhone, setContactPhone] = useState("0807 556 6434");
+  const [contactEmail, setContactEmail] = useState(SUPPORT_EMAIL);
+  const [contactPhone, setContactPhone] = useState(SUPPORT_WHATSAPP_DISPLAY);
   const [contactMsg, setContactMsg] = useState<string | null>(null);
   const [flags, setFlags] = useState<Record<string, boolean>>({
     "New user registrations": true,

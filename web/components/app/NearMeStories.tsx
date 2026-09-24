@@ -74,8 +74,8 @@ export function NearMeStories() {
         {state === "loading" ? (
           [0, 1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="flex shrink-0 flex-col items-center gap-1.5" aria-hidden>
-              <span className="h-16 w-16 animate-pulse rounded-full bg-white/[0.06] ring-1 ring-white/10" />
-              <span className="h-3 w-12 animate-pulse rounded-full bg-white/[0.06]" />
+              <span className="sk sk--avatar block h-16 w-16" />
+              <span className="sk sk--line block h-3 w-12" />
             </div>
           ))
         ) : people.length === 0 ? (

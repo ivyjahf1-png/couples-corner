@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/app/Avatar";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
+import { GlassActionButton } from "@/components/app/GlassActions";
 import { Icon } from "@/components/landing/Icon";
 import type { FeedPostView } from "@/lib/feature/types";
 
@@ -101,29 +102,28 @@ export function PostCard({ post }: { post: FeedPostView }) {
         ) : null}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1 border-t border-ink-700 px-3 py-2">
-        <button
-          type="button"
+      {/* Actions — professional glass controls with clear active states. */}
+      <div className="flex items-center gap-2 border-t border-ink-700 px-3 py-2.5">
+        <GlassActionButton
+          icon="heart"
+          label={likeCount === 1 ? "like" : "likes"}
+          count={likeCount}
+          variant="like"
+          size="sm"
+          active={liked}
           onClick={toggleLike}
-          aria-pressed={liked}
-          className={[
-            "flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition",
-            liked ? "text-brand-300" : "text-ink-300 hover:bg-white/10 hover:text-white",
-          ].join(" ").trim()}
-        >
-          <Icon name="sparkle" className="h-4 w-4" />
-          {likeCount} {likeCount === 1 ? "like" : "likes"}
-        </button>
-        <button
-          type="button"
+          ariaLabel={liked ? "Remove your like" : "Like this post"}
+        />
+        <GlassActionButton
+          icon="chat"
+          label={post.commentCount === 1 ? "comment" : "comments"}
+          count={post.commentCount}
+          variant="comment"
+          size="sm"
+          active={commentsOpen}
           onClick={() => setCommentsOpen((v) => !v)}
-          aria-expanded={commentsOpen}
-          className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-ink-300 transition hover:bg-white/10 hover:text-white"
-        >
-          <Icon name="chat" className="h-4 w-4" />
-          {post.commentCount} {post.commentCount === 1 ? "comment" : "comments"}
-        </button>
+          ariaLabel={commentsOpen ? "Hide comments" : "Show comments"}
+        />
       </div>
 
       {/* Comments */}
@@ -189,7 +189,7 @@ export function CommentSection({ comments }: { comments: FeedPostView["comments"
         <button
           type="submit"
           disabled={draft.trim().length === 0}
-          className="h-8 rounded-xl bg-brand-700 px-3 text-sm font-medium text-white transition hover:bg-brand-800 disabled:pointer-events-none disabled:opacity-60"
+          className="glass-action glass-action--quiet h-9 px-4 text-xs disabled:pointer-events-none disabled:opacity-60"
         >
           Comment
         </button>

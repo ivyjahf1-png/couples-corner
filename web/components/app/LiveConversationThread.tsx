@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRealtimeMessages, type RealtimeMessage } from "@/lib/hooks/useRealtimeMessages";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
 
 interface Message {
   id: string;
@@ -19,11 +18,39 @@ interface LiveConversationThreadProps {
   initialMessages?: Message[];
 }
 
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function dayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+  if (sameDay(d, today)) return "Today";
+  if (sameDay(d, yesterday)) return "Yesterday";
+  return d.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+    year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  });
+}
+
 /**
  * Live chat thread with Supabase Realtime subscription.
  *
  * Merges initial (server-fetched) messages with realtime INSERT/UPDATE
  * events so new messages appear instantly without a page refresh.
+ *
+ * UI: centered date-separator pills, dark incoming cards on the left,
+ * vibrant purple outgoing bubbles on the right with timestamps.
  */
 export function LiveConversationThread({
   conversationId,
@@ -35,6 +62,8 @@ export function LiveConversationThread({
     enabled: true,
   });
 
+  const [renderTick, setRenderTick] = useState(0);
+
   // Merge initial messages with realtime ones, deduplicating by id
   const merged = useRef<Map<string, Message>>(new Map());
 
@@ -44,14 +73,22 @@ export function LiveConversationThread({
     for (const m of initialMessages) {
       merged.current.set(m.id, m);
     }
+    setRenderTick((t) => t + 1);
   }, [initialMessages]);
 
   // Merge realtime inserts
   useEffect(() => {
+    let changed = false;
     for (const m of realtimeMessages) {
-      merged.current.set(m.id, m);
+      if (!merged.current.has(m.id)) {
+        merged.current.set(m.id, m);
+        changed = true;
+      }
     }
+    if (changed) setRenderTick((t) => t + 1);
   }, [realtimeMessages]);
+
+  void renderTick;
 
   const messages = Array.from(merged.current.values()).sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -79,60 +116,51 @@ export function LiveConversationThread({
     );
   }
 
-  return (
-    <div className="flex flex-1 flex-col">
-      {/* Connection indicator */}
-      <div className="flex items-center justify-between border-b border-ink-700 px-1 pb-2">
-        <span className="text-xs text-ink-400">
-          {messages.length} message{messages.length === 1 ? "" : "s"}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs">
-          <span
-            className={`h-2 w-2 rounded-full ${
-              isConnected ? "bg-success-500" : "bg-white/20"
-            }`}
-          />
-          <span className={isConnected ? "text-success-300" : "text-ink-400"}>
-            {isConnected ? "Live" : "Connecting…"}
-          </span>
-        </span>
-      </div>
+  let lastDay = "";
 
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Message list */}
       <ul
         ref={listRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto py-3"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
         aria-label="Messages"
         role="log"
       >
         {messages.map((message) => {
           const isMine = message.sender_id === currentUserId;
+          const day = dayLabel(message.created_at);
+          const showDayPill = day !== lastDay;
+          lastDay = day;
           return (
-            <li
-              key={message.id}
-              className={isMine ? "flex justify-end" : "flex justify-start"}
-            >
-              <div
-                className={[
-                  "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
-                  isMine
-                    ? "rounded-br-md bg-brand-700 text-white"
-                    : "rounded-bl-md border border-ink-700 bg-surface text-white",
-                ].join(" ")}
-              >
-                {message.body}
-                <span
-                  aria-hidden
+            <li key={message.id} className="flex flex-col">
+              {showDayPill ? (
+                <div className="mb-2 mt-1 flex justify-center">
+                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-ink-300">
+                    {day}
+                  </span>
+                </div>
+              ) : null}
+              <div className={isMine ? "flex justify-end" : "flex justify-start"}>
+                <div
                   className={[
-                    "mt-1 block text-[11px]",
-                    isMine ? "text-white/70" : "text-ink-400",
+                    "max-w-[80%] px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
+                    isMine
+                      ? "rounded-2xl rounded-br-md bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-950/40"
+                      : "rounded-2xl rounded-bl-md border border-white/10 bg-[#1E293B] text-white shadow-md shadow-black/30",
                   ].join(" ")}
                 >
-                  {new Date(message.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+                  {message.body}
+                  <span
+                    aria-hidden
+                    className={[
+                      "mt-1 block text-right text-[11px]",
+                      isMine ? "text-white/70" : "text-ink-400",
+                    ].join(" ")}
+                  >
+                    {formatTime(message.created_at)}
+                  </span>
+                </div>
               </div>
             </li>
           );

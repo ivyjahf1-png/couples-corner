@@ -19,7 +19,7 @@ export default function LoginPage() {
         </div>
       </nav>
 
-      <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-8 sm:px-6 sm:py-16">
+      <section className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-6 sm:px-6 sm:py-12 lg:py-16">
         <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl shadow-black/40">
           {/* Dynamic illustration — loads from the admin panel's "auth" placement. */}
           <AuthIllustration />

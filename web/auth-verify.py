@@ -8,7 +8,7 @@ from __future__ import annotations
 import os, sys, subprocess, time, re, json
 from pathlib import Path
 
-WEB = Path(r"C:\Users\HomePC\Documents\couple's conner\web")
+WEB = Path(__file__).resolve().parent
 sys.path.insert(0, str(WEB))
 
 REPORT = []

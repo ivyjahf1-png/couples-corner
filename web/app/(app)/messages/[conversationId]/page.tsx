@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
+import { ChatHeader } from "@/components/app/ChatHeader";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MessageComposer } from "@/components/app/MessageComposer";
 import {
@@ -29,41 +28,31 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
     notFound();
   }
 
-  const { conversation, summary, initialMessages } = chatData;
+  const { summary, initialMessages } = chatData;
 
   // Mark messages read on first load so the Chat tab badge clears.
   void markConversationReadAction(conversationId);
 
   return (
-    <div className="flex h-[100dvh] max-h-[100dvh] flex-col gap-0">
-      {/* Fixed top: back + summary card */}
-      <div className="flex-shrink-0 border-b border-ink-700/70 bg-slate-950/80">
-        <div className="flex items-center gap-3 px-4 py-3">
-          <Link
-            href="/messages"
-            aria-label="Back to Messages"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-ink-700 bg-surface text-ink-200 hover:bg-white/10"
-          >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
-              <path d="M14 6 L8 12 L14 18" />
-            </svg>
-          </Link>
-          <span className="text-sm font-medium text-ink-300">
-            {conversation.type === "couple" ? "Couple chat" : "Private chat"}
-          </span>
-        </div>
-        <ConversationSummaryCard summary={summary} expanded />
+    <div className="flex h-[calc(100dvh-14rem)] min-h-[28rem] flex-col gap-0 overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl shadow-black/40 md:h-[calc(100dvh-7rem)]">
+      {/* Fixed top: slim messenger header (no Private-chat card, no badges) */}
+      <div className="flex-shrink-0">
+        <ChatHeader summary={summary} />
       </div>
 
-                   {/* Scrollable message thread */}
-      <LiveConversationThread
+      {/* Scrollable message thread */}
+      <div className="min-h-0 flex-1 overflow-hidden bg-slate-950">
+        <LiveConversationThread
         conversationId={conversationId}
         currentUserId={user.uid}
         initialMessages={initialMessages ?? []}
       />
+      </div>
 
-      {/* Sticky bottom: composer */}
-      <MessageComposer conversationId={conversationId} />
+      {/* Sticky bottom: composer (lifted above the mobile tab bar) */}
+      <div className="flex-shrink-0 pb-20 md:pb-0">
+        <MessageComposer conversationId={conversationId} />
+      </div>
     </div>
   );
 }

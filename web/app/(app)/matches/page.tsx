@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
-import { LoadingState } from "@/components/app/LoadingState";
+import { SkeletonList } from "@/components/app/Skeleton";
 import { ActiveChats } from "./ActiveChats";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -34,10 +34,10 @@ export default async function MatchesPage() {
         subtitle="Your connections, match requests, and active chats — all in one place."
         actions={<Button href="/messages" variant="secondary">View messages</Button>}
       />
-      <Suspense fallback={<LoadingState label="Loading active chats" rows={2} />}>
+      <Suspense fallback={<SkeletonList rows={2} />}>
         <ActiveChats uid={session.uid} />
       </Suspense>
-      <Suspense fallback={<LoadingState label="Loading connections and match requests" />}>
+      <Suspense fallback={<SkeletonList rows={3} />}>
         <MatchConnections uid={session.uid} />
       </Suspense>
       <Suspense fallback={null}>

@@ -10,7 +10,7 @@
 ## Required setup (not applied by the coding agent)
 1. Back up the database and review existing Storage and `user_media` policies. Policies are additive; unrelated permissive policies may need separate review.
 2. In Supabase SQL Editor, run:
-   `C:\Users\HomePC\Documents\couple's conner\web\supabase\migrations\014_user_media_endless_uploads.sql`
+   `web/supabase/migrations/014_user_media_endless_uploads.sql` (relative to the repository root)
    This creates the missing public bucket/table, grants API access, sets owner-write RLS, and removes the old quota trigger/policy.
 3. Set the Supabase project global upload limit to at least 250 MB if the plan supports it. Check storage/egress budgets. Buckets cannot override a lower global plan limit.
 4. Deploy the web changes. Gallery objects are PUBLIC, including on otherwise private profiles; the UI states this before upload. Do not use this gallery for private documents.
