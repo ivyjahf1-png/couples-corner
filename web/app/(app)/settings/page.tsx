@@ -256,15 +256,15 @@ export default async function SettingsPage() {
               <span className="text-sm font-medium text-white">Bind account</span>
               <span aria-hidden className="text-ink-400">›</span>
             </Link>
-            <Link href="/subscription" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+            <Link href="/aristocracy" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Charge settings</span>
               <span aria-hidden className="text-ink-400">›</span>
             </Link>
             <Row label="Rights Center" hint="Your VIP & SVIP benefits live here.">
-              <span aria-hidden className="text-ink-400">›</span>
+              <Link href="/aristocracy" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>
             </Row>
             <Row label="Chat settings" hint="Read receipts, who can message you.">
-              <span aria-hidden className="text-ink-400">›</span>
+              <Link href="/settings#chat" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>
             </Row>
             <Link href="/settings/blocked" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Blocked List</span>
@@ -276,9 +276,10 @@ export default async function SettingsPage() {
             <Row label="Clear cache" hint="Free up temporary files on this device.">
               <ClearCacheButton />
             </Row>
-            <Row label="About SOYO" hint="Version 1.0.0 — Couple's Corner">
+            <Link href="/contact" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+              <span className="text-sm font-medium text-white">About Couple's Corner</span>
               <span aria-hidden className="text-ink-400">›</span>
-            </Row>
+            </Link>
             <Row label="Sign out" hint="End your session on this device.">
               {user ? <LogoutButton /> : <span className="text-sm text-ink-300">Not signed in</span>}
             </Row>

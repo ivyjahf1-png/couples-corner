@@ -1,14 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Copy, Share2 } from "lucide-react";
+import { Check, Share2 } from "lucide-react";
 
-export function InviteLinkButton({ userId }: { userId: string }) {
+const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+function makeInviteCode(): string {
+  const digits = Array.from({ length: 2 }, () => Math.floor(Math.random() * 10)).join("");
+  const letters = Array.from({ length: 4 }, () => LETTERS[Math.floor(Math.random() * LETTERS.length)]).join("");
+  return `${digits}${letters}`;
+}
+
+export function InviteLinkButton({ userId: _userId }: { userId: string }) {
   const [copied, setCopied] = useState(false);
-  const link = typeof window === "undefined" ? `/invite/${encodeURIComponent(userId)}` : `${window.location.origin}/invite/${encodeURIComponent(userId)}`;
+  const [code] = useState(makeInviteCode);
+  const link = typeof window === "undefined" ? `/invite/${code}` : `${window.location.origin}/invite/${code}`;
   async function share() {
-    if (navigator.share) await navigator.share({ title: "Join me on Couple's Corner", url: link });
-    else { await navigator.clipboard.writeText(link); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+    const data = { title: "Join me on Couple's Corner", text: "Join our community on Couple's Corner", url: link };
+    try {
+      if (navigator.share) await navigator.share(data);
+      else { await navigator.clipboard.writeText(link); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+    } catch { /* share dismissed */ }
   }
-  return <button type="button" onClick={share} className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20">{copied ? <Check className="h-4 w-4" /> : navigator && <Share2 className="h-4 w-4" />} {copied ? "Link copied" : "Invite friends"}</button>;
+  return <button type="button" onClick={share} aria-label={`Share Couple's Corner invitation ${code}`} className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20">{copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}{copied ? "Link copied" : `Invite friends · ${code}`}</button>;
 }

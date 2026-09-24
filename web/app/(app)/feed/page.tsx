@@ -1,6 +1,6 @@
-import { FeedUploadModal } from "@/components/app/FeedUploadModal";
 import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
-import { getPublicFeed } from "@/lib/actions/profile";
+import { getCurrentSessionUser } from "@/lib/server/session";
+import { createFeedPostAction, getPublicFeed } from "@/lib/actions/profile";
 
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
@@ -40,6 +40,7 @@ function mapFeedPosts(
 }
 
 export default async function FeedPage() {
+  const session = await getCurrentSessionUser();
   let posts: FeedPostView[] = demoFeedPosts;
   try {
     const feed = await getPublicFeed();
@@ -52,7 +53,7 @@ export default async function FeedPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <FeedCreateLauncher />
+      <FeedCreateLauncher userId={session?.uid} />
 
       <PageHeader
         eyebrow="Community"
@@ -60,7 +61,7 @@ export default async function FeedPage() {
         subtitle="Share moments and see what your connections are up to. Posts are visible to your connections by default."
       />
 
-      {/* Create-post composer (visual until Firebase) */}
+      {/* Create-post launcher opens the authenticated photo/video composer. */}
       <Card className="flex flex-col gap-3">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500/15 text-brand-300">

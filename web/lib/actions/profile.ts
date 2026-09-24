@@ -223,7 +223,34 @@ export async function updateOwnProfileAction(uid: string, input: ProfileUpdateIn
   }
 }
 
-/** Complete onboarding: save basics + mark users.onboarding_completed. */
+export async function createFeedPostAction(
+  userId: string,
+  content: string,
+  mediaUrls: string[]
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireSessionUid(userId);
+    const body = content.trim();
+    if (!body && mediaUrls.length === 0) return { ok: false, error: "Add a caption or media before publishing." };
+    if (body.length > 2200) return { ok: false, error: "Captions must be 2,200 characters or fewer." };
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+    const { error } = await supabase.from("posts").insert({
+      author_id: userId,
+      content: body,
+      media_urls: mediaUrls.slice(0, 4),
+      visibility: "public",
+    });
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/feed");
+    return { ok: true };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unable to publish post" };
+  }
+}
+
+
 export async function completeOnboardingAction(
   uid: string,
   input: Pick<ProfileUpdateInput, "displayName" | "gender" | "dateOfBirth">

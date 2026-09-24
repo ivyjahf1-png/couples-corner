@@ -34,14 +34,14 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   void markConversationReadAction(conversationId);
 
   return (
-    <div className="flex h-[calc(100dvh-14rem)] min-h-[28rem] flex-col gap-0 overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl shadow-black/40 md:h-[calc(100dvh-7rem)]">
+    <div className="flex h-[100dvh] min-h-0 flex-col gap-0 overflow-hidden bg-slate-950 md:h-[calc(100dvh-7rem)]">
       {/* Fixed top: slim messenger header (no Private-chat card, no badges) */}
       <div className="flex-shrink-0">
         <ChatHeader summary={summary} />
       </div>
 
       {/* Scrollable message thread */}
-      <div className="min-h-0 flex-1 overflow-hidden bg-slate-950">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-950">
         <LiveConversationThread
         conversationId={conversationId}
         currentUserId={user.uid}
@@ -50,7 +50,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       </div>
 
       {/* Sticky bottom: composer (lifted above the mobile tab bar) */}
-      <div className="flex-shrink-0 pb-20 md:pb-0">
+      <div className="z-20 shrink-0 pb-[env(safe-area-inset-bottom)]">
         <MessageComposer conversationId={conversationId} />
       </div>
     </div>

@@ -41,7 +41,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   };
 
   return (
-    <div className="border-t border-white/10 bg-slate-950/90 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
+    <div className="relative border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
       <form
         onSubmit={handleSubmit}
         className="mx-auto flex w-full max-w-2xl items-center gap-2.5"
