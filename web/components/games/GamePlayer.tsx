@@ -210,6 +210,7 @@ export function GamePlayer({
             <LudoGame
               key={session}
               muted={muted}
+              coinBalance={balance}
               onGameOver={(won) => {
                 void settle(won);
               }}

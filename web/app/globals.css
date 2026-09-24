@@ -1594,3 +1594,25 @@ button,
   }
 }
 
+
+/* --- Ludo game view motion (decorative only) --------------------------- */
+@keyframes cc-glow {
+  0%, 100% { box-shadow: 0 0 10px 0 rgba(249, 115, 16, 0.35); }
+  50% { box-shadow: 0 0 26px 4px rgba(249, 115, 16, 0.6); }
+}
+@keyframes cc-float-up {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  15% { transform: translate(-50%, -10px) scale(1.15); opacity: 1; }
+  100% { transform: translate(-50%, -120px) scale(1); opacity: 0; }
+}
+@keyframes cc-sheet-up {
+  from { transform: translateY(12px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+/* Safety net: any cc-* decorative animation is dropped under reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[cc-"] {
+    animation: none;
+  }
+}
+
