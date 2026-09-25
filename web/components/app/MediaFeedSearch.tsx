@@ -46,6 +46,19 @@ export function MediaFeedSearch({ action = "/" }: { action?: string }) {
       </label>
       <div className="flex h-12 min-w-0 flex-1 items-center gap-2.5 rounded-full border border-white/20 bg-slate-950/70 px-4 shadow-lg shadow-black/30 backdrop-blur-md transition-colors focus-within:border-orange-400/70 focus-within:bg-slate-950/90">
         <Search className="h-4.5 w-4.5 shrink-0 text-white/60" aria-hidden />
+        {/* Focus styling: this bar opts OUT of the app-wide focus ring.
+
+            globals.css sets a global `:focus-visible { outline: 2px solid
+            var(--focus-ring) }` (an orange ring). `focus:outline-none` alone
+            does NOT cancel it: that utility only targets `:focus`, whereas a
+            text input also matches `:focus-visible` once the user types, so
+            the ring kept reappearing on top of the input.
+            `focus-visible:outline-none` is what actually suppresses it.
+
+            `ring-0` neutralises any box-shadow ring the preflight/global layer
+            could add, and `focus:border-transparent` stops the browser's own
+            border repaint. The remaining visual focus affordance is the
+            wrapper's `focus-within` treatment, which stays on. */}
         <input
           id="media-feed-search"
           name="q"
@@ -55,7 +68,7 @@ export function MediaFeedSearch({ action = "/" }: { action?: string }) {
           placeholder="Search by 6-letter ID or username..."
           aria-label="Search by 6-letter ID or username"
           autoComplete="off"
-          className="h-full min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/50 focus:outline-none sm:text-[15px]"
+          className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-white placeholder:text-white/50 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 sm:text-[15px]"
         />
         {/* Clear affordance, only once there is something to clear. */}
         {value ? (

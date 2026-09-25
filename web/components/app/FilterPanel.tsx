@@ -17,7 +17,11 @@ const interestOptions = [
 ];
 
 const fieldClasses =
-  "w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
+  // `focus-visible:outline-none` is required in addition to `focus:outline-none`:
+  // globals.css applies a global `:focus-visible { outline: 2px solid }` ring, and
+  // the `:focus` variant alone does not cancel it on a text input, which matches
+  // `:focus-visible` as soon as the user types. `ring-0` clears any box-shadow ring.
+  "w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm text-white placeholder:text-ink-400 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0";
 
 /**
  * Client-controlled discovery filter panel. State lives in the URL-ready
