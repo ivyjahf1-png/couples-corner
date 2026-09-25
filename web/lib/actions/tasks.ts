@@ -9,6 +9,7 @@ import {
   getUserTasks,
   publishMoment,
   toggleMomentReaction,
+  setMomentReaction,
   addMomentComment,
   listMomentComments,
   type ClaimResult,
@@ -105,6 +106,26 @@ export async function toggleMomentReactionAction(params: {
     const user = await getCurrentSessionUser();
     if (!user) return { ok: false, error: "Sign in to react" };
     const result = await toggleMomentReaction(user.uid, params.momentId, params.kind ?? "like");
+    if (result.ok) revalidatePath("/");
+    return result;
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not react" };
+  }
+}
+
+/** Set (or swap, or clear) the viewer's emoji reaction on a moment. */
+export async function setMomentReactionAction(params: {
+  momentId: string;
+  kind: "like" | "love" | "fire" | "laugh";
+}): Promise<
+  | { ok: true; reacted: boolean; count: number }
+  | { ok: false; error: string }
+> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to react" };
+    const result = await setMomentReaction(user.uid, params.momentId, params.kind);
     if (result.ok) revalidatePath("/");
     return result;
   } catch (err) {

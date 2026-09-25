@@ -7,6 +7,7 @@ import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from "lucide-react
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   toggleMomentReactionAction,
+  setMomentReactionAction,
   addMomentCommentAction,
   getMomentCommentsAction,
 } from "@/lib/actions/tasks";
@@ -41,6 +42,17 @@ import type { MomentCommentView, MomentView } from "@/lib/moments";
  */
 
 const MAX_CAPTION = 2200;
+
+/** Reaction kinds persisted in `moment_reactions.kind` (migration 036). */
+type ReactionKind = "like" | "love" | "fire" | "laugh";
+
+/** Quick-reaction row shown in the bottom bar. */
+const QUICK_REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] = [
+  { kind: "love", emoji: "❤️", label: "Love" },
+  { kind: "like", emoji: "👍", label: "Like" },
+  { kind: "fire", emoji: "🔥", label: "Fire" },
+  { kind: "laugh", emoji: "😂", label: "Funny" },
+];
 
 interface MediaFeedProps {
   moments: MomentView[];
@@ -112,6 +124,10 @@ export function MediaFeed({
       });
       setDraft("");
       setSendError(null);
+      // Paging to the next moment must not carry over per-card UI state.
+      setMenuOpen(false);
+      setCommentsOpen(false);
+      setReactionKind(null);
     },
     [total]
   );
@@ -165,8 +181,39 @@ export function MediaFeed({
   }
 
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [commentList, setCommentList] = useState<MomentCommentView[]>([]);
   const [commentDraft, setCommentDraft] = useState("");
+  // Which emoji the viewer currently used, so the row can highlight it.
+  const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
+
+  function reactWith(kind: ReactionKind) {
+    if (!current || !viewerId) return;
+    const momentId = current.id;
+    const base = social[momentId] ?? {
+      count: current.reactionCount ?? 0,
+      reacted: current.reactedByMe ?? false,
+      comments: current.commentCount ?? 0,
+    };
+    // Optimistic: the row swaps immediately, then the server confirms.
+    const nextReacted = !(reactionKind === kind && base.reacted);
+    setReactionKind(nextReacted ? kind : null);
+    setSocial((prev) => ({
+      ...prev,
+      [momentId]: { ...base, reacted: nextReacted, count: Math.max(0, base.count + (nextReacted ? 1 : -1)) },
+    }));
+    startTransition(async () => {
+      const result = await setMomentReactionAction({ momentId, kind });
+      if (!result.ok) {
+        setSocial((prev) => ({ ...prev, [momentId]: base }));
+        setReactionKind(base.reacted ? kind : null);
+        setSendError(result.error ?? "Could not save your reaction");
+        return;
+      }
+      setSocial((prev) => ({ ...prev, [momentId]: { ...base, reacted: result.reacted, count: result.count } }));
+      setSendError(null);
+    });
+  }
 
   function postComment() {
     if (!current || !commentDraft.trim()) return;
@@ -220,6 +267,62 @@ export function MediaFeed({
         <div className="pointer-events-auto flex items-start gap-3 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-5 sm:pt-4">
           {searchSlot ? <div className="min-w-0 flex-1">{searchSlot}</div> : null}
           {topRightSlot ? <div className="flex shrink-0 items-center gap-2">{topRightSlot}</div> : null}
+          {/* Per-card options menu (copy link / report). */}
+          {current ? (
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-label="Moment options"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 text-white backdrop-blur-md transition hover:bg-white/10"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
+              </button>
+              {menuOpen ? (
+                <div
+                  role="menu"
+                  aria-label="Moment options"
+                  className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={async () => {
+                      setMenuOpen(false);
+                      const url = `${window.location.origin}/?moment=${current.id}`;
+                      try {
+                        if (navigator.share) {
+                          await navigator.share({ title: "Couple's Corner", url });
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          setSendError("Link copied to clipboard");
+                        }
+                      } catch {
+                        /* user dismissed the share sheet */
+                      }
+                    }}
+                    className="block w-full px-4 py-2.5 text-left text-sm text-white transition hover:bg-white/10"
+                  >
+                    Share / copy link
+                  </button>
+                  <Link
+                    href={`/profile/${current.userId}`}
+                    role="menuitem"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-white transition hover:bg-white/10"
+                  >
+                    View {current.authorName ?? "creator"}
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         {/* Progress bars - one segment per moment, filled up to the current. */}
@@ -240,7 +343,22 @@ export function MediaFeed({
       {/* -------------------------------------------------------- the media */}
       {!current ? (
         <div className="flex flex-1 items-center justify-center px-6">
-          <EmptyState icon="moments" title={emptyTitle} body={emptyBody} />
+          <EmptyState
+            icon="moments"
+            title={emptyTitle}
+            body={emptyBody}
+            action={
+              viewerId ? (
+                <Link
+                  href="/task/upload-moment"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
+                >
+                  <Plus className="h-4 w-4" />
+                  Upload your first moment
+                </Link>
+              ) : null
+            }
+          />
         </div>
       ) : (
         <article className="relative flex min-h-0 flex-1 items-center justify-center">
@@ -337,7 +455,7 @@ export function MediaFeed({
         </article>
       )}
 
-      {/* ------------------------------------------- bottom composer pill */}
+      {/* --------------------------------- bottom bar: reactions + messaging */}
       {current ? (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5">
           {sendError ? (
@@ -345,6 +463,32 @@ export function MediaFeed({
               {sendError}
             </p>
           ) : null}
+
+          {/* Quick reactions - one tap to react to THIS moment. */}
+          <div className="pointer-events-auto mb-2 flex items-center justify-center gap-1.5">
+            {QUICK_REACTIONS.map((option) => {
+              const active = reacted && reactionKind === option.kind;
+              return (
+                <button
+                  key={option.kind}
+                  type="button"
+                  onClick={() => reactWith(option.kind)}
+                  disabled={!viewerId}
+                  aria-label={`React with ${option.label}`}
+                  aria-pressed={active}
+                  className={[
+                    "flex h-9 w-9 items-center justify-center rounded-full border text-base backdrop-blur-md transition active:scale-90 disabled:opacity-40",
+                    active
+                      ? "border-orange-400/70 bg-orange-500/25 scale-110"
+                      : "border-white/15 bg-slate-950/60 hover:bg-white/10",
+                  ].join(" ")}
+                >
+                  <span aria-hidden>{option.emoji}</span>
+                </button>
+              );
+            })}
+          </div>
+
           <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 backdrop-blur-md">
             {viewerId ? (
               <>

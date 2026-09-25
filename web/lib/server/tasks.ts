@@ -308,6 +308,56 @@ export async function toggleMomentReaction(
   return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
 }
 
+/**
+ * Set the viewer's reaction on a moment to a specific emoji kind.
+ *
+ * Semantics differ from `toggleMomentReaction` because the table has a unique
+ * constraint on (moment_id, user_id) - one reaction per member. Tapping the
+ * emoji you already used removes it; tapping a different one swaps to it.
+ * A plain toggle would make the second emoji tap look broken.
+ */
+export async function setMomentReaction(
+  userId: string,
+  momentId: string,
+  kind: "like" | "love" | "fire" | "laugh"
+): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const { data: existing } = await supabase
+    .from("moment_reactions")
+    .select("id, kind")
+    .eq("moment_id", momentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  const current = existing as { id?: string; kind?: string } | null;
+
+  if (current?.id && current.kind === kind) {
+    // Same emoji again -> clear it.
+    const { error } = await supabase.from("moment_reactions").delete().eq("id", current.id);
+    if (error) return { ok: false, error: "Could not remove your reaction" };
+    return { ok: true, reacted: false, count: await countReactions(supabase, momentId) };
+  }
+
+  if (current?.id) {
+    // Different emoji -> swap in place rather than delete+insert, so the
+    // reaction count never flickers through an intermediate value.
+    const { error } = await supabase
+      .from("moment_reactions")
+      .update({ kind })
+      .eq("id", current.id);
+    if (error) return { ok: false, error: "Could not change your reaction" };
+    return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+  }
+
+  const { error } = await supabase
+    .from("moment_reactions")
+    .insert({ moment_id: momentId, user_id: userId, kind });
+  if (error) return { ok: false, error: "Could not save your reaction" };
+  return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+}
+
 async function countReactions(supabase: SupabaseServer, momentId: string): Promise<number> {
   const { count } = await supabase
     .from("moment_reactions")
