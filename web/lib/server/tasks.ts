@@ -186,7 +186,19 @@ export async function publishMoment(
     })
     .select("id, media_url")
     .single();
-  if (error || !data) return { ok: false, error: "Could not publish your moment" };
+  if (error || !data) {
+    // Log the real reason server-side. The bare string this used to return gave
+    // the member no way to act on a failure (a mime-type rejection, an RLS
+    // policy denial and a schema error all looked identical), and left nothing
+    // in the server log to diagnose a video that would not publish.
+    console.error("[moments] publish insert failed", error);
+    return {
+      ok: false,
+      error: error
+        ? `Could not publish your moment: ${error.message}`
+        : "Could not publish your moment. Please try again.",
+    };
+  }
   return { ok: true, momentId: (data as { id: string }).id, mediaUrl: (data as { media_url: string }).media_url };
 }
 

@@ -443,9 +443,9 @@ export function MediaFeed({
               viewerId ? (
                 <Link
                   href="/task/upload-moment"
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-[#FF5722] px-5 py-2.5 text-sm font-semibold text-white shadow-lg"
+                  className="inline-flex items-center gap-2 rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-orange-950/40 transition hover:bg-orange-400 focus-visible:ring-2 focus-visible:ring-orange-300"
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4 text-white" aria-hidden />
                   Upload your first moment
                 </Link>
               ) : null

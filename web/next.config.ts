@@ -17,11 +17,18 @@ const nextConfig: NextConfig = {
     ];
   },
   // Media uploads for user posts/content travel through Server Actions
-  // (uploadContentMedia), whose POST body Next.js caps at 1 MB by default.
-  // Raise it to match CONTENT_UPLOAD.maxImageBytes (10 MB).
+  // (uploadUserMediaAction / publishMomentAction), whose POST body Next.js
+  // caps at 1 MB by default.
+  //
+  // This MUST stay >= MAX_USER_MEDIA_BYTES (250 MB) in lib/utils/media-upload.ts
+  // and MAX_BYTES in app/(app)/task/upload-moment/page.tsx. The File is sent as
+  // the request body, so a value LOWER than the app's own per-file limit means
+  // Next.js rejects the request before the action runs — the user sees
+  // "Could not publish your moment" with no server-side error to explain it.
+  // That mismatch is what broke video uploads while images (under 10 MB) worked.
   experimental: {
     serverActions: {
-      bodySizeLimit: "10mb",
+      bodySizeLimit: "250mb",
     },
   },
 };

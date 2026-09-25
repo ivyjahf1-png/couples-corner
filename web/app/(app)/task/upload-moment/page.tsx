@@ -6,7 +6,15 @@ import { CheckCircle2, ImagePlus, Video } from "lucide-react";
 import { publishMomentAction, claimTaskAction } from "@/lib/actions/tasks";
 import { PageLock } from "@/components/app/PageHeader";
 
-const MAX_BYTES = 10 * 1024 * 1024;
+// Client-side cap. MUST stay in step with two server-side limits, or the user
+// gets a confusing failure instead of a clear one:
+//   • MAX_USER_MEDIA_BYTES in lib/utils/media-upload.ts (250 MB)
+//   • experimental.serverActions.bodySizeLimit in next.config.ts
+// The whole File is sent as the Server Action request body, so Next.js rejects
+// anything over its bodySizeLimit BEFORE our code runs. That was the real cause
+// of "Could not publish your moment" on video: a 12 MB clip passed this check
+// but was refused by the 10mb body limit, and the action never executed.
+const MAX_BYTES = 250 * 1024 * 1024;
 
 export default function UploadMomentPage() {
   return <MomentUploadForm />;
@@ -31,8 +39,12 @@ export function MomentUploadForm() {
     setError(null);
     const result = await publishMomentAction({ file, content, taskSlug: "upload-moment" });
     setBusy(false);
+    // Keep the underlying reason visible. The action already returns specific
+    // messages ("Upload failed: ...", "Supabase not configured", the size/type
+    // validation text); the generic fallback was hiding the one thing that
+    // explains WHY a video failed to publish.
     if (!result.ok) {
-      setError(result.error ?? "Could not publish your moment");
+      setError(result.error ?? "Could not publish your moment. Please try a smaller file or another format.");
       return;
     }
     setDone(true);
@@ -91,7 +103,7 @@ export function MomentUploadForm() {
             <span className="text-sm font-semibold text-white">
               {file ? file.name : "Choose a photo or short video"}
             </span>
-            <span className="text-xs text-ink-400">Up to 10 MB. JPG, PNG, WEBP, MP4 or MOV.</span>
+            <span className="text-xs text-ink-400">Up to 250 MB. Free — no coins required. JPG, PNG, WEBP, MP4 or MOV.</span>
           </button>
 
           <input
@@ -123,13 +135,17 @@ export function MomentUploadForm() {
 
           {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
 
+          {/* Publishing is FREE. There is no coin check anywhere in this path —
+              publishMoment() and uploadUserMediaAction() never touch the wallet;
+              the only coin movement is the optional task-reward PAYOUT claimed
+              above. The old "(+400 coins)" label wrongly implied a charge. */}
           <button
             type="button"
             onClick={publish}
             disabled={!ready || busy}
-            className="rounded-2xl bg-amber-400 py-3 text-sm font-extrabold text-slate-950 shadow-lg transition hover:bg-amber-300 disabled:opacity-50"
+            className="rounded-2xl bg-orange-500 py-3 text-sm font-extrabold text-white shadow-lg shadow-orange-950/40 transition hover:bg-orange-400 disabled:opacity-50"
           >
-            {busy ? "Publishing..." : "Publish moment (+400 coins)"}
+            {busy ? "Publishing..." : "Publish moment — Free"}
           </button>
         </div>
       )}
