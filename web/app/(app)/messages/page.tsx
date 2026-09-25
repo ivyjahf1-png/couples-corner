@@ -70,8 +70,8 @@ export default async function MessagesPage() {
   });
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-8rem)] min-h-0 max-w-3xl flex-col gap-4 overflow-hidden">
-      <div className="shrink-0">
+    <div className="page-lock mx-auto flex w-full max-w-3xl flex-col gap-4">
+      <div className="page-lock__head">
         <PageHeader
           eyebrow="Inbox"
           title="Messages"
@@ -85,7 +85,7 @@ export default async function MessagesPage() {
         <StoryTray userId={user.uid} displayName={user.email?.split("@")[0] ?? "You"} />
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden pr-1">
+      <div className="page-lock__body pr-1">
 
       {/* Near me — horizontal scrollable circular avatars (location-aware). */}
       <NearMeStories />

@@ -294,6 +294,42 @@ html {
 }
 
 /* ----------------------------------------------------------------------------
+   Layout lock.
+   Strict flex/grid constraints for inner pages:
+     - .page-lock        - fills the viewport, never scrolls as a whole
+     - .page-lock__head  - static header/nav (does not scroll)
+     - .page-lock__body  - the ONLY vertical scroll region
+   Applies uniformly on phone, tablet and desktop.
+   -------------------------------------------------------------------------- */
+.page-lock {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+.page-lock__head {
+  flex: 0 0 auto;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.page-lock__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+@media (min-width: 768px) {
+  .page-lock {
+    height: calc(100dvh - 3rem);
+  }
+}
+
+/* ----------------------------------------------------------------------------
    Global inner surface theme.
    Every authenticated inner page sits on the same soft, professional inner
    surface: a light-neutral card-like plane floating above the deep navy canvas
@@ -491,10 +527,10 @@ input::placeholder, textarea::placeholder {
    bar can honour iOS safe-area insets.
    ========================================================================== */
 :root {
-  --nav-bg: #0B1120;                   /* deep charcoal â—” premium dark base */
+  --nav-bg: #0B1120;  /* deep charcoal  premium dark base */
   --nav-surface: rgb(11 17 32 / 0.85); /* translucent frosted bar */
   --nav-border: rgb(255 255 255 / 0.06); /* ultra-thin hairline */
-  --nav-text-muted: #94a3b8;           /* slate-400 â—” refined contrast */
+  --nav-text-muted: #94a3b8;  /* slate-400  refined contrast */
 }
 
 /* Fixed left-hand navigation rail (md and up). */
@@ -571,11 +607,11 @@ input::placeholder, textarea::placeholder {
 }
 
 /* ============================================================================
-   Luxury surface system â—” translucent dark fills with ultra-thin hairline borders
+  Luxury surface system  translucent dark fills with ultra-thin hairline borders
    Cards, stats boxes, modals, and quick-action widgets.
    ============================================================================ */
 
-/* Elevated card / container â—” frosted glassmorphic dark fill. */
+/* Elevated card / container  frosted glassmorphic dark fill. */
 .cc-surface {
   @apply rounded-2xl border border-white/10 bg-white/[0.03] shadow-lg shadow-black/30;
   transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
@@ -591,7 +627,7 @@ input::placeholder, textarea::placeholder {
   @apply rounded-2xl border border-white/6 bg-white/[0.015];
 }
 
-/* Primary CTA â—” vibrant orange with glow lift. */
+/* Primary CTA  vibrant orange with glow lift. */
 .cc-cta {
   @apply rounded-xl bg-[#FF5722] text-white shadow-lg shadow-orange-500/25;
   transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;

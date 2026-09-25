@@ -1,9 +1,11 @@
 import { DiscoverCardStack } from "@/components/app/DiscoverCardStack";
 import { LocationBadge } from "@/components/app/LocationBadge";
+import { MomentRail } from "@/components/app/MomentRail";
 import { EmptyState } from "@/components/app/EmptyState";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
+import { getRecentMoments } from "@/lib/server/tasks";
 import { demoProfileViews } from "@/lib/demo/demo-data";
 import type { ProfileCardView } from "@/lib/feature/types";
 
@@ -14,8 +16,8 @@ export const dynamic = "force-dynamic";
  *
  * The root route is the primary member experience: a full-height discovery
  * card (photo background, overlaid user details, and the side action bar)
- * with a location badge pinned to the top. Data is read live and degrades to
- * the demo fixtures so the deck is never blank.
+ * with a location badge pinned to the top, followed by a rail of recently
+ * published moments. No static marketing blocks or stacked widgets.
  */
 export default async function HomePage() {
   const session = await getSessionUser();
@@ -30,6 +32,7 @@ export default async function HomePage() {
     }
   }
 
+  const moments = await getRecentMoments(12).catch(() => []);
   const visible = profiles.filter((profile) => profile?.id);
 
   return (
@@ -49,6 +52,8 @@ export default async function HomePage() {
       ) : (
         <DiscoverCardStack profiles={visible} />
       )}
+
+      <MomentRail moments={moments} />
 
       <GameCenterButton />
     </div>
