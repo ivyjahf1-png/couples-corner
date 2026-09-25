@@ -35,7 +35,7 @@ export function MediaFeedSearch({ action = "/" }: { action?: string }) {
       <label htmlFor="media-feed-search" className="sr-only">
         Search members by user ID or username
       </label>
-      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/15 bg-slate-950/60 px-3 py-2 backdrop-blur-md focus-within:border-orange-400/60">
+      <div className="flex min-w-0 flex-1 items-center gap-2 rounded-full border border-white/15 bg-slate-950/60 px-4 py-2.5 backdrop-blur-md focus-within:border-orange-400/60 focus-within:bg-slate-950/80">
         <Search className="h-4 w-4 shrink-0 text-white/60" aria-hidden />
         <input
           id="media-feed-search"
@@ -43,15 +43,15 @@ export function MediaFeedSearch({ action = "/" }: { action?: string }) {
           value={value}
           onChange={(event) => setValue(event.target.value)}
           maxLength={40}
-          placeholder="Search user ID or username"
+          placeholder="Search by 6-letter ID or username…"
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/50 focus:outline-none"
+          className="h-9 min-w-0 flex-1 bg-transparent text-sm text-white placeholder:text-white/50 focus:outline-none"
         />
       </div>
       <button
         type="submit"
         disabled={!value.trim()}
-        className="shrink-0 rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-400 disabled:opacity-40"
+        className="shrink-0 rounded-full bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-400 disabled:opacity-40"
       >
         Search
       </button>

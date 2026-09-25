@@ -15,7 +15,7 @@ import "server-only";
  */
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import type { MomentView } from "@/lib/moments";
+import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 export type TaskStatus = "available" | "claimed";
 
@@ -190,19 +190,62 @@ export async function publishMoment(
   return { ok: true, momentId: (data as { id: string }).id, mediaUrl: (data as { media_url: string }).media_url };
 }
 
-/** Recent public moments, newest first, syndicated to the home discovery feed. */
-export async function getRecentMoments(limit = 12): Promise<MomentView[]> {
+/**
+ * Recent public moments, newest first, syndicated to the home discovery feed.
+ *
+ * Engagement (reaction count, comment count, "did I react") is aggregated in
+ * parallel queries rather than N+1 per row. `moment_reactions` /
+ * `moment_comments` only exist once migration 036 has been applied; on an
+ * un-migrated database those selects fail soft and the feed still renders with
+ * zeroed counters.
+ *
+ * `viewerId` is optional: an anonymous visitor still gets the feed, just with
+ * `reactedByMe` false everywhere.
+ */
+export async function getRecentMoments(
+  limit = 12,
+  viewerId: string | null = null
+): Promise<MomentView[]> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  const { data: idRows } = await supabase
     .from("moments")
-    .select("id, user_id, content, media_url, media_type, created_at, profiles(display_name, photos)")
+    .select("id")
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error || !data) return [];
+  const ids = (idRows ?? [])
+    .map((row) => (row as { id?: string | null }).id)
+    .filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return [];
 
-  return (data as unknown[]).map((raw) => {
+  const [{ data: reactions }, { data: comments }, { data: rows }] = await Promise.all([
+    supabase.from("moment_reactions").select("moment_id, user_id").in("moment_id", ids),
+    supabase.from("moment_comments").select("moment_id").in("moment_id", ids),
+    supabase
+      .from("moments")
+      .select("id, user_id, content, media_url, media_type, created_at, profiles(display_name, photos)")
+      .in("id", ids)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const reactionCounts = new Map<string, number>();
+  const reactedBy = new Set<string>();
+  for (const raw of reactions ?? []) {
+    const r = raw as { moment_id?: string | null; user_id?: string | null };
+    if (!r.moment_id) continue;
+    reactionCounts.set(r.moment_id, (reactionCounts.get(r.moment_id) ?? 0) + 1);
+    if (viewerId && r.user_id === viewerId) reactedBy.add(r.moment_id);
+  }
+
+  const commentCounts = new Map<string, number>();
+  for (const raw of comments ?? []) {
+    const c = raw as { moment_id?: string | null };
+    if (!c.moment_id) continue;
+    commentCounts.set(c.moment_id, (commentCounts.get(c.moment_id) ?? 0) + 1);
+  }
+
+  return (rows ?? []).map((raw) => {
     const row = raw as {
       id: string;
       user_id: string;
@@ -222,6 +265,120 @@ export async function getRecentMoments(limit = 12): Promise<MomentView[]> {
       mediaType: row.media_type,
       authorName: row.profiles?.display_name ?? null,
       authorAvatarUrl: firstPhoto?.publicUrl ?? null,
+      createdAt: row.created_at,
+      reactionCount: reactionCounts.get(row.id) ?? 0,
+      commentCount: commentCounts.get(row.id) ?? 0,
+      reactedByMe: reactedBy.has(row.id),
+      isMine: Boolean(viewerId && row.user_id === viewerId),
+    };
+  });
+}
+type SupabaseServer = NonNullable<ReturnType<typeof getSupabaseServerClient>>;
+
+/** Toggle the viewer's reaction on a moment. Returns the resulting state. */
+export async function toggleMomentReaction(
+  userId: string,
+  momentId: string,
+  kind: "like" | "love" | "fire" | "laugh" = "like"
+): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const { data: existing } = await supabase
+    .from("moment_reactions")
+    .select("id")
+    .eq("moment_id", momentId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (existing) {
+    // Tapping an existing reaction removes it (standard toggle).
+    const { error } = await supabase
+      .from("moment_reactions")
+      .delete()
+      .eq("id", (existing as { id: string }).id);
+    if (error) return { ok: false, error: "Could not remove your reaction" };
+    return { ok: true, reacted: false, count: await countReactions(supabase, momentId) };
+  }
+
+  const { error } = await supabase
+    .from("moment_reactions")
+    .insert({ moment_id: momentId, user_id: userId, kind });
+  if (error) return { ok: false, error: "Could not save your reaction" };
+  return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+}
+
+async function countReactions(supabase: SupabaseServer, momentId: string): Promise<number> {
+  const { count } = await supabase
+    .from("moment_reactions")
+    .select("id", { count: "exact", head: true })
+    .eq("moment_id", momentId);
+  return count ?? 0;
+}
+
+/** Post a comment on a moment. */
+export async function addMomentComment(
+  userId: string,
+  momentId: string,
+  rawBody: string
+): Promise<{ ok: true; comment: MomentCommentView } | { ok: false; error: string }> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const body = (rawBody ?? "").trim().slice(0, 500);
+  if (!body) return { ok: false, error: "Write something first" };
+
+  const { data, error } = await supabase
+    .from("moment_comments")
+    .insert({ moment_id: momentId, user_id: userId, body })
+    .select("id, user_id, body, created_at, profiles(display_name)")
+    .single();
+  if (error || !data) return { ok: false, error: "Could not post your comment" };
+
+  const row = data as {
+    id: string;
+    user_id: string;
+    body: string;
+    created_at: string;
+    profiles?: { display_name?: string | null } | null;
+  };
+  return {
+    ok: true,
+    comment: {
+      id: row.id,
+      userId: row.user_id,
+      authorName: row.profiles?.display_name ?? null,
+      body: row.body,
+      createdAt: row.created_at,
+    },
+  };
+}
+
+/** Comments on a moment, oldest first (conversation order). */
+export async function listMomentComments(momentId: string, limit = 50): Promise<MomentCommentView[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+
+  const { data } = await supabase
+    .from("moment_comments")
+    .select("id, user_id, body, created_at, profiles(display_name)")
+    .eq("moment_id", momentId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  return (data ?? []).map((raw) => {
+    const row = raw as {
+      id: string;
+      user_id: string;
+      body: string;
+      created_at: string;
+      profiles?: { display_name?: string | null } | null;
+    };
+    return {
+      id: row.id,
+      userId: row.user_id,
+      authorName: row.profiles?.display_name ?? null,
+      body: row.body,
       createdAt: row.created_at,
     };
   });

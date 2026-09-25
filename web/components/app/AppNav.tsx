@@ -34,7 +34,7 @@ export interface AppNavItem {
 
 /** Sidebar group 1 — the core discovery loop. */
 export const appNavItems: AppNavItem[] = [
-  { href: "/dashboard", label: "Home", icon: "home" },
+  { href: "/", label: "Home", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/discover", label: "Discover", icon: "compass" },
   { href: "/likes", label: "Likes", icon: "flame" },
   { href: "/matches", label: "Matches", icon: "heart" },
@@ -55,7 +55,7 @@ export const appSecondaryNavItems: AppNavItem[] = [
 /** Destinations inside the mobile "Menu" drawer. */
 export const menuDrawerItems: AppNavItem[] = [
   { href: "/messages", label: "Messages", icon: "chat" },
-  { href: "/dashboard", label: "Home", icon: "home" },
+  { href: "/", label: "Home", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
@@ -66,8 +66,11 @@ export const menuDrawerItems: AppNavItem[] = [
 ];
 
 function isActive(pathname: string, item: AppNavItem) {
+  // Root ("/") must match only exactly. A naive `startsWith("/")` would make
+  // Home look active on EVERY route, which is why the extra hrefs are
+  // enumerated via alsoActiveFor rather than relying on prefix matching.
   return [item.href, ...(item.alsoActiveFor ?? [])].some(
-    (href) => pathname === href || pathname.startsWith(`${href}/`)
+    (href) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`))
   );
 }
 
@@ -147,7 +150,9 @@ interface MobileTab extends AppNavItem {
  * Every href is an absolute app route verified to exist in `app/(app)/**`.
  */
 const mobileTabs: MobileTab[] = [
-  { href: "/dashboard", icon: "home", label: "Home" },
+  // "/" is the real home route; /dashboard now redirects to it, so both are
+  // listed as active paths. Without this the Home tab never lights up.
+  { href: "/", icon: "home", label: "Home", alsoActiveFor: ["/dashboard"] },
   { href: "/discover", icon: "compass", label: "Explore" },
   { href: "/likes", icon: "heart", label: "Likes" },
   { href: "/messages", icon: "chat", label: "Messages", showBadge: true },

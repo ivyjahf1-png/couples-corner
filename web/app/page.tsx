@@ -5,7 +5,7 @@ import { LocationBadge } from "@/components/app/LocationBadge";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
 import { getRecentMoments } from "@/lib/server/tasks";
-import { resolveUserCode } from "@/lib/server/profiles";
+import { searchMembers } from "@/lib/server/profiles";
 import type { MomentView } from "@/lib/moments";
 
 export const dynamic = "force-dynamic";
@@ -36,19 +36,23 @@ export default async function HomePage({
   const session = await getSessionUser();
   const { q } = await searchParams;
 
-  // A 6-character public code resolves straight to that member's profile.
-  // Anything else (a username, say) falls through to /explore, which has the
-  // broader member search.
+  // Search: an exact 6-character code or a single unambiguous name goes
+  // straight to the profile; anything with several candidates lands on the
+  // dedicated results page so the user can pick.
   const query = q?.trim() ?? "";
   if (query) {
-    const found = await resolveUserCode(query).catch(() => null);
-    if (found) redirect(`/profile/${found.userId}`);
-    redirect(`/explore?q=${encodeURIComponent(query)}`);
+    const result = await searchMembers(query).catch(() => null);
+    if (result?.kind === "exact") redirect(`/profile/${result.userId}`);
+    if (result?.kind === "results" && result.users.length === 1) {
+      redirect(`/profile/${result.users[0].userId}`);
+    }
+    redirect(`/search?q=${encodeURIComponent(query)}`);
   }
 
   // Fail-soft: an unconfigured or unreachable database still renders the
-  // player shell rather than erroring the whole route.
-  const moments: MomentView[] = await getRecentMoments(12).catch(() => []);
+  // player shell rather than erroring the whole route. The viewer id lets the
+  // feed mark which moments this member has already reacted to.
+  const moments: MomentView[] = await getRecentMoments(12, session?.uid ?? null).catch(() => []);
 
   const view = (
     <MediaFeed

@@ -338,6 +338,74 @@ export async function resolveUserCode(
   return { userId: row.user_id, displayName: row.display_name ?? null };
 }
 
+export type MemberSearchResult =
+  | { kind: "exact"; userId: string }
+  | { kind: "results"; users: { userId: string; displayName: string; userCode: string | null }[] }
+  | { kind: "none" };
+
+/**
+ * Search members by public 6-character code OR display name.
+ *
+ * Two ordered strategies, because a code and a name live in different columns:
+ *   1. Exact `user_code` match -> a single deterministic hit.
+ *   2. Case-insensitive `display_name` prefix/substring match -> up to 12
+ *      candidates for the caller to choose from.
+ *
+ * Only public, non-private profiles are returned. RLS on `profiles` already
+ * restricts what the server client can read; the visibility filter here is a
+ * second, explicit guard so a private profile never appears in search results.
+ */
+export async function searchMembers(rawQuery: string): Promise<MemberSearchResult> {
+  const query = rawQuery.trim();
+  if (query.length < 2) return { kind: "none" };
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { kind: "none" };
+
+  // Strategy 1: exact public code.
+  const code = query.toUpperCase();
+  if (/^\d{2}[A-Z]{4}$/.test(code)) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("user_id, visibility")
+      .eq("user_code", code)
+      .limit(1)
+      .maybeSingle();
+    const row = data as { user_id?: string | null; visibility?: string | null } | null;
+    if (row?.user_id) {
+      return { kind: "exact", userId: row.user_id };
+    }
+  }
+
+  // Strategy 2: display name. ilike() is a literal match (no wildcard
+  // interpretation of user input), so a stray % cannot widen the query.
+  const { data } = await supabase
+    .from("profiles")
+    .select("user_id, display_name, user_code, visibility")
+    .ilike("display_name", `%${query}%`)
+    .neq("visibility", "private")
+    .order("display_name", { ascending: true })
+    .limit(12);
+
+  const users = (data ?? [])
+    .map((raw) => {
+      const row = raw as {
+        user_id?: string | null;
+        display_name?: string | null;
+        user_code?: string | null;
+      };
+      if (!row.user_id) return null;
+      return {
+        userId: row.user_id,
+        displayName: row.display_name ?? "Member",
+        userCode: row.user_code ?? null,
+      };
+    })
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+  return users.length > 0 ? { kind: "results", users } : { kind: "none" };
+}
+
 export async function getVisibleProfile(
   targetUid: string,
   viewerUid: string | null

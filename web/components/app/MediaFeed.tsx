@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Send, Volume2, VolumeX } from "lucide-react";
+import Link from "next/link";
+import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
+import {
+  toggleMomentReactionAction,
+  addMomentCommentAction,
+  getMomentCommentsAction,
+} from "@/lib/actions/tasks";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Avatar } from "@/components/app/Avatar";
-import type { MomentView } from "@/lib/moments";
+import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 /**
  * Immersive media feed.
@@ -17,9 +23,8 @@ import type { MomentView } from "@/lib/moments";
  * uploads is syndicated here immediately.
  *
  * LAYOUT CONTRACT - exactly one vertical scroll region:
- *   - The root is h-full + min-h-0 + overflow-hidden: it fills exactly what
- *     the AppShell hands it (which is itself locked to 100dvh). The page never
- *     scrolls, which is what stops rubber-banding and bounce on iOS Safari.
+ *   - The root fills the AppShell content region (itself locked to 100dvh).
+ *     The page never scrolls, which is what stops rubber-banding on iOS.
  *   - The top overlay (search + controls) and the bottom composer are
  *     absolutely positioned over the media, so neither can be pushed out of
  *     view by a tall caption.
@@ -30,10 +35,9 @@ import type { MomentView } from "@/lib/moments";
  *   - Arrow keys / wheel / edge buttons move between moments.
  *   - Videos autoplay muted, with a tap-to-mute control (browsers block
  *     unmuted autoplay, so muted is the only reliable default).
- *
- * KNOWN LIMITATION: the heart is a local optimistic toggle only. There is no
- * `moment_reactions` table yet, so reactions are not persisted or syndicated.
- * Wiring that up is a deliberate follow-up rather than a silent fake.
+ *   - The heart and comment sheet are wired to real Server Actions backed by
+ *     `moment_reactions` / `moment_comments` (migration 036). Reactions apply
+ *     optimistically and reconcile against the server count.
  */
 
 const MAX_CAPTION = 2200;
@@ -63,7 +67,11 @@ export function MediaFeed({
   const feed = useMemo(() => moments.filter((moment) => moment?.id && moment?.mediaUrl), [moments]);
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
-  const [reactions, setReactions] = useState<Record<string, boolean>>({});
+  // Engagement overrides keyed by moment id. Seeded from the server payload,
+  // then superseded by the authoritative result of each action.
+  const [social, setSocial] = useState<
+    Record<string, { count: number; reacted: boolean; comments: number }>
+  >({});
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -72,6 +80,18 @@ export function MediaFeed({
   const total = feed.length;
   const safeIndex = total > 0 ? Math.min(Math.max(index, 0), total - 1) : 0;
   const current = total > 0 ? feed[safeIndex] : null;
+
+  // Effective engagement for the visible card: local override if present,
+  // otherwise the server-rendered values.
+  const reactions = current
+    ? (social[current.id]?.count ?? current.reactionCount ?? 0)
+    : 0;
+  const reacted = current
+    ? (social[current.id]?.reacted ?? current.reactedByMe ?? false)
+    : false;
+  const commentCount = current
+    ? (social[current.id]?.comments ?? current.commentCount ?? 0)
+    : 0;
 
   const go = useCallback(
     (delta: number) => {
@@ -108,8 +128,55 @@ export function MediaFeed({
     };
   }, [go]);
 
-  function toggleReact(id: string) {
-    setReactions((prev) => ({ ...prev, [id]: !prev[id] }));
+  function toggleReact() {
+    if (!current || !viewerId) return;
+    const momentId = current.id;
+    const base = social[momentId] ?? {
+      count: current.reactionCount ?? 0,
+      reacted: current.reactedByMe ?? false,
+      comments: current.commentCount ?? 0,
+    };
+    // Optimistic flip, then reconcile with the server's authoritative count.
+    setSocial((prev) => ({
+      ...prev,
+      [momentId]: { ...base, reacted: !base.reacted, count: Math.max(0, base.count + (base.reacted ? -1 : 1)) },
+    }));
+    startTransition(async () => {
+      const result = await toggleMomentReactionAction({ momentId });
+      if (!result.ok) {
+        // Roll back to the pre-toggle state on failure.
+        setSocial((prev) => ({ ...prev, [momentId]: base }));
+        setSendError(result.error ?? "Could not save your reaction");
+        return;
+      }
+      setSocial((prev) => ({ ...prev, [momentId]: { ...base, reacted: result.reacted, count: result.count } }));
+      setSendError(null);
+    });
+  }
+
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [commentList, setCommentList] = useState<MomentCommentView[]>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+
+  function postComment() {
+    if (!current || !commentDraft.trim()) return;
+    const momentId = current.id;
+    const base = social[momentId] ?? {
+      count: current.reactionCount ?? 0,
+      reacted: current.reactedByMe ?? false,
+      comments: current.commentCount ?? 0,
+    };
+    startTransition(async () => {
+      const result = await addMomentCommentAction({ momentId, body: commentDraft });
+      if (!result.ok) {
+        setSendError(result.error ?? "Could not post your comment");
+        return;
+      }
+      setCommentList((prev) => [...prev, result.comment]);
+      setSocial((prev) => ({ ...prev, [momentId]: { ...base, comments: base.comments + 1 } }));
+      setCommentDraft("");
+      setSendError(null);
+    });
   }
 
   function sendQuickMessage() {
@@ -202,19 +269,57 @@ export function MediaFeed({
             </div>
           ) : null}
 
-          {/* Action rail - reactions + mute. */}
+          {/* Action rail - reactions, comments and mute. */}
           <div className="absolute bottom-36 right-3 z-20 flex flex-col items-center gap-4 sm:bottom-40 sm:right-5">
             <ActionButton
-              label={reactions[current.id] ? "Unlike" : "Like"}
-              active={Boolean(reactions[current.id])}
-              onClick={() => toggleReact(current.id)}
+              label={reacted ? "Remove like" : "Like this moment"}
+              active={reacted}
+              disabled={!viewerId}
+              onClick={toggleReact}
             >
-              <Heart className="h-6 w-6" fill={reactions[current.id] ? "currentColor" : "none"} />
+              <Heart className="h-6 w-6" fill={reacted ? "currentColor" : "none"} />
             </ActionButton>
+            {reactions > 0 ? (
+              <span className="-mt-2 text-[11px] font-semibold text-white/90 drop-shadow">
+                {reactions}
+              </span>
+            ) : null}
+
+            <ActionButton
+              label="Open comments"
+              onClick={() => {
+                setCommentsOpen(true);
+                if (!current) return;
+                const momentId = current.id;
+                startTransition(async () => {
+                  const existing = await getMomentCommentsAction(momentId);
+                  setCommentList(existing);
+                });
+              }}
+            >
+              <MessageCircle className="h-6 w-6" />
+            </ActionButton>
+            {commentCount > 0 ? (
+              <span className="-mt-2 text-[11px] font-semibold text-white/90 drop-shadow">
+                {commentCount}
+              </span>
+            ) : null}
+
             {current.mediaType === "video" ? (
               <ActionButton label={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
                 {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
               </ActionButton>
+            ) : null}
+
+            {/* Moments upload launcher - bottom right, clear of the tab nav. */}
+            {viewerId ? (
+              <Link
+                href="/task/upload-moment"
+                aria-label="Upload a moment"
+                className="flex h-12 w-12 items-center justify-center rounded-full border border-orange-400/40 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-lg shadow-orange-950/40 backdrop-blur-sm transition hover:scale-105"
+              >
+                <Plus className="h-6 w-6" />
+              </Link>
             ) : null}
           </div>
         </article>
@@ -261,6 +366,89 @@ export function MediaFeed({
                 Sign in to start a conversation
               </p>
             )}
+          </div>
+        </div>
+      ) : null}
+      {/* ------------------------------------- comment sheet (bottom overlay) */}
+      {commentsOpen && current ? (
+        <div
+          className="absolute inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Comments"
+        >
+          <button
+            type="button"
+            aria-label="Close comments"
+            onClick={() => setCommentsOpen(false)}
+            className="absolute inset-0 h-full w-full cursor-default"
+          />
+          <div className="relative z-10 flex max-h-[70%] flex-col rounded-t-3xl border-t border-white/10 bg-[#0F172A]">
+            <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+              <h2 className="text-sm font-semibold text-white">
+                {commentCount > 0 ? `${commentCount} comment${commentCount === 1 ? "" : "s"}` : "Comments"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setCommentsOpen(false)}
+                aria-label="Close comments"
+                className="flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10"
+              >
+                <Plus className="h-4 w-4 rotate-45" />
+              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+              {commentList.length === 0 ? (
+                <p className="py-6 text-center text-sm text-ink-400">
+                  No comments yet. Be the first to say something.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {commentList.map((comment) => (
+                    <li key={comment.id} className="flex items-start gap-2.5">
+                      <Avatar name={comment.authorName ?? "Member"} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-white">
+                          {comment.authorName ?? "Member"}
+                        </p>
+                        <p className="text-sm leading-6 text-ink-200">{comment.body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {viewerId ? (
+              <div className="shrink-0 border-t border-white/10 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <label htmlFor="moment-comment" className="sr-only">
+                    Add a comment
+                  </label>
+                  <input
+                    id="moment-comment"
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") postComment();
+                    }}
+                    maxLength={500}
+                    placeholder="Add a comment…"
+                    className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 focus:border-orange-400/50 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={postComment}
+                    disabled={!commentDraft.trim() || isPending}
+                    aria-label="Post comment"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-400 disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
@@ -344,11 +532,13 @@ function PagerButton({
 function ActionButton({
   label,
   active = false,
+  disabled = false,
   onClick,
   children,
 }: {
   label: string;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   children: ReactNode;
 }) {
@@ -356,10 +546,11 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-label={label}
       aria-pressed={active}
       className={[
-        "flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 backdrop-blur-sm transition hover:scale-105",
+        "flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 backdrop-blur-sm transition hover:scale-105 disabled:opacity-40",
         active ? "text-rose-400" : "text-white",
       ].join(" ")}
     >
