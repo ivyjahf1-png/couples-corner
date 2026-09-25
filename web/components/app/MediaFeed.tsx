@@ -86,6 +86,8 @@ export function MediaFeed({
   fill = false,
 }: MediaFeedProps) {
   const router = useRouter();
+  // Root of the feed, used to attach the swipe listeners without re-binding.
+  const rootRef = useRef<HTMLElement>(null);
   const feed = useMemo(() => moments.filter((moment) => moment?.id && moment?.mediaUrl), [moments]);
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -151,6 +153,52 @@ export function MediaFeed({
     return () => {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("wheel", onWheel);
+    };
+  }, [go]);
+
+  // Touch paging - the story/reel gesture. Tracked on the section via a ref
+  // rather than a React handler so the listener is attached exactly once and
+  // never re-binds on every render of the card.
+  //
+  // `touch-action: pan-y` on the root (see the className below) is what makes
+  // this safe: the browser keeps ownership of vertical scrolling, we only claim
+  // horizontal intent. Without it, a diagonal drag scrolls the page sideways
+  // and the card slides out of view - the horizontal-scroll leak this guards.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    let startX = 0;
+    let startY = 0;
+    let tracking = false;
+
+    function onTouchStart(event: TouchEvent) {
+      const touch = event.touches[0];
+      if (!touch) return;
+      startX = touch.clientX;
+      startY = touch.clientY;
+      tracking = true;
+    }
+
+    function onTouchEnd(event: TouchEvent) {
+      if (!tracking) return;
+      tracking = false;
+      const touch = event.changedTouches[0];
+      if (!touch) return;
+      const dx = touch.clientX - startX;
+      const dy = touch.clientY - startY;
+      // Require a decisive HORIZONTAL swipe. Comparing the two axes (rather
+      // than testing dy alone) is what stops a vertical scroll flick from being
+      // read as a "previous" swipe and skipping a card.
+      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return;
+      go(dx < 0 ? 1 : -1);
+    }
+
+    root.addEventListener("touchstart", onTouchStart, { passive: true });
+    root.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      root.removeEventListener("touchstart", onTouchStart);
+      root.removeEventListener("touchend", onTouchEnd);
     };
   }, [go]);
 
@@ -253,20 +301,29 @@ export function MediaFeed({
 
   return (
     <section
+      ref={rootRef}
       data-zone="app"
-      // Inside AppShell: fill exactly the region the shell hands us, so the
-      // bottom-anchored composer sits on the real bottom edge. Standalone
-      // (signed out, no shell): min-h-dvh gives the feed a bounded viewport.
+      // `touch-pan-y` claims horizontal intent for the swipe pager while leaving
+      // vertical scrolling to the browser - the pairing that stops the card from
+      // being dragged sideways. `overscroll-none` kills the rubber-band bounce at
+      // both ends, and the section never scrolls itself, so there is exactly one
+      // (zero) scroll region and nothing to bounce.
       className={[
-        "relative flex w-full flex-col overflow-hidden bg-slate-950",
+        "relative flex w-full touch-pan-y select-none flex-col overflow-hidden overscroll-none bg-slate-950",
         fill ? "h-full min-h-0" : "h-full max-h-full min-h-dvh",
       ].join(" ")}
     >
       {/* ---------------------------------------------------- top overlay */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0">
-        <div className="pointer-events-auto flex items-start gap-3 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-5 sm:pt-4">
-          {searchSlot ? <div className="min-w-0 flex-1">{searchSlot}</div> : null}
-          {topRightSlot ? <div className="flex shrink-0 items-center gap-2">{topRightSlot}</div> : null}
+        {/* Two rows on phones: the search unit owns a full-width line of its own,
+            with the secondary controls tucked to its right. From `sm` up they
+            share one row, because there is finally room for both. The search is
+            ordered first in the DOM so it takes the leftover width, not the
+            location badge. */}
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:flex-nowrap sm:gap-3 sm:px-5 sm:pt-4">
+          {searchSlot ? <div className="order-1 min-w-0 flex-1 basis-full sm:basis-auto">{searchSlot}</div> : null}
+          <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
+            {topRightSlot ? <div className="flex shrink-0 items-center gap-2">{topRightSlot}</div> : null}
           {/* Per-card options menu (copy link / report). */}
           {current ? (
             <div className="relative shrink-0">
@@ -323,7 +380,42 @@ export function MediaFeed({
               ) : null}
             </div>
           ) : null}
+          </div>
         </div>
+
+        {/* ------------------------------------------- creator identity (top bar)
+            The reel/stories standard puts WHO posted and WHEN directly above
+            the media, so it reads before the caption. It is rendered here rather
+            than over the bottom caption block because the bottom of the card is
+            already occupied by the caption and the message composer. */}
+        {current ? (
+          <div className="pointer-events-auto mt-2.5 flex items-center gap-2.5 sm:mt-3">
+            <Link
+              href={current.isMine ? "/profile" : `/profile/${current.userId}`}
+              aria-label={`Open ${current.authorName ?? "profile"}`}
+              className="flex shrink-0 items-center"
+            >
+              <span className="block h-9 w-9 overflow-hidden rounded-full ring-2 ring-white/25">
+                <Avatar
+                  src={current.authorAvatarUrl}
+                  name={current.authorName ?? "Member"}
+                  className="h-full w-full text-xs"
+                />
+              </span>
+            </Link>
+            <div className="min-w-0 flex-1">
+              <Link
+                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
+                className="block truncate text-sm font-semibold text-white drop-shadow"
+              >
+                {current.authorName ?? "Member"}
+              </Link>
+              <p className="truncate text-xs text-white/70 drop-shadow">
+              {formatWhen(current.createdAt)}
+            </p>
+            </div>
+          </div>
+        ) : null}
 
         {/* Progress bars - one segment per moment, filled up to the current. */}
         {total > 1 ? (
@@ -364,26 +456,10 @@ export function MediaFeed({
         <article className="relative flex min-h-0 flex-1 items-center justify-center">
           <MediaSurface moment={current} muted={muted} />
 
-          {/* Author + caption, bottom-left, above the composer. */}
+          {/* Caption only. The author identity (avatar, handle, timestamp) now
+              lives in the top bar above, per the reel/stories standard, so
+              repeating it here would print the same name twice on one card. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 sm:bottom-28 sm:px-6">
-            <div className="pointer-events-auto flex items-center gap-2.5">
-              {current.authorAvatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={current.authorAvatarUrl}
-                  alt=""
-                  className="h-9 w-9 shrink-0 rounded-full object-cover ring-2 ring-white/70"
-                />
-              ) : (
-                <Avatar name={current.authorName ?? "Member"} size="sm" />
-              )}
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white drop-shadow">
-                  {current.authorName ?? "Member"}
-                </p>
-                <p className="text-[11px] text-white/70">{formatWhen(current.createdAt)}</p>
-              </div>
-            </div>
             {current.content ? (
               <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95 drop-shadow">
                 {current.content}
@@ -397,6 +473,40 @@ export function MediaFeed({
               <PagerButton direction="up" onClick={() => go(-1)} disabled={safeIndex === 0} />
               <PagerButton direction="down" onClick={() => go(1)} disabled={safeIndex >= total - 1} />
             </div>
+          ) : null}
+
+          {/* Horizontal chevrons (< >) centred over the media. These mirror the
+              swipe gesture for pointer users: the rail above is the vertical
+              (wheel/keyboard) equivalent, and the swipe handler is the touch
+              one. All three drive the same `go`, so they can never disagree.
+              Hidden on phones, where a stray tap is far more likely to land on a
+              chevron than an intentional page turn, and where the vertical rail
+              plus swipe already cover paging. */}
+          {total > 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => go(-1)}
+                disabled={safeIndex === 0}
+                aria-label="Previous moment"
+                className="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-0 sm:flex"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6" aria-hidden>
+                  <path d="m15 6-6 6 6 6" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => go(1)}
+                disabled={safeIndex >= total - 1}
+                aria-label="Next moment"
+                className="absolute right-16 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-0 sm:flex"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6" aria-hidden>
+                  <path d="m9 6 6 6-6 6" />
+                </svg>
+              </button>
+            </>
           ) : null}
 
           {/* Action rail - reactions, comments and mute. */}
@@ -414,7 +524,6 @@ export function MediaFeed({
                 {reactions}
               </span>
             ) : null}
-
             <ActionButton
               label="Open comments"
               onClick={() => {
@@ -440,20 +549,26 @@ export function MediaFeed({
                 {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
               </ActionButton>
             ) : null}
-
-            {/* Moments upload launcher - bottom right, clear of the tab nav. */}
-            {viewerId ? (
-              <Link
-                href="/task/upload-moment"
-                aria-label="Upload a moment"
-                className="flex h-12 w-12 items-center justify-center rounded-full border border-orange-400/40 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-lg shadow-orange-950/40 backdrop-blur-sm transition hover:scale-105"
-              >
-                <Plus className="h-6 w-6" />
-              </Link>
-            ) : null}
           </div>
         </article>
       )}
+
+      {/* ------------------------------------------- pinned Moments upload FAB
+          Deliberately OUTSIDE the `current ?` card block above. It used to live
+          inside the action rail, which meant the primary "share something" entry
+          point vanished on an empty feed - exactly when a new member most needs
+          it. Now it is a sibling of the media stage and renders whenever there is
+          a viewer, empty feed or not. Pinned bottom-right and lifted clear of
+          both the composer and the app's bottom tab bar. */}
+      {viewerId ? (
+        <Link
+          href="/task/upload-moment"
+          aria-label="Upload a moment"
+          className="absolute bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:scale-105 active:scale-95 sm:bottom-28 sm:right-6"
+        >
+          <Plus className="h-7 w-7" />
+        </Link>
+      ) : null}
 
       {/* --------------------------------- bottom bar: reactions + messaging */}
       {current ? (
@@ -618,6 +733,15 @@ export function MediaFeed({
  */
 function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Drives a fade-in once the bytes are decodable, so paging between moments
+  // cross-dissolves rather than flashing an empty black box.
+  const [ready, setReady] = useState(false);
+
+  // A new moment means a new frame to wait for; drop back to the hidden state
+  // before the next decode lands.
+  useEffect(() => {
+    setReady(false);
+  }, [moment.id, moment.mediaUrl]);
 
   // Autoplay can be rejected (Low Power Mode, data saver). Swallow the rejection
   // rather than surfacing an error - the first frame is still visible.
@@ -627,6 +751,11 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
     video.muted = muted;
     void video.play().catch(() => undefined);
   }, [muted, moment.id]);
+
+  const surfaceClass = [
+    "h-full w-full object-cover transition-opacity duration-300",
+    ready ? "opacity-100" : "opacity-0",
+  ].join(" ");
 
   if (moment.mediaType === "video") {
     return (
@@ -640,7 +769,8 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
         playsInline
         autoPlay
         preload="auto"
-        className="h-full w-full object-cover"
+        onLoadedData={() => setReady(true)}
+        className={surfaceClass}
       />
     );
   }
@@ -650,7 +780,12 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
     <img
       src={moment.mediaUrl}
       alt={moment.content || "Shared moment"}
-      className="h-full w-full object-cover"
+      // The feed is a single-card viewer, so the current image is the LCP
+      // element: eager-load and decode async to keep paging smooth.
+      loading="eager"
+      decoding="async"
+      onLoad={() => setReady(true)}
+      className={surfaceClass}
     />
   );
 }

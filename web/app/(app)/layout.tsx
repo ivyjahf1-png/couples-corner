@@ -16,7 +16,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const promo = (await getPublishedForPlacement("dashboard").catch(() => []))[0] ?? null;
   return (
     <AppShell>
-      <section data-zone="app" className="inner-surface flex flex-1 flex-col">
+      {/* h-full + min-h-0: this wrapper must not add height of its own, or a
+          child page that locks itself to 100dvh (the conversation view) would
+          overflow the shell and reintroduce page-level scrolling. */}
+      <section data-zone="app" className="inner-surface flex h-full min-h-0 flex-1 flex-col">
         {children}
       </section>
       {promo ? <PromoOverlay item={promo} /> : null}

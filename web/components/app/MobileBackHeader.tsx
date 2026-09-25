@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { isActiveConversationPath } from "@/components/app/AppNav";
 
 const titles: Record<string, string> = {
   discover: "Discover", explore: "Explore", matches: "Matches", messages: "Messages",
@@ -27,6 +28,13 @@ export function MobileBackHeader() {
   const router = useRouter();
   const segment = pathname?.split("/").filter(Boolean)[0] ?? "";
   if (!segment || pathname === "/dashboard") return null;
+
+  // Inside an ACTIVE conversation the chat's own ChatHeader is the visible
+  // header: it already carries the back arrow, avatar, name/status and call
+  // buttons, and it is laid out inside the page's 100dvh column. Rendering the
+  // global header here as well would stack two bars, and its fixed positioning
+  // plus 4rem spacer would push that 100dvh column past the viewport.
+  if (isActiveConversationPath(pathname)) return null;
 
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;

@@ -66,11 +66,17 @@ export const menuDrawerItems: AppNavItem[] = [
 ];
 
 function isActive(pathname: string, item: AppNavItem) {
+  // Normalize trailing slashes first. The Home tab's href is "/", so a
+  // `pathname` of "" or "/" must both resolve to it; without normalization the
+  // root tab silently fails to light up and Home looks inert next to every
+  // other tab.
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+
   // Root ("/") must match only exactly. A naive `startsWith("/")` would make
   // Home look active on EVERY route, which is why the extra hrefs are
   // enumerated via alsoActiveFor rather than relying on prefix matching.
   return [item.href, ...(item.alsoActiveFor ?? [])].some(
-    (href) => pathname === href || (href !== "/" && pathname.startsWith(`${href}/`))
+    (href) => path === href || (href !== "/" && path.startsWith(`${href}/`))
   );
 }
 
@@ -200,6 +206,56 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 /**
+ * True for an ACTIVE conversation route (`/messages/<conversationId>`) and false
+ * for the messages list itself (`/messages`). Single source of truth shared by
+ * the tab-bar visibility check, the <main> padding check and the mobile back
+ * header, so the three can never disagree about what "inside a chat" means.
+ */
+export function isActiveConversationPath(pathname: string | null): boolean {
+  return Boolean(pathname) && pathname!.startsWith("/messages/") && pathname!.length > "/messages/".length;
+}
+
+/**
+ * The single <main> scroll region of the app shell, with ROUTE-AWARE PADDING.
+ *
+ * Everywhere except an ACTIVE conversation (/messages/<conversationId>) the
+ * region keeps its normal page gutters and top padding. Inside a conversation it
+ * drops them completely, so the chat page's own `h-[100dvh]` column is not
+ * squeezed or overflowed by shell padding - the thread, header and composer get
+ * the raw dynamic viewport, edge to edge.
+ *
+ * Client component purely so it can read the pathname; it renders no data and
+ * performs no mutation.
+ */
+export function AppMain({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const inActiveConversation = isActiveConversationPath(pathname);
+
+  return (
+    <main
+      className={[
+        "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        inActiveConversation
+          ? "p-0"
+          : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.
+            // Because that bar left the flex flow, <main> spans the full viewport
+            // and the bar overlays its last 5rem; without this, the end of every
+            // page (and the feed's bottom composer) would sit permanently behind
+            // the navigation. `md:pb-0` drops it at tablet and up, where the bar
+            // is `md:hidden` and the sidebar rail takes over. The inner wrapper
+            // is `h-full`, so it measures the padded box and full-height pages
+            // (the media feed) shrink to clear the bar rather than hiding under
+            // it. The conversation route takes `p-0`: its bar is hidden entirely,
+            // so any padding here would be dead space.
+            "px-4 pb-20 pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
+      ].join(" ")}
+    >
+      <div className="mx-auto h-full w-full max-w-[88rem]">{children}</div>
+    </main>
+  );
+}
+
+/**
  * Bottom tab navigation with route-aware visibility.
  *
  * The 5-tab bar is hidden inside an ACTIVE conversation
@@ -211,24 +267,36 @@ function UnreadBadge({ count }: { count: number }) {
  * The list route `/messages` itself keeps the bar - only a specific
  * conversation hides it.
  *
- * This stays in the flex flow (NOT `position: fixed`) so the shell can reserve
- * its exact height. When hidden the wrapper renders nothing and the content
- * region grows to fill the space, which is what lets the chat reclaim the full
- * height with no negative margins or viewport-height hacks.
+ * FIXED to the bottom of the viewport (was an in-flow `shrink-0` sibling).
+ *
+ * Why it was in-flow before, and what changed: the in-flow version reserved its
+ * own height in the shell's flex column, so the content region never extended
+ * under it. That works, but it means the bar's position is a function of the
+ * content column above it - and when a page inside the region sets its own
+ * height (the 100dvh conversation view, the fill-mode media feed) the two
+ * disagree and the bar drifts. Pinning it removes that whole class of bug: the
+ * bar is now anchored to the viewport and cannot be moved by content.
+ *
+ * THE TRADE-OFF, and the reason the padding below is NOT optional: a `fixed`
+ * element leaves the flex flow, so <main> now grows to the FULL viewport and
+ * page content scrolls *behind* the bar. That is precisely the "floating nav"
+ * bug the in-flow layout was built to avoid. The fix is the compensating bottom
+ * padding on AppMain, which is why the two changes in this commit must ship
+ * together - do not revert one without the other.
+ *
+ * `/messages` (the list) keeps the bar; only a specific conversation hides it,
+ * and the conversation page therefore takes NO compensating padding.
  */
 export function BottomNavRegion(props: AppMobileNavProps) {
   const pathname = usePathname();
 
   // /messages/<id> -> hidden. /messages or anything else -> visible.
-  const inActiveConversation =
-    Boolean(pathname) &&
-    pathname.startsWith("/messages/") &&
-    pathname.length > "/messages/".length;
+  const inActiveConversation = isActiveConversationPath(pathname);
 
   if (inActiveConversation) return null;
 
   return (
-    <div className="relative z-20 shrink-0">
+    <div className="fixed inset-x-0 bottom-0 z-50 shrink-0 md:hidden">
       <AppMobileNav {...props} />
     </div>
   );
@@ -272,19 +340,14 @@ function MobileNavigation({
 
   return (
     <>
-      {/* NOT `position: fixed` — deliberately.
-          AppShell owns the 100dvh viewport lock and lays this bar out as an
-          in-flow `shrink-0` sibling of the content region, directly beneath it.
-          A `fixed` bar would leave the flex column, letting <main> grow to the
-          full viewport so page content scrolls *behind* the bar, which is
-          exactly the "floating nav" bug this in-flow layout was built to fix.
-          It would also require compensating bottom padding on every page, and
-          that padding is precisely what produces the phantom gap at the end of
-          the scroll area. Do not convert this to `fixed` without reworking
-          AppShell's flex hierarchy to match. */}
+      {/* `fixed` on the region above pins this bar to the viewport, so it can no
+          longer drift with the content column. Because it is out of flow, <main>
+          runs the full height and this bar overlays it - AppMain carries the
+          matching bottom padding so content is never hidden underneath. Do not
+          convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav relative z-20 shrink-0 border-t bg-slate-950/90 backdrop-blur-md md:hidden"
+        className="app-bottom-nav shrink-0 border-t border-slate-800/50 bg-slate-950/90 backdrop-blur-md"
       >
         <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
           <ul className="mx-auto grid max-w-md grid-cols-5">

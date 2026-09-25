@@ -1,9 +1,8 @@
 import { MobileHomeHeader } from "@/components/app/MobileBackHeader";
 import Link from "next/link";
-import { AppSidebar, BottomNavRegion } from "@/components/app/AppNav";
+import { AppSidebar, AppMain, BottomNavRegion } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
-import { LogoutButton } from "@/components/auth/LogoutButton";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
 import { NotificationBell } from "@/components/app/NotificationBell";
@@ -97,17 +96,18 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        {/* flex-1 + min-h-0 + overflow-y-auto: the ONLY vertical scroll region
-            in the app. The bottom nav is an in-flow sibling below this, so
-            content is never hidden behind it and needs no compensating padding. */}
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 sm:px-6 md:px-8 lg:px-10 xl:px-12">
-          <div className="mx-auto h-full w-full max-w-[88rem]">{children}</div>
-        </main>
+        {/* AppMain is the single vertical scroll region in the app. It keeps
+            the normal page gutters everywhere, and drops them inside an active
+            conversation so that page can own the full 100dvh. The bottom nav is
+            an in-flow sibling below this, so content is never hidden behind it
+            and needs no compensating padding. */}
+        <AppMain>{children}</AppMain>
       </div>
 
-      {/* Bottom tab navigation. Hidden automatically inside an active
-          conversation (see BottomNavRegion); when visible it is an in-flow
-          shrink-0 segment directly beneath the content region. */}
+      {/* Bottom tab navigation, pinned with `fixed` to the viewport bottom so
+          content above can never drag it around (see BottomNavRegion). Because
+          it is out of flow, AppMain carries the matching `pb-20`. It hides
+          itself inside an active conversation. */}
       <BottomNavRegion
         displayName={displayName}
         displayEmail={displayEmail}

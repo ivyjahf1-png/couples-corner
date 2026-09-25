@@ -41,20 +41,24 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   };
 
   return (
-    // Safe-area inset is REQUIRED here: the bottom tab nav is hidden inside an
-    // active conversation, so nothing below this composer applies the iPhone
-    // home-indicator clearance any more.
-    <div className="relative border-t border-white/10 bg-slate-950/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md sm:px-3">
+    // Pinned to the bottom of the page's 100dvh column: the bar itself is
+    // `shrink-0` (the page wrapper enforces it) and owns the safe-area inset,
+    // because the bottom tab nav is hidden inside an active conversation and
+    // nothing below this composer applies the iPhone home-indicator clearance.
+    // The control row never wraps: every button is `shrink-0` and sized down
+    // (not hidden) at the smallest breakpoint, so +, camera, input, emoji and
+    // mic all fit side by side on a 320px-wide phone.
+    <div className="relative w-full shrink-0 border-t border-white/10 bg-slate-950/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md sm:px-3">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-2xl items-center gap-1.5 sm:gap-2.5"
+        className="mx-auto flex w-full max-w-2xl items-center gap-1 sm:gap-1.5 lg:gap-2.5"
         aria-label="Send a message"
       >
         {/* Circular plus / attach action */}
         <button
           type="button"
           aria-label="More actions"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1E293B] text-ink-200 shadow-md transition hover:bg-white/10 hover:text-white"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#1E293B] text-ink-200 shadow-md transition hover:bg-white/10 hover:text-white sm:h-11 sm:w-11"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -80,23 +84,23 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           }}
           placeholder="Write a message"
           aria-label="Write a message"
-          className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 outline-none transition-colors focus:border-purple-500/60 disabled:opacity-60"
+          className="h-10 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-3 text-sm text-white placeholder:text-ink-400 outline-none transition-colors focus:border-purple-500/60 disabled:opacity-60 sm:h-11 sm:px-4"
           disabled={pending}
         />
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" aria-label="Choose an image" />
         {/* Camera/attach. Visible at every breakpoint: with the tab bar hidden
             inside a chat there is room for all five controls on a phone, and
             `shrink-0` guarantees they never compress or wrap. */}
-        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Choose image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11">▧</button>
-        <button type="button" onClick={() => setShowEmoji((value) => !value)} aria-label="Select emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11">☺</button>
-        <button type="button" aria-label="Record voice note" className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-400/10 text-purple-200 transition hover:bg-purple-400/20 sm:flex sm:h-11 sm:w-11">🎙</button>
+        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Choose image" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg leading-none text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11 sm:text-xl">▧</button>
+        <button type="button" onClick={() => setShowEmoji((value) => !value)} aria-label="Select emoji" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-lg leading-none text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11 sm:text-xl">☺</button>
+        <button type="button" aria-label="Record voice note" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-400/10 text-base leading-none text-purple-200 transition hover:bg-purple-400/20 sm:h-11 sm:w-11 sm:text-lg">🎙</button>
         {showEmoji ? <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border border-white/10 bg-[#1E293B] p-2 shadow-xl">{["❤️", "✨", "😂", "👍"].map((emoji) => <button key={emoji} type="button" onClick={() => { setValue((current) => `${current}${emoji}`); setShowEmoji(false); }} className="rounded-lg p-1 text-xl hover:bg-white/10" aria-label={`Insert ${emoji}`}>{emoji}</button>)}</div> : null}
         {/* Circular send button */}
         <button
           type="submit"
           aria-label="Send message"
           disabled={pending || !value.trim()}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-950/40 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-950/40 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 sm:h-11 sm:w-11"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
