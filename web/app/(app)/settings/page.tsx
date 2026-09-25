@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { PageHeader } from "@/components/app/PageHeader";
@@ -8,21 +8,16 @@ import { Chip } from "@/components/ui/Chip";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { listBlocked } from "@/lib/server/safety";
 import { SESSION_COOKIE_NAME } from "@/lib/server/session";
-import {
-  listMfaFactors,
-  listUserSessions,
-  type SecuritySession,
-} from "@/lib/server/account-security";
+import { listMfaFactors } from "@/lib/server/account-security";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { MfaSection } from "@/components/settings/MfaSection";
-import { SessionsList } from "@/components/settings/SessionsList";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 import { BlockedRowClient } from "./blocked/BlockedRowClient";
 import { ClearCacheButton } from "@/components/settings/ClearCacheButton";
 import type { BlockedUser } from "@/lib/feature/types";
 
 /**
- * Settings — real settings interface. The Security section (password, 2FA,
+ * Settings � real settings interface. The Security section (password, 2FA,
  * active sessions) and Blocked users are wired to Supabase-backed server
  * services; remaining controls are placeholders pending their server work.
  */
@@ -71,7 +66,6 @@ export default async function SettingsPage() {
   let mfaEnabled = false;
   let mfaFactorId: string | null = null;
   let mfaError: string | null = null;
-  let sessions: SecuritySession[] = [];
   let blocked: BlockedUser[] = [];
 
   if (user && token) {
@@ -82,11 +76,6 @@ export default async function SettingsPage() {
       mfaFactorId = verified?.id ?? null;
     } catch (err) {
       mfaError = err instanceof Error ? err.message : null;
-    }
-    try {
-      sessions = await listUserSessions(user.uid, token);
-    } catch {
-      sessions = [];
     }
     try {
       blocked = await listBlocked(user.uid);
@@ -179,7 +168,7 @@ export default async function SettingsPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-white">Password</p>
                 <p className="text-sm text-ink-300">
-                  Verified against Supabase Auth — you&apos;ll need your current password.
+                  Verified against Supabase Auth � you&apos;ll need your current password.
                 </p>
               </div>
               <div className="shrink-0">
@@ -197,18 +186,7 @@ export default async function SettingsPage() {
               ) : (
                 <span className="text-sm text-ink-300">Sign in to manage</span>
               )}
-            </Row>
-
-            <div className="px-5 py-4">
-              <p className="text-sm font-medium text-white">Active sessions</p>
-              <p className="text-sm text-ink-300">Devices currently signed in.</p>
-            </div>
-            {user ? (
-              <SessionsList initialSessions={sessions} />
-            ) : (
-              <p className="px-5 pb-5 text-sm text-ink-300">Sign in to manage</p>
-            )}
-          </Card>
+            </Row>          </Card>
         </Section>
 
         {/* Blocked users */}
@@ -254,11 +232,11 @@ export default async function SettingsPage() {
           <Card padding="none" className="divide-y divide-ink-700">
             <Link href="/settings/blocked" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Bind account</span>
-              <span aria-hidden className="text-ink-400">›</span>
+              <span aria-hidden className="text-ink-400">�</span>
             </Link>
             <Link href="/aristocracy" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Charge settings</span>
-              <span aria-hidden className="text-ink-400">›</span>
+              <span aria-hidden className="text-ink-400">�</span>
             </Link>
             <Row label="Rights Center" hint="Your VIP & SVIP benefits live here.">
               <Link href="/aristocracy" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>
@@ -268,17 +246,17 @@ export default async function SettingsPage() {
             </Row>
             <Link href="/settings/blocked" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Blocked List</span>
-              <span aria-hidden className="text-ink-400">›</span>
+              <span aria-hidden className="text-ink-400">�</span>
             </Link>
             <Row label="Language" hint="English (US)">
-              <span aria-hidden className="text-ink-400">›</span>
+              <span aria-hidden className="text-ink-400">�</span>
             </Row>
             <Row label="Clear cache" hint="Free up temporary files on this device.">
               <ClearCacheButton />
             </Row>
             <Link href="/contact" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">About Couple's Corner</span>
-              <span aria-hidden className="text-ink-400">›</span>
+              <span aria-hidden className="text-ink-400">�</span>
             </Link>
             <Row label="Sign out" hint="End your session on this device.">
               {user ? <LogoutButton /> : <span className="text-sm text-ink-300">Not signed in</span>}
@@ -290,7 +268,7 @@ export default async function SettingsPage() {
         <Section
           id="account-management"
           title="Account management"
-          description="Take a break or leave — it&apos;s your corner."
+          description="Take a break or leave � it&apos;s your corner."
         >
           <Card padding="none" className="divide-y divide-ink-700">
             <Row label="Log out" hint="End your session on this device and return to the login page.">
@@ -309,9 +287,9 @@ export default async function SettingsPage() {
         <footer aria-label="Legal and support links" className="flex flex-col items-center gap-2 pb-6 pt-2 text-center">
           <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-ink-400">
             <Link href="/legal/privacy" className="hover:text-ink-200">Privacy Policy</Link>
-            <span aria-hidden>·</span>
+            <span aria-hidden>�</span>
             <Link href="/legal/terms" className="hover:text-ink-200">Terms of Service</Link>
-            <span aria-hidden>·</span>
+            <span aria-hidden>�</span>
             <Link href="/contact" className="hover:text-ink-200">Contact us</Link>
           </nav>
           <Link href="/settings#account-management" className="text-xs text-danger-300/80 hover:text-danger-300">
@@ -322,3 +300,4 @@ export default async function SettingsPage() {
     </div>
   );
 }
+

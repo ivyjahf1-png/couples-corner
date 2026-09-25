@@ -69,12 +69,16 @@ export default async function MessagesPage() {
   });
 
   return (
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Inbox"
-        title="Messages"
-        subtitle="Private chats with your connections. Only you and the other participant can read them."
-      />
+    <div className="mx-auto flex h-[calc(100dvh-8rem)] min-h-0 max-w-3xl flex-col gap-4 overflow-hidden">
+      <div className="shrink-0">
+        <PageHeader
+          eyebrow="Inbox"
+          title="Messages"
+          subtitle="Private chats with your connections. Only you and the other participant can read them."
+        />
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden pr-1">
 
       {/* Near me — horizontal scrollable circular avatars (location-aware). */}
       <NearMeStories />
@@ -109,6 +113,7 @@ export default async function MessagesPage() {
 
       {/* Promotional slot */}
       <ContentSlot placement="messages" />
+      </div>
     </div>
   );
 }
@@ -195,4 +200,5 @@ function formatChatTime(iso: string): string {
   if (days < 7) return `${days}d`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
 
