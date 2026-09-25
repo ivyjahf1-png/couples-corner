@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Couples Corner — shared filter parsing utilities.
  *
  * This module is intentionally neutral: it has no `use client` directive and

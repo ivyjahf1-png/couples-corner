@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { HeroSlide } from "@/lib/utils/hero-slides";
 

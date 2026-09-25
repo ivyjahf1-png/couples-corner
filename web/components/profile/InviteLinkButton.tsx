@@ -30,7 +30,7 @@ export function PersistentUserId({ userId, initialCode }: { userId: string; init
       if (navigator.share) await navigator.share(data); else await navigator.clipboard.writeText(link);
     } catch { /* share dismissed */ }
   }
-  return <button type="button" onClick={share} aria-label={`Share Couple's Corner invitation ${code}`} className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20"><Share2 className="h-4 w-4" />Invite friends � {code}</button>;
+  return <button type="button" onClick={share} aria-label={`Share Couple's Corner invitation ${code}`} className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20"><Share2 className="h-4 w-4" />Invite friends · {code}</button>;
 }
 
 export function PersistentIdBadge({ userId, initialCode }: { userId: string; initialCode?: string | null }) {

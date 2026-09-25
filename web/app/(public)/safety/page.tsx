@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Icon, type IconName } from "@/components/landing/Icon";
 import { SUPPORT_EMAIL, HAS_WHATSAPP_SUPPORT, SUPPORT_WHATSAPP_URL } from "@/lib/site/contact";

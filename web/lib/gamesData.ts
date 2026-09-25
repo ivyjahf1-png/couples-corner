@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Couples Corner — dynamic Game Center registry (client-safe).
  *
  * The single source of truth for the games shown on /games and playable in

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { EventsBoard } from "@/components/content/EventsBoard";
 import { getPublishedForPlacement } from "@/lib/server/content";
 

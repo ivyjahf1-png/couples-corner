@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { getPublishedForPlacement } from "@/lib/server/content";
 import { MediaCarousel, type CarouselMedia } from "./MediaCarousel";

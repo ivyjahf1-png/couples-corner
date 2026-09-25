@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Chip } from "@/components/ui/Chip";
 
 interface PageHeaderProps {

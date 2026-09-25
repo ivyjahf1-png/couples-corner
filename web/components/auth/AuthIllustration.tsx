@@ -1,4 +1,4 @@
-﻿import { getPublishedForPlacement } from "@/lib/server/content";
+import { getPublishedForPlacement } from "@/lib/server/content";
 
 /**
  * Dynamic illustration for the Login / Sign Up card.

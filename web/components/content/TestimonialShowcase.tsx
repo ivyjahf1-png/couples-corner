@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useState } from "react";
 import { MediaCarousel, type CarouselMedia } from "@/components/content/MediaCarousel";

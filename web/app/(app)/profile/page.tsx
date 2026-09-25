@@ -164,7 +164,7 @@ export default async function ProfilePage() {
             aria-hidden
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-yellow-500 text-xl shadow-md shadow-amber-500/25"
           >
-            ðŸª™
+            🪙
           </span>
           <span className="min-w-0">
             <span className="block text-lg font-extrabold tabular-nums text-amber-100">
@@ -183,7 +183,7 @@ export default async function ProfilePage() {
             aria-hidden
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-fuchsia-500 text-xl shadow-md shadow-indigo-500/25"
           >
-            ðŸ‘‘
+            📛
           </span>
           <span className="min-w-0">
             <span className="block text-lg font-extrabold tracking-wide text-violet-100">SVIP</span>
@@ -198,10 +198,10 @@ export default async function ProfilePage() {
         className="glam-tile glam-tile--aqua relative overflow-hidden rounded-2xl p-4"
       >
         <span aria-hidden className="absolute -right-2 -top-3 text-5xl opacity-25">
-          ðŸ’–
+          💕
         </span>
         <span aria-hidden className="absolute bottom-1 right-12 text-3xl opacity-20">
-          ðŸ’•
+          📌
         </span>
         <p className="text-sm font-bold text-white">Friend No Relation</p>
         <p className="mt-0.5 text-xs text-ink-200">

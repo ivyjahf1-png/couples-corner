@@ -1,4 +1,4 @@
-﻿import type { ReactNode } from "react";
+import type { ReactNode } from "react";
 import Link from "next/link";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
