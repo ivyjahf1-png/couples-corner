@@ -1,19 +1,47 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, type FormEvent } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { FloatingField } from "@/components/auth/FloatingField";
 import { SocialAuthRow } from "@/components/auth/SocialAuthRow";
+import { INVITE_STORAGE_KEY, normalizeInviteCode } from "@/lib/utils/invite";
+
+/**
+ * Referral code handoff.
+ *
+ * `/invite/[code]` links to `/register?invite=CODE`. The query param is the
+ * primary source, but a visitor can land on /register directly or arrive via
+ * social sign-in (where the URL param may be lost), so the code is also
+ * stashed in localStorage by the invite page and read back here as a fallback.
+ */
+export function readStoredInviteCode(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return normalizeInviteCode(window.localStorage.getItem(INVITE_STORAGE_KEY));
+  } catch {
+    return null;
+  }
+}
+
 
 export function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Null until the param/localStorage have been checked, so the banner does
+  // not flash for visitors who arrive without an invite.
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fromQuery = searchParams?.get("invite") ?? "";
+    setInviteCode(normalizeInviteCode(fromQuery) ?? readStoredInviteCode());
+  }, [searchParams]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -25,7 +53,11 @@ export function RegisterForm() {
       const { data, error: err } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName } },
+        // Mirrored into user_metadata so the referral survives even if the
+        // provisioning call below fails and is retried later.
+        options: {
+          data: { full_name: fullName, ...(inviteCode ? { invite_code: inviteCode } : {}) },
+        },
       });
       if (err) throw err;
       if (data.session) {
@@ -38,6 +70,7 @@ export function RegisterForm() {
             body: JSON.stringify({
               accessToken: data.session.access_token,
               displayName: fullName || undefined,
+              inviteCode: inviteCode ?? undefined,
             }),
           });
         } catch (provisionError) {
@@ -60,6 +93,12 @@ export function RegisterForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {inviteCode ? (
+        <p className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
+          You were invited with code <span className="font-bold">{inviteCode}</span>
+        </p>
+      ) : null}
+
       {success && (
         <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-300">
           {success}

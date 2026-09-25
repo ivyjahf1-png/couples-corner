@@ -308,6 +308,36 @@ export async function getProfileByUserCode(
   return profile;
 }
 
+/**
+ * Look up a profile by its exact public code (two digits + four letters).
+ *
+ * IMPORTANT: this queries the `user_code` column. `getProfileByUserCode` in
+ * this same file still resolves against `user_id` with a five-character
+ * pattern, which never matches the codes minted by migration 032. Invite
+ * attribution must use this function, not that one.
+ */
+export async function resolveUserCode(
+  rawCode: string
+): Promise<{ userId: string; displayName: string | null } | null> {
+  const normalized = rawCode.trim().toUpperCase();
+  if (!/^\d{2}[A-Z]{4}$/.test(normalized)) return null;
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("user_id, display_name")
+    .eq("user_code", normalized)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data) return null;
+
+  const row = data as { user_id?: string | null; display_name?: string | null };
+  if (!row.user_id) return null;
+  return { userId: row.user_id, displayName: row.display_name ?? null };
+}
+
 export async function getVisibleProfile(
   targetUid: string,
   viewerUid: string | null

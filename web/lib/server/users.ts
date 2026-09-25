@@ -14,11 +14,13 @@ export interface ProvisionUserInput {
   uid: string;
   email: string;
   displayName?: string;
+  /** uid of the member whose invite code referred this signup, if any. */
+  referredBy?: string | null;
 }
 
 /** Create users/{uid} + profiles/{uid} idempotently (safe to retry). */
 export async function provisionUser(
-  { uid, email, displayName }: ProvisionUserInput
+  { uid, email, displayName, referredBy }: ProvisionUserInput
 ): Promise<void> {
   const supabase = getSupabaseServerClient();
 
@@ -37,8 +39,10 @@ export async function provisionUser(
 
   if (existingUser) return;
 
-  // Insert user record
-  await supabase.from("users").insert({
+  // Insert user record. `referred_by` only exists once migration 035 has been
+  // applied, so a failure here is retried without the referral column rather
+  // than losing the whole account row.
+  const userRow: Record<string, unknown> = {
     id: uid,
     email,
     display_name: displayName?.trim() || email.split("@")[0],
@@ -48,7 +52,17 @@ export async function provisionUser(
     onboarding_completed: false,
     created_at: now,
     last_active_at: now,
-  });
+  };
+  if (referredBy) userRow.referred_by = referredBy;
+
+  const { error: userInsertError } = await supabase.from("users").insert(userRow);
+  if (userInsertError && referredBy) {
+    const { referred_by: _omitted, ...retryRow } = userRow;
+    const { error: retryError } = await supabase.from("users").insert(retryRow);
+    if (retryError) throw retryError;
+  } else if (userInsertError) {
+    throw userInsertError;
+  }
 
   // Insert profile record — strip any keys the DB might not have yet.
   const profilePayload: Record<string, unknown> = {

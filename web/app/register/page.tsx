@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Logo } from "@/components/ui/Logo";
 import { AuthIllustration } from "@/components/auth/AuthIllustration";
 import { RegisterForm } from "@/components/auth/RegisterForm";
@@ -31,7 +32,9 @@ export default function RegisterPage() {
             </p>
 
             <div className="mt-6">
-              <RegisterForm />
+              <Suspense fallback={null}>
+                <RegisterForm />
+              </Suspense>
             </div>
           </div>
         </div>
