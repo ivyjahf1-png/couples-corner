@@ -96,12 +96,17 @@ export function LiveConversationThread({
 
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Auto-scroll to bottom on new message
+  // Auto-scroll to bottom on new message.
+  //
+  // This <ul> is NOT the scroll container - the page-level wrapper is. So we
+  // resolve the nearest scrolling ancestor and scroll that; falling back to the
+  // element itself keeps this working if the structure ever changes back.
   useEffect(() => {
     const el = listRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
+    if (!el) return;
+    const scroller = el.closest("[data-chat-scroll]") as HTMLElement | null;
+    const target = scroller ?? el;
+    target.scrollTop = target.scrollHeight;
   }, [messages.length]);
 
   const [sparkExtended, setSparkExtended] = useState(false);
@@ -130,7 +135,7 @@ export function LiveConversationThread({
       {/* Message list */}
       <ul
         ref={listRef}
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-4"
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden px-4 py-4"
         aria-label="Messages"
         role="log"
       >
