@@ -25,7 +25,7 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body>
-        <div className="app-canvas fixed inset-0 z-50 flex flex-col items-center justify-center px-6 text-center">
+        <div className="app-canvas fixed inset-0 z-[100] flex flex-col items-center justify-center px-6 text-center">
           <Logo as="div" />
           <h1 className="mt-6 text-2xl font-semibold text-foreground">
             Something went wrong

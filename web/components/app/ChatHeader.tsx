@@ -123,7 +123,7 @@ export function ChatHeader({
           <div
             role="menu"
             aria-label="Chat options"
-            className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl shadow-black/50"
+            className="absolute right-0 top-11 z-[100] w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl shadow-black/50"
           >
             <Link
               href="/messages"

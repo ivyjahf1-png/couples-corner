@@ -152,7 +152,7 @@ export function StoreMarketplace({
         </p>
       ) : null}
       {bagOpen ? (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60" role="dialog" aria-label="Shopping bag">
+        <div className="fixed inset-0 z-[100] flex justify-end bg-black/60" role="dialog" aria-label="Shopping bag">
           <button type="button" className="absolute inset-0 cursor-default" aria-label="Close bag" onClick={() => setBagOpen(false)} />
           <aside className="relative flex h-full w-[min(100%,22rem)] flex-col border-l border-white/10 bg-slate-950 p-5 shadow-2xl">
             <div className="flex items-center justify-between">

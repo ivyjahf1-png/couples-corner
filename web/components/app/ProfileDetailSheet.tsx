@@ -74,7 +74,7 @@ export function ProfileDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
       role="dialog"
       aria-modal="true"
       aria-label={`${displayName} — full profile`}

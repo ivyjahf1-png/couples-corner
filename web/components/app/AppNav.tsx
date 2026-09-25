@@ -234,7 +234,7 @@ function MobileNavigation({
     <>
       <nav
         aria-label="Primary"
-        className="app-bottom-nav fixed inset-x-0 bottom-0 z-40 border-t md:hidden"
+        className="app-bottom-nav fixed inset-x-0 bottom-0 z-[60] border-t md:hidden"
       >
         <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
           <ul className="mx-auto grid max-w-md grid-cols-5">
@@ -266,7 +266,7 @@ function MobileNavigation({
 
       {menuOpen ? (
         <div
-          className="fixed inset-0 z-50 md:hidden"
+          className="fixed inset-0 z-[100] md:hidden"
           role="dialog"
           aria-modal="true"
           aria-label="Menu and profile"

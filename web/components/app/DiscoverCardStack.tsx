@@ -261,7 +261,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* ------------------------------------------------ Get Super Likes modal */}
       {superLikeModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Super Likes">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Super Likes">
           <button type="button" aria-label="Close" onClick={() => setSuperLikeModal(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
           <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
             <div className="mb-4 flex items-center gap-3">
@@ -298,7 +298,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* --------------------------------------- First Impressions overlay */}
       {impressionsModal ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Send First Impressions">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Send First Impressions">
           <button type="button" aria-label="Close" onClick={() => setImpressionsModal(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
           <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
             <div className="mb-4 flex items-center gap-3">
@@ -348,7 +348,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* ------------------------------ Coin purchase / tier modal (future) */}
       {coinModalOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Coins">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Coins">
           <button type="button" aria-label="Close" onClick={() => setCoinModalOpen(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
           <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
             <div className="mb-4 flex items-center gap-3">

@@ -3,7 +3,8 @@ import { LocationBadge } from "@/components/app/LocationBadge";
 import { MomentRail } from "@/components/app/MomentRail";
 import { EmptyState } from "@/components/app/EmptyState";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
-import { getSessionUser } from "@/lib/auth/authorization";
+import { requireUser, getSessionUser } from "@/lib/auth/authorization";
+import { AppShell } from "@/components/app/AppShell";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { demoProfileViews } from "@/lib/demo/demo-data";
@@ -20,6 +21,9 @@ export const dynamic = "force-dynamic";
  * published moments. No static marketing blocks or stacked widgets.
  */
 export default async function HomePage() {
+  // The root route lives outside the (app) route group, so the app chrome
+  // (sidebar + fixed bottom navigation) is mounted explicitly here.
+  await requireUser();
   const session = await getSessionUser();
 
   let profiles: ProfileCardView[] = demoProfileViews;
@@ -36,6 +40,8 @@ export default async function HomePage() {
   const visible = profiles.filter((profile) => profile?.id);
 
   return (
+    <AppShell>
+    <section data-zone="app" className="inner-surface flex flex-1 flex-col">
     <div className="relative flex min-h-[calc(100dvh-9rem)] flex-col gap-4 pb-28">
       {/* Top bar: brand + live location badge */}
       <div className="flex items-center justify-between gap-3">
@@ -57,5 +63,7 @@ export default async function HomePage() {
 
       <GameCenterButton />
     </div>
+    </section>
+    </AppShell>
   );
 }

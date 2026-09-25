@@ -88,7 +88,7 @@ export function NotificationBell() {
         <div
           role="menu"
           aria-label="Recent activity and notices"
-          className="absolute right-0 top-11 z-50 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl shadow-black/40"
+          className="absolute right-0 top-11 z-[100] w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-white/10 bg-[#0F172A] shadow-2xl shadow-black/40"
         >
           <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
             <p className="text-sm font-semibold text-white">Activity & notices</p>

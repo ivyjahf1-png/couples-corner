@@ -326,7 +326,7 @@ export function GameCenterHub({
       {toast ? (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-2xl border border-white/15 bg-slate-950/90 px-5 py-3 text-sm font-medium text-white shadow-2xl backdrop-blur-md"
+          className="fixed bottom-6 left-1/2 z-[100] -translate-x-1/2 rounded-2xl border border-white/15 bg-slate-950/90 px-5 py-3 text-sm font-medium text-white shadow-2xl backdrop-blur-md"
         >
           {toast}
         </div>
