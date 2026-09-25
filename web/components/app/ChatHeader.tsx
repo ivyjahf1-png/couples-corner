@@ -50,7 +50,26 @@ export function ChatHeader({
   const status = statusText ?? (isOnline ? "Online" : "Offline");
 
   return (
-    <div className="flex items-center gap-3 border-b border-white/10 bg-slate-950/90 px-3 py-2.5 backdrop-blur-md sm:px-4">
+    // SAFE AREA + BASE PADDING (the fix for the header sitting flush against the
+    // top edge / under the notch).
+    //
+    // The old value was `pt-[env(safe-area-inset-top)]`, which is the whole bug:
+    // `env()` resolves to 0 on every device without a notch (desktop, most
+    // Androids, and any browser not in fullscreen), so the bar lost ALL top
+    // padding and butted straight up against the screen edge. Even on a notched
+    // iPhone the inset alone is only ~44px of status bar with no breathing room
+    // above the controls themselves.
+    //
+    // `max(0.75rem, env(safe-area-inset-top))` guarantees a 12px floor on every
+    // device and grows to the full inset only where one exists. This mirrors the
+    // `pb-[max(0.75rem,env(safe-area-inset-bottom))]` the MessageComposer already
+    // uses for the home indicator, so the two bars of this view are symmetric.
+    //
+    // The global mobile back header is suppressed on this route (the chat owns
+    // its own header), so this bar is directly under the notch and must apply
+    // the inset itself. `shrink-0` on every child guarantees the row never
+    // compresses or wraps.
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-800/80 bg-slate-950/90 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-md sm:gap-3">
       {/* Back */}
       <Link
         href="/messages"
