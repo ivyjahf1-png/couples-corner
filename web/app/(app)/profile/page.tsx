@@ -6,8 +6,8 @@ import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { Avatar } from "@/components/app/Avatar";
-import { CopyIdButton } from "@/components/profile/CopyIdButton";
-import { InviteLinkButton } from "@/components/profile/InviteLinkButton";
+import { PersistentIdBadge } from "@/components/profile/InviteLinkButton";
+import { PersistentUserId } from "@/components/profile/InviteLinkButton";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -101,7 +101,7 @@ export default async function ProfilePage() {
               </span>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <CopyIdButton value={shortId} label={`ID: ${shortId}`} />
+              <PersistentIdBadge userId={session.uid} initialCode={profile?.userCode} />
               <span className="text-[11px] font-medium text-ink-300">
                 {completion.percentage}% profile complete
               </span>
@@ -207,7 +207,7 @@ export default async function ProfilePage() {
         <p className="mt-0.5 text-xs text-ink-200">
           Connect to unlock couples features together.
         </p>
-        <InviteLinkButton userCode={profile?.userCode} />
+        <PersistentUserId userId={session.uid} initialCode={profile?.userCode} />
       </section>
 
       {/* --------------------------------------- 4. Recommended games row */}
@@ -331,4 +331,5 @@ export default async function ProfilePage() {
     </div>
   );
 }
+
 
