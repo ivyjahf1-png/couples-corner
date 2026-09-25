@@ -13,6 +13,7 @@ import {
   updateOwnProfile,
   type ProfileUpdateInput,
 } from "@/lib/server/profiles";
+import { publishMoment } from "@/lib/server/tasks";
 
 export interface MediaUploadResult {
   ok: boolean;
@@ -95,6 +96,61 @@ export async function uploadUserMediaAction(
   } catch (err) {
     rethrowIfNavigation(err);
     return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Publish an existing profile-gallery item to the community Moments feed.
+ *
+ * Deliberately OPT-IN rather than automatic: a profile gallery is a private-ish
+ * space, and silently syndicating every upload to a public feed would broadcast
+ * media the member never agreed to share. The member presses "Share to feed",
+ * which creates the `moments` row and leaves the gallery item untouched.
+ *
+ * Ownership is enforced here, not trusted from the client: the media row must
+ * belong to the signed-in member.
+ */
+export async function shareUserMediaToFeedAction(
+  mediaId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to share" };
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    // Scoped by user_id so one member cannot publish someone else's media.
+    const { data: media, error: mediaError } = await supabase
+      .from("user_media")
+      .select("storage_path, media_type, caption")
+      .eq("id", mediaId)
+      .eq("user_id", user.uid)
+      .maybeSingle();
+    if (mediaError || !media) {
+      return { ok: false, error: "That photo could not be found" };
+    }
+
+    const row = media as { storage_path?: string | null; media_type?: string | null; caption?: string | null };
+    if (!row.storage_path) return { ok: false, error: "That photo has no stored file" };
+
+    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(row.storage_path);
+
+    const result = await publishMoment(user.uid, {
+      content: row.caption?.trim() ?? "",
+      mediaUrl: urlData.publicUrl,
+      mediaType: row.media_type === "video" ? "video" : "image",
+      taskSlug: null,
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+
+    revalidatePath("/");
+    revalidatePath("/feed");
+    revalidatePath("/profile");
+    return { ok: true };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not share" };
   }
 }
 

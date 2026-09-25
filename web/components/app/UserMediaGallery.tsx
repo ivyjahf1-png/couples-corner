@@ -4,6 +4,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
 import { USER_MEDIA_MIME_TYPES, validateMediaFile } from "@/lib/utils/media-upload";
 import { uploadWithProgress } from "@/lib/utils/upload-progress";
+import { shareUserMediaToFeedAction } from "@/lib/actions/profile";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 type Media = { id: string; storage_path: string; media_type: string };
@@ -16,6 +17,7 @@ export function UserMediaGallery({ uid }: { uid: string }) {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const load = useCallback(async (offset = 0) => {
     setLoading(true);
@@ -67,6 +69,26 @@ export function UserMediaGallery({ uid }: { uid: string }) {
     } finally { setBusy(false); if (input.current) input.current.value = ""; }
   }
 
+  // Publish one gallery item to the community Moments feed.
+  async function share(mediaId: string) {
+    if (busy) return;
+    setSharingId(mediaId);
+    setError("");
+    setStatus("");
+    try {
+      const result = await shareUserMediaToFeedAction(mediaId);
+      if (!result.ok) {
+        setError(result.error ?? "Could not share that item.");
+        return;
+      }
+      setStatus("Shared to your Moments feed.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not share that item.");
+    } finally {
+      setSharingId(null);
+    }
+  }
+
   return <Card className="flex flex-col gap-4">
     <h2 className="font-semibold text-white">Your photos and videos</h2>
     <p className="text-sm text-ink-300">Public gallery. No account item cap; up to 250 MB per file, subject to provider limits. Some formats require downloading to view.</p>
@@ -78,10 +100,22 @@ export function UserMediaGallery({ uid }: { uid: string }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {items.map(item => {
         const url = getSupabaseClient().storage.from("user-media").getPublicUrl(item.storage_path).data.publicUrl;
+        const sharing = sharingId === item.id;
         return <div key={item.id} className="overflow-hidden rounded-xl bg-white/5">
           {item.media_type === "video" ? <video controls preload="metadata" src={url} className="aspect-square w-full object-contain" />
             : <img loading="lazy" src={url} alt="Your uploaded media" className="aspect-square w-full object-cover" />}
-          <a href={url} target="_blank" rel="noreferrer" className="block p-2 text-xs text-brand-300">Open original</a>
+          <div className="flex items-center justify-between gap-2 p-2">
+            <a href={url} target="_blank" rel="noreferrer" className="text-xs text-brand-300 hover:underline">Open original</a>
+            {/* Opt-in syndication: publishing is an explicit choice, never automatic. */}
+            <button
+              type="button"
+              onClick={() => void share(item.id)}
+              disabled={sharing || busy}
+              className="shrink-0 rounded-lg border border-orange-400/40 bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-50"
+            >
+              {sharing ? "Sharing…" : "Share to feed"}
+            </button>
+          </div>
         </div>;
       })}
     </div>
