@@ -16,26 +16,23 @@ interface ConversationPageProps {
  * A single conversation thread.
  *
  * Layout contract - exactly one vertical scroll region:
- *   - Shell: `fixed inset-0` + h-[100dvh] + overflow-hidden. Pinning the root
- *     to the viewport is what removes rubber-banding: the document behind it
- *     has no height to scroll, so iOS Safari has nothing to bounce against.
- *   - <header> is shrink-0: locked at the top.
- *   - The thread wrapper is flex-1 min-h-0 overflow-y-auto overflow-x-hidden:
- *     the ONLY scroller on the page.
- *   - The composer is shrink-0: locked at the bottom.
- *
- * NOTE: `fixed inset-0` deliberately overlays the app shell's sidebar and the
- * fixed bottom tab bar, so a chat reads as a full-bleed surface. Consequence:
- * the mobile tab bar is not reachable while a conversation is open - the
- * ChatHeader back button is the way out. If you would rather keep the tab bar
- * visible, drop `fixed` and use a normal flow container with
- * `h-[calc(100dvh-7rem)]` at md and up instead.
+ *   - Shell: `h-full min-h-0` + overflow-hidden, filling the AppShell content
+ *     region. AppShell already owns the 100dvh viewport lock, so this page must
+ *     NOT be `position: fixed`: a fixed element escapes the shell's flex column
+ *     and overlays the bottom tab nav, which is exactly the header/composer
+ *     clipping this layout used to suffer.
+ *   - `-mt-6` cancels the shell's `pt-6` so the chat is truly edge-to-edge
+ *     (no dead band above the header).
+ *   - <header> is `z-10 shrink-0`: locked at the top, never compressed.
+ *   - The thread wrapper is `flex-1 min-h-0 overflow-y-auto overflow-x-hidden`:
+ *     the ONLY scroller, explicitly bounded between header and composer.
+ *   - The composer is `z-10 shrink-0`: locked at the bottom, sitting directly
+ *     above the shell's in-flow tab nav, never truncated.
  *
  * NOTE: LiveConversationThread's <ul> must stay non-scrolling (overflow-x-hidden
  * only). Two nested overflow-y-auto containers cause scroll chaining and the
  * erratic bouncing this page used to have.
- */
-export default async function MessagesPage({ params }: ConversationPageProps) {
+ */export default async function MessagesPage({ params }: ConversationPageProps) {
   const { conversationId } = await params;
   const user = await getCurrentSessionUser();
 
@@ -50,9 +47,9 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   void markConversationReadAction(conversationId);
 
   return (
-    <div className="fixed inset-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950">
+    <div className="relative -mt-6 flex h-full min-h-0 w-full flex-col overflow-hidden bg-slate-950 sm:-mt-6">
       {/* Locked static header. ChatHeader supplies its own border/padding. */}
-      <header className="shrink-0">
+      <header className="relative z-10 shrink-0">
         <ChatHeader
           summary={summary}
           currentUserId={user.uid}
@@ -73,7 +70,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       </div>
 
       {/* Locked bottom composer. MessageComposer handles its own safe area. */}
-      <div className="shrink-0">
+      <div className="relative z-10 shrink-0">
         <MessageComposer conversationId={conversationId} />
       </div>
     </div>

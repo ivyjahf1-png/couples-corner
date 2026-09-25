@@ -41,7 +41,11 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   };
 
   return (
-    <div className="relative border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
+    // No safe-area inset here: this composer sits directly above AppShell's
+    // in-flow bottom tab nav, which already applies
+    // `env(safe-area-inset-bottom)`. Keeping both would double the gap above
+    // the iPhone home indicator.
+    <div className="relative border-t border-white/10 bg-slate-950/95 px-3 pb-2.5 pt-3 backdrop-blur-md">
       <form
         onSubmit={handleSubmit}
         className="mx-auto flex w-full max-w-2xl items-center gap-2.5"
