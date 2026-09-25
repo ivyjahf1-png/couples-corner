@@ -21,9 +21,11 @@ export const dynamic = "force-dynamic";
  * published moments. No static marketing blocks or stacked widgets.
  */
 export default async function HomePage() {
-  // NOTE: this route is intentionally PUBLIC. It must never call requireUser():
-  // requireUser() redirects anonymous visitors to "/", which would redirect
-  // straight back here and produce an infinite NEXT_REDIRECT loop.
+  // NOTE: this route is intentionally PUBLIC and must never call
+  // requireUser(). requireUser() sends anonymous visitors to "/login"; that is
+  // safe today, but if this route ever guarded itself the two routes would
+  // bounce against each other forever (NEXT_REDIRECT loop -> blank screen).
+  // Signed-out visitors get the discovery view without app chrome instead.
   const session = await getSessionUser();
 
   let profiles: ProfileCardView[] = demoProfileViews;
