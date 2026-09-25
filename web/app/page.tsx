@@ -42,8 +42,8 @@ export default async function HomePage() {
   const visible = profiles.filter((profile) => profile?.id);
 
   const view = (
-    <section data-zone="app" className="inner-surface flex flex-1 flex-col">
-    <div className="relative flex min-h-[calc(100dvh-9rem)] flex-col gap-4 pb-28">
+    <section data-zone="app" className="inner-surface page-lock page-lock--flush flex flex-1 flex-col">
+    <div className="page-lock__body relative flex flex-col gap-4 pb-28">
       {/* Top bar: brand + live location badge */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold tracking-wide text-white">Couple&apos;s Corner</h1>

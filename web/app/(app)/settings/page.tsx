@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -85,13 +85,17 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-10">
-      <PageHeader
-        eyebrow="Settings"
-        title="Your settings"
-        subtitle="Manage your account, privacy, and how Couples Corner works for you."
-      />
-
+    <PageLock
+      className="mx-auto w-full max-w-4xl"
+      bodyClassName="pb-8"
+      head={
+        <PageHeader
+          eyebrow="Settings"
+          title="Your settings"
+          subtitle="Manage your account, privacy, and how Couples Corner works for you."
+        />
+      }
+    >
       <div className="flex max-w-3xl flex-col gap-10">
         {/* Account */}
         <Section id="account" title="Account" description="Your core identity on Couples Corner.">
@@ -297,7 +301,7 @@ export default async function SettingsPage() {
           </Link>
         </footer>
       </div>
-    </div>
+    </PageLock>
   );
 }
 

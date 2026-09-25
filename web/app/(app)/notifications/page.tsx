@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { NotificationItem } from "@/components/app/NotificationItem";
 import { Card } from "@/components/ui/Card";
@@ -15,10 +15,13 @@ export default function NotificationsPage() {
   const unreadCount = demoNotificationViews.filter((n) => n.unread).length;
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Activity"
-        title="Notifications"
+    <PageLock
+      className="mx-auto w-full max-w-4xl"
+      bodyClassName="flex flex-col gap-8 pb-8"
+      head={
+        <PageHeader
+          eyebrow="Activity"
+          title="Notifications"
         subtitle={
           unreadCount > 0
             ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
@@ -29,7 +32,9 @@ export default function NotificationsPage() {
             Mark all as read
           </Button>
         }
-      />
+        />
+      }
+    >
 
       {demoNotificationViews.length === 0 ? (
         <EmptyState
@@ -51,6 +56,6 @@ export default function NotificationsPage() {
         <ContentSlot placement="notifications" />
         <AdvertCardGrid placement="notifications" limit={10} columns={3} />
       </div>
-    </div>
+    </PageLock>
   );
 }

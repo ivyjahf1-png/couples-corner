@@ -2,7 +2,7 @@ import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { createFeedPostAction, getPublicFeed } from "@/lib/actions/profile";
 
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
 import { Card } from "@/components/ui/Card";
@@ -52,15 +52,20 @@ export default async function FeedPage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <FeedCreateLauncher userId={session?.uid} />
-
-      <PageHeader
-        eyebrow="Community"
-        title="Feed"
-        subtitle="Share moments and see what your connections are up to. Posts are visible to your connections by default."
-      />
-
+    <PageLock
+      className="mx-auto w-full max-w-3xl"
+      bodyClassName="flex flex-col gap-8 pb-8"
+      head={
+        <>
+          <FeedCreateLauncher userId={session?.uid} />
+          <PageHeader
+            eyebrow="Community"
+            title="Feed"
+            subtitle="Share moments and see what your connections are up to. Posts are visible to your connections by default."
+          />
+        </>
+      }
+    >
       {/* Create-post launcher opens the authenticated photo/video composer. */}
       <Card className="flex flex-col gap-3">
         <div className="flex items-start gap-3">
@@ -124,6 +129,6 @@ export default async function FeedPage() {
           ))}
         </div>
       )}
-    </div>
+    </PageLock>
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Gift, Sparkles } from "lucide-react";
 import { claimTaskAction } from "@/lib/actions/tasks";
+import { PageLock } from "@/components/app/PageHeader";
 import type { TaskView } from "@/lib/server/tasks";
 
 /**
@@ -49,13 +51,19 @@ export function TaskCenter({
   }
 
   return (
-    <div className="flex flex-col gap-6 pb-24">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold tracking-wide text-white">Task Center</h1>
-        <span className="flex items-center gap-1 rounded-full border border-orange-400/40 bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-300">
-          <Gift className="h-3.5 w-3.5" /> Rewards
-        </span>
-      </div>
+    <PageLock
+      className="mx-auto w-full max-w-3xl"
+      bodyClassName="pb-8"
+      head={
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-bold tracking-wide text-white">Task Center</h1>
+          <span className="flex items-center gap-1 rounded-full border border-orange-400/40 bg-orange-500/20 px-3 py-1 text-xs font-bold text-orange-300">
+            <Gift className="h-3.5 w-3.5" /> Rewards
+          </span>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6">
 
       <div className="relative flex items-center justify-between overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-br from-orange-600/30 via-amber-600/20 to-purple-900/40 p-6 shadow-2xl">
         <div>
@@ -102,13 +110,15 @@ export function TaskCenter({
                     <CheckCircle2 className="h-4 w-4" /> Claimed
                   </span>
                 ) : task.actionRoute ? (
-                  <button
-                    type="button"
-                    onClick={() => router.push(task.actionRoute!)}
+                  /* A real <Link> so the task's action route is a genuine,
+                     statically-analyzable navigation (middle-clickable,
+                     prefetchable) rather than a JS-only push. */
+                  <Link
+                    href={task.actionRoute}
                     className="shrink-0 rounded-xl border border-indigo-500/40 bg-indigo-900/60 px-4 py-2 text-xs font-bold text-white transition hover:bg-indigo-800"
                   >
                     Start
-                  </button>
+                  </Link>
                 ) : (
                   <button
                     type="button"
@@ -142,6 +152,7 @@ export function TaskCenter({
           {notice}
         </p>
       ) : null}
-    </div>
+      </div>
+    </PageLock>
   );
 }

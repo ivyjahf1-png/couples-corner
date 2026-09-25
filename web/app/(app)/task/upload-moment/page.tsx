@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ImagePlus, Video } from "lucide-react";
 import { publishMomentAction, claimTaskAction } from "@/lib/actions/tasks";
+import { PageLock } from "@/components/app/PageHeader";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
@@ -44,13 +45,18 @@ export function MomentUploadForm() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-xl flex-col gap-5">
-      <header>
-        <h1 className="text-xl font-bold tracking-wide text-white">Upload a Moment</h1>
-        <p className="mt-1 text-sm text-ink-300">
-          Share a photo or short video with the community. It appears on the home feed for everyone.
-        </p>
-      </header>
+    <PageLock
+      className="mx-auto w-full max-w-xl"
+      bodyClassName="pb-8"
+      head={
+        <div>
+          <h1 className="text-xl font-bold tracking-wide text-white">Upload a Moment</h1>
+          <p className="mt-1 text-sm text-ink-300">
+            Share a photo or short video with the community. It appears on the home feed for everyone.
+          </p>
+        </div>
+      }
+    >
 
       {done ? (
         <div role="status" className="flex flex-col gap-3 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-5">
@@ -67,7 +73,7 @@ export function MomentUploadForm() {
           </button>
         </div>
       ) : (
-        <>
+        <div className="flex flex-col gap-5">
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -125,8 +131,8 @@ export function MomentUploadForm() {
           >
             {busy ? "Publishing..." : "Publish moment (+400 coins)"}
           </button>
-        </>
+        </div>
       )}
-    </section>
+    </PageLock>
   );
 }

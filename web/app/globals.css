@@ -305,14 +305,31 @@ html {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
+  /* Mobile: the root MobileBackHeader is ~4rem tall, so the lock starts below
+     it. The fixed bottom tab bar floats over the content instead of taking
+     flow space, so body padding absorbs it. */
+  height: calc(100dvh - 4rem);
   overflow: hidden;
   overscroll-behavior: contain;
 }
+.page-lock--flush {
+  /* For pages rendered without the mobile back header (e.g. the public root
+     discovery route): take the full dynamic viewport. */
+  height: 100dvh;
+}
+@media (min-width: 768px) {
+  .page-lock {
+    /* The mobile header is hidden and only the fixed sidebar remains, so the
+       lock regains the full height minus the shell's vertical padding. */
+    height: calc(100dvh - 3rem);
+  }
+  .page-lock--flush {
+    height: 100dvh;
+  }
+}
 .page-lock__head {
   flex: 0 0 auto;
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 20;
 }
 .page-lock__body {
@@ -322,11 +339,6 @@ html {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-}
-@media (min-width: 768px) {
-  .page-lock {
-    height: calc(100dvh - 3rem);
-  }
 }
 
 /* ----------------------------------------------------------------------------

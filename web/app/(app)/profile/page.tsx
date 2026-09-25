@@ -6,6 +6,7 @@ import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
 import { Avatar } from "@/components/app/Avatar";
+import { PageLock } from "@/components/app/PageHeader";
 import { PersistentIdBadge } from "@/components/profile/InviteLinkButton";
 import { PersistentUserId } from "@/components/profile/InviteLinkButton";
 import Link from "next/link";
@@ -73,9 +74,13 @@ export default async function ProfilePage() {
   ];
 
   return (
-    <div className="mx-auto flex w-full max-w-xl flex-col gap-5 pb-10">
-      {/* ------------------------------------------------ 1. Glamour header */}
-      <section aria-label="Profile header" className="glam-shell p-5 sm:p-6">
+    <PageLock
+      className="mx-auto w-full max-w-xl"
+      bodyClassName="flex flex-col gap-5 pb-10"
+      head={
+        /* The identity card stays pinned; the stats, menu and gallery below it
+           are the only things that scroll. */
+        <section aria-label="Profile header" className="glam-shell p-5 sm:p-6">
         <div className="relative flex items-start gap-3">
           <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-rose-400 to-indigo-400 p-[2px] shadow-lg shadow-rose-500/20">
             <span className="block rounded-full bg-[#0B1120] p-[2px]">
@@ -153,6 +158,8 @@ export default async function ProfilePage() {
           ))}
         </dl>
       </section>
+      }
+    >
 
       {/* --------------------------- 2. Balance + membership (glass tiles) */}
       <section aria-label="Wallet and membership" className="grid grid-cols-2 gap-3">
@@ -190,7 +197,7 @@ export default async function ProfilePage() {
             <span className="block text-[11px] font-semibold text-violet-200/80">Membership</span>
           </span>
         </Link>
-      </section>
+        </section>
 
       {/* --------------------------------------------- 3. Relationship card */}
       <section
@@ -328,7 +335,7 @@ export default async function ProfilePage() {
       >
         ✏️ Edit personal information
       </Link>
-    </div>
+    </PageLock>
   );
 }
 

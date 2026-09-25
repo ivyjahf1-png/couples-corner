@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization";
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
 import { Button } from "@/components/ui/Button";
@@ -34,13 +34,18 @@ export default async function LikesPage() {
   const likes = await getLikesForUser(session.uid);
 
   return (
-    <div className="flex flex-col gap-8">
-      <PageHeader
-        eyebrow="Likes"
-        title="Who liked you"
+    <PageLock
+      className="mx-auto w-full max-w-4xl"
+      bodyClassName="flex flex-col gap-8 pb-8"
+      head={
+        <PageHeader
+          eyebrow="Likes"
+          title="Who liked you"
         subtitle="Everyone who tapped like on your profile — premium members can see and reply to every like."
         actions={<Button href="/discover" variant="secondary">Discover people</Button>}
-      />
+        />
+      }
+    >
 
       <ContentSlot placement="matches" />
 
@@ -58,7 +63,7 @@ export default async function LikesPage() {
           ))}
         </section>
       )}
-    </div>
+    </PageLock>
   );
 }
 

@@ -4,7 +4,7 @@ import { requireUser, isRedirectOrNotFoundError } from "@/lib/auth/authorization
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { SkeletonList } from "@/components/app/Skeleton";
 import { ActiveChats } from "./ActiveChats";
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
 import { Avatar } from "@/components/app/Avatar";
@@ -27,13 +27,18 @@ export default async function MatchesPage() {
   const session = await requireUser();
 
   return (
-    <div className="flex flex-col gap-10">
-      <PageHeader
-        eyebrow="Connections"
-        title="Matches"
-        subtitle="Your connections, match requests, and active chats — all in one place."
-        actions={<Button href="/messages" variant="secondary">View messages</Button>}
-      />
+    <PageLock
+      className="mx-auto w-full max-w-4xl"
+      bodyClassName="flex flex-col gap-10 pb-8"
+      head={
+        <PageHeader
+          eyebrow="Connections"
+          title="Matches"
+          subtitle="Your connections, match requests, and active chats — all in one place."
+          actions={<Button href="/messages" variant="secondary">View messages</Button>}
+        />
+      }
+    >
       <Suspense fallback={<SkeletonList rows={2} />}>
         <ActiveChats uid={session.uid} />
       </Suspense>
@@ -43,7 +48,7 @@ export default async function MatchesPage() {
       <Suspense fallback={null}>
         <ContentSlot placement="matches" />
       </Suspense>
-    </div>
+    </PageLock>
   );
 }
 

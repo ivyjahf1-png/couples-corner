@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PageHeader } from "@/components/app/PageHeader";
+import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Avatar } from "@/components/app/Avatar";
 import { ContentSlot } from "@/components/content/ContentSlot";
@@ -70,22 +70,22 @@ export default async function MessagesPage() {
   });
 
   return (
-    <div className="page-lock mx-auto flex w-full max-w-3xl flex-col gap-4">
-      <div className="page-lock__head">
+    <PageLock
+      className="mx-auto w-full max-w-3xl"
+      bodyClassName="pb-28 md:pb-8"
+      head={
         <PageHeader
           eyebrow="Inbox"
           title="Messages"
           subtitle="Private chats with your connections. Only you and the other participant can read them."
         />
-      </div>
-
+      }
+    >
       {/* Status tray sits directly under the static header; only the chat list
           below it scrolls. */}
       <div className="shrink-0">
         <StoryTray userId={user.uid} displayName={user.email?.split("@")[0] ?? "You"} />
       </div>
-
-      <div className="page-lock__body pr-1">
 
       {/* Near me — horizontal scrollable circular avatars (location-aware). */}
       <NearMeStories />
@@ -120,8 +120,7 @@ export default async function MessagesPage() {
 
       {/* Promotional slot */}
       <ContentSlot placement="messages" />
-      </div>
-    </div>
+    </PageLock>
   );
 }
 
