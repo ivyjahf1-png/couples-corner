@@ -11,6 +11,7 @@ import { Icon } from "@/components/landing/Icon";
 import { INSIGHT_ARTICLES } from "@/lib/data/insights";
 import { OverlappingPhotoShowcase } from "@/components/content/OverlappingPhotoShowcase";
 import { AdvertBanner } from "@/components/content/AdvertBanner";
+import { HomeCategoryTabs } from "@/components/landing/HomeCategoryTabs";
 
 // Render on every request so admin-uploaded media on the homepage placement
 // appears instantly when published (no cached stale copy).
@@ -90,6 +91,8 @@ export default async function LandingPage() {
           </div>
         </div>
       </section>
+
+      <HomeCategoryTabs />
 
       {/* Auto-scrolling gallery of admin-published hero photos — renders only
           when 2+ image slides exist (AdvertBanner handles its own fallbacks). */}
