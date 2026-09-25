@@ -34,10 +34,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const displayEmail = user?.email ?? "demo@couplescorner.app";
 
   return (
-    <div className="app-canvas min-h-dvh text-foreground">
-      {/* Demo banner — scrolls away so the sticky mobile top bar owns the top slot. */}
+    <div className="app-canvas relative flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950 select-none text-foreground">
+      {/* Demo banner — shrink-0 so it never collapses or scrolls away. */}
       {isDemo && (
-        <div className="border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">
+        <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">
           <span className="font-semibold">Preview mode</span> — You&apos;re using a demo account.
           <Link href="/api/auth/logout" className="ml-2 font-medium text-white underline hover:text-amber-50">
             Sign in with a real account
@@ -46,28 +46,34 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Mobile top bar — frosted navy with high-contrast white icons. */}
-      <MobileHomeHeader>
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/dashboard" aria-label="Couples Corner home">
-            <Logo as="span" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <NotificationBell />
-            <Link
-              href="/profile"
-              aria-label="Your profile"
-              className="rounded-full ring-2 ring-transparent transition hover:ring-brand-400 focus-visible:ring-brand-500"
-            >
-              <Avatar name={displayName} size="sm" />
+      <div className="shrink-0">
+        <MobileHomeHeader>
+          <div className="flex items-center justify-between px-4 py-3">
+            <Link href="/dashboard" aria-label="Couples Corner home">
+              <Logo as="span" />
             </Link>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Link
+                href="/profile"
+                aria-label="Your profile"
+                className="rounded-full ring-2 ring-transparent transition hover:ring-brand-400 focus-visible:ring-brand-500"
+              >
+                <Avatar name={displayName} size="sm" />
+              </Link>
+            </div>
           </div>
-        </div>
-      </MobileHomeHeader>
+        </MobileHomeHeader>
+      </div>
 
-      <div className="flex w-full md:pl-72">
-        {/* Fixed left-hand navy rail (tablet + desktop) */}
-        <aside className="app-sidebar fixed inset-y-0 left-0 z-40 hidden w-72 flex-col md:flex">
-          <div className="px-5 pb-5 pt-6">
+      {/* Middle segment: sidebar (md+) + the single content scroll region. */}
+      <div className="flex min-h-0 w-full flex-1">
+        {/* Left-hand navy rail (tablet + desktop).
+            In-flow rather than `fixed`: the shell owns the viewport, so a
+            fixed child would escape the flex column and reintroduce the
+            document-level scrolling this layout exists to prevent. */}
+        <aside className="app-sidebar hidden w-72 shrink-0 flex-col overflow-hidden md:flex">
+          <div className="shrink-0 px-5 pb-5 pt-6">
             <Link href="/dashboard" aria-label="Couples Corner home">
               <Logo as="span" />
             </Link>
@@ -75,7 +81,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
 
           <AppSidebar />
 
-          <div className="border-t border-white/10 p-3">
+          <div className="shrink-0 border-t border-white/10 p-3">
             <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
               <Avatar name={displayName} size="sm" />
               <div className="min-w-0 flex-1">
@@ -91,19 +97,24 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </aside>
 
-        <main
-          className="min-w-0 flex-1 px-4 pb-28 pt-6 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:pb-12"
-        >
-          <div className="mx-auto w-full max-w-[88rem]">{children}</div>
+        {/* flex-1 + min-h-0 + overflow-y-auto: the ONLY vertical scroll region
+            in the app. The bottom nav is an in-flow sibling below this, so
+            content is never hidden behind it and needs no compensating padding. */}
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pt-6 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+          <div className="mx-auto h-full w-full max-w-[88rem]">{children}</div>
         </main>
       </div>
 
-      <AppMobileNav
-        displayName={displayName}
-        displayEmail={displayEmail}
-        isDemo={isDemo}
-        unreadCount={unreadCount}
-      />
+      {/* Bottom tab navigation — in-flow shrink-0 segment, permanently pinned
+          below the content region. z-20 keeps it above page content. */}
+      <div className="relative z-20 shrink-0">
+        <AppMobileNav
+          displayName={displayName}
+          displayEmail={displayEmail}
+          isDemo={isDemo}
+          unreadCount={unreadCount}
+        />
+      </div>
     </div>
   );
 }

@@ -227,8 +227,10 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             onClose={() => setDetailOpen(false)}
           />
 
-          {/* --------------------------------------- 5-icon action bar */}
-          <nav aria-label="Profile actions" className="flex w-full items-center justify-center gap-3">
+          {/* 5-icon action bar. `relative z-20` keeps every button above the
+              card's own overlay and tap zones on touch devices, so taps always
+              land on the control rather than the card beneath it. */}
+          <nav aria-label="Profile actions" className="relative z-20 flex w-full shrink-0 items-center justify-center gap-3">
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"
               className="deck-btn deck-btn--rewind h-12 w-12">

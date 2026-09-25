@@ -305,23 +305,22 @@ html {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  /* Mobile: the root MobileBackHeader is ~4rem tall, so the lock starts below
-     it. The fixed bottom tab bar floats over the content instead of taking
-     flow space, so body padding absorbs it. */
-  height: calc(100dvh - 4rem);
+  /* Fill whatever the AppShell hands us. The shell now owns the viewport lock
+     (h-[100dvh] + overflow-hidden) and reserves header/nav as in-flow flex
+     segments, so this must measure its parent rather than guess at a dvh
+     offset — otherwise a stale constant re-introduces document scrolling. */
+  height: 100%;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 .page-lock--flush {
-  /* For pages rendered without the mobile back header (e.g. the public root
-     discovery route): take the full dynamic viewport. */
+  /* For pages rendered outside AppShell (the public root discovery route),
+     where there is no flex parent to fill. */
   height: 100dvh;
 }
 @media (min-width: 768px) {
   .page-lock {
-    /* The mobile header is hidden and only the fixed sidebar remains, so the
-       lock regains the full height minus the shell's vertical padding. */
-    height: calc(100dvh - 3rem);
+    height: 100%;
   }
   .page-lock--flush {
     height: 100dvh;

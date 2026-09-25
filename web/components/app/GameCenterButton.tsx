@@ -16,10 +16,13 @@ import Link from "next/link";
  */
 export function GameCenterButton() {
   return (
-    <div className="fixed right-4 bottom-20 z-40">
+    /* In-flow bottom offset rather than `bottom-20`: the tab bar is now a
+       shrink-0 flex sibling of the content region rather than a fixed overlay,
+       so this button must sit inside the content area, not float over the nav. */
+    <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-end px-4">
       <a
         href="/games"
-        className="nm-raised group flex h-14 w-14 flex-col items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white transition duration-150 hover:-translate-y-0.5 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:shadow-none"
+        className="nm-raised pointer-events-auto group flex h-14 w-14 flex-col items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white transition duration-150 hover:-translate-y-0.5 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:shadow-none"
         title="Game Center"
         aria-label="Open the Game Center"
       >

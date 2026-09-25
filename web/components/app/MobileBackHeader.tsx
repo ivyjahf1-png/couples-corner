@@ -37,14 +37,24 @@ export function MobileBackHeader() {
   }
 
   return (
-    <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b border-white/5 border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
-      <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
-        <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
-        </button>
-        <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">{titles[segment] ?? "Couple’s Corner"}</p>
-        <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>
-      </nav>
-    </header>
+    <>
+      {/* `fixed` + a matching spacer rather than `sticky` in normal flow.
+          A sticky header still occupies flow space, so a 100dvh AppShell
+          rendered below it would overflow the document by the header's height
+          and reintroduce window-level scrolling. Taking the header out of flow
+          and reserving the space with a sibling spacer keeps every page at
+          exactly 100dvh. */}
+      <header className="mobile-feature-header app-top-bar fixed inset-x-0 top-0 z-40 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
+        <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
+          <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
+          </button>
+          <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">{titles[segment] ?? "Couple’s Corner"}</p>
+          <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>
+        </nav>
+      </header>
+      {/* Spacer reserving the fixed header's flow space (mobile only). */}
+      <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />
+    </>
   );
 }

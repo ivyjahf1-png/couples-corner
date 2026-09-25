@@ -17,8 +17,9 @@ import type { MomentView } from "@/lib/moments";
  * uploads is syndicated here immediately.
  *
  * LAYOUT CONTRACT - exactly one vertical scroll region:
- *   - The root is h-[100dvh] overflow-hidden: the page never scrolls, which
- *     is what stops rubber-banding and bounce on iOS Safari.
+ *   - The root is h-full + min-h-0 + overflow-hidden: it fills exactly what
+ *     the AppShell hands it (which is itself locked to 100dvh). The page never
+ *     scrolls, which is what stops rubber-banding and bounce on iOS Safari.
  *   - The top overlay (search + controls) and the bottom composer are
  *     absolutely positioned over the media, so neither can be pushed out of
  *     view by a tall caption.
@@ -129,7 +130,11 @@ export function MediaFeed({
   return (
     <section
       data-zone="app"
-      className="relative flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950"
+      // `min-h-dvh` guarantees a bounded height when rendered standalone (signed
+      // out, no AppShell), while `h-full` lets it fill the shell's locked content
+      // region when signed in. `max-h-full` prevents the dvh fallback from
+      // overflowing a flex parent that is shorter than the viewport.
+      className="relative flex h-full max-h-full min-h-dvh w-full flex-col overflow-hidden bg-slate-950"
     >
       {/* ---------------------------------------------------- top overlay */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0">

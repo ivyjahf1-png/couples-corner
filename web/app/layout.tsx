@@ -77,7 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="app-canvas min-h-full flex flex-col text-foreground">
+      <body className="app-canvas flex min-h-full flex-col overflow-x-hidden overscroll-y-none text-foreground">
         <ThemeColorSync />
         <FailureToasts />
         <AuthModalProvider />
