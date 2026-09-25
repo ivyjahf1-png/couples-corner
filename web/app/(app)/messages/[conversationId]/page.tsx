@@ -16,12 +16,20 @@ interface ConversationPageProps {
  * A single conversation thread.
  *
  * Layout contract - exactly one vertical scroll region:
- *   - Shell: h-[100dvh] flex column with overflow-hidden. The page itself
- *     never scrolls, which is what stops side-to-side and rubber-band drift.
+ *   - Shell: `fixed inset-0` + h-[100dvh] + overflow-hidden. Pinning the root
+ *     to the viewport is what removes rubber-banding: the document behind it
+ *     has no height to scroll, so iOS Safari has nothing to bounce against.
  *   - <header> is shrink-0: locked at the top.
- *   - The thread wrapper is flex-1 overflow-y-auto overflow-x-hidden: the ONLY
- *     scroller on the page.
+ *   - The thread wrapper is flex-1 min-h-0 overflow-y-auto overflow-x-hidden:
+ *     the ONLY scroller on the page.
  *   - The composer is shrink-0: locked at the bottom.
+ *
+ * NOTE: `fixed inset-0` deliberately overlays the app shell's sidebar and the
+ * fixed bottom tab bar, so a chat reads as a full-bleed surface. Consequence:
+ * the mobile tab bar is not reachable while a conversation is open - the
+ * ChatHeader back button is the way out. If you would rather keep the tab bar
+ * visible, drop `fixed` and use a normal flow container with
+ * `h-[calc(100dvh-7rem)]` at md and up instead.
  *
  * NOTE: LiveConversationThread's <ul> must stay non-scrolling (overflow-x-hidden
  * only). Two nested overflow-y-auto containers cause scroll chaining and the
@@ -42,7 +50,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   void markConversationReadAction(conversationId);
 
   return (
-    <div className="flex h-[100dvh] w-full min-h-0 flex-col overflow-hidden bg-slate-950 md:h-[calc(100dvh-7rem)]">
+    <div className="fixed inset-0 flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950">
       {/* Locked static header. ChatHeader supplies its own border/padding. */}
       <header className="shrink-0">
         <ChatHeader
@@ -55,7 +63,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       {/* The only vertical scroll region on this page. */}
       <div
         data-chat-scroll
-        className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-slate-950"
+        className="flex-1 min-h-0 space-y-4 overflow-y-auto overflow-x-hidden p-4"
       >
         <LiveConversationThread
           conversationId={conversationId}

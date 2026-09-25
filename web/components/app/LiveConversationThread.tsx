@@ -109,8 +109,6 @@ export function LiveConversationThread({
     target.scrollTop = target.scrollHeight;
   }, [messages.length]);
 
-  const [sparkExtended, setSparkExtended] = useState(false);
-
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
@@ -126,16 +124,14 @@ export function LiveConversationThread({
   let lastDay = "";
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-white/10 bg-slate-950/80 px-4 py-3 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-2xl items-center gap-3 rounded-2xl border border-amber-300/20 bg-gradient-to-r from-purple-500/15 to-amber-300/10 px-4 py-3">
-          <span className="text-2xl" aria-hidden>✨</span><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-white">Match & Spark</p><p className="text-xs text-ink-300">Your connection is glowing. Keep the conversation going.</p></div><button type="button" onClick={() => setSparkExtended((value) => !value)} className="shrink-0 rounded-lg border border-amber-300/30 bg-amber-300/10 px-2.5 py-2 text-xs font-semibold text-amber-200 hover:bg-amber-300/20">{sparkExtended ? "Spark active" : "Extend +24h"}</button>
-        </div>
-      </div>
-      {/* Message list */}
+    <div className="flex flex-col">
+      {/* Message list. Padding lives on the page-level scroll wrapper, so it is
+          omitted here to avoid doubling it. This <ul> is intentionally NOT a
+          scroll container: two nested overflow-y-auto regions cause scroll
+          chaining, which is the erratic bouncing this page used to have. */}
       <ul
         ref={listRef}
-        className="flex min-h-0 flex-1 flex-col gap-2 overflow-x-hidden px-4 py-4"
+        className="flex flex-col gap-2 overflow-x-hidden"
         aria-label="Messages"
         role="log"
       >
