@@ -76,13 +76,15 @@ export function AdminUsersClient({ initialUsers }: Props) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
+          {/* Same global `:focus-visible` ring as the other search inputs, so it
+              needs `focus-visible:` alongside `focus:` to actually clear. */}
           <input
             type="search"
             value={query}
             onChange={(e) => handleQuery(e.target.value)}
             placeholder="Search by name, email, role, or user ID…"
             aria-label="Search users"
-            className="h-10 w-full rounded-xl border border-ink-700 bg-surface pl-9 pr-3 text-sm font-medium text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
+            className="h-10 w-full rounded-xl border border-ink-700 bg-surface pl-9 pr-3 text-sm font-medium text-white placeholder:text-ink-400 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
           />
         </div>
         <select

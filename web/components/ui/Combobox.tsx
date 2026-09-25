@@ -112,7 +112,7 @@ export function Combobox({
           onKeyDown={onKeyDown}
           placeholder={placeholder}
           maxLength={100}
-          className="h-10 w-full rounded-xl border border-ink-700 bg-surface px-4 pr-10 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
+          className="h-10 w-full rounded-xl border border-ink-700 bg-surface px-4 pr-10 text-sm text-white placeholder:text-ink-400 focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
         />
         <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-ink-400">
           <Icon name="search" className="h-4 w-4" />
