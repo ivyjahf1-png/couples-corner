@@ -1,4 +1,5 @@
 import { UserMediaGallery } from "@/components/app/UserMediaGallery";
+import { ProfileTabs, type ProfileTabId } from "@/components/app/ProfileTabs";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
@@ -161,7 +162,43 @@ export default async function ProfilePage() {
       }
     >
 
-      {/* --------------------------- 2. Balance + membership (glass tiles) */}
+      /* ------------------------------------------------------------------
+         TABBED BODY. One category is mounted at a time (see ProfileTabs), so
+         the first screen is never the full clutter stack. The identity card
+         above stays pinned in PageLock's head slot; only the active panel
+         scrolls, inside PageLock's single overflow-y-auto body.
+         ------------------------------------------------------------------ */
+      <ProfileTabs
+        panels={
+          {
+            /* ---------------- Profile: media, bio, edit ---------------- */
+            profile: (
+              <div className="flex flex-col gap-5 pb-10">
+                <div id="media" className="glam-tile rounded-2xl p-3">
+                  <UserMediaGallery uid={session.uid} />
+                </div>
+
+                {profile?.bio?.trim() ? (
+                  <section aria-label="About" className="glam-tile rounded-2xl p-4">
+                    <h2 className="glam-text mb-1 text-sm font-bold uppercase tracking-wide">
+                      About me
+                    </h2>
+                    <p className="text-sm leading-6 text-ink-200">{profile.bio}</p>
+                  </section>
+                ) : null}
+
+                <Link
+                  href="/profile/edit"
+                  className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-amber-400/20 via-rose-400/20 to-indigo-400/20 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-md transition hover:from-amber-400/30 hover:via-rose-400/30 hover:to-indigo-400/30"
+                >
+                  ✏️ Edit personal information
+                </Link>
+              </div>
+            ),
+            /* ---------------- Wallet & VIP --------------------------------- */
+            wallet: (
+              <div className="flex flex-col gap-5 pb-10">
+                {/* --------------------------- Balance + membership (glass tiles) */}
       <section aria-label="Wallet and membership" className="grid grid-cols-2 gap-3">
         <Link
           href="/subscription"
@@ -217,8 +254,13 @@ export default async function ProfilePage() {
         <PersistentUserId userId={session.uid} initialCode={profile?.userCode} />
       </section>
 
-      {/* --------------------------------------- 4. Recommended games row */}
-      <section aria-labelledby="recommended-games-heading" className="flex flex-col gap-3">
+              </div>
+            ),
+            /* ---------------- Extras: games, quick actions, menu rows ----- */
+            extras: (
+              <div className="flex flex-col gap-5 pb-10">
+                {/* --------------------------------------- 4. Recommended games row */}
+                <section aria-labelledby="recommended-games-heading" className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <h2 id="recommended-games-heading" className="font-semibold text-white">
             Recommended Games
@@ -317,24 +359,11 @@ export default async function ProfilePage() {
         </ul>
       </nav>
 
-      {/* ------------------- 7. Media gallery + about (kept from previous layout) */}
-      <div id="media" className="glam-tile rounded-2xl p-3">
-        <UserMediaGallery uid={session.uid} />
-      </div>
-
-      {profile?.bio?.trim() ? (
-        <section aria-label="About" className="glam-tile rounded-2xl p-4">
-          <h2 className="glam-text mb-1 text-sm font-bold uppercase tracking-wide">About me</h2>
-          <p className="text-sm leading-6 text-ink-200">{profile.bio}</p>
-        </section>
-      ) : null}
-
-      <Link
-        href="/profile/edit"
-        className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-amber-400/20 via-rose-400/20 to-indigo-400/20 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-md transition hover:from-amber-400/30 hover:via-rose-400/30 hover:to-indigo-400/30"
-      >
-        ✏️ Edit personal information
-      </Link>
+              </div>
+            ),
+          } satisfies Record<ProfileTabId, ReactNode>
+        }
+      />
     </PageLock>
   );
 }
