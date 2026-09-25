@@ -5,9 +5,6 @@ import { createFeedPostAction, getPublicFeed } from "@/lib/actions/profile";
 import { PageHeader } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
 import { PostCard } from "@/components/app/PostCard";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/landing/Icon";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { AdvertCardGrid } from "@/components/content/AdvertCardGrid";
 import { demoFeedPosts } from "@/lib/demo/demo-data";
@@ -90,5 +87,6 @@ export default async function FeedPage() {
     </div>
   );
 }
+
 
 
