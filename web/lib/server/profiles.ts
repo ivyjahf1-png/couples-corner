@@ -28,7 +28,6 @@ export interface ProfileUpdateInput {
 
 export const PROFILE_DB_FIELDS = [
   "user_id",
-  "user_code",
   "display_name",
   "bio",
   "interests",
@@ -294,10 +293,13 @@ export async function getProfileByUserCode(
   if (!/^[A-Z0-9]{5}$/.test(normalized)) return null;
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
+  // Some deployed databases predate the public user_code column. Keep this
+  // lookup compatible with that schema; the profile UI owns the persistent
+  // client code and the profile ID remains available from `user_id`.
   const { data } = await supabase
     .from("profiles")
     .select(profileSelectList())
-    .eq("user_code", normalized)
+    .eq("user_id", normalized)
     .limit(1)
     .maybeSingle();
   if (!data) return null;
