@@ -3,7 +3,7 @@ import { LocationBadge } from "@/components/app/LocationBadge";
 import { MomentRail } from "@/components/app/MomentRail";
 import { EmptyState } from "@/components/app/EmptyState";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
-import { requireUser, getSessionUser } from "@/lib/auth/authorization";
+import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { getRecentMoments } from "@/lib/server/tasks";
@@ -21,9 +21,9 @@ export const dynamic = "force-dynamic";
  * published moments. No static marketing blocks or stacked widgets.
  */
 export default async function HomePage() {
-  // The root route lives outside the (app) route group, so the app chrome
-  // (sidebar + fixed bottom navigation) is mounted explicitly here.
-  await requireUser();
+  // NOTE: this route is intentionally PUBLIC. It must never call requireUser():
+  // requireUser() redirects anonymous visitors to "/", which would redirect
+  // straight back here and produce an infinite NEXT_REDIRECT loop.
   const session = await getSessionUser();
 
   let profiles: ProfileCardView[] = demoProfileViews;
@@ -39,8 +39,7 @@ export default async function HomePage() {
   const moments = await getRecentMoments(12).catch(() => []);
   const visible = profiles.filter((profile) => profile?.id);
 
-  return (
-    <AppShell>
+  const view = (
     <section data-zone="app" className="inner-surface flex flex-1 flex-col">
     <div className="relative flex min-h-[calc(100dvh-9rem)] flex-col gap-4 pb-28">
       {/* Top bar: brand + live location badge */}
@@ -64,6 +63,9 @@ export default async function HomePage() {
       <GameCenterButton />
     </div>
     </section>
-    </AppShell>
   );
+
+  // Signed-in members get the full app chrome (sidebar + fixed bottom nav).
+  // Signed-out visitors get the same discovery view without app chrome.
+  return session ? <AppShell>{view}</AppShell> : view;
 }

@@ -115,14 +115,18 @@ export async function requireGuest(): Promise<void> {
 }
 
 /**
- * For the authenticated app zone. Redirects anonymous visitors to the
- * homepage so they can sign in via the auth modal instead of a separate
- * /login route (which may not exist or may cause Netlify 404s).
+ * For the authenticated app zone. Anonymous visitors are sent to /login.
+ *
+ * IMPORTANT: this must NEVER redirect to "/". The root route is public, so
+ * redirecting there is only safe while "/" stays unguarded. If "/" ever calls
+ * requireUser() the two routes would bounce against each other forever
+ * (NEXT_REDIRECT loop -> blank screen). /login is a plain page with no auth
+ * guard, so it is a stable, terminating target.
  */
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) {
-    redirect("/");
+    redirect("/login");
   }
   // `redirect` returns `never`, so TS narrows `user` to `SessionUser` here.
   return user;

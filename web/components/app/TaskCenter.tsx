@@ -15,7 +15,13 @@ import type { TaskView } from "@/lib/server/tasks";
  * the task before claiming. Status resets daily because the server keys
  * progress by the current date.
  */
-export function TaskCenter({ initialTasks }: { initialTasks: TaskView[] }) {
+export function TaskCenter({
+  initialTasks,
+  signedIn = true,
+}: {
+  initialTasks: TaskView[];
+  signedIn?: boolean;
+}) {
   const router = useRouter();
   const [tasks, setTasks] = useState<TaskView[]>(initialTasks);
   const [busySlug, setBusySlug] = useState<string | null>(null);
@@ -106,7 +112,13 @@ export function TaskCenter({ initialTasks }: { initialTasks: TaskView[] }) {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => claim(task.slug)}
+                    onClick={() => {
+                      if (!signedIn) {
+                        flash("Sign in to claim rewards");
+                        return;
+                      }
+                      claim(task.slug);
+                    }}
                     disabled={busySlug === task.slug || isPending}
                     className="shrink-0 rounded-xl bg-amber-400 px-4 py-2 text-xs font-extrabold text-slate-950 shadow-md transition hover:bg-amber-300 disabled:opacity-50"
                   >
