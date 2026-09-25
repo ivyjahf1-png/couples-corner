@@ -237,12 +237,19 @@ function MobileNavigation({
 
   return (
     <>
-      {/* In-flow, not `fixed`: AppShell owns the viewport lock, so this bar is a
-          shrink-0 flex sibling of the content region. z-20 keeps it above page
-          content that would otherwise overlap it. */}
+      {/* NOT `position: fixed` — deliberately.
+          AppShell owns the 100dvh viewport lock and lays this bar out as an
+          in-flow `shrink-0` sibling of the content region, directly beneath it.
+          A `fixed` bar would leave the flex column, letting <main> grow to the
+          full viewport so page content scrolls *behind* the bar, which is
+          exactly the "floating nav" bug this in-flow layout was built to fix.
+          It would also require compensating bottom padding on every page, and
+          that padding is precisely what produces the phantom gap at the end of
+          the scroll area. Do not convert this to `fixed` without reworking
+          AppShell's flex hierarchy to match. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav relative z-20 shrink-0 border-t md:hidden"
+        className="app-bottom-nav relative z-20 shrink-0 border-t bg-slate-950/90 backdrop-blur-md md:hidden"
       >
         <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
           <ul className="mx-auto grid max-w-md grid-cols-5">

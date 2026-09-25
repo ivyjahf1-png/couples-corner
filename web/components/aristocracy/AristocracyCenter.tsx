@@ -50,7 +50,12 @@ export function AristocracyCenter({
     });
   }
   return (
-    <div className="min-h-screen bg-[#0b061d] p-4 pb-24 font-sans text-white select-none">
+    // `min-h-full` (not `min-h-screen`): this renders inside AppShell, which
+    // already owns the 100dvh lock, so a viewport-height floor would overflow
+    // the content region and make the page scroll past the tab nav. The old
+    // `pb-24` is gone too — the nav is an in-flow sibling now, not a fixed
+    // overlay, so no compensating padding is needed.
+    <div className="min-h-full bg-[#0b061d] p-4 font-sans text-white select-none">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <button

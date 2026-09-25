@@ -53,6 +53,15 @@ interface MediaFeedProps {
   /** Overlay message shown when there is nothing to play. */
   emptyTitle?: string;
   emptyBody?: string;
+  /**
+   * True when rendered INSIDE AppShell. The shell already owns the 100dvh
+   * viewport lock and reserves the top bar and tab nav as in-flow segments, so
+   * the feed must fill the region it is given. Leaving `min-h-dvh` on in that
+   * context makes the component 100dvh tall inside a ~65dvh box, which pushes
+   * the bottom composer below the fold and makes the whole page appear to
+   * slide past the navigation.
+   */
+  fill?: boolean;
 }
 
 export function MediaFeed({
@@ -62,6 +71,7 @@ export function MediaFeed({
   topRightSlot,
   emptyTitle = "No moments yet",
   emptyBody = "Share a photo or short video and it will appear here for everyone.",
+  fill = false,
 }: MediaFeedProps) {
   const router = useRouter();
   const feed = useMemo(() => moments.filter((moment) => moment?.id && moment?.mediaUrl), [moments]);
@@ -197,11 +207,13 @@ export function MediaFeed({
   return (
     <section
       data-zone="app"
-      // `min-h-dvh` guarantees a bounded height when rendered standalone (signed
-      // out, no AppShell), while `h-full` lets it fill the shell's locked content
-      // region when signed in. `max-h-full` prevents the dvh fallback from
-      // overflowing a flex parent that is shorter than the viewport.
-      className="relative flex h-full max-h-full min-h-dvh w-full flex-col overflow-hidden bg-slate-950"
+      // Inside AppShell: fill exactly the region the shell hands us, so the
+      // bottom-anchored composer sits on the real bottom edge. Standalone
+      // (signed out, no shell): min-h-dvh gives the feed a bounded viewport.
+      className={[
+        "relative flex w-full flex-col overflow-hidden bg-slate-950",
+        fill ? "h-full min-h-0" : "h-full max-h-full min-h-dvh",
+      ].join(" ")}
     >
       {/* ---------------------------------------------------- top overlay */}
       <header className="pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0">
