@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { Avatar } from "@/components/app/Avatar";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
+import { StoryTray } from "@/components/app/StoryTray";
 import { requireUser } from "@/lib/auth/authorization";
 import { getInboxSummaries } from "@/lib/server/messaging";
 import { getBotThreadsForUser } from "@/lib/server/likes";
@@ -76,6 +77,12 @@ export default async function MessagesPage() {
           title="Messages"
           subtitle="Private chats with your connections. Only you and the other participant can read them."
         />
+      </div>
+
+      {/* Status tray sits directly under the static header; only the chat list
+          below it scrolls. */}
+      <div className="shrink-0">
+        <StoryTray userId={user.uid} displayName={user.email?.split("@")[0] ?? "You"} />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden pr-1">
