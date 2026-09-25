@@ -16,7 +16,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const promo = (await getPublishedForPlacement("dashboard").catch(() => []))[0] ?? null;
   return (
     <AppShell>
-      <section data-zone="app" className="flex flex-1 flex-col">
+      <section data-zone="app" className="inner-surface flex flex-1 flex-col">
         {children}
       </section>
       {promo ? <PromoOverlay item={promo} /> : null}
