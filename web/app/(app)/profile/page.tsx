@@ -12,7 +12,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * "Me" â€” the signed-in member's own profile.
+ * "Me" - the signed-in member's own profile.
  *
  * Visual contract: a glamorous, luxury dark-canvas interface. An aurora canvas
  * (`.glam-shell`) drifts warm orange, rose, indigo and aqua light behind a
@@ -21,7 +21,7 @@ import type { ReactNode } from "react";
  * crisp and readable. All motion is decorative (see `prefers-reduced-motion`
  * in app/globals.css).
  *
- * PRESERVATION CONSTRAINT: the data contract is untouched â€” session lookup,
+ * PRESERVATION CONSTRAINT: the data contract is untouched - session lookup,
  * `getOwnProfile`, `getProfileStats`, `getGameWallet` and
  * `computeProfileCompletion` are the same calls in the same order, and every
  * href below is the exact route this page already linked to. Only layout,
@@ -40,7 +40,7 @@ export default async function ProfilePage() {
 
   const name = profile?.displayName || user?.displayName || "Your name";
   const photo = profile?.photos?.[0];
-  const shortId = profile?.userCode ?? "â€”";
+  const shortId = profile?.userCode ?? "—";
   const level = Math.max(1, Math.floor((completion?.percentage ?? 0) / 10));
 
   const statCells = [
@@ -51,25 +51,25 @@ export default async function ProfilePage() {
   ];
 
   const recommendedGames = [
-    { id: "fortune-gems", title: "Fortune Gems", emoji: "ðŸ’Ž", gradient: "from-orange-500 via-amber-400 to-sky-600" },
-    { id: "wealthy-tiger", title: "WealthyTiger", emoji: "ðŸ¯", gradient: "from-amber-500 via-orange-600 to-rose-600" },
-    { id: "world-goal", title: "World Goal", emoji: "âš½", gradient: "from-emerald-500 via-teal-600 to-cyan-700" },
-    { id: "rocket-star", title: "Rocket Star", emoji: "ðŸš€", gradient: "from-sky-500 via-blue-600 to-violet-700" },
+    { id: "fortune-gems", title: "Fortune Gems", emoji: "💎", gradient: "from-orange-500 via-amber-400 to-sky-600" },
+    { id: "wealthy-tiger", title: "WealthyTiger", emoji: "🐯", gradient: "from-amber-500 via-orange-600 to-rose-600" },
+    { id: "world-goal", title: "World Goal", emoji: "⚽", gradient: "from-emerald-500 via-teal-600 to-cyan-700" },
+    { id: "rocket-star", title: "Rocket Star", emoji: "🚀", gradient: "from-sky-500 via-blue-600 to-violet-700" },
   ];
 
   const menuItems: { label: string; emoji: string; href: string; trailing?: ReactNode }[] = [
-    { label: "Bag", emoji: "ðŸŽ’", href: "/moments" },
-    { label: "Level", emoji: "ðŸ“ˆ", href: "/subscription" },
-    { label: "Badge", emoji: "ðŸŽ–ï¸", href: "/subscription" },
+    { label: "Bag", emoji: "🛍️", href: "/moments" },
+    { label: "Level", emoji: "⭐", href: "/subscription" },
+    { label: "Badge", emoji: "🏅", href: "/subscription" },
     {
       label: "Certification",
-      emoji: "ðŸ›¡ï¸",
+      emoji: "🛡️",
       href: "/profile/edit",
       trailing: <span className="text-xs font-semibold text-danger-400">Uncertified</span>,
     },
-    { label: "Customer service", emoji: "ðŸŽ§", href: "/settings" },
-    { label: "User Feedback", emoji: "ðŸ’¬", href: "/feedback" },
-    { label: "Settings", emoji: "âš™ï¸", href: "/settings" },
+    { label: "Customer service", emoji: "🎧", href: "/settings" },
+    { label: "User Feedback", emoji: "💬", href: "/feedback" },
+    { label: "Settings", emoji: "⚙️", href: "/settings" },
   ];
 
   return (
@@ -107,7 +107,7 @@ export default async function ProfilePage() {
               </span>
             </div>
 
-            {/* Completion meter â€” a multi-hue sheen instead of a flat bar. */}
+            {/* Completion meter - a multi-hue sheen instead of a flat bar. */}
             <div
               role="progressbar"
               aria-label="Profile completion"
@@ -126,10 +126,10 @@ export default async function ProfilePage() {
           {/* Visitor counter with notification dot */}
           <Link
             href="/likes"
-            aria-label={`${stats.visitors} visitors â€” view visitors`}
+            aria-label={`${stats.visitors} visitors - view visitors`}
             className="glam-tile relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl text-white"
           >
-            <span aria-hidden className="text-base">ðŸ‘£</span>
+            <span aria-hidden className="text-base">👥</span>
             <span className="text-[10px] font-bold text-ink-200">{stats.visitors}</span>
             {stats.visitors > 0 ? (
               <span
@@ -140,7 +140,7 @@ export default async function ProfilePage() {
           </Link>
         </div>
 
-        {/* 4-column statistics bar â€” frosted tiles with a coloured aura each. */}
+        {/* 4-column statistics bar - frosted tiles with a coloured aura each. */}
         <dl className="relative mt-4 grid grid-cols-4 gap-2">
           {statCells.map((cell) => (
             <div
@@ -256,10 +256,10 @@ export default async function ProfilePage() {
       {/* ---------------------------- 5. Quick actions (coloured glass tiles) */}
       <section aria-label="Quick actions" className="grid grid-cols-4 gap-3">
         {[
-          { label: "Tasks", emoji: "ðŸ“‹", href: "/task", tone: "glam-tile--warm" },
-          { label: "Income", emoji: "ðŸ’°", href: "/subscription", tone: "glam-tile--aqua" },
+          { label: "Tasks", emoji: "📋", href: "/task", tone: "glam-tile--warm" },
+          { label: "Income", emoji: "💰", href: "/subscription", tone: "glam-tile--aqua" },
           { label: "Store", emoji: "🛍️", href: "/store", tone: "glam-tile--rose" },
-          { label: "Aristocracy", emoji: "ðŸ°", href: "/aristocracy", tone: "glam-tile--violet" },
+          { label: "Aristocracy", emoji: "🏰", href: "/aristocracy", tone: "glam-tile--violet" },
         ].map((action) => (
           <Link
             key={action.label}
@@ -326,7 +326,7 @@ export default async function ProfilePage() {
         href="/profile/edit"
         className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-amber-400/20 via-rose-400/20 to-indigo-400/20 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-md transition hover:from-amber-400/30 hover:via-rose-400/30 hover:to-indigo-400/30"
       >
-        âœï¸ Edit personal information
+        ✏️ Edit personal information
       </Link>
     </div>
   );

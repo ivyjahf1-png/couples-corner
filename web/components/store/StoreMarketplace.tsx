@@ -6,12 +6,12 @@ import { ShoppingBag, Sparkles, X } from "lucide-react";
 const categories = ["Frames", "Vehicles", "Room Entry Effects", "Bubbles", "Room Cards", "Themes"] as const;
 type Category = (typeof categories)[number];
 const items: Record<Category, { name: string; price: number; duration: string; icon: string }[]> = {
-  Frames: [{ name: "Golden Halo", price: 4500, duration: "7Days", icon: "ðŸªž" }, { name: "Royal Frame", price: 9000, duration: "30Days", icon: "âœ¨" }],
-  Vehicles: [{ name: "Supercar", price: 25000, duration: "30Days", icon: "ðŸŽï¸" }, { name: "Moon Rover", price: 15000, duration: "7Days", icon: "ðŸš™" }],
-  "Room Entry Effects": [{ name: "Royal Entrance", price: 18000, duration: "30Days", icon: "âœ¨" }, { name: "Starlight", price: 7500, duration: "7Days", icon: "ðŸŒŸ" }],
-  Bubbles: [{ name: "Golden Hearts", price: 2500, duration: "7Days", icon: "ðŸ’›" }, { name: "Purple Glow", price: 3200, duration: "7Days", icon: "ðŸ’œ" }],
-  "Room Cards": [{ name: "Couple Card", price: 5000, duration: "7Days", icon: "ðŸ’Œ" }, { name: "Royal Card", price: 8500, duration: "30Days", icon: "ðŸ‘‘" }],
-  Themes: [{ name: "Midnight Gold", price: 12000, duration: "30Days", icon: "ðŸŒŒ" }, { name: "Royal Purple", price: 8000, duration: "7Days", icon: "ðŸ‘‘" }],
+  Frames: [{ name: "Golden Halo", price: 4500, duration: "7Days", icon: "🪞" }, { name: "Royal Frame", price: 9000, duration: "30Days", icon: "✨" }],
+  Vehicles: [{ name: "Supercar", price: 25000, duration: "30Days", icon: "🏎️" }, { name: "Moon Rover", price: 15000, duration: "7Days", icon: "🚀" }],
+  "Room Entry Effects": [{ name: "Royal Entrance", price: 18000, duration: "30Days", icon: "✨" }, { name: "Starlight", price: 7500, duration: "7Days", icon: "🌟" }],
+  Bubbles: [{ name: "Golden Hearts", price: 2500, duration: "7Days", icon: "💛" }, { name: "Purple Glow", price: 3200, duration: "7Days", icon: "💜" }],
+  "Room Cards": [{ name: "Couple Card", price: 5000, duration: "7Days", icon: "💌" }, { name: "Royal Card", price: 8500, duration: "30Days", icon: "👑" }],
+  Themes: [{ name: "Midnight Gold", price: 12000, duration: "30Days", icon: "🌌" }, { name: "Royal Purple", price: 8000, duration: "7Days", icon: "👑" }],
 };
 
 export function StoreMarketplace() {

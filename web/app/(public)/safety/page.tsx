@@ -24,7 +24,7 @@ export default function SafetyPage() {
       <PageHeader
         eyebrow="Safety center"
         title="Safety & privacy"
-        subtitle="Your safety is a shared responsibility. These are the tools and habits that keep Couples Corner trustworthy â€” and what you can always do to stay protected."
+        subtitle="Your safety is a shared responsibility. These are the tools and habits that keep Couples Corner trustworthy - and what you can always do to stay protected."
       />
 
       <section
@@ -35,10 +35,10 @@ export default function SafetyPage() {
           Never send money to someone you have not met in person.
         </h2>
         <ul className="mt-3 max-w-2xl space-y-2 text-sm text-danger-200">
-          <li>â€¢ Never share passwords or verification codes â€” Couples Corner staff will never ask for them.</li>
-          <li>â€¢ Be cautious of investment, crypto, or gift-card requests, especially early on.</li>
-          <li>â€¢ Treat emergency-money stories with skepticism; confirm through another channel if possible.</li>
-          <li>â€¢ Question links to external sites or downloads; scams often arrive as urgent asks.</li>
+          <li>- Never share passwords or verification codes - Couples Corner staff will never ask for them.</li>
+          <li>- Be cautious of investment, crypto, or gift-card requests, especially early on.</li>
+          <li>- Treat emergency-money stories with skepticism; confirm through another channel if possible.</li>
+          <li>- Question links to external sites or downloads; scams often arrive as urgent asks.</li>
         </ul>
       </section>
 
@@ -57,7 +57,7 @@ export default function SafetyPage() {
             Every profile, post, comment, message, and photo has a Report option. Reports are reviewed by moderators.
           </Feature>
           <Feature icon="sparkle" title="Scam detection">
-            We scan for known scam patterns (money asks, gift cards, suspicious links) and flag them for review â€” never as an automatic ban.
+            We scan for known scam patterns (money asks, gift cards, suspicious links) and flag them for review - never as an automatic ban.
           </Feature>
           <Feature icon="chat" title="Private conversations">
             Messages are visible only to participants. We scan for scam patterns but do not read conversations for other purposes.
