@@ -41,14 +41,13 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
   };
 
   return (
-    // No safe-area inset here: this composer sits directly above AppShell's
-    // in-flow bottom tab nav, which already applies
-    // `env(safe-area-inset-bottom)`. Keeping both would double the gap above
-    // the iPhone home indicator.
-    <div className="relative border-t border-white/10 bg-slate-950/95 px-3 pb-2.5 pt-3 backdrop-blur-md">
+    // Safe-area inset is REQUIRED here: the bottom tab nav is hidden inside an
+    // active conversation, so nothing below this composer applies the iPhone
+    // home-indicator clearance any more.
+    <div className="relative border-t border-white/10 bg-slate-950/95 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md sm:px-3">
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-2xl items-center gap-2.5"
+        className="mx-auto flex w-full max-w-2xl items-center gap-1.5 sm:gap-2.5"
         aria-label="Send a message"
       >
         {/* Circular plus / attach action */}
@@ -85,9 +84,12 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
           disabled={pending}
         />
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" aria-label="Choose an image" />
-        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Choose image" className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:flex">▧</button>
-        <button type="button" onClick={() => setShowEmoji((value) => !value)} aria-label="Select emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10">☺</button>
-        <button type="button" aria-label="Record voice note" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-400/10 text-purple-200 transition hover:bg-purple-400/20">🎙</button>
+        {/* Camera/attach. Visible at every breakpoint: with the tab bar hidden
+            inside a chat there is room for all five controls on a phone, and
+            `shrink-0` guarantees they never compress or wrap. */}
+        <button type="button" onClick={() => imageInputRef.current?.click()} aria-label="Choose image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11">▧</button>
+        <button type="button" onClick={() => setShowEmoji((value) => !value)} aria-label="Select emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-purple-200 transition hover:bg-white/10 sm:h-11 sm:w-11">☺</button>
+        <button type="button" aria-label="Record voice note" className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-purple-400/20 bg-purple-400/10 text-purple-200 transition hover:bg-purple-400/20 sm:flex sm:h-11 sm:w-11">🎙</button>
         {showEmoji ? <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border border-white/10 bg-[#1E293B] p-2 shadow-xl">{["❤️", "✨", "😂", "👍"].map((emoji) => <button key={emoji} type="button" onClick={() => { setValue((current) => `${current}${emoji}`); setShowEmoji(false); }} className="rounded-lg p-1 text-xl hover:bg-white/10" aria-label={`Insert ${emoji}`}>{emoji}</button>)}</div> : null}
         {/* Circular send button */}
         <button

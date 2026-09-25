@@ -1,6 +1,6 @@
 import { MobileHomeHeader } from "@/components/app/MobileBackHeader";
 import Link from "next/link";
-import { AppSidebar, AppMobileNav } from "@/components/app/AppNav";
+import { AppSidebar, BottomNavRegion } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { LogoutButton } from "@/components/auth/LogoutButton";
@@ -105,16 +105,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
 
-      {/* Bottom tab navigation — in-flow shrink-0 segment, permanently pinned
-          below the content region. z-20 keeps it above page content. */}
-      <div className="relative z-20 shrink-0">
-        <AppMobileNav
-          displayName={displayName}
-          displayEmail={displayEmail}
-          isDemo={isDemo}
-          unreadCount={unreadCount}
-        />
-      </div>
+      {/* Bottom tab navigation. Hidden automatically inside an active
+          conversation (see BottomNavRegion); when visible it is an in-flow
+          shrink-0 segment directly beneath the content region. */}
+      <BottomNavRegion
+        displayName={displayName}
+        displayEmail={displayEmail}
+        isDemo={isDemo}
+        unreadCount={unreadCount}
+      />
     </div>
   );
 }

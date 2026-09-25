@@ -200,6 +200,41 @@ function UnreadBadge({ count }: { count: number }) {
 }
 
 /**
+ * Bottom tab navigation with route-aware visibility.
+ *
+ * The 5-tab bar is hidden inside an ACTIVE conversation
+ * (`/messages/<conversationId>`) and reappears the moment the member taps back
+ * to `/messages`. This is the standard dating-app pattern: a live chat is a
+ * focused, single-task surface, and a persistent tab bar steals vertical space
+ * from the thread and invites accidental navigation mid-conversation.
+ *
+ * The list route `/messages` itself keeps the bar - only a specific
+ * conversation hides it.
+ *
+ * This stays in the flex flow (NOT `position: fixed`) so the shell can reserve
+ * its exact height. When hidden the wrapper renders nothing and the content
+ * region grows to fill the space, which is what lets the chat reclaim the full
+ * height with no negative margins or viewport-height hacks.
+ */
+export function BottomNavRegion(props: AppMobileNavProps) {
+  const pathname = usePathname();
+
+  // /messages/<id> -> hidden. /messages or anything else -> visible.
+  const inActiveConversation =
+    Boolean(pathname) &&
+    pathname.startsWith("/messages/") &&
+    pathname.length > "/messages/".length;
+
+  if (inActiveConversation) return null;
+
+  return (
+    <div className="relative z-20 shrink-0">
+      <AppMobileNav {...props} />
+    </div>
+  );
+}
+
+/**
  * Mobile chrome: a 5-item bottom bar (Home · Explore · Likes · Messages · Me) rendered as
  * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
  * `md` up, where the fixed sidebar takes over. The "Menu" drawer is retained

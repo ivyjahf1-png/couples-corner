@@ -16,18 +16,26 @@ interface ConversationPageProps {
  * A single conversation thread.
  *
  * Layout contract - exactly one vertical scroll region:
- *   - Shell: `h-full min-h-0` + overflow-hidden, filling the AppShell content
- *     region. AppShell already owns the 100dvh viewport lock, so this page must
- *     NOT be `position: fixed`: a fixed element escapes the shell's flex column
- *     and overlays the bottom tab nav, which is exactly the header/composer
- *     clipping this layout used to suffer.
- *   - `-mt-6` cancels the shell's `pt-6` so the chat is truly edge-to-edge
- *     (no dead band above the header).
+ *   - Shell: `relative` + `h-full min-h-0` + overflow-hidden, filling the
+ *     AppShell content region.
+ *
+ *   WHY NOT `h-[100dvh]` HERE: AppShell already owns the 100dvh viewport lock
+ *   and reserves the mobile back header plus main padding above this page. The
+ *   content region is therefore ~90dvh, not 100dvh. Claiming a full 100dvh
+ *   would overflow it by the header height, and the shell's `overflow-hidden`
+ *   would clip the bottom of the composer - the exact header/composer overlap
+ *   this page previously suffered. `h-full` is the correct measurement here.
+ *
+ *   - The bottom tab nav is HIDDEN on this route by `BottomNavRegion`, so the
+ *     content region grows to fill the reclaimed space. That is why the chat
+ *     looks full-bleed without any fixed positioning: the shell simply gives
+ *     this page more room. `/messages` (the list) still shows the tab bar.
+ *   - `-mt-6` cancels the shell's `pt-6` so the chat is truly edge-to-edge.
  *   - <header> is `z-10 shrink-0`: locked at the top, never compressed.
  *   - The thread wrapper is `flex-1 min-h-0 overflow-y-auto overflow-x-hidden`:
  *     the ONLY scroller, explicitly bounded between header and composer.
- *   - The composer is `z-10 shrink-0`: locked at the bottom, sitting directly
- *     above the shell's in-flow tab nav, never truncated.
+ *   - The composer is `z-10 shrink-0` and owns its own safe-area inset, since
+ *     nothing below it applies that clearance any more.
  *
  * NOTE: LiveConversationThread's <ul> must stay non-scrolling (overflow-x-hidden
  * only). Two nested overflow-y-auto containers cause scroll chaining and the
