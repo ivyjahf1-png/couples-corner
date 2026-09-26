@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Check, Share2 } from "lucide-react";
+import { buildInviteMessage, INVITE_SHARE_TITLE } from "@/lib/utils/invite";
+import { shareOrCopy } from "@/lib/utils/share";
+import { notifyFailure, notifySuccess } from "@/components/ui/FailureToasts";
 
 const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 const STORAGE_PREFIX = "couples-corner:user-code:";
@@ -24,11 +27,16 @@ export function PersistentUserId({ userId, initialCode }: { userId: string; init
   const code = usePersistentCode(userId, initialCode);
   if (!isValidCode(code)) return null;
   const link = `${window.location.origin}/invite/${code}`;
+  /**
+   * Share the referral invite: native share sheet on mobile, full message to
+   * the clipboard everywhere else, with a toast confirming a real copy.
+   */
   async function share() {
-    try {
-      const data = { title: "Join me on Couple's Corner", text: "Join our community on Couple's Corner", url: link };
-      if (navigator.share) await navigator.share(data); else await navigator.clipboard.writeText(link);
-    } catch { /* share dismissed */ }
+    const outcome = await shareOrCopy({ title: INVITE_SHARE_TITLE, message: buildInviteMessage(link) });
+    // "shared" needs no confirmation (the sheet already confirmed it) and
+    // "dismissed" stays silent: nagging someone who cancelled is noise.
+    if (outcome === "copied") notifySuccess("Invite message copied to your clipboard");
+    if (outcome === "failed") notifyFailure("Couldn't share or copy the invite. You can copy your ID manually.");
   }
   return <button type="button" onClick={share} aria-label={`Share Couple's Corner invitation ${code}`} className="mt-3 inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-xs font-bold text-amber-200 transition hover:bg-amber-400/20"><Share2 className="h-4 w-4" />Invite friends · {code}</button>;
 }

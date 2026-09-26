@@ -14,6 +14,8 @@ import {
 import { EmptyState } from "@/components/app/EmptyState";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { usePresence } from "@/lib/hooks/usePresence";
+import { shareOrCopy } from "@/lib/utils/share";
+import { notifySuccess } from "@/components/ui/FailureToasts";
 import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 /**
@@ -365,16 +367,16 @@ export function MediaFeed({
                     onClick={async () => {
                       setMenuOpen(false);
                       const url = `${window.location.origin}/?moment=${current.id}`;
-                      try {
-                        if (navigator.share) {
-                          await navigator.share({ title: "Couple's Corner", url });
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          setSendError("Link copied to clipboard");
-                        }
-                      } catch {
-                        /* user dismissed the share sheet */
+                      const outcome = await shareOrCopy({
+                        title: "Couple's Corner",
+                        message: `${current.authorName ?? "Someone"} shared a moment on Couple's Corner. ${url}`,
+                      });
+                      if (outcome === "copied") notifySuccess("Link copied to clipboard");
+                      if (outcome === "failed") {
+                        setSendError("Couldn't share or copy this link. Please try again.");
                       }
+                      // "shared" is already confirmed by the OS sheet, and a
+                      // dismissed sheet is not an error worth reporting.
                     }}
                     className="block w-full px-4 py-2.5 text-left text-sm text-white transition hover:bg-white/10"
                   >
