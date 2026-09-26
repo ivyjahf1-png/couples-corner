@@ -22,16 +22,31 @@ const geistMono = Geist_Mono({
 });
 
 /**
- * Canonical origin used for absolute metadata URLs (og:image, icons, manifest).
- * Prefers an explicit NEXT_PUBLIC_SITE_URL, then the Vercel deployment URL,
- * then the production domain — so previews and production both resolve.
+ * Canonical origin for absolute metadata URLs (og:image, og:url, icons,
+ * manifest) — ONLY when explicitly configured.
+ *
+ * WHY NOT A DERIVED FALLBACK: this used to fall back to
+ * `process.env.VERCEL_URL` and then to a hardcoded production domain. That is
+ * wrong on a custom domain. `VERCEL_URL` is the *deployment* URL
+ * (`the-couples-corner.vercel.app`) and does NOT change when the project is
+ * reached through a custom domain, so every absolute metadata URL was emitted
+ * pointing at the default domain no matter which host the visitor arrived on —
+ * Open Graph images, icons and the manifest all resolved to the wrong origin.
+ *
+ * Leaving `metadataBase` unset makes Next.js resolve relative metadata URLs
+ * against the incoming request origin, which is correct on every domain by
+ * construction and costs nothing at runtime (no `headers()` call, so the layout
+ * stays statically renderable).
+ *
+ * Set `NEXT_PUBLIC_SITE_URL` only if you want to pin ONE canonical origin for
+ * SEO. Note that pinning it deliberately re-introduces the cross-domain
+ * problem for absolute URLs, so leave it unset while serving multiple domains.
  */
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "https://couplescorner.com");
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  // Omitted entirely when unset — see the note above.
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   applicationName: "Couples Corner",
   title: {
     default: "Couples Corner",

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { CookieOptions } from "@supabase/ssr";
+import { getRequestOriginOr } from "@/lib/server/request-origin";
 
 /**
  * OAuth / email-link callback handler.
@@ -76,13 +77,16 @@ export async function GET(request: NextRequest) {
     // Authenticated — send the user where the flow intended.
     // Only allow same-origin relative paths to prevent open redirects.
     const safeNext = nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
-    const forwardedHost = request.headers.get("x-forwarded-host");
-    const isLocalEnv = process.env.NODE_ENV === "development";
-    const baseUrl = isLocalEnv
-      ? origin
-      : forwardedHost
-        ? `https://${forwardedHost}`
-        : origin;
+
+    // Resolve the origin from the request so the hop lands on whichever domain
+    // the flow STARTED on.
+    //
+    // This previously rebuilt the base URL as `https://${x-forwarded-host}`.
+    // That hardcoded the scheme and, more importantly, disagreed with every
+    // error redirect above it (which used `origin`, parsed from request.url) —
+    // so a failure could bounce the user off the custom domain while a success
+    // did not. Both now go through one resolver.
+    const baseUrl = (await getRequestOriginOr(origin)) || origin;
 
     return NextResponse.redirect(`${baseUrl}${safeNext}`);
   }
