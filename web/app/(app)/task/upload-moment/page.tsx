@@ -4,16 +4,20 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, ImagePlus, Video } from "lucide-react";
 import { publishMomentAction, claimTaskAction } from "@/lib/actions/tasks";
+import { uploadMediaDirect } from "@/lib/utils/direct-upload";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { PageLock } from "@/components/app/PageHeader";
 
-// Client-side cap. MUST stay in step with two server-side limits, or the user
-// gets a confusing failure instead of a clear one:
-//   • MAX_USER_MEDIA_BYTES in lib/utils/media-upload.ts (250 MB)
-//   • experimental.serverActions.bodySizeLimit in next.config.ts
-// The whole File is sent as the Server Action request body, so Next.js rejects
-// anything over its bodySizeLimit BEFORE our code runs. That was the real cause
-// of "Could not publish your moment" on video: a 12 MB clip passed this check
-// but was refused by the 10mb body limit, and the action never executed.
+/**
+ * Per-file cap. Matches MAX_USER_MEDIA_BYTES in lib/utils/media-upload.ts,
+ * which is what actually enforces the limit server-side via validateMediaFile.
+ *
+ * This is NO LONGER coupled to a Server Action body limit. The file used to be
+ * sent as the action request body, where Vercel's 4.5 MB platform cap killed
+ * any larger upload before the action ran. The bytes now go browser ->
+ * Supabase Storage directly, so this cap only has to agree with the app's own
+ * per-file limit.
+ */
 const MAX_BYTES = 250 * 1024 * 1024;
 
 /**
@@ -45,13 +49,15 @@ function uploadTimeoutMs(size: number): number {
 /**
  * Reject if `promise` has not settled within `ms`.
  *
- * Note this abandons the wait, it does not cancel the upload: the browser
- * request keeps running server-side. The user gets their button back
- * immediately, which is the point — but if the upload later succeeds it will
- * have created a moment the user was told had failed. The publish step is
- * therefore idempotent-safe: it only runs after the upload resolves, so a
- * timed-out-then-completed upload produces an orphaned media row at worst,
- * never a duplicate moment.
+ * Scoped to the STORAGE UPLOAD only, never the publish step. The publish action
+ * is a small JSON call, so its own server-side errors are the honest signal and
+ * wrapping it would only trade a useful message for a timeout.
+ *
+ * Note this abandons the wait, it does not cancel the upload: the browser's
+ * request to storage keeps running. The member gets their button back
+ * immediately, which is the point. If the upload later completes it leaves an
+ * orphaned storage object at worst — never a duplicate moment — because the
+ * publish step only runs after the upload has resolved.
  */
 function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -76,6 +82,12 @@ export function MomentUploadForm() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [reward, setReward] = useState<string | null>(null);
+  // Upload phase label and byte progress. The upload now runs browser ->
+  // storage, so real progress is available (XHR exposes transferred bytes) and
+  // worth showing: on a 100 MB clip the member previously saw an indeterminate
+  // "Publishing..." with no idea whether anything was happening.
+  const [status, setStatus] = useState("");
+  const [progress, setProgress] = useState(0);
 
   const isVideo = file?.type.startsWith("video/") ?? false;
   const ready = Boolean(file) && content.trim().length > 0 && file!.size <= MAX_BYTES;
@@ -84,23 +96,50 @@ export function MomentUploadForm() {
     if (!file || !ready || busy) return;
     setBusy(true);
     setError(null);
+    setProgress(0);
 
     // Everything below is guarded: `finally` always clears `busy`, so no path
     // — success, handled error, thrown error, or timeout — can leave the
     // button stuck on "Publishing...".
     try {
+      // The uid comes from the live Supabase session, never from a prop or
+      // form field: the storage path is namespaced by it and the storage RLS
+      // policy checks it, so a forged uid would write into someone else's
+      // folder. The server independently re-checks ownership before publishing.
+      const { data: auth } = await getSupabaseClient().auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) {
+        setError("Please sign in again to publish.");
+        return;
+      }
+
+      // STEP 1 — bytes go straight to storage, bypassing Vercel entirely.
+      setStatus("Uploading...");
       const budgetMs = uploadTimeoutMs(file.size);
-      const result = await withTimeout(
-        publishMomentAction({ file, content, taskSlug: "upload-moment" }),
+      const uploaded = await withTimeout(
+        uploadMediaDirect(uid, file, setProgress),
         budgetMs,
         `Upload timed out after ${Math.round(budgetMs / 1000)}s. Check your connection and try a smaller file.`
       );
-      // Keep the underlying reason visible. The action already returns
-      // specific messages ("Upload failed: ...", "Supabase not configured",
-      // the size/type validation text); the generic fallback was hiding the
-      // one thing that explains WHY a video failed to publish.
+      if (!uploaded.ok) {
+        setStatus("");
+        setError(uploaded.error);
+        return;
+      }
+
+      // STEP 2 — a few hundred bytes cross the Server Action boundary. This
+      // cannot hit the 4.5 MB platform cap that broke the old single-step flow.
+      setStatus("Publishing...");
+      const result = await publishMomentAction({
+        storagePath: uploaded.storagePath,
+        content,
+        mediaType: uploaded.mediaType,
+        taskSlug: "upload-moment",
+      });
+      setStatus("");
+
       if (!result.ok) {
-        setError(result.error ?? "Could not publish your moment. Please try a smaller file or another format.");
+        setError(result.error ?? "Could not publish your moment. Please try again.");
         return;
       }
       setDone(true);
@@ -111,8 +150,9 @@ export function MomentUploadForm() {
         router.refresh();
       }
     } catch (caught) {
+      setStatus("");
       // A stalled socket throws out of withTimeout; a network failure rejects
-      // the action. Both land here and re-enable the button.
+      // the upload. Both land here and re-enable the button.
       setError(
         caught instanceof Error
           ? caught.message
@@ -211,10 +251,36 @@ export function MomentUploadForm() {
 
           {error ? <p role="alert" className="text-xs text-danger-300">{error}</p> : null}
 
+          {/* Real transfer progress. Only rendered while uploading (progress < 100
+              or still uploading), so it never lingers after a failed attempt. */}
+          {busy && status ? (
+            <div className="flex flex-col gap-1.5" aria-live="polite">
+              <div className="flex items-center justify-between text-[11px] text-ink-300">
+                <span>{status}</span>
+                {status.startsWith("Uploading") && progress > 0 ? (
+                  <span aria-hidden>{progress}%</span>
+                ) : null}
+              </div>
+              <div
+                role="progressbar"
+                aria-valuenow={progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Upload progress"
+                className="h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+              >
+                <div
+                  className="h-full rounded-full bg-orange-500 transition-[width] duration-200"
+                  style={{ width: `${status.startsWith("Uploading") ? progress : 100}%` }}
+                />
+              </div>
+            </div>
+          ) : null}
+
           {/* Publishing is FREE. There is no coin check anywhere in this path —
-              publishMoment() and uploadUserMediaAction() never touch the wallet;
-              the only coin movement is the optional task-reward PAYOUT claimed
-              above. The old "(+400 coins)" label wrongly implied a charge.
+              publishMomentFromStorage() never touches the wallet; the only coin
+              movement is the optional task-reward PAYOUT claimed above. The old
+              "(+400 coins)" label wrongly implied a charge.
 
               `shrink-0` keeps the button at its natural height instead of being
               squeezed by the flex parent, so it is always the last fully visible
@@ -225,7 +291,7 @@ export function MomentUploadForm() {
             disabled={!ready || busy}
             className="w-full shrink-0 rounded-2xl bg-orange-500 py-3 text-sm font-extrabold text-white shadow-lg shadow-orange-950/40 transition hover:bg-orange-400 disabled:opacity-50"
           >
-            {busy ? "Publishing..." : "Publish moment — Free"}
+            {busy ? (status || "Publishing...") : "Publish moment — Free"}
           </button>
         </div>
       )}

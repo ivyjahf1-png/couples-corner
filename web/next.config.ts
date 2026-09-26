@@ -16,19 +16,24 @@ const nextConfig: NextConfig = {
       { source: "/main", destination: "/dashboard", permanent: false },
     ];
   },
-  // Media uploads for user posts/content travel through Server Actions
-  // (uploadUserMediaAction / publishMomentAction), whose POST body Next.js
-  // caps at 1 MB by default.
+  // Server Action request body limit.
   //
-  // This MUST stay >= MAX_USER_MEDIA_BYTES (250 MB) in lib/utils/media-upload.ts
-  // and MAX_BYTES in app/(app)/task/upload-moment/page.tsx. The File is sent as
-  // the request body, so a value LOWER than the app's own per-file limit means
-  // Next.js rejects the request before the action runs — the user sees
-  // "Could not publish your moment" with no server-side error to explain it.
-  // That mismatch is what broke video uploads while images (under 10 MB) worked.
+  // IMPORTANT — this does NOT raise Vercel's 4.5 MB platform cap on function
+  // request bodies, and nothing in next.config can. That misreading is what
+  // produced "An unexpected response was received from the server" on moment
+  // uploads: the whole video used to be sent as the action body, Vercel rejected
+  // it with 413 FUNCTION_PAYLOAD_TOO_LARGE before the action ran, and the 413
+  // body is not an RSC payload, so Next's action client threw error E394.
+  //
+  // Moment media no longer travels through a Server Action at all — the browser
+  // uploads straight to Supabase Storage (lib/utils/direct-upload.ts) and only a
+  // small JSON payload is sent to the action. This setting is kept at a modest
+  // 10 MB purely as defence-in-depth for any future action that is tempted to
+  // accept a file: a small ceiling makes that mistake fail fast and obviously
+  // rather than as an opaque 413.
   experimental: {
     serverActions: {
-      bodySizeLimit: "250mb",
+      bodySizeLimit: "10mb",
     },
   },
 };

@@ -7,7 +7,7 @@ import { rethrowIfNavigation } from "@/lib/utils/errors";
 import {
   claimTaskReward,
   getUserTasks,
-  publishMoment,
+  publishMomentFromStorage,
   toggleMomentReaction,
   setMomentReaction,
   addMomentComment,
@@ -17,7 +17,6 @@ import {
   type TaskView,
 } from "@/lib/server/tasks";
 import type { MomentCommentView } from "@/lib/moments";
-import { uploadUserMediaAction } from "@/lib/actions/profile";
 
 /** Today's task list for the signed-in user. */
 export async function getUserTasksAction(): Promise<TaskView[]> {
@@ -50,29 +49,43 @@ export async function claimTaskAction(slug: string): Promise<ClaimResult> {
 }
 
 /**
- * Upload a moment (photo or short video) with a description and publish it.
- * The media is stored in Supabase Storage and the moment is syndicated to the
- * home discovery feed.
+ * Publish a moment whose media the browser has ALREADY uploaded to storage.
+ *
+ * ── WHY THERE IS NO `file` PARAMETER HERE ────────────────────────────────────
+ * This action used to take the whole `File` and forward it to
+ * `uploadUserMediaAction`, which sent the entire video as the Server Action
+ * request body. On Vercel that fails for anything over 4.5 MB:
+ *
+ *   1. The platform rejects the request with 413 FUNCTION_PAYLOAD_TOO_LARGE
+ *      BEFORE this function body executes. `experimental.serverActions
+ *      .bodySizeLimit` in next.config.ts cannot raise it — 4.5 MB is a Vercel
+ *      platform limit, not a Next.js one.
+ *   2. The 413 response is neither an RSC payload nor text/plain, so Next's
+ *      action client cannot parse it and throws error E394:
+ *      "An unexpected response was received from the server".
+ *   3. Because step 1 happens before this function runs, the try/catch below
+ *      never executes and no server-side log is ever produced. That is the
+ *      signature of this bug: a failure with no server-side trace.
+ *
+ * The bytes now go browser -> Supabase Storage directly (lib/utils/
+ * direct-upload.ts), and only this small JSON payload crosses the action
+ * boundary. Keep it that way: adding the file back reintroduces the 413, and
+ * no amount of error handling here can catch it.
  */
 export async function publishMomentAction(input: {
-  file: File;
+  storagePath: string;
   content: string;
+  mediaType: "image" | "video";
   taskSlug?: string | null;
 }): Promise<MomentResult> {
   try {
     const user = await getCurrentSessionUser();
     if (!user) return { ok: false, error: "Sign in to publish" };
 
-    const uploaded = await uploadUserMediaAction(user.uid, input.file, input.content);
-    if (!uploaded.ok || !uploaded.data) {
-      return { ok: false, error: uploaded.error ?? "Upload failed" };
-    }
-
-    const mediaType = input.file.type.startsWith("video/") ? "video" : "image";
-    const result = await publishMoment(user.uid, {
+    const result = await publishMomentFromStorage(user.uid, {
+      storagePath: input.storagePath,
       content: input.content,
-      mediaUrl: uploaded.data.publicUrl,
-      mediaType,
+      mediaType: input.mediaType,
       taskSlug: input.taskSlug ?? null,
     });
 
@@ -80,12 +93,20 @@ export async function publishMomentAction(input: {
       revalidatePath("/task");
       revalidatePath("/task/upload-moment");
       revalidatePath("/feed");
+      revalidatePath("/profile");
       revalidatePath("/");
     }
     return result;
   } catch (err) {
+    // rethrowIfNavigation first: redirect()/notFound() throw a sentinel that
+    // Next must see. Swallowing it here would turn a redirect into a silent
+    // error toast on the upload screen.
     rethrowIfNavigation(err);
-    return { ok: false, error: err instanceof Error ? err.message : "Publish failed" };
+    console.error("[moments] publish action failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Publish failed",
+    };
   }
 }
 

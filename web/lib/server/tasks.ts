@@ -226,6 +226,147 @@ export async function publishMoment(
 }
 
 /**
+ * Publish a moment whose media has ALREADY been uploaded to storage.
+ *
+ * WHY THIS EXISTS SEPARATELY FROM `publishMoment`:
+ * the moment media is uploaded STRAIGHT FROM THE BROWSER to Supabase Storage
+ * (see lib/utils/direct-upload.ts), and only this small JSON payload travels
+ * through the Server Action. That is the whole fix for "An unexpected response
+ * was received from the server" — see the note on the action in
+ * lib/actions/tasks.ts for why sending the File through the action could never
+ * work on Vercel.
+ *
+ * SECURITY: `storagePath` arrives from the client, so it is NOT trusted. It must
+ * sit under this member's own folder. Without that check a member could publish
+ * a moment pointing at ANY object in the bucket, including another member's
+ * private media, by guessing or reading a path. The folder-prefix check is the
+ * only thing enforcing ownership, because the service-role client bypasses RLS.
+ */
+export async function publishMomentFromStorage(
+  userId: string,
+  input: {
+    storagePath: string;
+    content: string;
+    mediaType: "image" | "video";
+    taskSlug?: string | null;
+  }
+): Promise<MomentResult> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const content = input.content.trim();
+  if (!content) return { ok: false, error: "Add a description to your moment." };
+  if (content.length > 2200) {
+    return { ok: false, error: "Descriptions must be 2,200 characters or fewer" };
+  }
+
+  const path = (input.storagePath ?? "").trim();
+  if (!path) return { ok: false, error: "The upload did not complete. Please try again." };
+
+  // Ownership: first path segment must be the caller's uid.
+  if (!path.startsWith(`${userId}/`)) {
+    console.error("[moments] rejected foreign storage path", { userId, path });
+    return { ok: false, error: "You can only publish your own media." };
+  }
+
+  // Reject traversal outright rather than relying on the prefix check alone:
+  // `me/../other/file` starts with `me/` but resolves outside the folder.
+  if (path.includes("..") || path.includes("\\")) {
+    return { ok: false, error: "Invalid media path." };
+  }
+
+  const mediaType: "image" | "video" = input.mediaType === "video" ? "video" : "image";
+
+  try {
+    // Confirm the object really landed in the bucket. The client reports
+    // success for its own upload, but a race (or a partial failure) can leave a
+    // moment row pointing at a file that does not exist, which renders as a
+    // broken image in the feed forever.
+    const folder = path.slice(0, path.lastIndexOf("/"));
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const { data: found, error: listError } = await supabase.storage
+      .from("user-media")
+      .list(folder, { search: name, limit: 1 });
+
+    if (listError) {
+      console.error("[moments] storage existence check failed", listError);
+      return {
+        ok: false,
+        error: `Could not verify the upload: ${listError.message}`,
+      };
+    }
+    if (!found || found.length === 0) {
+      return { ok: false, error: "The upload did not complete. Please try again." };
+    }
+
+    const publicUrl = supabase.storage.from("user-media").getPublicUrl(path).data.publicUrl;
+
+    // Mirror the gallery row so the moment also appears on the member's profile.
+    // Best-effort: a failure here must not block publishing the moment itself.
+    const { data: maxRow } = await supabase
+      .from("user_media")
+      .select("sort_order")
+      .eq("user_id", userId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+    const { error: mediaRowError } = await supabase.from("user_media").insert({
+      user_id: userId,
+      storage_path: path,
+      media_type: mediaType,
+      caption: content,
+      sort_order: sortOrder,
+    });
+    if (mediaRowError) {
+      console.error("[moments] user_media mirror failed", mediaRowError);
+    }
+
+    // The moments row. Only real columns: user_id, media_url, media_type and the
+    // text column. `task_slug` is deliberately NOT written — on a database
+    // predating migration 030/032 that column does not exist and its presence in
+    // the payload fails the whole insert.
+    const row: Record<string, unknown> = {
+      user_id: userId,
+      media_url: publicUrl,
+      media_type: mediaType,
+    };
+    row[MOMENT_TEXT_COLUMN] = content;
+
+    const { data, error } = await supabase
+      .from("moments")
+      .insert(row)
+      .select("id, media_url")
+      .single();
+
+    if (error || !data) {
+      console.error("[moments] publish insert failed", error);
+      return {
+        ok: false,
+        error: error
+          ? `Could not publish your moment: ${error.message}`
+          : "Could not publish your moment. Please try again.",
+      };
+    }
+
+    return {
+      ok: true,
+      momentId: (data as { id: string }).id,
+      mediaUrl: (data as { media_url: string }).media_url,
+    };
+  } catch (error) {
+    console.error("[moments] publish server error:", error);
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? `Could not publish your moment: ${error.message}`
+          : "Could not publish your moment. Please try again.",
+    };
+  }
+}
+
+/**
  * Recent public moments, newest first, syndicated to the home discovery feed.
  *
  * Engagement (reaction count, comment count, "did I react") is aggregated in
