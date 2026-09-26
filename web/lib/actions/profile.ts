@@ -38,7 +38,32 @@ export async function uploadUserMediaAction(
       return { ok: false, error: validationError };
     }
 
-    const mediaType = file.type.startsWith("video/") ? "video" : "image";
+    /**
+     * Some devices (notably older Android pickers) hand us a File whose `type`
+     * is EMPTY for video. Passing that straight through uploads the object as
+     * `application/octet-stream`, which the bucket's `allowed_mime_types` list
+     * rejects — an opaque failure, and a stall before this fix. Falling back to
+     * the extension yields a type the allowlist accepts and matches what the
+     * object will actually be served as.
+     */
+    const EXT_MIME: Record<string, string> = {
+      mp4: "video/mp4", m4v: "video/x-m4v", mov: "video/quicktime",
+      webm: "video/webm", ogv: "video/ogg", mpeg: "video/mpeg",
+      mpg: "video/mpeg", avi: "video/x-msvideo", mkv: "video/x-matroska",
+      "3gp": "video/3gpp",
+      jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png",
+      webp: "image/webp", gif: "image/gif", avif: "image/avif",
+      heic: "image/heic", heif: "image/heif", bmp: "image/bmp",
+      tif: "image/tiff", tiff: "image/tiff",
+    };
+    const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const rawExt = (sanitized.split(".").pop() ?? "").toLowerCase();
+    const ext = rawExt || "jpg";
+    const contentType = file.type || EXT_MIME[ext] || "application/octet-stream";
+    // Derived from the RESOLVED type, not file.type: an empty file.type made
+    // `.startsWith("video/")` false and filed every video as an image, which
+    // then rendered as a broken <img> in the feed.
+    const mediaType: "image" | "video" = contentType.startsWith("video/") ? "video" : "image";
 
     const { data: maxRow, error: orderError } = await supabase
       .from("user_media")
@@ -53,13 +78,14 @@ export async function uploadUserMediaAction(
     }
     const sortOrder = (maxRow?.sort_order ?? -1) + 1;
 
-    const sanitized = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
-    const ext = sanitized.split(".").pop() || (mediaType === "image" ? "jpg" : "mp4");
     const path = `${userId}/${Date.now()}_${sortOrder}.${ext}`;
 
+    // No chunking here on purpose: the File already arrived whole in the action
+    // body, and the bucket rejects multipart uploads under ~6 MB. Content-Type
+    // is the part that actually mattered and is now guaranteed non-empty.
     const { error: uploadErr } = await supabase.storage
       .from("user-media")
-      .upload(path, file, { contentType: file.type, upsert: false });
+      .upload(path, file, { contentType, upsert: false });
 
     if (uploadErr) {
       return { ok: false, error: `Upload failed: ${uploadErr.message}` };

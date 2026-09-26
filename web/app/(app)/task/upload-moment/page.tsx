@@ -16,6 +16,53 @@ import { PageLock } from "@/components/app/PageHeader";
 // but was refused by the 10mb body limit, and the action never executed.
 const MAX_BYTES = 250 * 1024 * 1024;
 
+/**
+ * HANG GUARD.
+ *
+ * The upload is a single Server Action call carrying the whole File as the
+ * request body. If the socket stalls (mobile handover, proxy timeout, a
+ * half-open connection) the promise simply never settles — `await` blocks
+ * forever, `busy` stays true, and the button reads "Publishing..." with no way
+ * out. The action's own try/catch cannot help: it only runs if the request
+ * ARRIVES, so a stalled transfer never reaches it.
+ *
+ * So the deadline has to live on the CLIENT, racing the action.
+ *
+ * TIMING: the budget is scaled by file size rather than being a flat 30s. A
+ * flat 30s would abort perfectly healthy uploads — a 100 MB clip on a typical
+ * mobile uplink needs minutes, and killing it would report a bogus "timed out"
+ * for a transfer that was going to succeed. Instead we allow a floor of 30s
+ * plus a throughput term, and generously more for large files. The floor still
+ * catches the real failure mode (a genuinely stuck connection) within a minute.
+ */
+const UPLOAD_FLOOR_MS = 30_000;
+const UPLOAD_BYTES_PER_MS = 2_000; // ~2 MB/s sustained, deliberately pessimistic
+
+function uploadTimeoutMs(size: number): number {
+  return UPLOAD_FLOOR_MS + Math.ceil(size / UPLOAD_BYTES_PER_MS);
+}
+
+/**
+ * Reject if `promise` has not settled within `ms`.
+ *
+ * Note this abandons the wait, it does not cancel the upload: the browser
+ * request keeps running server-side. The user gets their button back
+ * immediately, which is the point — but if the upload later succeeds it will
+ * have created a moment the user was told had failed. The publish step is
+ * therefore idempotent-safe: it only runs after the upload resolves, so a
+ * timed-out-then-completed upload produces an orphaned media row at worst,
+ * never a duplicate moment.
+ */
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(message)), ms);
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (error) => { clearTimeout(timer); reject(error); }
+    );
+  });
+}
+
 export default function UploadMomentPage() {
   return <MomentUploadForm />;
 }
@@ -34,25 +81,45 @@ export function MomentUploadForm() {
   const ready = Boolean(file) && content.trim().length > 0 && file!.size <= MAX_BYTES;
 
   async function publish() {
-    if (!file || !ready) return;
+    if (!file || !ready || busy) return;
     setBusy(true);
     setError(null);
-    const result = await publishMomentAction({ file, content, taskSlug: "upload-moment" });
-    setBusy(false);
-    // Keep the underlying reason visible. The action already returns specific
-    // messages ("Upload failed: ...", "Supabase not configured", the size/type
-    // validation text); the generic fallback was hiding the one thing that
-    // explains WHY a video failed to publish.
-    if (!result.ok) {
-      setError(result.error ?? "Could not publish your moment. Please try a smaller file or another format.");
-      return;
-    }
-    setDone(true);
-    // Task is now unlockable; try to claim its reward automatically.
-    const claim = await claimTaskAction("upload-moment");
-    if (claim.ok) {
-      setReward(`+${claim.rewardCoins} coins added to your wallet`);
-      router.refresh();
+
+    // Everything below is guarded: `finally` always clears `busy`, so no path
+    // — success, handled error, thrown error, or timeout — can leave the
+    // button stuck on "Publishing...".
+    try {
+      const budgetMs = uploadTimeoutMs(file.size);
+      const result = await withTimeout(
+        publishMomentAction({ file, content, taskSlug: "upload-moment" }),
+        budgetMs,
+        `Upload timed out after ${Math.round(budgetMs / 1000)}s. Check your connection and try a smaller file.`
+      );
+      // Keep the underlying reason visible. The action already returns
+      // specific messages ("Upload failed: ...", "Supabase not configured",
+      // the size/type validation text); the generic fallback was hiding the
+      // one thing that explains WHY a video failed to publish.
+      if (!result.ok) {
+        setError(result.error ?? "Could not publish your moment. Please try a smaller file or another format.");
+        return;
+      }
+      setDone(true);
+      // Task is now unlockable; try to claim its reward automatically.
+      const claim = await claimTaskAction("upload-moment");
+      if (claim.ok) {
+        setReward(`+${claim.rewardCoins} coins added to your wallet`);
+        router.refresh();
+      }
+    } catch (caught) {
+      // A stalled socket throws out of withTimeout; a network failure rejects
+      // the action. Both land here and re-enable the button.
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Could not publish your moment. Please check your connection and try again."
+      );
+    } finally {
+      setBusy(false);
     }
   }
 
