@@ -4,10 +4,13 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
 import { USER_MEDIA_MIME_TYPES, validateMediaFile } from "@/lib/utils/media-upload";
 import { uploadWithProgress } from "@/lib/utils/upload-progress";
-import { shareUserMediaToFeedAction } from "@/lib/actions/profile";
+import { shareUserMediaToFeedAction, deleteUserMediaAction } from "@/lib/actions/profile";
+import { MediaGrid, type GalleryMedia } from "@/components/app/MediaGrid";
+import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-type Media = { id: string; storage_path: string; media_type: string };
+import { Trash2 } from "lucide-react";
+type Media = GalleryMedia;
 
 export function UserMediaGallery({ uid }: { uid: string }) {
   const [items, setItems] = useState<Media[]>([]);
@@ -18,6 +21,8 @@ export function UserMediaGallery({ uid }: { uid: string }) {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [sharingId, setSharingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Media | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const load = useCallback(async (offset = 0) => {
     setLoading(true);
@@ -89,37 +94,94 @@ export function UserMediaGallery({ uid }: { uid: string }) {
     }
   }
 
+  // Delete one gallery item. The Server Action verifies ownership with
+  // requireSessionUid() and deletes the storage object BEFORE the DB row, so a
+  // failure can never leave a row pointing at a missing file. The row is
+  // removed from local state on success so the grid updates immediately,
+  // without waiting on the revalidation round-trip.
+  async function confirmDelete() {
+    const target = pendingDelete;
+    if (!target || deletingId) return;
+    setDeletingId(target.id);
+    setError("");
+    setStatus("");
+    try {
+      const result = await deleteUserMediaAction(target.id, uid);
+      if (!result.ok) {
+        setError(result.error ?? "Could not delete that item.");
+        return;
+      }
+      setItems((previous) => previous.filter((item) => item.id !== target.id));
+      setStatus("Photo deleted.");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not delete that item.");
+    } finally {
+      setDeletingId(null);
+      setPendingDelete(null);
+    }
+  }
+
   return <Card className="flex flex-col gap-4">
-    <h2 className="font-semibold text-white">Your photos and videos</h2>
-    <p className="text-sm text-ink-300">Public gallery. No account item cap; up to 250 MB per file, subject to provider limits. Some formats require downloading to view.</p>
+    <h2 className="font-semibold text-white">Photos &amp; videos</h2>
+    <p className="text-sm text-ink-300">Public gallery. Up to 250 MB per file. Hover a tile to share or delete it.</p>
     <input ref={input} type="file" accept={USER_MEDIA_MIME_TYPES.join(",")} className="hidden" disabled={busy} onChange={() => void upload()} />
     <Button disabled={busy || loading} variant="secondary" onClick={() => input.current?.click()}>Upload photo / video</Button>
     {busy ? <progress aria-label="Media upload progress" max={100} value={progress} className="w-full" /> : null}
     <p role="status" className="text-sm text-ink-300">{status || (loading ? "Loading media…" : "")}{busy ? ` (${progress}%)` : ""}</p>
     {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-      {items.map(item => {
-        const url = getSupabaseClient().storage.from("user-media").getPublicUrl(item.storage_path).data.publicUrl;
+    <MediaGrid
+      items={items}
+      alt="Your uploaded media"
+    >
+      {(item) => {
         const sharing = sharingId === item.id;
-        return <div key={item.id} className="overflow-hidden rounded-xl bg-white/5">
-          {item.media_type === "video" ? <video controls preload="metadata" src={url} className="aspect-square w-full object-contain" />
-            : <img loading="lazy" src={url} alt="Your uploaded media" className="aspect-square w-full object-cover" />}
-          <div className="flex items-center justify-between gap-2 p-2">
-            <a href={url} target="_blank" rel="noreferrer" className="text-xs text-brand-300 hover:underline">Open original</a>
+        const deleting = deletingId === item.id;
+        return (
+          /* Overlays sit above the tile's link. `absolute inset-x-0 top-0`
+             anchors them to the <li> (which is `relative`), and the high z-index
+             keeps them clickable rather than trapped under the anchor. */
+          <>
             {/* Opt-in syndication: publishing is an explicit choice, never automatic. */}
             <button
               type="button"
               onClick={() => void share(item.id)}
-              disabled={sharing || busy}
-              className="shrink-0 rounded-lg border border-orange-400/40 bg-orange-500/10 px-2 py-1 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500/20 disabled:opacity-50"
+              disabled={sharing || busy || deleting}
+              className="absolute bottom-1.5 left-1.5 z-10 rounded-lg bg-black/60 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur-sm transition hover:bg-orange-500/80 disabled:opacity-50"
             >
-              {sharing ? "Sharing…" : "Share to feed"}
+              {sharing ? "Sharing…" : "Share"}
             </button>
-          </div>
-        </div>;
-      })}
-    </div>
+            {/* Owner-only destructive control. This whole gallery is the signed-in
+                member's own view (the server page passes session.uid and this
+                component is never mounted for a public profile), so no extra
+                viewer check is needed here — and the Server Action re-verifies
+                ownership regardless. Hidden until hover/focus so it stays subtle,
+                but it is a real button in the tab order for keyboard users. */}
+            <button
+              type="button"
+              onClick={() => setPendingDelete(item)}
+              disabled={deleting || busy}
+              aria-label="Delete this photo"
+              className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition hover:bg-danger-500 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            </button>
+          </>
+        );
+      }}
+    </MediaGrid>
     {!loading && !error && !items.length ? <p className="text-sm text-ink-400">No gallery uploads yet.</p> : null}
     {more ? <Button variant="ghost" disabled={loading || busy} onClick={() => void load(items.length)}>Load more</Button> : null}
+    {/* Deletion is permanent and removes the underlying file, so it is gated on
+        an explicit confirm rather than firing on the first click. */}
+    <ConfirmationDialog
+      open={pendingDelete !== null}
+      title="Delete this photo?"
+      body="This permanently removes the file from storage and your profile. This cannot be undone."
+      confirmLabel={deletingId ? "Deleting…" : "Delete"}
+      tone="danger"
+      busy={deletingId !== null}
+      onConfirm={() => void confirmDelete()}
+      onCancel={() => setPendingDelete(null)}
+    />
   </Card>;
 }

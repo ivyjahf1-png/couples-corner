@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { MediaGrid, type GalleryMedia } from "@/components/app/MediaGrid";
 import { Card } from "@/components/ui/Card";
 
-type Media = { id: string; storage_path: string; media_type: string };
+type Media = GalleryMedia;
 
 /**
  * Read-only media gallery for public profile views.
@@ -56,26 +57,7 @@ export function PublicMediaGallery({ uid }: { uid: string }) {
       {!loading && !error && !items.length ? (
         <p className="text-sm text-ink-400">No uploads shared yet.</p>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {items.map((item) => {
-          const url = getSupabaseClient()
-            .storage.from("user-media")
-            .getPublicUrl(item.storage_path).data.publicUrl;
-          return (
-            <div key={item.id} className="overflow-hidden rounded-xl bg-white/5">
-              {item.media_type === "video" ? (
-                <video controls preload="metadata" src={url} className="aspect-square w-full object-contain" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img loading="lazy" src={url} alt="Member media" className="aspect-square w-full object-cover" />
-              )}
-              <a href={url} target="_blank" rel="noreferrer" className="block p-2 text-xs text-brand-300">
-                Open original
-              </a>
-            </div>
-          );
-        })}
-      </div>
+      <MediaGrid items={items} alt="Member media" />
     </Card>
   );
 }
