@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
 
 export type AvatarSize = "sm" | "md" | "lg" | "xl";
 
@@ -19,22 +21,19 @@ interface AvatarProps {
 }
 
 /**
- * Initials avatar placeholder. Photos will come from Cloud Storage later;
- * for now every avatar is a deterministic, warm-toned initials disc.
+ * Avatar: the member's photo when one is available, initials otherwise.
  */
 export function Avatar({ name, src, kind = "person", size = "md", className }: AvatarProps) {
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name}
-        className={[
-          "h-full w-full rounded-full object-cover",
-          sizeClasses[size],
-        ].join(" ")}
-      />
-    );
-  }
+  // A photo URL that 404s (deleted upstream, storage path changed, private
+  // bucket) would otherwise render the browser's broken-image glyph rather than
+  // anything deliberate. Tracking the failed URL and falling back to initials
+  // keeps the circle looking intentional. Comparing against `src` (rather than
+  // a boolean) means a NEW url retries instead of staying stuck on the
+  // fallback forever.
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  useEffect(() => {
+    setFailedSrc(null);
+  }, [src]);
 
   const initials = name
     .split(/[\s&]+/)
@@ -42,6 +41,27 @@ export function Avatar({ name, src, kind = "person", size = "md", className }: A
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase())
     .join("");
+
+  if (src && failedSrc !== src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        onError={() => setFailedSrc(src)}
+        // `className` is merged so a caller that sizes the avatar itself (the
+        // feed header wraps it in a fixed-size overflow-hidden ring) can
+        // override the default size instead of fighting it with two competing
+        // height utilities.
+        className={[
+          "h-full w-full rounded-full object-cover",
+          sizeClasses[size],
+          className ?? "",
+        ]
+          .join(" ")
+          .trim()}
+      />
+    );
+  }
 
   return (
     <span

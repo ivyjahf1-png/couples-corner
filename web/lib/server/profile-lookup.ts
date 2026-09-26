@@ -31,10 +31,52 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
+import { photoStoragePathToApiUrl } from "@/lib/server/profiles";
 
 export interface AuthorInfo {
   displayName: string | null;
   avatarUrl: string | null;
+}
+
+/**
+ * Resolve the avatar to render from a profile's `photos` array.
+ *
+ * WHY THIS IS NOT JUST `photos[0]?.publicUrl`: photos are written by the
+ * uploader as `{ id, storagePath, isPrimary }` - there is NO `publicUrl` key on
+ * a freshly uploaded photo. Reading only `publicUrl` therefore returned null for
+ * essentially every member, and every creator avatar in the feed silently fell
+ * back to initials while the member had a perfectly good photo.
+ *
+ * The primary photo wins over array order: uploads prepend the newest photo but
+ * demote the previous one to `isPrimary: false`, so without this a member whose
+ * chosen primary is an older photo would show the wrong face.
+ *
+ * `photoStoragePathToApiUrl` is reused rather than re-derived so the
+ * storage-path -> URL mapping keeps exactly one implementation.
+ */
+function resolveAvatar(photos: unknown): string | null {
+  if (!Array.isArray(photos)) return null;
+  const entries = photos.filter(
+    (
+      photo
+    ): photo is {
+      publicUrl?: string | null;
+      storagePath?: string | null;
+      isPrimary?: boolean;
+    } => Boolean(photo) && typeof photo === "object"
+  );
+  if (entries.length === 0) return null;
+
+  const primary = entries.find((photo) => photo.isPrimary) ?? entries[0];
+  // A fully-qualified URL when one was written by an older path, otherwise
+  // derived from the storage path.
+  if (typeof primary.publicUrl === "string" && primary.publicUrl) {
+    return primary.publicUrl;
+  }
+  if (typeof primary.storagePath === "string" && primary.storagePath) {
+    return photoStoragePathToApiUrl(primary.storagePath);
+  }
+  return null;
 }
 
 /**
@@ -63,11 +105,9 @@ export async function fetchAuthors(userIds: string[]): Promise<Map<string, Autho
       photos?: unknown;
     }>) {
       if (!raw.user_id) continue;
-      const photos = Array.isArray(raw.photos) ? raw.photos : [];
-      const first = photos[0] as { publicUrl?: string | null } | undefined;
       byId.set(raw.user_id, {
         displayName: raw.display_name ?? null,
-        avatarUrl: first?.publicUrl ?? null,
+        avatarUrl: resolveAvatar(raw.photos),
       });
     }
     return byId;
