@@ -65,10 +65,15 @@ export async function provisionUser(
   }
 
   // Insert profile record — strip any keys the DB might not have yet.
+  //
+  // `user_code` is DELIBERATELY ABSENT. The column has a DEFAULT that mints the
+  // permanent public ID, but in Postgres an explicit NULL overrides a DEFAULT —
+  // sending `user_code: null` here suppressed the generator and left every new
+  // account with a NULL code, which is why searching a real member's ID found
+  // nobody. Omitting the key lets the default fire. See migration 042.
   const profilePayload: Record<string, unknown> = {
     id: uid,
     user_id: uid,
-    user_code: null,
     display_name: displayName?.trim() || email.split("@")[0],
     bio: null,
     interests: [],

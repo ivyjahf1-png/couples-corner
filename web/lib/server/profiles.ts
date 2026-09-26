@@ -284,22 +284,30 @@ export async function getOwnProfile(uid: string): Promise<{
   };
 }
 
-/** Look up a public profile by its exact five-character public code. */
+/**
+ * Look up a public profile by its exact permanent code (two digits + four
+ * letters, e.g. `17NRUX`).
+ *
+ * This previously queried `user_id` with a five-character pattern. `user_id` is
+ * a uuid, so that lookup could never match a code of any length — it was dead
+ * code. Invite attribution must use `resolveUserCode` below, which is what the
+ * app actually calls.
+ */
 export async function getProfileByUserCode(
   code: string,
   viewerUid: string | null
 ): Promise<UserProfile | null> {
   const normalized = code.trim().toUpperCase();
-  if (!/^[A-Z0-9]{5}$/.test(normalized)) return null;
+  if (!/^\d{2}[A-Z]{4}$/.test(normalized)) return null;
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
-  // Some deployed databases predate the public user_code column. Keep this
-  // lookup compatible with that schema; the profile UI owns the persistent
-  // client code and the profile ID remains available from `user_id`.
+
+  // Case-insensitive, because a member pasting a code shared over chat is the
+  // most likely source of a lowercase query, and stored codes are uppercase.
   const { data } = await supabase
     .from("profiles")
     .select(profileSelectList())
-    .eq("user_id", normalized)
+    .ilike("user_code", normalized)
     .limit(1)
     .maybeSingle();
   if (!data) return null;
@@ -404,9 +412,10 @@ export async function searchMembers(rawQuery: string): Promise<MemberSearchResul
   const db = supabase;
 
   const code = query.toUpperCase();
-  // A public ID is two digits + four letters. A 6+ character query is also
-  // worth an exact probe so a pasted `user_id` still resolves.
-  const looksLikeCode = /^\d{2}[A-Z]{4}$/.test(code);
+  // A public ID is two digits + four letters (e.g. 17NRUX). The shape is a hint
+  // for ranking, never a gate: an older database may still hold 5-character
+  // codes from migration 030, so an exact probe is also worthwhile at 5 chars.
+  const looksLikeCode = /^\d{2}[A-Z]{4}$/.test(code) || /^[A-Z0-9]{5}$/.test(code);
 
   // Whether the optional `user_code` column is usable on this database. Once a
   // query has failed because of it, later queries skip it rather than re-paying
@@ -460,16 +469,33 @@ export async function searchMembers(rawQuery: string): Promise<MemberSearchResul
     return attempt(false);
   }
 
-  // Strategy 1: exact public code. Probed against `user_code` (a text column)
-  // first, and against `user_id` only when the input is actually UUID-shaped.
-  // Sending "17NRUX" to a uuid column would raise 22P02 invalid_input_syntax and
-  // waste a round trip, so that probe is gated rather than merely caught.
+  // Strategy 1: exact public code.
+  //
+  // Two probes, because they answer different questions:
+  //   a) `ilike` on user_code  — case-insensitive, so a pasted "17nrux" matches
+  //      the stored "17NRUX". The codes are always minted uppercase, so a
+  //      case-SENSITIVE `.eq` would miss a lowercase paste, which is the single
+  //      most likely way someone pastes a code shared over chat.
+  //   b) `.eq` on user_id     — only when the input is actually UUID-shaped.
+  //      `user_id` is a uuid and Postgres has no `uuid ~~* text` operator, so
+  //      sending "17NRUX" to it raises 22P02 and fails the whole query.
   if (looksLikeCode || query.length >= 6) {
     const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const columns = userCodeAvailable ? ["user_code", "user_id"] : ["user_id"];
-    for (const column of columns) {
-      if (column === "user_id" && !UUID_RE.test(query)) continue;
-      const rows = await runSearchQuery({ columns: [], eq: { column, value: query } }).catch(
+
+    if (userCodeAvailable) {
+      const codeRows = await runSearchQuery({ columns: ["user_code"] }).catch(
+        () => [] as SearchRow[]
+      );
+      const codeHit = codeRows.map(toSearchHit).find((entry) => entry !== null);
+      // Only accept this as an *exact* code match. A partial code prefix must
+      // not hijack the query, or typing the first few characters of a name
+      // that happens to look like a code would return a stranger.
+      const exact = codeHit?.userCode?.toUpperCase() === code;
+      if (codeHit && exact) return { kind: "exact", userId: codeHit.userId };
+    }
+
+    if (UUID_RE.test(query)) {
+      const rows = await runSearchQuery({ columns: [], eq: { column: "user_id", value: query } }).catch(
         () => [] as SearchRow[]
       );
       const hit = rows.map(toSearchHit).find((entry) => entry !== null);

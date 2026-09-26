@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getVisibleProfile } from "@/lib/server/profiles";
+import { getProfileStats } from "@/lib/server/profile-stats";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Avatar";
 import { Card } from "@/components/ui/Card";
@@ -28,11 +29,35 @@ export default async function PublicProfilePage({
   const isSelf = session?.uid === userId;
   const photo = profile.photos?.[0];
 
-  // Seed presence server-side so the dot is right on first paint; the client
-  // component keeps it live from then on.
-  const presence = isSelf
-    ? {}
-    : await getPresenceForUsers([userId]);
+  // Age is DERIVED from date_of_birth, never stored. Computing it here rather
+  // than caching means it can never go stale as a member gets older.
+  //
+  // Guarded rather than assumed: an unparseable or absent date yields null, and
+  // a member under 18 or an implausible age renders nothing instead of a
+  // nonsensical number.
+  const age = (() => {
+    if (!profile.dateOfBirth) return null;
+    const dob = new Date(profile.dateOfBirth);
+    if (Number.isNaN(dob.getTime())) return null;
+    const now = new Date();
+    let years = now.getFullYear() - dob.getFullYear();
+    const beforeBirthday =
+      now.getMonth() < dob.getMonth() ||
+      (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate());
+    if (beforeBirthday) years -= 1;
+    return years >= 18 && years <= 120 ? years : null;
+  })();
+
+  // Social stats. Fetched in parallel with presence so the two round trips do
+  // not serialise; getProfileStats is fail-soft and returns zeros on error.
+  const [presence, stats] = await Promise.all([
+    // An empty object on the self view means "no presence to read", but it must
+    // still be typed as a lookup map or the index below widens to `any`.
+    isSelf
+      ? Promise.resolve({} as Record<string, { online: boolean }>)
+      : getPresenceForUsers([userId]),
+    getProfileStats(userId),
+  ]);
   const initialOnline = presence[userId]?.online ?? false;
 
   return (
@@ -43,6 +68,31 @@ export default async function PublicProfilePage({
         subtitle={profile.bio || "This space is quiet for now."}
       />
 
+      {/* Public ID + compact social stats. The ID is the member's permanent
+          handle, so it belongs at the top where a visitor can read it off. */}
+      <div className="-mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+        {profile.userCode ? (
+          <p className="rounded-full border border-white/10 bg-surface px-2.5 py-1 font-mono text-xs tracking-[0.18em] text-ink-300">
+            {profile.userCode}
+          </p>
+        ) : null}
+        <dl className="flex items-center gap-4 text-sm">
+          {[
+            { label: "Following", value: stats.following },
+            { label: "Followers", value: stats.followers },
+            { label: "Friends", value: stats.friends },
+            { label: "Visitors", value: stats.visitors },
+          ].map((stat) => (
+            <div key={stat.label} className="flex items-baseline gap-1.5">
+              <dt className="order-2 text-ink-400">{stat.label}</dt>
+              <dd className="order-1 font-semibold tabular-nums text-white">
+                {stat.value.toLocaleString()}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Identity */}
         <Card className="flex flex-col items-center gap-4 text-center">
@@ -52,7 +102,17 @@ export default async function PublicProfilePage({
             storagePath={photo?.storagePath ?? null}
             initialOnline={initialOnline}
           />
-          <h2 className="text-lg font-semibold text-white">{profile.displayName}</h2>
+          {/* Name + age. Age is omitted entirely when unknown rather than
+              rendered as a placeholder, so the line never reads "Name, 0". */}
+          <h2 className="text-lg font-semibold text-white">
+            {profile.displayName}
+            {age !== null ? (
+              <span className="ml-2 text-base font-normal text-ink-400">{age}</span>
+            ) : null}
+          </h2>
+          {profile.occupation ? (
+            <p className="text-sm text-ink-300">{profile.occupation}</p>
+          ) : null}
           {profile.profileType === "coupled" ? <Chip tone="brand">Couple</Chip> : null}
           {profile.location ? <p className="text-sm text-ink-300">{profile.location}</p> : null}
         </Card>
@@ -88,8 +148,13 @@ export default async function PublicProfilePage({
             <PublicMediaGallery uid={userId} />
           </section>
 
-          {/* Relationship type */}
-          {profile.profileType || profile.relationshipStatus ? (
+          {/* Relationship type & further profile details */}
+          {profile.profileType ||
+          profile.relationshipStatus ||
+          profile.lookingFor ||
+          profile.gender ||
+          profile.orientation ||
+          profile.country ? (
             <Card as="section" className="flex flex-col gap-3" aria-label="Relationship">
               <h2 className="font-semibold text-white">Relationship</h2>
               {profile.relationshipStatus ? (
@@ -102,6 +167,16 @@ export default async function PublicProfilePage({
                   Profile: {profile.profileType.charAt(0).toUpperCase() + profile.profileType.slice(1)}
                 </p>
               ) : null}
+              <div className="flex flex-wrap gap-2">
+                {profile.lookingFor ? (
+                  <Chip tone="neutral">Looking for: {profile.lookingFor}</Chip>
+                ) : null}
+                {profile.gender ? <Chip tone="neutral">{profile.gender}</Chip> : null}
+                {profile.orientation ? (
+                  <Chip tone="neutral">{profile.orientation}</Chip>
+                ) : null}
+                {profile.country ? <Chip tone="neutral">{profile.country}</Chip> : null}
+              </div>
             </Card>
           ) : null}
 
