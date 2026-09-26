@@ -52,7 +52,11 @@ export function AdminUserSelector({ selectedUid, onSearch }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-          className="flex-1 h-10 rounded-xl border border-orange-500/20 bg-slate-900 px-3 text-sm text-white focus:border-orange-500 focus:outline-none"
+          // opts out of the global `:focus-visible { outline: 2px solid }` ring in
+          // globals.css. `focus-visible:` is required alongside `focus:` because a
+          // text input also matches `:focus-visible` once the user types, and the
+          // `:focus` variant alone does not cancel it.
+          className="flex-1 h-10 rounded-xl border border-orange-500/20 bg-slate-900 px-3 text-sm text-white focus:border-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0"
         />
         <Button onClick={handleSearch} disabled={loading || query.length < 3} size="sm">
           {loading ? "Searching…" : "Search"}

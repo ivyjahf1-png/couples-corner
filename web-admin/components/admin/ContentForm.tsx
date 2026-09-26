@@ -352,7 +352,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
                   <option value="">All {copyTotal} ideas — every theme</option>
                   {AD_COPY_THEMES.map((t) => (<option key={t} value={t}>{t}</option>))}
                 </select>
-                <input value={copySearch} onChange={(e) => { setCopySearch(e.target.value); setCopyOpen(true); }} onFocus={() => setCopyOpen(true)} className={inputClass} placeholder="Search 500 titles & descriptions…" aria-label="Search ad copy suggestions" />
+                <input value={copySearch} onChange={(e) => { setCopySearch(e.target.value); setCopyOpen(true); }} onFocus={() => setCopyOpen(true)} className={`${inputClass} focus:border-transparent focus:ring-0 focus-visible:outline-none focus-visible:ring-0`} placeholder="Search 500 titles & descriptions…" aria-label="Search ad copy suggestions" />
               </div>
               <div ref={copyBoxRef} className="relative mt-2">
                 <button type="button" onClick={() => setCopyOpen((v) => !v)} aria-expanded={copyOpen} className="w-full rounded-lg border border-orange-500/30 bg-slate-900 px-3 py-2 text-left text-sm text-slate-200 hover:border-orange-500/60">
