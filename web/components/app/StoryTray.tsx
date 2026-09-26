@@ -1,23 +1,42 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
-import { uploadUserMediaAction } from "@/lib/actions/profile";
+import {
+  createStoryAction,
+  getActiveStoriesAction,
+  type StoryView,
+} from "@/lib/actions/profile";
 import { Avatar } from "@/components/app/Avatar";
+import { StoryViewer } from "@/components/app/StoryViewer";
 
 /**
  * Messages story tray.
  *
  * Horizontal, scrollable status row pinned under the Messages header. The
  * first cell is always "Add Story": picking a photo or a short video uploads it
- * through the existing user-media Server Action (same pipeline as feed posts)
- * and optimistically appends it to the tray.
+ * through `createStoryAction`, which stamps `expires_at = now() + 24h` server
+ * side. The row is loaded from `getActiveStoriesAction`, which filters on
+ * `expires_at > now()` in BOTH the query and the RLS policy, so anything older
+ * than a day is never rendered.
+ *
+ * Every status circle is a real <button> that opens the immersive viewer. The
+ * viewer's own like is written back into local state so the tray's ring stays
+ * truthful without a refetch.
  */
 export function StoryTray({ userId, displayName }: { userId?: string; displayName: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [stories, setStories] = useState<{ id: string; url: string; kind: "image" | "video" }[]>([]);
+  const [stories, setStories] = useState<StoryView[]>([]);
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const load = useCallback(async () => {
+    const result = await getActiveStoriesAction();
+    if (result.ok) setStories(result.stories);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
 
   async function onPick(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
@@ -29,16 +48,23 @@ export function StoryTray({ userId, displayName }: { userId?: string; displayNam
     }
     setBusy(true);
     setError(null);
-    const uploaded = await uploadUserMediaAction(userId, file, "story");
+    const result = await createStoryAction(file);
     setBusy(false);
-    if (!uploaded.ok || !uploaded.data) {
-      setError(uploaded.error ?? "Could not upload your story");
+    if (!result.ok) {
+      setError(result.error ?? "Could not upload your story");
       return;
     }
-    setStories((prev) => [
-      { id: uploaded.data!.id, url: uploaded.data!.publicUrl, kind: file.type.startsWith("video/") ? "video" : "image" },
-      ...prev,
-    ]);
+    // Prepend locally for an instant tray update, then reconcile with the
+    // server list (which carries the author name/avatar the insert can't know).
+    setStories((prev) => [result.story, ...prev]);
+    void load();
+  }
+
+  /** Keep the tray's engagement state in step with the open viewer. */
+  function applyReaction(storyId: string, reacted: boolean, count: number) {
+    setStories((prev) =>
+      prev.map((s) => (s.id === storyId ? { ...s, reactedByViewer: reacted, reactionCount: count } : s))
+    );
   }
 
   return (
@@ -70,20 +96,33 @@ export function StoryTray({ userId, displayName }: { userId?: string; displayNam
           </span>
         </button>
 
-        {stories.map((story) => (
-          <span key={story.id} className="flex w-16 shrink-0 flex-col items-center gap-1.5">
-            <span className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-gradient-to-br border-orange-400/80 p-[2px]">
-              {story.kind === "video" ? (
-                // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video src={story.url} muted playsInline className="h-full w-full rounded-full object-cover" />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={story.url} alt="Your story" className="h-full w-full rounded-full object-cover" />
-              )}
-            </span>
-            <span className="w-16 truncate text-center text-[11px] font-medium text-ink-200">Your story</span>
-          </span>
-        ))}
+        {stories.map((story, index) => {
+          const name = story.authorName?.split(" ")[0] || "Story";
+          return (
+            <button
+              key={story.id}
+              type="button"
+              onClick={() => setOpenIndex(index)}
+              className="group flex w-16 shrink-0 flex-col items-center gap-1.5"
+              aria-label={`View story from ${story.authorName ?? "member"}`}
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-[#FF5722] p-[2px] transition group-hover:brightness-110">
+                <span className="h-full w-full overflow-hidden rounded-full bg-[#0F172A] p-[2px]">
+                  {story.mediaType === "video" ? (
+                    // eslint-disable-next-line jsx-a11y/media-has-caption
+                    <video src={story.url} muted playsInline preload="metadata" className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={story.url} alt="" className="h-full w-full rounded-full object-cover" />
+                  )}
+                </span>
+              </span>
+              <span className="w-16 truncate text-center text-[11px] font-medium text-ink-200 group-hover:text-white">
+                {name}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <input
@@ -94,6 +133,15 @@ export function StoryTray({ userId, displayName }: { userId?: string; displayNam
         onChange={onPick}
         aria-label="Add story photo or video"
       />
+
+      {openIndex !== null && stories[openIndex] ? (
+        <StoryViewer
+          stories={stories}
+          startIndex={openIndex}
+          onClose={() => setOpenIndex(null)}
+          onReact={applyReaction}
+        />
+      ) : null}
     </section>
   );
 }

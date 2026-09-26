@@ -205,6 +205,95 @@ export async function deleteUserMediaAction(
   }
 }
 
+// ============================ STORIES =====================================
+
+export interface StoryView {
+  id: string;
+  userId: string;
+  url: string;
+  mediaType: "image" | "video";
+  caption: string | null;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  createdAt: string;
+  expiresAt: string;
+  reactionCount: number;
+  commentCount: number;
+  /** True when the VIEWER has already reacted (drives the filled heart). */
+  reactedByViewer: boolean;
+}
+
+/** Upload a 24-hour status. Reuses the user-media bucket and validation. */
+export async function createStoryAction(
+  file: File,
+): Promise<{ ok: true; story: StoryView } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to post a story" };
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    const invalid = validateMediaFile(file);
+    if (invalid) return { ok: false, error: invalid };
+
+    const mediaType = file.type.startsWith("video/") ? "video" : "image";
+    const ext = (file.name.split(".").pop() || (mediaType === "image" ? "jpg" : "mp4"))
+      .replace(/[^a-zA-Z0-9]/g, "");
+    // "stories/" prefix keeps status files separable from the permanent gallery.
+    const path = `stories/${user.uid}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from("user-media")
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadErr) return { ok: false, error: `Upload failed: ${uploadErr.message}` };
+
+    // expires_at is set HERE, server-side, at insert. The client never sends
+    // it, so a tampered payload cannot create a story that never expires.
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { data: inserted, error: insertErr } = await supabase
+      .from("stories")
+      .insert({
+        user_id: user.uid,
+        storage_path: path,
+        media_type: mediaType,
+        caption: null,
+        expires_at: expiresAt,
+      })
+      .select("id, created_at, expires_at")
+      .single();
+
+    if (insertErr || !inserted) {
+      // Roll the orphaned object back so a failed insert never leaks storage.
+      await supabase.storage.from("user-media").remove([path]);
+      return { ok: false, error: insertErr?.message ?? "Could not save your story" };
+    }
+
+    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(path);
+    revalidatePath("/messages");
+    return {
+      ok: true,
+      story: {
+        id: inserted.id,
+        userId: user.uid,
+        url: urlData.publicUrl,
+        mediaType,
+        caption: null,
+        authorName: null,
+        authorAvatarUrl: null,
+        createdAt: inserted.created_at,
+        expiresAt: inserted.expires_at ?? expiresAt,
+        reactionCount: 0,
+        commentCount: 0,
+        reactedByViewer: false,
+      },
+    };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not post your story" };
+  }
+}
+
 export async function getPublicUserMedia(
   userId: string,
   limit = 50
@@ -378,4 +467,177 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
   const nextCursor = posts.length === limit ? posts[posts.length - 1]?.createdAt ?? null : null;
 
   return { posts, nextCursor };
+}
+/**
+ * Active stories for the tray, newest first.
+ *
+ * The 24-hour filter is applied HERE as well as in the RLS policy, so a lapsed
+ * story can never reach the client even if the policy were widened later.
+ */
+export async function getActiveStoriesAction(): Promise<
+  { ok: true; stories: StoryView[] } | { ok: false; error: string }
+> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to see stories" };
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    const { data, error } = await supabase
+      .from("stories")
+      .select(
+        "id, user_id, storage_path, media_type, caption, created_at, expires_at, profiles(display_name, photos)"
+      )
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) return { ok: false, error: error.message };
+
+    const rows = (data ?? []) as Array<{
+      id: string; user_id: string; storage_path: string; media_type: string;
+      caption: string | null; created_at: string; expires_at: string;
+      profiles?: { display_name?: string | null; photos?: unknown } | null;
+    }>;
+    if (!rows.length) return { ok: true, stories: [] };
+
+    const ids = rows.map((r) => r.id);
+    const [{ data: reactions }, { data: comments }] = await Promise.all([
+      supabase.from("story_reactions").select("story_id, user_id").in("story_id", ids),
+      supabase.from("story_comments").select("story_id").in("story_id", ids),
+    ]);
+
+    const counts = new Map<string, number>();
+    const mine = new Set<string>();
+    for (const r of (reactions ?? []) as Array<{ story_id?: string; user_id?: string }>) {
+      if (!r.story_id) continue;
+      counts.set(r.story_id, (counts.get(r.story_id) ?? 0) + 1);
+      if (r.user_id === user.uid) mine.add(r.story_id);
+    }
+    const commentCounts = new Map<string, number>();
+    for (const c of (comments ?? []) as Array<{ story_id?: string }>) {
+      if (!c.story_id) continue;
+      commentCounts.set(c.story_id, (commentCounts.get(c.story_id) ?? 0) + 1);
+    }
+
+    return {
+      ok: true,
+      stories: rows.map((row) => {
+        const photos = row.profiles?.photos;
+        const first = Array.isArray(photos) && photos.length
+          ? (photos[0] as { publicUrl?: string | null })
+          : null;
+        return {
+          id: row.id,
+          userId: row.user_id,
+          url: supabase.storage.from("user-media").getPublicUrl(row.storage_path).data.publicUrl,
+          mediaType: row.media_type === "video" ? "video" : "image",
+          caption: row.caption,
+          authorName: row.profiles?.display_name ?? null,
+          authorAvatarUrl: first?.publicUrl ?? null,
+          createdAt: row.created_at,
+          expiresAt: row.expires_at,
+          reactionCount: counts.get(row.id) ?? 0,
+          commentCount: commentCounts.get(row.id) ?? 0,
+          reactedByViewer: mine.has(row.id),
+        };
+      }),
+    };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not load stories" };
+  }
+}
+
+/** Toggle the viewer's like on a story. */
+export async function toggleStoryReactionAction(
+  storyId: string
+): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to react" };
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    const { data: existing } = await supabase
+      .from("story_reactions")
+      .select("id")
+      .eq("story_id", storyId)
+      .eq("user_id", user.uid)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase.from("story_reactions").delete().eq("id", existing.id);
+    } else {
+      await supabase.from("story_reactions").insert({ story_id: storyId, user_id: user.uid });
+    }
+    const { count } = await supabase
+      .from("story_reactions")
+      .select("id", { count: "exact", head: true })
+      .eq("story_id", storyId);
+    return { ok: true, reacted: !existing, count: count ?? 0 };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not react" };
+  }
+}
+
+/** Comments for one story, with the author's display name joined in. */
+export async function getStoryCommentsAction(
+  storyId: string
+): Promise<
+  | { ok: true; comments: Array<{ id: string; body: string; authorName: string; createdAt: string }> }
+  | { ok: false; error: string }
+> {
+  try {
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+    const { data, error } = await supabase
+      .from("story_comments")
+      .select("id, body, created_at, user_id, profiles(display_name)")
+      .eq("story_id", storyId)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    if (error) return { ok: false, error: error.message };
+    return {
+      ok: true,
+      comments: ((data ?? []) as Array<{
+        id: string; body: string; created_at: string;
+        profiles?: { display_name?: string | null } | null;
+      }>).map((c) => ({
+        id: c.id,
+        body: c.body,
+        authorName: c.profiles?.display_name ?? "Member",
+        createdAt: c.created_at,
+      })),
+    };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not load comments" };
+  }
+}
+
+/** Post a comment on a story. */
+export async function addStoryCommentAction(
+  storyId: string,
+  body: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to comment" };
+    const text = body.trim();
+    if (!text) return { ok: false, error: "Write something first" };
+    if (text.length > 500) return { ok: false, error: "Comments must be 500 characters or fewer" };
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+    const { error } = await supabase
+      .from("story_comments")
+      .insert({ story_id: storyId, user_id: user.uid, body: text });
+    if (error) return { ok: false, error: error.message };
+    revalidatePath("/messages");
+    return { ok: true };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not post comment" };
+  }
 }
