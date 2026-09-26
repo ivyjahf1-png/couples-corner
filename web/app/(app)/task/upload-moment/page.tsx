@@ -21,53 +21,28 @@ import { PageLock } from "@/components/app/PageHeader";
 const MAX_BYTES = 250 * 1024 * 1024;
 
 /**
- * HANG GUARD.
+ * NO CLIENT-SIDE UPLOAD TIMEOUT — deliberately.
  *
- * The upload is a single Server Action call carrying the whole File as the
- * request body. If the socket stalls (mobile handover, proxy timeout, a
- * half-open connection) the promise simply never settles — `await` blocks
- * forever, `busy` stays true, and the button reads "Publishing..." with no way
- * out. The action's own try/catch cannot help: it only runs if the request
- * ARRIVES, so a stalled transfer never reaches it.
+ * This form used to wrap the transfer in `withTimeout(…, 30s + size/2KBps)`.
+ * That is now removed, and removing it is the point, not an omission:
  *
- * So the deadline has to live on the CLIENT, racing the action.
+ *   • The bytes no longer touch Vercel at all. They go browser -> Supabase
+ *     Storage (lib/utils/direct-upload.ts), so there is no 4.5 MB function body
+ *     cap and no 30-second serverless execution limit to race. A deadline here
+ *     was guarding a constraint that no longer exists.
+ *   • The old guard was actively harmful. It abandoned the wait WITHOUT
+ *     cancelling the transfer, so a large video on a slow uplink got reported as
+ *     "Upload timed out" and then silently completed server-side - leaving an
+ *     orphaned object and a member who believed their upload had failed.
  *
- * TIMING: the budget is scaled by file size rather than being a flat 30s. A
- * flat 30s would abort perfectly healthy uploads — a 100 MB clip on a typical
- * mobile uplink needs minutes, and killing it would report a bogus "timed out"
- * for a transfer that was going to succeed. Instead we allow a floor of 30s
- * plus a throughput term, and generously more for large files. The floor still
- * catches the real failure mode (a genuinely stuck connection) within a minute.
+ * Genuine stalls are still caught, just by the right layer: `uploadWithProgress`
+ * sets a 30-MINUTE XHR timeout and fires onerror/ontimeout for a dead socket.
+ * That is a real network guard, not an artificial deadline, and 30 minutes is
+ * far beyond any honest transfer.
+ *
+ * The UI shows real progress because XHR reports transferred bytes, so there is
+ * always visible feedback that the upload is alive.
  */
-const UPLOAD_FLOOR_MS = 30_000;
-const UPLOAD_BYTES_PER_MS = 2_000; // ~2 MB/s sustained, deliberately pessimistic
-
-function uploadTimeoutMs(size: number): number {
-  return UPLOAD_FLOOR_MS + Math.ceil(size / UPLOAD_BYTES_PER_MS);
-}
-
-/**
- * Reject if `promise` has not settled within `ms`.
- *
- * Scoped to the STORAGE UPLOAD only, never the publish step. The publish action
- * is a small JSON call, so its own server-side errors are the honest signal and
- * wrapping it would only trade a useful message for a timeout.
- *
- * Note this abandons the wait, it does not cancel the upload: the browser's
- * request to storage keeps running. The member gets their button back
- * immediately, which is the point. If the upload later completes it leaves an
- * orphaned storage object at worst — never a duplicate moment — because the
- * publish step only runs after the upload has resolved.
- */
-function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(message)), ms);
-    promise.then(
-      (value) => { clearTimeout(timer); resolve(value); },
-      (error) => { clearTimeout(timer); reject(error); }
-    );
-  });
-}
 
 export default function UploadMomentPage() {
   return <MomentUploadForm />;
@@ -114,13 +89,14 @@ export function MomentUploadForm() {
       }
 
       // STEP 1 — bytes go straight to storage, bypassing Vercel entirely.
+      //
+      // Awaited directly, with no client-side deadline: the transfer is a
+      // browser -> Supabase Storage request, so there is no serverless execution
+      // limit in the path to race. `setProgress` drives the visible bar, and
+      // uploadWithProgress's own 30-minute XHR timeout still catches a genuinely
+      // dead socket.
       setStatus("Uploading...");
-      const budgetMs = uploadTimeoutMs(file.size);
-      const uploaded = await withTimeout(
-        uploadMediaDirect(uid, file, setProgress),
-        budgetMs,
-        `Upload timed out after ${Math.round(budgetMs / 1000)}s. Check your connection and try a smaller file.`
-      );
+      const uploaded = await uploadMediaDirect(uid, file, setProgress);
       if (!uploaded.ok) {
         setStatus("");
         setError(uploaded.error);
@@ -151,8 +127,9 @@ export function MomentUploadForm() {
       }
     } catch (caught) {
       setStatus("");
-      // A stalled socket throws out of withTimeout; a network failure rejects
-      // the upload. Both land here and re-enable the button.
+      // A dead socket (XHR onerror/ontimeout), a rejected auth refresh, or a
+      // failed publish action all land here. `finally` always re-enables the
+      // button, so no path can leave the form stuck on "Uploading...".
       setError(
         caught instanceof Error
           ? caught.message
@@ -251,12 +228,25 @@ export function MomentUploadForm() {
 
           {error ? <p role="alert" className="text-xs text-danger-300">{error}</p> : null}
 
-          {/* Real transfer progress. Only rendered while uploading (progress < 100
-              or still uploading), so it never lingers after a failed attempt. */}
+          {/* Real transfer progress.
+
+              XHR reports transferred bytes, so the bar is genuine rather than
+              decorative. At 0% the byte count has not arrived yet, so an
+              indeterminate spinner and a pulsing bar carry the "it has started"
+              signal instead — without that, the first moments of a slow uplink
+              looked identical to a frozen form. */}
           {busy && status ? (
             <div className="flex flex-col gap-1.5" aria-live="polite">
               <div className="flex items-center justify-between text-[11px] text-ink-300">
-                <span>{status}</span>
+                <span className="flex items-center gap-1.5">
+                  {status.startsWith("Uploading") && progress === 0 ? (
+                    <span
+                      aria-hidden
+                      className="h-3 w-3 animate-spin rounded-full border-2 border-white/25 border-t-white"
+                    />
+                  ) : null}
+                  {status}
+                </span>
                 {status.startsWith("Uploading") && progress > 0 ? (
                   <span aria-hidden>{progress}%</span>
                 ) : null}
