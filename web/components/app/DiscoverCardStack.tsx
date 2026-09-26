@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
@@ -108,6 +108,17 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
     setSuperLikeModal(true);
   }
 
+  // Timer for the post-send auto-dismiss of the First Impressions sheet.
+  // Held in a ref so unmount (or a re-send) can cancel a pending close rather
+  // than firing setState on a gone component.
+  const closeTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimer.current !== null) window.clearTimeout(closeTimer.current);
+    };
+  }, []);
+
   async function sendFirstImpressions() {
     const body = impressionsText.trim();
     const targetId = current?.id?.trim();
@@ -134,6 +145,16 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
       setImpressionConversationId(result.conversationId ?? null);
       setImpressionsSent(true);
       router.refresh();
+
+      // Close and reset on its own. Leaving the modal parked on the success
+      // panel meant the next open inherited `impressionsSent`, and on a bottom
+      // sheet the user had to hunt for "Continue" to dismiss it. The success
+      // panel still shows for a beat first, so the send is acknowledged.
+      closeTimer.current = window.setTimeout(() => {
+        setImpressionsModal(false);
+        setImpressionsSent(false);
+        setImpressionsText("");
+      }, 1500);
     } catch (err) {
       reportError(failureMessage(err, "Couldn't send your impression. Check your connection and try again."));
     } finally {
@@ -335,11 +356,35 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   placeholder={`Say something unforgettable to ${name}…`}
                   maxLength={500}
                   className="w-full resize-none rounded-2xl border border-ink-700 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
+                  onKeyDown={(event) => {
+                    // Enter sends; Shift+Enter inserts a newline.
+                    // A textarea swallows Enter for a line break, so without this
+                    // the keyboard is a dead end - the only way to submit was
+                    // reaching for the button with a finger.
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void sendFirstImpressions();
+                    }
+                  }}
                 />
                 <p className="mt-1 text-right text-xs text-ink-400">{impressionsText.length}/500</p>
-                <button type="button" onClick={sendFirstImpressions} disabled={!impressionsText.trim()}
-                  className="mt-3 w-full rounded-xl bg-gradient-to-br from-orange-500 to-[#FF5722] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50">
-                  Send First Impression
+                <button
+                  type="button"
+                  onClick={() => void sendFirstImpressions()}
+                  disabled={!impressionsText.trim() || impressionsBusy}
+                  className={[
+                    "mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition",
+                    // The disabled state used a 50%-opacity gradient, which on the
+                    // dark sheet read as "no button here" rather than "not ready
+                    // yet" - the control genuinely looked missing. Now it keeps a
+                    // solid, legible shape and only the colour dims.
+                    impressionsText.trim() && !impressionsBusy
+                      ? "bg-gradient-to-br from-orange-500 to-[#FF5722] text-white hover:brightness-110"
+                      : "border border-white/15 bg-white/[0.06] text-ink-400",
+                  ].join(" ")}
+                >
+                  <Icon name="send" className="h-4 w-4" aria-hidden />
+                  {impressionsBusy ? "Sending…" : "Send First Impression"}
                 </button>
               </>
             )}

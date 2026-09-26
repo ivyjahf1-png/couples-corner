@@ -123,7 +123,7 @@ export function UserMediaGallery({ uid }: { uid: string }) {
 
   return <Card className="flex flex-col gap-4">
     <h2 className="font-semibold text-white">Photos &amp; videos</h2>
-    <p className="text-sm text-ink-300">Public gallery. Up to 250 MB per file. Hover a tile to share or delete it.</p>
+    <p className="text-sm text-ink-300">Public gallery. Up to 250 MB per file. Use the buttons on a tile to share or delete it.</p>
     <input ref={input} type="file" accept={USER_MEDIA_MIME_TYPES.join(",")} className="hidden" disabled={busy} onChange={() => void upload()} />
     <Button disabled={busy || loading} variant="secondary" onClick={() => input.current?.click()}>Upload photo / video</Button>
     {busy ? <progress aria-label="Media upload progress" max={100} value={progress} className="w-full" /> : null}
@@ -160,10 +160,34 @@ export function UserMediaGallery({ uid }: { uid: string }) {
               type="button"
               onClick={() => setPendingDelete(item)}
               disabled={deleting || busy}
-              aria-label="Delete this photo"
-              className="absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white opacity-0 backdrop-blur-sm transition hover:bg-danger-500 focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-50"
+              aria-label="Delete this photo or video"
+              className={[
+                // ALWAYS VISIBLE, not hover-revealed.
+                //
+                // This was `opacity-0 group-hover:opacity-100`, which made the
+                // control invisible on every touch device - there is no hover
+                // state on a phone, so the button simply did not exist for most
+                // members while the Share button beside it was always visible.
+                // That inconsistency is why the tile looked like it had no
+                // delete affordance at all.
+                //
+                // It is still gated behind the ConfirmationDialog (deletion is
+                // permanent), so being visible does not make it easy to hit by
+                // accident.
+                "absolute right-1.5 top-1.5 z-10 flex h-7 w-7 items-center justify-center rounded-full transition disabled:opacity-50",
+                deleting
+                  ? "bg-danger-500 text-white"
+                  : "bg-black/60 text-white/90 backdrop-blur-sm hover:bg-danger-500 focus-visible:bg-danger-500",
+              ].join(" ")}
             >
-              <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              {deleting ? (
+                <span
+                  aria-hidden
+                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+              )}
             </button>
           </>
         );
