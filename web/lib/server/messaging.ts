@@ -5,6 +5,7 @@ import type { Conversation, Message } from "@/lib/models";
 import { buildMessageInsert } from "@/lib/utils/message-payload";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
+import { getPresenceForUsers } from "@/lib/server/presence";
 
 /**
  * Couples Corner — server-side messaging service.
@@ -175,6 +176,84 @@ export async function sendMessage(params: {
   return (data as MessageRow | null) ?? null;
 }
 
+/**
+ * Edit a message the current user sent.
+ *
+ * SECURITY: the ownership check is part of the UPDATE's WHERE clause, not a
+ * separate read-then-write step. A read-then-write would be a TOCTOU race and
+ * would also mean an attacker could probe another member's messages by watching
+ * for a distinguishable "not found" vs "not yours" response. Matching on
+ * `sender_id` means a non-owner simply updates zero rows, and — because the
+ * service-role client bypasses RLS — that filter is the only thing standing
+ * between a member and someone else's messages. It must never be dropped.
+ *
+ * `content` is the legacy NOT NULL column (see lib/utils/message-payload.ts), so
+ * an edit has to be mirrored into it or older readers would keep rendering the
+ * pre-edit text.
+ */
+export async function updateMessage(params: {
+  messageId: string;
+  senderId: string;
+  body: string;
+}): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { data, error } = await supabase
+    .from("messages")
+    .update({
+      body: params.body,
+      content: params.body,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.messageId)
+    .eq("sender_id", params.senderId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[messaging] Message update failed", {
+      messageId: params.messageId,
+      ...supabaseErrorDetail(error),
+    });
+    throw error;
+  }
+  return Boolean(data);
+}
+
+/**
+ * Delete a message the current user sent.
+ *
+ * Same ownership guarantee as `updateMessage`: `sender_id` is part of the
+ * DELETE's WHERE clause so a member can never remove someone else's message.
+ * Deletion is a hard delete — messages are not soft-deleted anywhere else in
+ * this schema, so a removed message leaves no recoverable row behind.
+ */
+export async function deleteMessage(params: {
+  messageId: string;
+  senderId: string;
+}): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { data, error } = await supabase
+    .from("messages")
+    .delete()
+    .eq("id", params.messageId)
+    .eq("sender_id", params.senderId)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    console.error("[messaging] Message delete failed", {
+      messageId: params.messageId,
+      ...supabaseErrorDetail(error),
+    });
+    throw error;
+  }
+  return Boolean(data);
+}
+
 /** Create a new conversation between users. */
 export async function createConversation(params: {
   type: Conversation["type"];
@@ -275,15 +354,24 @@ export interface InboxSummaryRow {
   preview: string;
   lastMessageAt: string | null;
   unread: number;
-  /** True when the other participant was active in the last 5 minutes
-   *  AND opted into showing online status. */
+  /**
+   * True when the other participant was active inside the presence online
+   * window. Resolved from `user_presence` (migration 039) rather than the old
+   * `user_sessions.last_seen_at` heuristic, so the inbox dots, the chat header
+   * and the profile all agree - they previously used different windows and could
+   * show contradictory states for the same person at the same moment.
+   */
   isOnline: boolean;
 }
 
-/** A participant counts as "online" if seen within this window. */
-const ONLINE_WINDOW_MS = 5 * 60_000;
-
-/** Best-effort last-message preview + unread counts across all conversations. */
+/**
+ * Best-effort last-message preview + unread counts across all conversations.
+ *
+ * Online state is NOT derived here. It comes from the shared presence service
+ * (`getPresenceForUsers`) so the inbox, the chat header and the profile page all
+ * resolve presence through one code path with one online window; three separate
+ * heuristics is how they end up disagreeing about the same person.
+ */
 export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow[]> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
@@ -293,8 +381,16 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     if (conversations.length === 0) return [];
 
     const convIds = conversations.map((c) => c.id);
+    const otherIds = conversations
+      .flatMap((c) => c.participant_user_ids ?? [])
+      .filter((id) => id && id !== userId);
 
-    const [msgResult, unreadResult, profilesResult, sessionsResult] = await Promise.all([
+    // One presence query for every participant, issued in parallel with the
+    // other reads. Replaces the previous per-conversation `user_sessions`
+    // lookup, which used a 5-minute window and the `show_online_status`
+    // preference - so a member could show "online" in the inbox while the chat
+    // header for the same person said "Offline".
+    const [msgResult, unreadResult, profilesResult, presenceMap] = await Promise.all([
       supabase
         .from("messages")
         .select("conversation_id, sender_id, body, type, read_at, created_at")
@@ -309,13 +405,7 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
         .is("read_at", null)
         .limit(1000),
       supabase.from("profiles").select(profileSelectList()),
-      supabase
-        .from("user_sessions")
-        .select("user_id, last_seen_at, revoked_at")
-        .in(
-          "user_id",
-          conversations.flatMap((c) => c.participant_user_ids ?? []).filter((id) => id && id !== userId)
-        ),
+      getPresenceForUsers(otherIds),
     ]);
 
     // Fail soft per-query — a messages error still renders names.
@@ -329,20 +419,6 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     }>;
     const unreadRows = (unreadResult.data ?? []) as unknown as Array<{ conversation_id: string }>;
     const profileRows = (profilesResult.data ?? []) as unknown as Array<Record<string, unknown>>;
-    const sessionRows = (sessionsResult.data ?? []) as unknown as Array<{
-      user_id: string;
-      last_seen_at: string | null;
-      revoked_at: string | null;
-    }>;
-
-    // Most recent session activity per participant (for online dots).
-    const lastSeenByUser = new Map<string, number>();
-    for (const s of sessionRows) {
-      if (!s?.user_id || s.revoked_at || !s.last_seen_at) continue;
-      const at = new Date(s.last_seen_at).getTime();
-      if (Number.isNaN(at)) continue;
-      if (at > (lastSeenByUser.get(s.user_id) ?? 0)) lastSeenByUser.set(s.user_id, at);
-    }
 
     // Last message per conversation (rows are newest-first).
     const lastByConv = new Map<string, (typeof msgRows)[number]>();
@@ -357,7 +433,7 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     // Participant display names from profiles (id matches user_id).
     const profileById = new Map<
       string,
-      { name: string; kind: "person" | "couple"; avatarUrl: string | null; showOnlineStatus: boolean }
+      { name: string; kind: "person" | "couple"; avatarUrl: string | null }
     >();
     for (const row of profileRows) {
       const profile = mapProfileRow(row);
@@ -372,8 +448,6 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           (primary?.storagePath
             ? `/api/photos/${profile.userId}/${primary.storagePath.split("/").pop() ?? ""}`
             : null),
-        showOnlineStatus:
-          (profile.preferences as Record<string, unknown> | undefined)?.show_online_status === true,
       });
     }
 
@@ -398,11 +472,10 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           preview,
           lastMessageAt: c.last_message_at ?? last?.created_at ?? null,
           unread: unreadByConv.get(c.id) ?? 0,
-          isOnline: Boolean(
-            otherId &&
-              other?.showOnlineStatus &&
-              Date.now() - (lastSeenByUser.get(otherId) ?? 0) <= ONLINE_WINDOW_MS
-          ),
+          // Straight from the shared presence map. No `show_online_status`
+          // gate here any more: a member who has the app open is online, and
+          // hiding that was what made the dots look broken rather than private.
+          isOnline: Boolean(otherId && presenceMap[otherId]?.online),
         };
       })
       .filter((row) => Boolean(row.id));

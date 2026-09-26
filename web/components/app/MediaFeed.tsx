@@ -12,7 +12,8 @@ import {
   getMomentCommentsAction,
 } from "@/lib/actions/tasks";
 import { EmptyState } from "@/components/app/EmptyState";
-import { Avatar } from "@/components/app/Avatar";
+import { Avatar, PresenceDot } from "@/components/app/Avatar";
+import { usePresence } from "@/lib/hooks/usePresence";
 import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 /**
@@ -116,6 +117,17 @@ export function MediaFeed({
   const commentCount = current
     ? (social[current.id]?.comments ?? current.commentCount ?? 0)
     : 0;
+
+  // Watch every author in the feed, not just the visible card, so paging
+  // forward shows an already-correct dot instead of an offline flash that
+  // resolves a poll later. Signed-out visitors still get accurate dots (they
+  // only read presence, they never heartbeat).
+  const authorIds = useMemo(
+    () => feed.map((m) => m.userId).filter((id) => id && id !== viewerId),
+    [feed, viewerId]
+  );
+  const { presence } = usePresence(authorIds, authorIds.length > 0);
+  const authorOnline = current ? Boolean(presence[current.userId]?.online) : false;
 
   const go = useCallback(
     (delta: number) => {
@@ -393,7 +405,7 @@ export function MediaFeed({
             <Link
               href={current.isMine ? "/profile" : `/profile/${current.userId}`}
               aria-label={`Open ${current.authorName ?? "profile"}`}
-              className="flex shrink-0 items-center"
+              className="relative flex shrink-0 items-center"
             >
               <span className="block h-9 w-9 overflow-hidden rounded-full ring-2 ring-white/25">
                 <Avatar
@@ -402,6 +414,11 @@ export function MediaFeed({
                   className="h-full w-full text-xs"
                 />
               </span>
+              {/* Live presence on the moment author. The own moment has nobody
+                  to indicate, so it renders no dot at all. */}
+              {current.isMine ? null : (
+                <PresenceDot online={authorOnline} size="sm" />
+              )}
             </Link>
             <div className="min-w-0 flex-1">
               <Link

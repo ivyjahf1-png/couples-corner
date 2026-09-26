@@ -7,6 +7,7 @@ import {
   markConversationReadAction,
 } from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { getPresenceForUsers } from "@/lib/server/presence";
 
 interface ConversationPageProps {
   params: Promise<{ conversationId: string }>;
@@ -46,6 +47,11 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   }
 
   const { summary, initialMessages } = chatData;
+  // Seed the header's presence so it paints the right state on the first frame
+  // instead of flashing "Offline" until the client's first poll resolves.
+  const otherId = summary?.id ?? null;
+  const presence = otherId ? await getPresenceForUsers([otherId]) : {};
+  const otherOnline = otherId ? Boolean(presence[otherId]?.online) : false;
 
   // Mark messages read on first load so the Chat tab badge clears.
   void markConversationReadAction(conversationId);
@@ -58,6 +64,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
           summary={summary}
           currentUserId={user.uid}
           conversationId={conversationId}
+          initialOnline={otherOnline}
         />
       </header>
 

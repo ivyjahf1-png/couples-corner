@@ -1,18 +1,26 @@
-// ChatHeader.tsx — slim messenger header: back button, avatar with online
-// dot, name + status, 3-dot options menu. Pure UI; no data mutations.
+// ChatHeader.tsx — slim messenger header: back button, avatar with live
+// presence dot, name + Online/Offline status, 3-dot options menu.
+// Pure UI; no data mutations of its own.
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Avatar } from "./Avatar";
+import { Avatar, PresenceDot } from "./Avatar";
 import { CallOverlay, type CallMode } from "./CallOverlay";
+import { usePresence } from "@/lib/hooks/usePresence";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
 interface ChatHeaderProps {
   summary: ConversationParticipantSummary | null;
   conversationId: string;
   currentUserId: string;
-  isOnline?: boolean;
+  /**
+   * Server-rendered presence seed, so the header paints the right state on
+   * first frame instead of flashing "Offline" until the first poll returns.
+   * The live hook takes over from there.
+   */
+  initialOnline?: boolean;
+  /** Overrides the status line; otherwise derived from live presence. */
   statusText?: string;
 }
 
@@ -20,12 +28,21 @@ export function ChatHeader({
   summary,
   conversationId,
   currentUserId,
-  isOnline = true,
+  initialOnline = false,
   statusText,
 }: ChatHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [call, setCall] = useState<CallMode>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const otherId = summary?.id ?? null;
+  const { presence } = usePresence(otherId ? [otherId] : [], Boolean(otherId));
+
+  // Prefer the live hook's verdict. Before the first response lands there is no
+  // entry for this member, so fall back to the server-rendered seed rather than
+  // defaulting to "offline" and flashing the wrong state on every page load.
+  const entry = otherId ? presence[otherId] : undefined;
+  const isOnline = entry ? entry.online : initialOnline;
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -91,16 +108,11 @@ export function ChatHeader({
             className="h-full w-full text-sm"
           />
         </span>
-        <span
-          aria-hidden
-          className={[
-            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-slate-950",
-            isOnline ? "bg-green-500" : "bg-white/25",
-          ].join(" ")}
-        />
+        <PresenceDot online={isOnline} size="md" />
       </span>
 
-      {/* Name + status */}
+      {/* Name + status. "Offline" is spelled out rather than being left to an
+          empty line or a dot alone, so the state is unambiguous in text. */}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-white">
           {name}
@@ -108,7 +120,7 @@ export function ChatHeader({
         <span
           className={[
             "block truncate text-xs",
-            isOnline ? "text-green-400" : "text-ink-400",
+            isOnline ? "text-emerald-400" : "text-ink-400",
           ].join(" ")}
         >
           {status}

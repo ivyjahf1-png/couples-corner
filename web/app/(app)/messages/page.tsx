@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PageHeader, PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
-import { Avatar } from "@/components/app/Avatar";
+import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
 import { StoryTray } from "@/components/app/StoryTray";
@@ -157,12 +157,11 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
         ) : (
           <Avatar name={name} kind={conversation.kind} size="md" className="bg-brand-500/15 text-brand-300" />
         )}
-        {conversation.isOnline ? (
-          <span
-            aria-label="Online"
-            className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#0F172A] bg-emerald-400"
-          />
-        ) : null}
+        {/* Bots have no real presence, so they get no dot; humans always get one
+            so an offline member reads as offline rather than ambiguous. */}
+        {conversation.isBot ? null : (
+          <PresenceDot online={conversation.isOnline} size="md" />
+        )}
         {unread > 0 ? (
           <span
             aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}

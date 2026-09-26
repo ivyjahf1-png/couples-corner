@@ -41,7 +41,7 @@ export default async function SearchPage({
         <PageHeader
           eyebrow="Search"
           title={query ? `Results for “${query}”` : "Search"}
-          subtitle="Look up a member by their 6-character public ID or their username."
+          subtitle="Look up a member by their 6-character public ID (like 17NRUX) or their username. Matching is case-insensitive."
         />
       }
     >

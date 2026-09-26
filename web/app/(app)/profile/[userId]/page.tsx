@@ -9,6 +9,8 @@ import { ProfileConnectionActions } from "@/components/app/ProfileConnectionActi
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { BlockDialog } from "@/components/app/BlockDialog";
 import { PublicMediaGallery } from "@/components/app/PublicMediaGallery";
+import { ProfilePresenceAvatar } from "@/components/app/ProfilePresenceAvatar";
+import { getPresenceForUsers } from "@/lib/server/presence";
 
 export default async function PublicProfilePage({
   params,
@@ -26,6 +28,13 @@ export default async function PublicProfilePage({
   const isSelf = session?.uid === userId;
   const photo = profile.photos?.[0];
 
+  // Seed presence server-side so the dot is right on first paint; the client
+  // component keeps it live from then on.
+  const presence = isSelf
+    ? {}
+    : await getPresenceForUsers([userId]);
+  const initialOnline = presence[userId]?.online ?? false;
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -37,15 +46,12 @@ export default async function PublicProfilePage({
       <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
         {/* Identity */}
         <Card className="flex flex-col items-center gap-4 text-center">
-          {photo ? (
-            <img
-              src={`/api/photos/${userId}/${photo.storagePath.split("/").pop()}`}
-              alt={profile.displayName}
-              className="h-28 w-28 rounded-full object-cover ring-2 ring-brand-500/40"
-            />
-          ) : (
-            <Avatar name={profile.displayName} size="xl" />
-          )}
+          <ProfilePresenceAvatar
+            userId={userId}
+            name={profile.displayName}
+            storagePath={photo?.storagePath ?? null}
+            initialOnline={initialOnline}
+          />
           <h2 className="text-lg font-semibold text-white">{profile.displayName}</h2>
           {profile.profileType === "coupled" ? <Chip tone="brand">Couple</Chip> : null}
           {profile.location ? <p className="text-sm text-ink-300">{profile.location}</p> : null}

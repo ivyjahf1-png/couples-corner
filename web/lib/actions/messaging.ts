@@ -12,6 +12,8 @@ import {
   sendMessage,
   markConversationRead,
   countUnreadMessages,
+  updateMessage,
+  deleteMessage,
 } from "@/lib/server/messaging";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
@@ -148,6 +150,73 @@ export async function sendFirstImpressionAction(params: {
       ok: false,
       error: error instanceof Error ? error.message : "Couldn't send your impression",
     };
+  }
+}
+
+/** Maximum length of an edited message body. */
+const EDIT_MAX_LENGTH = 4000;
+
+/**
+ * Edit a message the current user sent.
+ *
+ * Ownership is enforced in the database layer (`updateMessage` filters on
+ * `sender_id`), so this action never has to trust the client about who sent the
+ * message. An empty body is rejected rather than blanking the bubble, because a
+ * hard delete already exists and is the honest way to remove a message.
+ */
+export async function editMessageAction(params: {
+  messageId: string;
+  body: string;
+}): Promise<ActionResult> {
+  const user = await requireUser();
+  const messageId = (params.messageId ?? "").trim();
+  const body = (params.body ?? "").trim().slice(0, EDIT_MAX_LENGTH);
+
+  if (!messageId) return { ok: false, error: "That message could not be found." };
+  if (!body) return { ok: false, error: "A message cannot be empty. Delete it instead." };
+
+  try {
+    const updated = await updateMessage({ messageId, senderId: user.uid, body });
+    if (!updated) {
+      return { ok: false, error: "You can only edit messages you sent." };
+    }
+    revalidatePath("/messages");
+    return { ok: true };
+  } catch (error) {
+    rethrowIfNavigation(error);
+    console.error("[messaging] Edit failed", {
+      messageId,
+      ...supabaseErrorDetail(error as never),
+    });
+    return { ok: false, error: "Couldn't save your edit. Please try again." };
+  }
+}
+
+/**
+ * Delete a message the current user sent. Ownership is enforced in the
+ * database layer, exactly as for `editMessageAction`.
+ */
+export async function deleteMessageAction(params: {
+  messageId: string;
+}): Promise<ActionResult> {
+  const user = await requireUser();
+  const messageId = (params.messageId ?? "").trim();
+  if (!messageId) return { ok: false, error: "That message could not be found." };
+
+  try {
+    const removed = await deleteMessage({ messageId, senderId: user.uid });
+    if (!removed) {
+      return { ok: false, error: "You can only delete messages you sent." };
+    }
+    revalidatePath("/messages");
+    return { ok: true };
+  } catch (error) {
+    rethrowIfNavigation(error);
+    console.error("[messaging] Delete failed", {
+      messageId,
+      ...supabaseErrorDetail(error as never),
+    });
+    return { ok: false, error: "Couldn't delete that message. Please try again." };
   }
 }
 

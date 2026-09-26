@@ -1,4 +1,4 @@
-import "server-only";
+﻿import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit, recordAuditBestEffort } from "./audit";
@@ -343,13 +343,51 @@ export type MemberSearchResult =
   | { kind: "results"; users: { userId: string; displayName: string; userCode: string | null }[] }
   | { kind: "none" };
 
+/** Columns a search result needs. Kept separate from `profileSelectList()`
+ *  because `user_code` only exists once migration 030/032 has been applied, and
+ *  selecting it unconditionally would break EVERY profile read on a database
+ *  that predates it. Search probes for the column and degrades instead. */
+const SEARCH_SELECT = "user_id, display_name, user_code, visibility";
+
+interface SearchRow {
+  user_id?: string | null;
+  display_name?: string | null;
+  user_code?: string | null;
+  visibility?: string | null;
+}
+
+/** Shape a raw row into a search hit, dropping rows with no usable id. */
+function toSearchHit(raw: unknown) {
+  const row = raw as SearchRow;
+  if (!row?.user_id) return null;
+  return {
+    userId: row.user_id,
+    displayName: row.display_name ?? "Member",
+    userCode: row.user_code ?? null,
+  };
+}
+
+/** Order code hits ahead of name hits so the intended person is first. */
+function rankHit(
+  hit: { userId: string; userCode: string | null },
+  code: string
+): number {
+  if (hit.userCode && hit.userCode.toUpperCase() === code) return 0;
+  if (hit.userId.toUpperCase() === code) return 1;
+  return 2;
+}
+
 /**
- * Search members by public 6-character code OR display name.
+ * Search members by public ID (6 characters, e.g. `17NRUX`) OR username /
+ * display name, case-insensitively.
  *
- * Two ordered strategies, because a code and a name live in different columns:
- *   1. Exact `user_code` match -> a single deterministic hit.
- *   2. Case-insensitive `display_name` prefix/substring match -> up to 12
- *      candidates for the caller to choose from.
+ * WHY THIS IS DEFENSIVE: a code and a name live in different columns, and the
+ * deployed database may predate the `user_code` column entirely - the same
+ * drift that made the moments insert fail. A single `.eq("user_code", …)`
+ * therefore fails on exactly the accounts people are trying to find. Every
+ * strategy here runs through `runSearchQuery`, which notices that the column is
+ * missing and retries the same intent against the columns that definitely
+ * exist (`user_id`, `display_name`) instead of returning an empty result set.
  *
  * Only public, non-private profiles are returned. RLS on `profiles` already
  * restricts what the server client can read; the visibility filter here is a
@@ -361,47 +399,100 @@ export async function searchMembers(rawQuery: string): Promise<MemberSearchResul
 
   const supabase = getSupabaseServerClient();
   if (!supabase) return { kind: "none" };
+  // Captured into a local so the closures below keep the non-null narrowing;
+  // TypeScript does not carry a `if (!x) return` guard into a nested function.
+  const db = supabase;
 
-  // Strategy 1: exact public code.
   const code = query.toUpperCase();
-  if (/^\d{2}[A-Z]{4}$/.test(code)) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("user_id, visibility")
-      .eq("user_code", code)
-      .limit(1)
-      .maybeSingle();
-    const row = data as { user_id?: string | null; visibility?: string | null } | null;
-    if (row?.user_id) {
-      return { kind: "exact", userId: row.user_id };
+  // A public ID is two digits + four letters. A 6+ character query is also
+  // worth an exact probe so a pasted `user_id` still resolves.
+  const looksLikeCode = /^\d{2}[A-Z]{4}$/.test(code);
+
+  // Whether the optional `user_code` column is usable on this database. Once a
+  // query has failed because of it, later queries skip it rather than re-paying
+  // the same round trip.
+  let userCodeAvailable = true;
+
+  /**
+   * Run a profiles search, transparently degrading to the guaranteed columns
+   * when (and only when) the optional `user_code` column is missing.
+   */
+  async function runSearchQuery(spec: {
+    columns: string[];
+    eq?: { column: string; value: string };
+  }): Promise<SearchRow[]> {
+    const attempt = async (withUserCode: boolean): Promise<SearchRow[]> => {
+      const select = withUserCode ? SEARCH_SELECT : "user_id, display_name, visibility";
+      let query$ = db.from("profiles").select(select);
+
+      if (spec.columns.length > 0) {
+        // ilike() treats the user input literally, so a stray % in the search
+        // box cannot widen the result set.
+        const filters = spec.columns.map((c) => `${c}.ilike.%${query}%`);
+        query$ = query$.or(filters.join(","));
+      }
+      if (spec.eq) query$ = query$.eq(spec.eq.column, spec.eq.value);
+
+      const { data, error } = await query$
+        .neq("visibility", "private")
+        .order("display_name", { ascending: true })
+        .limit(12);
+
+      if (error) throw error;
+      return (data ?? []) as SearchRow[];
+    };
+
+    if (userCodeAvailable) {
+      try {
+        return await attempt(true);
+      } catch (error) {
+        const err = error as { code?: string; message?: string };
+        const missingColumn =
+          err.code === "PGRST204" ||
+          err.code === "42703" ||
+          /column .* does not exist/i.test(err.message ?? "");
+        // Anything else (RLS denial, network) is a real failure and must not be
+        // silently retried against a different query shape.
+        if (!missingColumn) throw error;
+        userCodeAvailable = false;
+      }
+    }
+    return attempt(false);
+  }
+
+  // Strategy 1: exact public code. Probed against `user_code` (a text column)
+  // first, and against `user_id` only when the input is actually UUID-shaped.
+  // Sending "17NRUX" to a uuid column would raise 22P02 invalid_input_syntax and
+  // waste a round trip, so that probe is gated rather than merely caught.
+  if (looksLikeCode || query.length >= 6) {
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const columns = userCodeAvailable ? ["user_code", "user_id"] : ["user_id"];
+    for (const column of columns) {
+      if (column === "user_id" && !UUID_RE.test(query)) continue;
+      const rows = await runSearchQuery({ columns: [], eq: { column, value: query } }).catch(
+        () => [] as SearchRow[]
+      );
+      const hit = rows.map(toSearchHit).find((entry) => entry !== null);
+      if (hit) return { kind: "exact", userId: hit.userId };
     }
   }
 
-  // Strategy 2: display name. ilike() is a literal match (no wildcard
-  // interpretation of user input), so a stray % cannot widen the query.
-  const { data } = await supabase
-    .from("profiles")
-    .select("user_id, display_name, user_code, visibility")
-    .ilike("display_name", `%${query}%`)
-    .neq("visibility", "private")
-    .order("display_name", { ascending: true })
-    .limit(12);
+  // Strategy 2: case-insensitive substring match across the text columns.
+  //
+  // `user_id` is deliberately NOT matched with ilike: it is a uuid, and
+  // Postgres has no `uuid ~~* text` operator, so a substring filter on it
+  // fails the whole query. Pasting a full id is covered by the exact probe in
+  // strategy 1 instead.
+  const targets = userCodeAvailable
+    ? ["user_code", "display_name"]
+    : ["display_name"];
 
-  const users = (data ?? [])
-    .map((raw) => {
-      const row = raw as {
-        user_id?: string | null;
-        display_name?: string | null;
-        user_code?: string | null;
-      };
-      if (!row.user_id) return null;
-      return {
-        userId: row.user_id,
-        displayName: row.display_name ?? "Member",
-        userCode: row.user_code ?? null,
-      };
-    })
-    .filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  const rows = await runSearchQuery({ columns: targets }).catch(() => [] as SearchRow[]);
+
+  const users = rows
+    .map(toSearchHit)
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
+    .sort((a, b) => rankHit(a, code) - rankHit(b, code));
 
   return users.length > 0 ? { kind: "results", users } : { kind: "none" };
 }
