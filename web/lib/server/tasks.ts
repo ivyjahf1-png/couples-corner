@@ -124,12 +124,18 @@ export async function claimTaskReward(userId: string, slug: string): Promise<Cla
 
     // Upload-gated tasks need a moment published before they can be claimed.
     if (definition.requires_upload) {
-      const { count } = await supabase
+      const { count, error: gateError } = await supabase
         .from("moments")
         .select("id", { count: "exact", head: true })
         .eq("user_id", userId)
         .eq("task_slug", slug)
         .gte("created_at", `${date}T00:00:00.000Z`);
+      // A database without the optional `task_slug` column rejects the filter
+      // outright; fail closed rather than unlocking a reward nobody earned.
+      if (gateError) {
+        console.error("[tasks] upload gate check failed", gateError);
+        return { ok: false, error: "Could not verify your upload. Please try again." };
+      }
       if ((count ?? 0) === 0) {
         return { ok: false, error: "Upload a moment to unlock this reward" };
       }
@@ -195,7 +201,6 @@ export async function publishMoment(
     user_id: userId,
     media_url: input.mediaUrl,
     media_type: input.mediaType,
-    task_slug: input.taskSlug ?? null,
   };
   row[MOMENT_TEXT_COLUMN] = content;
 
