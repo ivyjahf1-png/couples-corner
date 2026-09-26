@@ -478,7 +478,7 @@ export function MediaFeed({
           {/* Caption only. The author identity (avatar, handle, timestamp) now
               lives in the top bar above, per the reel/stories standard, so
               repeating it here would print the same name twice on one card. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 sm:bottom-28 sm:px-6">
+          <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28">
             {current.content ? (
               <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95 drop-shadow">
                 {current.content}
@@ -486,50 +486,46 @@ export function MediaFeed({
             ) : null}
           </div>
 
-          {/* Vertical pager - right edge tappable zones. */}
+          {/* Vertical pager, in its OWN column clear of the action rail.
+
+              This used to sit at `right-0 w-12` (occupying 0-48px from the
+              right edge) while the action rail sat at `sm:right-5` (20-68px).
+              Those bands overlapped by 48px, and because the pager is vertically
+              centred while the rail grows upward from the bottom, they collided
+              vertically too on any normal phone height - the "up" arrow landing
+              on top of the like button.
+
+              Offsetting the pager left (right-20 / sm:right-28) gives each control
+              its own non-overlapping column, so the collision cannot reappear at
+              any screen height. gap-2 tightens the pair. */}
           {total > 1 ? (
-            <div className="absolute inset-y-0 right-0 z-20 flex w-12 flex-col justify-center gap-3">
+            <div className="absolute inset-y-0 right-20 z-20 flex w-12 flex-col justify-center gap-2 sm:right-28">
               <PagerButton direction="up" onClick={() => go(-1)} disabled={safeIndex === 0} />
               <PagerButton direction="down" onClick={() => go(1)} disabled={safeIndex >= total - 1} />
             </div>
           ) : null}
 
-          {/* Horizontal chevrons (< >) centred over the media. These mirror the
-              swipe gesture for pointer users: the rail above is the vertical
-              (wheel/keyboard) equivalent, and the swipe handler is the touch
-              one. All three drive the same `go`, so they can never disagree.
-              Hidden on phones, where a stray tap is far more likely to land on a
-              chevron than an intentional page turn, and where the vertical rail
-              plus swipe already cover paging. */}
-          {total > 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={() => go(-1)}
-                disabled={safeIndex === 0}
-                aria-label="Previous moment"
-                className="absolute left-4 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-0 sm:flex"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6" aria-hidden>
-                  <path d="m15 6-6 6 6 6" />
-                </svg>
-              </button>
-              <button
-                type="button"
-                onClick={() => go(1)}
-                disabled={safeIndex >= total - 1}
-                aria-label="Next moment"
-                className="absolute right-16 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-0 sm:flex"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6" aria-hidden>
-                  <path d="m9 6 6 6-6 6" />
-                </svg>
-              </button>
-            </>
-          ) : null}
+          {/* Horizontal chevrons were removed.
 
-          {/* Action rail - reactions, comments and mute. */}
-          <div className="absolute bottom-36 right-3 z-20 flex flex-col items-center gap-4 sm:bottom-40 sm:right-5">
+              They duplicated the vertical ^/v pager (all three drove the same
+              `go`), and with the pager relocated to its own column the "next"
+              chevron at `right-16` would have landed INSIDE that column —
+              reintroducing exactly the overlap this fix removes. Paging remains
+              fully available via swipe (touch), the vertical arrows (pointer),
+              wheel and arrow keys. */}
+
+          {/* Action rail - reactions, comments and mute.
+
+              `bottom-44 sm:bottom-52` (176 / 208px) is set by the upload FAB
+              directly below it, not picked for looks. The FAB is 56px tall at
+              `bottom-24 sm:bottom-28`, so its top edge sits at 152 / 168px; the
+              old `bottom-36 sm:bottom-40` put the rail's bottom edge at 144 /
+              160px and the two overlapped by 8px on sm+. The rail now clears it
+              by 24px on phones and 40px on larger screens.
+
+              `right-3 sm:right-4` keeps the rail in the outermost column, which
+              the pager (right-20 / sm:right-28) is offset clear of. */}
+          <div className="absolute bottom-44 right-3 z-20 flex flex-col items-center gap-4 sm:bottom-52 sm:right-4">
             <ActionButton
               label={reacted ? "Remove like" : "Like this moment"}
               active={reacted}
@@ -583,7 +579,7 @@ export function MediaFeed({
         <Link
           href="/task/upload-moment"
           aria-label="Upload a moment"
-          className="absolute bottom-24 right-4 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:scale-105 active:scale-95 sm:bottom-28 sm:right-6"
+          className="absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
