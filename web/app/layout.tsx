@@ -9,6 +9,7 @@ import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
 import { FailureToasts } from "@/components/ui/FailureToasts";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
+import { AdSenseScript } from "@/components/ads/AdSenseScript";
 import { THEME_COLORS } from "@/lib/theme";
 
 const geistSans = Geist({
@@ -127,6 +128,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <FailureToasts />
         <AuthModalProvider />
         <MobileBackHeader />
+        {/* AdSense loader. In the ROOT layout so every route gets it - a page
+            added later cannot forget to include it. `afterInteractive` keeps it
+            off the critical path; see AdSenseScript for the full reasoning. */}
+        <AdSenseScript />
         <Suspense fallback={<RootLoading />}>
           {children}
         </Suspense>

@@ -6,6 +6,8 @@ import { Logo } from "@/components/ui/Logo";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
 import { NotificationBell } from "@/components/app/NotificationBell";
+import { BannerAd } from "@/components/ads/BannerAd";
+import { ADSENSE_SLOT_SIDEBAR } from "@/lib/ads/adsense";
 
 /**
  * Authenticated-app shell — VISUAL LAYER ONLY.
@@ -79,6 +81,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <AppSidebar />
+
+          {/* Display ad, above the account card.
+              minHeight reserves space so the rail does not jump when the
+              creative arrives. `vertical` matches the sidebar's tall, narrow
+              column and must agree with the size configured for this ad unit in
+              the dashboard - a mismatch is why the format is not left on
+              `auto` here. */}
+          <div className="shrink-0 px-3 pb-3">
+            <BannerAd
+              slot={ADSENSE_SLOT_SIDEBAR}
+              format="vertical"
+              minHeight={600}
+            />
+          </div>
 
           <div className="shrink-0 border-t border-white/10 p-3">
             <div className={`flex items-center gap-3 rounded-xl border p-3 ${isDemo ? "border-amber-400/40 bg-amber-500/10" : "border-white/10 bg-white/5"}`}>
