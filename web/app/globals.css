@@ -1704,3 +1704,18 @@ button,
 .game-winner-track { animation: game-winner-slide 90s linear infinite; }
 @keyframes game-winner-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .game-winner-track { animation: none; } }
+
+/* Hide a scrollbar without disabling scrolling.
+   Used by the moments feed: a visible 15px track eats real estate from a
+   full-bleed card, and the feed already has its own progress indicator showing
+   position. WebKit needs the pseudo-element rule, Firefox the scrollbar-width
+   property, so both are set. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}

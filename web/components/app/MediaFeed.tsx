@@ -27,18 +27,26 @@ import type { MomentCommentView, MomentView } from "@/lib/moments";
  * uploads is syndicated here immediately.
  *
  * LAYOUT CONTRACT - exactly one vertical scroll region:
- *   - The root fills the AppShell content region (itself locked to 100dvh).
- *     The page never scrolls, which is what stops rubber-banding on iOS.
- *   - The top overlay (search + controls) and the bottom composer are
- *     absolutely positioned over the media, so neither can be pushed out of
- *     view by a tall caption.
- *   - Long captions are line-clamped rather than allowed to grow a second
- *     scroller.
+ *   - The inner scroller (`.h-full.overflow-y-auto.snap-y.snap-mandatory`) is
+ *     the single scroll region. The wrapping section is `overflow-hidden`, so a
+ *     flick at the first or last card cannot chain to the page behind it.
+ *   - Every moment is mounted; CSS scroll-snap owns the vertical gesture and
+ *     decides the resting position. `index` is read back from `scrollTop` and
+ *     only used to drive overlays (caption, rail, progress) and to decide which
+ *     video plays.
+ *   - The top overlay (search + creator identity) and the bottom bar (reactions
+ *     + messaging) are absolutely positioned against the SECTION, not the
+ *     scroller, so they stay pinned to the viewport instead of scrolling away
+ *     with the cards.
+ *   - On a phone this component is 100dvh; inside AppShell it fills the region
+ *     the shell gives it (`fill`), because the shell already reserves the top
+ *     bar and tab nav as in-flow segments.
  *
  * INTERACTION:
- *   - Arrow keys / wheel / edge buttons move between moments.
- *   - Videos autoplay muted, with a tap-to-mute control (browsers block
- *     unmuted autoplay, so muted is the only reliable default).
+ *   - Paging is the browser's: touch flick, trackpad and the CSS snap points.
+ *     Arrow keys and the on-screen pager call `goTo`, which only nudges
+ *     scrollTop to the next card boundary.
+ *   - Videos play only while their card is the snapped-to one.
  *   - The heart and comment sheet are wired to real Server Actions backed by
  *     `moment_reactions` / `moment_comments` (migration 036). Reactions apply
  *     optimistically and reconcile against the server count.
@@ -89,9 +97,12 @@ export function MediaFeed({
   fill = false,
 }: MediaFeedProps) {
   const router = useRouter();
-  // Root of the feed, used to attach the swipe listeners without re-binding.
-  const rootRef = useRef<HTMLElement>(null);
+  // The scroll container. Cards are all mounted and the browser owns the
+  // vertical gesture, so this element - not a JS index - is the source of truth
+  // for "which moment is on screen".
+  const scrollRef = useRef<HTMLDivElement>(null);
   const feed = useMemo(() => moments.filter((moment) => moment?.id && moment?.mediaUrl), [moments]);
+  // Active card, derived from scrollTop (see the listener below).
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
   // Engagement overrides keyed by moment id. Seeded from the server payload,
@@ -101,6 +112,15 @@ export function MediaFeed({
   >({});
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
+  // Declared here rather than beside the comment-sheet logic further down: the
+  // scroll/keyboard effects above read `commentsOpen` in their dependency
+  // arrays, and a `const` referenced before its initialiser throws at render.
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [commentList, setCommentList] = useState<MomentCommentView[]>([]);
+  const [commentDraft, setCommentDraft] = useState("");
+  // Which emoji the viewer currently used, so the row can highlight it.
+  const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Never index out of range when the feed shrinks underneath us.
@@ -131,90 +151,99 @@ export function MediaFeed({
   const { presence } = usePresence(authorIds, authorIds.length > 0);
   const authorOnline = current ? Boolean(presence[current.userId]?.online) : false;
 
-  const go = useCallback(
-    (delta: number) => {
+  /**
+   * Scroll to a card by index.
+   *
+   * Paging is now the browser's job: this only nudges `scrollTop` to the exact
+   * card offset and lets CSS scroll-snap settle it. `behavior: "smooth"` is
+   * paired with `snap-mandatory`, so a fast double-tap still lands cleanly on a
+   * card boundary instead of between two.
+   */
+  const goTo = useCallback(
+    (next: number) => {
       if (total === 0) return;
-      setIndex((prev) => {
-        const from = Math.min(Math.max(prev, 0), total - 1);
-        return Math.min(Math.max(from + delta, 0), total - 1);
-      });
-      setDraft("");
-      setSendError(null);
-      // Paging to the next moment must not carry over per-card UI state.
-      setMenuOpen(false);
-      setCommentsOpen(false);
-      setReactionKind(null);
+      const target = Math.min(Math.max(next, 0), total - 1);
+      const el = scrollRef.current;
+      if (!el) {
+        setIndex(target);
+        return;
+      }
+      el.scrollTo({ top: target * el.clientHeight, behavior: "smooth" });
+      setIndex(target);
     },
     [total]
   );
 
-  // Vertical wheel paging, throttled by the index guard in `go`.
+  /**
+   * Track which card is snapped to, and reset per-card UI on change.
+   *
+   * The index is rounded from scrollTop rather than read from an IntersectionObserver
+   * threshold: with snap-mandatory the resting position is always an exact card
+   * offset, so a division is exact, whereas an IO fires mid-transition and makes
+   * the overlays flicker to the next card's data while the old card is still
+   * leaving. rAF-coalesced because a flick fires scroll events far faster than
+   * React can usefully re-render.
+   */
   useEffect(() => {
-    let lock = 0;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "ArrowDown") go(1);
-      if (event.key === "ArrowUp") go(-1);
+    const el = scrollRef.current;
+    if (!el) return;
+    // Captured to a non-null local: TypeScript does not carry the `if (!el)`
+    // narrowing into a nested closure, so the rAF callback below would see
+    // `el` as possibly null.
+    const node: HTMLDivElement = el;
+
+    let frame = 0;
+    function onScroll() {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        const height = node.clientHeight || 1;
+        setIndex((prev) => {
+          const next = Math.round(node.scrollTop / height);
+          return next === prev ? prev : Math.min(Math.max(next, 0), total - 1);
+        });
+      });
     }
-    function onWheel(event: WheelEvent) {
-      const now = Date.now();
-      if (now - lock < 450) return;
-      if (Math.abs(event.deltaY) < 24) return;
-      lock = now;
-      go(event.deltaY > 0 ? 1 : -1);
+
+    node.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      node.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [total]);
+
+  // Paging to the next moment must not carry over per-card UI state: a caption
+  // draft belonging to the previous card, an open comment sheet, a half-typed
+  // message. Scrolling is the only way the active card changes now, so this is
+  // where that reset lives (it used to sit inside `go`).
+  const lastIndex = useRef(safeIndex);
+  useEffect(() => {
+    if (lastIndex.current === safeIndex) return;
+    lastIndex.current = safeIndex;
+    setDraft("");
+    setSendError(null);
+    setMenuOpen(false);
+    setCommentsOpen(false);
+    setReactionKind(null);
+  }, [safeIndex]);
+
+  // Keyboard paging. Arrow keys step cards because unlike wheel and touch -
+  // which the browser now owns for scrolling - there is no native equivalent.
+  useEffect(() => {
+    function onKey(event: KeyboardEvent) {
+      if (commentsOpen) return;
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        goTo(safeIndex + 1);
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        goTo(safeIndex - 1);
+      }
     }
     window.addEventListener("keydown", onKey);
-    window.addEventListener("wheel", onWheel, { passive: true });
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      window.removeEventListener("wheel", onWheel);
-    };
-  }, [go]);
-
-  // Touch paging - the story/reel gesture. Tracked on the section via a ref
-  // rather than a React handler so the listener is attached exactly once and
-  // never re-binds on every render of the card.
-  //
-  // `touch-action: pan-y` on the root (see the className below) is what makes
-  // this safe: the browser keeps ownership of vertical scrolling, we only claim
-  // horizontal intent. Without it, a diagonal drag scrolls the page sideways
-  // and the card slides out of view - the horizontal-scroll leak this guards.
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-
-    let startX = 0;
-    let startY = 0;
-    let tracking = false;
-
-    function onTouchStart(event: TouchEvent) {
-      const touch = event.touches[0];
-      if (!touch) return;
-      startX = touch.clientX;
-      startY = touch.clientY;
-      tracking = true;
-    }
-
-    function onTouchEnd(event: TouchEvent) {
-      if (!tracking) return;
-      tracking = false;
-      const touch = event.changedTouches[0];
-      if (!touch) return;
-      const dx = touch.clientX - startX;
-      const dy = touch.clientY - startY;
-      // Require a decisive HORIZONTAL swipe. Comparing the two axes (rather
-      // than testing dy alone) is what stops a vertical scroll flick from being
-      // read as a "previous" swipe and skipping a card.
-      if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy)) return;
-      go(dx < 0 ? 1 : -1);
-    }
-
-    root.addEventListener("touchstart", onTouchStart, { passive: true });
-    root.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      root.removeEventListener("touchstart", onTouchStart);
-      root.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [go]);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [goTo, safeIndex, commentsOpen]);
 
   function toggleReact() {
     if (!current || !viewerId) return;
@@ -241,13 +270,6 @@ export function MediaFeed({
       setSendError(null);
     });
   }
-
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [commentList, setCommentList] = useState<MomentCommentView[]>([]);
-  const [commentDraft, setCommentDraft] = useState("");
-  // Which emoji the viewer currently used, so the row can highlight it.
-  const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
 
   function reactWith(kind: ReactionKind) {
     if (!current || !viewerId) return;
@@ -315,16 +337,19 @@ export function MediaFeed({
 
   return (
     <section
-      ref={rootRef}
       data-zone="app"
-      // `touch-pan-y` claims horizontal intent for the swipe pager while leaving
-      // vertical scrolling to the browser - the pairing that stops the card from
-      // being dragged sideways. `overscroll-none` kills the rubber-band bounce at
-      // both ends, and the section never scrolls itself, so there is exactly one
-      // (zero) scroll region and nothing to bounce.
+      // This is the POSITIONING context, not the scroller. Everything overlaid
+      // (header, caption, action rail, composer, upload FAB) is absolutely
+      // positioned against this box and must NOT move with the cards - if the
+      // section itself scrolled, `bottom-0` would resolve to the bottom of the
+      // scrollable content rather than the visible viewport, and the composer
+      // would ride off the last card.
+      //
+      // `overscroll-contain` on the inner scroller stops a flick at the first or
+      // last card from chaining to the page behind the app shell.
       className={[
-        "relative flex w-full touch-pan-y select-none flex-col overflow-hidden overscroll-none bg-slate-950",
-        fill ? "h-full min-h-0" : "h-full max-h-full min-h-dvh",
+        "relative flex w-full select-none flex-col overflow-hidden bg-slate-950",
+        fill ? "h-full min-h-0" : "h-dvh",
       ].join(" ")}
     >
       {/* ---------------------------------------------------- top overlay */}
@@ -472,8 +497,46 @@ export function MediaFeed({
           />
         </div>
       ) : (
-        <article className="relative flex min-h-0 flex-1 items-center justify-center">
-          <MediaSurface moment={current} muted={muted} />
+        <>
+        {/* ------------------------------------------------- the snap scroller
+            Every moment is mounted; the browser owns the vertical gesture and
+            CSS scroll-snap decides where it rests.
+
+            LAYOUT CONTRACT - exactly one scroll region:
+              • This div is the ONLY scroller. The section above is
+                `overflow-hidden`, so a flick here can never chain to the page.
+              • Each card is exactly the scroller's height, so `snap-start` has
+                an exact boundary to land on. A card shorter than the viewport
+                would leave a gap the snap point could rest inside.
+              • `snap-mandatory` (not `proximity`) is what makes a partial flick
+                complete to the next card instead of resting between two, which
+                is the behaviour a reel-style feed is expected to have.
+              • `scrollbar-none` hides the track; the progress bars in the
+                header already show position. */}
+        <div
+          ref={scrollRef}
+          data-moments-scroller
+          className="h-full min-h-0 w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
+        >
+          {feed.map((moment, i) => (
+            <article
+              key={moment.id}
+              // `h-full` matches the scroller so each snap point is exact;
+              // `shrink-0` keeps a card from compressing when several are laid
+              // out, and `snap-always` forces a programmatic scroll to land on a
+              // boundary even if a previous scroll was mid-flight.
+              className="relative h-full w-full shrink-0 snap-start snap-always"
+              aria-roledescription="moment"
+              aria-label={`${moment.authorName ?? "Member"}'s moment, ${i + 1} of ${total}`}
+            >
+              <MediaSurface
+                moment={moment}
+                muted={muted}
+                active={i === safeIndex}
+              />
+            </article>
+          ))}
+        </div>
 
           {/* Caption only. The author identity (avatar, handle, timestamp) now
               lives in the top bar above, per the reel/stories standard, so
@@ -500,8 +563,8 @@ export function MediaFeed({
               any screen height. gap-2 tightens the pair. */}
           {total > 1 ? (
             <div className="absolute inset-y-0 right-20 z-20 flex w-12 flex-col justify-center gap-2 sm:right-28">
-              <PagerButton direction="up" onClick={() => go(-1)} disabled={safeIndex === 0} />
-              <PagerButton direction="down" onClick={() => go(1)} disabled={safeIndex >= total - 1} />
+              <PagerButton direction="up" onClick={() => goTo(safeIndex - 1)} disabled={safeIndex === 0} />
+              <PagerButton direction="down" onClick={() => goTo(safeIndex + 1)} disabled={safeIndex >= total - 1} />
             </div>
           ) : null}
 
@@ -565,7 +628,7 @@ export function MediaFeed({
               </ActionButton>
             ) : null}
           </div>
-        </article>
+        </>
       )}
 
       {/* ------------------------------------------- pinned Moments upload FAB
@@ -746,7 +809,16 @@ export function MediaFeed({
  * The media surface. Images and videos share a full-bleed object-cover box, so
  * the viewer never letterboxes or shifts layout between media types.
  */
-function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean }) {
+function MediaSurface({
+  moment,
+  muted,
+  active,
+}: {
+  moment: MomentView;
+  muted: boolean;
+  /** True for the card currently snapped into view. */
+  active: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   // Drives a fade-in once the bytes are decodable, so paging between moments
   // cross-dissolves rather than flashing an empty black box.
@@ -758,14 +830,29 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
     setReady(false);
   }, [moment.id, moment.mediaUrl]);
 
-  // Autoplay can be rejected (Low Power Mode, data saver). Swallow the rejection
-  // rather than surfacing an error - the first frame is still visible.
+  /**
+   * Playback is driven by `active`, not by the `autoPlay` attribute.
+   *
+   * Now that every card is mounted, `autoPlay` would start EVERY video in the
+   * feed at once — a dozen decoders competing, on mobile data, and audio from
+   * cards nobody is looking at. Only the snapped-to card plays; the rest are
+   * explicitly paused, so scrolling away from a video also stops it.
+   *
+   * `preload` is likewise conditional: eagerly buffering every video up front
+   * would pull hundreds of megabytes for a feed the viewer may never scroll.
+   */
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     video.muted = muted;
-    void video.play().catch(() => undefined);
-  }, [muted, moment.id]);
+    if (active) {
+      // Autoplay can be rejected (Low Power Mode, data saver). Swallow the
+      // rejection rather than surfacing an error - the first frame still shows.
+      void video.play().catch(() => undefined);
+    } else {
+      video.pause();
+    }
+  }, [active, muted, moment.id]);
 
   const surfaceClass = [
     "h-full w-full object-cover transition-opacity duration-300",
@@ -777,13 +864,13 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
       // eslint-disable-next-line jsx-a11y/media-has-caption
       <video
         ref={videoRef}
-        key={moment.id}
         src={moment.mediaUrl}
         muted={muted}
         loop
         playsInline
-        autoPlay
-        preload="auto"
+        // No `autoPlay` attribute: it would play every mounted card at once.
+        // The effect above is the single source of truth for playback.
+        preload={active ? "auto" : "metadata"}
         onLoadedData={() => setReady(true)}
         className={surfaceClass}
       />
@@ -795,9 +882,9 @@ function MediaSurface({ moment, muted }: { moment: MomentView; muted: boolean })
     <img
       src={moment.mediaUrl}
       alt={moment.content || "Shared moment"}
-      // The feed is a single-card viewer, so the current image is the LCP
-      // element: eager-load and decode async to keep paging smooth.
-      loading="eager"
+      // The active card is the LCP element, so it loads eagerly; the rest are
+      // lazy so a long feed does not fetch every image up front.
+      loading={active ? "eager" : "lazy"}
       decoding="async"
       onLoad={() => setReady(true)}
       className={surfaceClass}
