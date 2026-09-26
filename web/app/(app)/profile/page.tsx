@@ -46,10 +46,13 @@ export default async function ProfilePage() {
   const level = Math.max(1, Math.floor((completion?.percentage ?? 0) / 10));
 
   const statCells = [
-    { label: "Friends", value: stats.friends },
-    { label: "Following", value: stats.following },
-    { label: "Followers", value: stats.followers },
-    { label: "Visitors", value: stats.visitors },
+    { label: "Friends", value: stats.friends, href: null },
+    { label: "Following", value: stats.following, href: "/discover" },
+    { label: "Followers", value: stats.followers, href: null },
+    // Visitors is the one stat with somewhere to go, so it is the one link in
+    // the row. It used to ALSO render as a separate 48px tile on the right of
+    // the identity row, which meant the same number appeared twice on screen.
+    { label: "Visitors", value: stats.visitors, href: "/likes" },
   ];
 
   const recommendedGames = [
@@ -77,12 +80,19 @@ export default async function ProfilePage() {
   return (
     <PageLock
       className="mx-auto w-full max-w-xl"
-      bodyClassName="flex flex-col gap-5 pb-10"
+      bodyClassName="flex flex-col gap-4 pb-10"
       head={
-        // The identity card stays pinned; the stats, menu and gallery below it
+        // The identity card stays pinned; the tabs, stats and gallery below it
         // are the only things that scroll.
-        <section aria-label="Profile header" className="glam-shell p-5 sm:p-6">
-        <div className="relative flex items-start gap-3">
+        //
+        // LAYOUT (compact horizontal): avatar hard left at 56px, everything
+        // else — name, VIP, level, public ID, completion — stacked in one
+        // column beside it. Nothing wraps onto a third line, and the card's own
+        // padding is `px-4 py-3.5` rather than the old `p-5 sm:p-6`, because on
+        // a phone this block is competing with the media gallery for vertical
+        // space and every row spent here is a row of photos not seen.
+        <section aria-label="Profile header" className="glam-shell px-4 py-3.5 sm:px-5 sm:py-4">
+        <div className="relative flex items-center gap-3">
           <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-rose-400 to-indigo-400 p-[2px] shadow-lg shadow-rose-500/20">
             <span className="block rounded-full bg-[#0B1120] p-[2px]">
               {photo ? (
@@ -90,6 +100,10 @@ export default async function ProfilePage() {
                 <img
                   src={`/api/photos/${session.uid}/${photo?.storagePath?.split("/")?.pop() ?? ""}`}
                   alt={name}
+                  // h-16 exactly, matching `Avatar size="lg"`. The photo and the
+                  // initials fallback must be the same size or the card visibly
+                  // jumps between members; Avatar's sizes are fixed classes, so
+                  // a responsive 56px photo could not be matched responsively.
                   className="h-16 w-16 rounded-full object-cover"
                 />
               ) : (
@@ -99,62 +113,86 @@ export default async function ProfilePage() {
           </span>
 
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <h1 className="glam-text truncate text-xl font-extrabold tracking-display">{name}</h1>
-              <span className="glam-chip px-2 py-0.5 text-[10px] font-extrabold">VIP</span>
-              <span className="glass-badge px-2 py-0.5 text-[10px] font-bold text-sky-200">
+            {/* Name + VIP + level on ONE line. They used to be a wrapped block
+                that could break onto two rows on a narrow phone, which is the
+                main reason the old card felt tall. */}
+            <div className="flex items-center gap-1.5">
+              <h1 className="glam-text truncate text-lg font-extrabold tracking-display sm:text-xl">
+                {name}
+              </h1>
+              <span className="glam-chip shrink-0 px-1.5 py-0.5 text-[10px] font-extrabold">
+                VIP
+              </span>
+              <span className="glass-badge shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-sky-200">
                 Lv.{level}
               </span>
             </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+
+            {/* Public ID + completion on a single, tighter second line. */}
+            <div className="mt-1.5 flex items-center gap-2">
               <PersistentIdBadge userId={session.uid} initialCode={profile?.userCode} />
-              <span className="text-[11px] font-medium text-ink-300">
-                {completion.percentage}% profile complete
+              <span className="truncate text-[11px] font-medium text-ink-300">
+                {completion.percentage}% complete
               </span>
             </div>
-
-            {/* Completion meter - a multi-hue sheen instead of a flat bar. */}
-            <div
-              role="progressbar"
-              aria-label="Profile completion"
-              aria-valuenow={completion.percentage}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10"
-            >
-              <div
-                className="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400"
-                style={{ width: `${Math.max(4, Math.min(100, completion.percentage))}%` }}
-              />
-            </div>
           </div>
-
-          {/* Visitor counter with notification dot */}
-          <Link
-            href="/likes"
-            aria-label={`${stats.visitors} visitors - view visitors`}
-            className="glam-tile relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl text-white"
-          >
-            <span aria-hidden className="text-base">👥</span>
-            <span className="text-[10px] font-bold text-ink-200">{stats.visitors}</span>
-            {stats.visitors > 0 ? (
-              <span
-                aria-hidden
-                className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-[#0B1120]"
-              />
-            ) : null}
-          </Link>
         </div>
 
-        {/* 4-column statistics bar - frosted tiles with a coloured aura each. */}
-        <dl className="relative mt-4 grid grid-cols-4 gap-2">
+        {/* Completion meter. Thinned to h-1 — it reads as a hairline accent at
+            this density rather than a chart, which is all it is. */}
+        <div
+          role="progressbar"
+          aria-label="Profile completion"
+          aria-valuenow={completion.percentage}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/10"
+        >
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400"
+            style={{ width: `${Math.max(4, Math.min(100, completion.percentage))}%` }}
+          />
+        </div>
+
+        {/* Statistics: ONE inline row instead of four boxed tiles.
+            Each cell is number-over-label with a hairline divider between, so
+            the bar is ~30px tall rather than ~60px plus gaps. The tiles also
+            gave every stat equal visual weight, which made a 0 and a 2,400 look
+            equally important.
+
+            MARKUP NOTES:
+            • Each cell is a <div> grouping one <dt>/<dd> pair, which is what the
+              HTML spec allows inside a <dl>. The link lives INSIDE the <dd>
+              rather than wrapping the cell, because an <a> as a direct child of
+              <dl> is invalid.
+            • `dt` comes before `dd` in the DOM and the cell is
+              `flex-col-reverse`, so a screen reader announces the category
+              before the number while the number still renders on top. */}
+        <dl className="relative mt-2.5 flex items-stretch divide-x divide-white/10">
           {statCells.map((cell) => (
             <div
               key={cell.label}
-              className="glam-tile flex flex-col items-center gap-0.5 rounded-2xl py-3"
+              className="flex flex-1 flex-col-reverse items-center py-1"
             >
-              <dd className="text-base font-extrabold tabular-nums text-white">{cell.value}</dd>
-              <dt className="text-[11px] text-ink-300">{cell.label}</dt>
+              <dt className="mt-1 text-center text-[10px] font-medium uppercase tracking-wide text-ink-400">
+                {cell.label}
+              </dt>
+              <dd className="flex items-center gap-1 text-sm font-extrabold leading-none tabular-nums text-white">
+                {cell.href ? (
+                  <Link
+                    href={cell.href}
+                    aria-label={`${cell.value} ${cell.label.toLowerCase()} — view ${cell.label.toLowerCase()}`}
+                    className="flex items-center gap-1 rounded px-1 transition hover:bg-white/10"
+                  >
+                    {cell.value}
+                    {cell.label === "Visitors" && cell.value > 0 ? (
+                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-danger-500" />
+                    ) : null}
+                  </Link>
+                ) : (
+                  cell.value
+                )}
+              </dd>
             </div>
           ))}
         </dl>
