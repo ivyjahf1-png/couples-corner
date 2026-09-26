@@ -53,6 +53,24 @@ import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from 
  *     optimistically and reconcile against the server count.
  */
 
+/**
+ * One entry in the scroller: either a member's moment or the sponsored card.
+ *
+ * A union rather than a parallel sponsored array because the scroller's index
+ * maths (`scrollTop / clientHeight`) counts every snapped child, so the card
+ * types must share ONE index space. See the `cards` memo in MediaFeed.
+ */
+type FeedCard =
+  | { kind: "moment"; moment: MomentView }
+  | { kind: "sponsored"; key: string };
+
+/**
+ * React key for the sponsored card. A constant, not a generated id, so the
+ * server and client render identical markup and the card is never remounted
+ * mid-scroll (which would reset its watch timer and strand the member).
+ */
+const SPONSORED_CARD_KEY = "sponsored-moment";
+
 const MAX_CAPTION = 2200;
 
 // `ReactionKind` is imported from @/lib/moments rather than redeclared here.
@@ -85,6 +103,24 @@ interface MediaFeedProps {
    */
   rewardSlot?: ReactNode;
   /**
+   * The sponsored card, inserted into the snap scroller as a real card at
+   * `sponsoredPosition` so it pages and snaps exactly like a moment. Passed in as
+   * a slot for the same reason as `rewardSlot`: MediaFeed owns layout, the host
+   * page owns what the card means and what it credits.
+   *
+   * Accepts a render function so the host can be told whether THIS card is the
+   * one currently snapped into view - the card needs it to run its watch timer
+   * only while it is actually being looked at, and only MediaFeed knows that.
+   */
+  sponsoredSlot?: ReactNode | ((active: boolean) => ReactNode);
+  /**
+   * Index at which the sponsored card is inserted. Defaults to 0 so it is the
+   * first thing a member sees. Values beyond the feed length are clamped.
+   */
+  sponsoredPosition?: number;
+  /** ISO cooldown deadline for the sponsored card, or null when claimable. */
+  sponsoredNextAvailableAt?: string | null;
+  /**
    * True when rendered INSIDE AppShell. The shell already owns the 100dvh
    * viewport lock and reserves the top bar and tab nav as in-flow segments, so
    * the feed must fill the region it is given. Leaving `min-h-dvh` on in that
@@ -103,6 +139,9 @@ export function MediaFeed({
   emptyTitle = "No moments yet",
   emptyBody = "Share a photo or short video and it will appear here for everyone.",
   rewardSlot,
+  sponsoredSlot,
+  sponsoredPosition = 0,
+  sponsoredNextAvailableAt = null,
   fill = false,
 }: MediaFeedProps) {
   const router = useRouter();
@@ -111,6 +150,32 @@ export function MediaFeed({
   // for "which moment is on screen".
   const scrollRef = useRef<HTMLDivElement>(null);
   const feed = useMemo(() => moments.filter((moment) => moment?.id && moment?.mediaUrl), [moments]);
+
+  /**
+   * THE SCROLL ORDER: moments and the sponsored card, as one list.
+   *
+   * The sponsored card is inserted INTO the scroller rather than rendered beside
+   * it, because the scroller's contract is "every child is exactly the
+   * scroller's height and owns one snap point". A sibling would have no snap
+   * boundary, so the card could never be snapped to and the scroll maths would
+   * disagree with what is on screen.
+   *
+   * A discriminated union, not a parallel array, so `total`, the index the
+   * scroll listener derives, the progress bars and the pager all count the same
+   * number of cards. Keeping the sponsored card in a separate index space was
+   * the obvious alternative and is wrong: two index spaces would silently
+   * desync the overlays from the visible card.
+   */
+  const cards = useMemo(() => {
+    const out: FeedCard[] = feed.map((moment) => ({ kind: "moment" as const, moment }));
+    if (!sponsoredSlot) return out;
+    // Clamp so a position past the end appends rather than creating a gap, and
+    // so a negative position cannot produce an unreachable card.
+    const at = Math.min(Math.max(sponsoredPosition, 0), out.length);
+    out.splice(at, 0, { kind: "sponsored" as const, key: SPONSORED_CARD_KEY });
+    return out;
+  }, [feed, sponsoredSlot, sponsoredPosition]);
+
   // Active card, derived from scrollTop (see the listener below).
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
@@ -151,9 +216,25 @@ export function MediaFeed({
   const [isPending, startTransition] = useTransition();
 
   // Never index out of range when the feed shrinks underneath us.
-  const total = feed.length;
+  //
+  // `total` counts SPONSORED CARDS AS WELL AS MOMENTS, because `index` is derived
+  // from `scrollTop / clientHeight` and that counts every snapped child in the
+  // scroller. Counting only moments here would make `safeIndex` cap below the
+  // real card count, so the last moment would be unreachable and the pager
+  // would stop early.
+  const total = cards.length;
   const safeIndex = total > 0 ? Math.min(Math.max(index, 0), total - 1) : 0;
-  const current = total > 0 ? feed[safeIndex] : null;
+
+  // The card actually snapped into view. `current` is null for the sponsored
+  // card, which is exactly what the moment-only overlays already handle by
+  // testing `current` - so the sponsored card suppresses them for free instead
+  // of needing a branch at each of the ~20 `current.` dereferences below.
+  const activeCard = cards[safeIndex] ?? null;
+  // `current` is null for the sponsored card, which is exactly what the
+  // moment-only overlays already handle by testing `current` - so the card
+  // suppresses them for free, without a branch at each of the ~20
+  // `current.` dereferences below.
+  const current = activeCard?.kind === "moment" ? activeCard.moment : null;
 
   // Effective engagement for the visible card: local override if present,
   // otherwise the server-rendered values.
@@ -246,14 +327,22 @@ export function MediaFeed({
    */
   const authorNav = useMemo(() => {
     const byAuthor = new Map<string, number[]>();
-    feed.forEach((moment, i) => {
-      const list = byAuthor.get(moment.userId);
+    // Indexed by CARD index, not moment index: the sponsored card occupies a
+    // slot in the scroller, and this table is looked up with `authorNav[safeIndex]`.
+    // The sponsored entry has no author, so it contributes no neighbours and
+    // therefore renders no invisible tap zones.
+    cards.forEach((card, i) => {
+      if (card.kind !== "moment") return;
+      const list = byAuthor.get(card.moment.userId);
       if (list) list.push(i);
-      else byAuthor.set(moment.userId, [i]);
+      else byAuthor.set(card.moment.userId, [i]);
     });
 
-    return feed.map((moment, i) => {
-      const indices = byAuthor.get(moment.userId) ?? [i];
+    return cards.map((card, i) => {
+      if (card.kind !== "moment") {
+        return { prev: null, next: null, position: 1, total: 1 };
+      }
+      const indices = byAuthor.get(card.moment.userId) ?? [i];
       const at = indices.indexOf(i);
       return {
         prev: at > 0 ? indices[at - 1] : null,
@@ -262,7 +351,7 @@ export function MediaFeed({
         total: indices.length,
       };
     });
-  }, [feed]);
+  }, [cards]);
 
   const nav = authorNav[safeIndex] ?? { prev: null, next: null, position: 1, total: 1 };
 
@@ -657,12 +746,14 @@ export function MediaFeed({
           </div>
         ) : null}
 
-        {/* Progress bars - one segment per moment, filled up to the current. */}
+        {/* Progress bars - one segment per CARD, filled up to the current. Mapped
+            over `cards` rather than `feed` so the segments stay in step with the
+            scroller's child count. */}
         {total > 1 ? (
           <div className="pointer-events-none mt-3 flex gap-1 px-3 sm:px-5" aria-hidden>
-            {feed.map((moment, i) => (
+            {cards.map((card, i) => (
               <span
-                key={moment.id}
+                key={card.kind === "moment" ? card.moment.id : card.key}
                 className={[
                   "h-0.5 flex-1 rounded-full transition-colors",
                   i <= safeIndex ? "bg-white" : "bg-white/30",
@@ -672,8 +763,13 @@ export function MediaFeed({
           </div>
         ) : null}
       </header>
-      {/* -------------------------------------------------------- the media */}
-      {!current ? (
+      {/* -------------------------------------------------------- the media
+          Gated on `feed.length`, NOT on `current`. The sponsored card makes
+          `current` null while it is the card on screen, and testing `current`
+          here would replace the whole scroller with the "no moments yet"
+          empty state the moment a member scrolled onto it. `feed.length` is the
+          real question - is there anything to play? */}
+      {feed.length === 0 ? (
         <div className="flex flex-1 items-center justify-center px-6">
           <EmptyState
             icon="moments"
@@ -718,9 +814,27 @@ export function MediaFeed({
           data-moments-scroller
           className="h-full min-h-0 w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
         >
-          {feed.map((moment, i) => {
+          {cards.map((card, i) => {
             const item = authorNav[i];
             if (!item) return null;
+            // The sponsored card occupies a real snap point but has no moment,
+            // no media and no author, so it renders its own body and skips
+            // every moment-only affordance (tap zones, surface, rail).
+            if (card.kind === "sponsored") {
+              return (
+                <article
+                  key={card.key}
+                  className="relative h-full w-full shrink-0 snap-start snap-always"
+                  aria-roledescription="sponsored moment"
+                  aria-label={`Sponsored moment, ${i + 1} of ${total}`}
+                >
+                  {typeof sponsoredSlot === "function"
+                    ? sponsoredSlot(i === safeIndex)
+                    : sponsoredSlot}
+                </article>
+              );
+            }
+            const moment = card.moment;
             return (
             <article
               key={moment.id}
@@ -776,7 +890,11 @@ export function MediaFeed({
               lives in the top bar above, per the reel/stories standard, so
               repeating it here would print the same name twice on one card. */}
           <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28">
-            {current.content ? (
+            {/* Caption only, and only for a moment. `current` is null while the
+                sponsored card is on screen, so the test doubles as the
+                moment/sponsored discriminator - the card renders its own body
+                and needs no caption here. */}
+            {current?.content ? (
               <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95 drop-shadow">
                 {current.content}
               </p>
@@ -864,7 +982,12 @@ export function MediaFeed({
               </span>
             ) : null}
 
-            {current.mediaType === "video" ? (
+            {/* Optional chained because the rail is a moment-only affordance and
+                `current` is null while the sponsored card holds the screen. The
+                enclosing `current ?` block already keeps the rail off that card;
+                the `?.` is here so the narrowing survives into this nested
+                closure, where TypeScript cannot see the guard. */}
+            {current?.mediaType === "video" ? (
               <ActionButton label={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
                 {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
               </ActionButton>
@@ -1083,58 +1206,166 @@ function MediaSurface({
   active: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Mirrors the `muted` prop for the playback effect, which must NOT depend on
+  // it. Read at the moment playback is (re)started so a card that is already
+  // unmuted resumes with sound, without the unmute tap re-triggering a restart.
+  const mutedRef = useRef(muted);
   // Drives a fade-in once the bytes are decodable, so paging between moments
   // cross-dissolves rather than flashing an empty black box.
   const [ready, setReady] = useState(false);
+  // Set when the element reports a media error. Without this the card would sit
+  // at opacity-0 forever: `ready` only ever flips true on a successful decode, so
+  // a broken video renders as a permanent BLACK BOX with no explanation - which
+  // is exactly the "blank video" symptom.
+  const [failed, setFailed] = useState(false);
+  // Reloads a failed video in place, so a transient network failure is
+  // recoverable by tapping rather than forcing a page reload.
+  const [retryKey, setRetryKey] = useState(0);
 
   // A new moment means a new frame to wait for; drop back to the hidden state
-  // before the next decode lands.
+  // before the next decode lands. The same reset clears a previous failure,
+  // since both are per-source.
   useEffect(() => {
     setReady(false);
-  }, [moment.id, moment.mediaUrl]);
+    setFailed(false);
+  }, [moment.id, moment.mediaUrl, retryKey]);
 
   /**
    * Playback is driven by `active`, not by the `autoPlay` attribute.
    *
-   * Now that every card is mounted, `autoPlay` would start EVERY video in the
-   * feed at once — a dozen decoders competing, on mobile data, and audio from
-   * cards nobody is looking at. Only the snapped-to card plays; the rest are
-   * explicitly paused, so scrolling away from a video also stops it.
+   * There is deliberately no `autoPlay` attribute on the element. Every card in
+   * the feed is mounted at once, so `autoPlay` would start EVERY video at once -
+   * a dozen decoders competing on mobile data, with audio leaking from cards
+   * nobody is looking at. Only the snapped-to card plays.
    *
-   * `preload` is likewise conditional: eagerly buffering every video up front
-   * would pull hundreds of megabytes for a feed the viewer may never scroll.
+   * MUTE ORDER - why playback is (re)started muted:
+   * browsers only permit AUDIBLE autoplay after a user gesture, and scrolling a
+   * card into view is not one. Calling play() on an unmuted video was therefore
+   * rejected outright on iOS Safari and some Android browsers - the video stayed
+   * frozen on its first frame with no error reported, which is precisely the
+   * "missing audio" symptom. The separate mute effect below applies the member's
+   * real choice, and an unmute TAP is a genuine gesture, so sound can be granted
+   * there without tripping the policy.
+   */
+  /**
+   * Source lifecycle: arm, play, pause and UNLOAD. Deliberately does NOT depend
+   * on `muted`.
+   *
+   * Keeping mute out of this effect matters: it forces playback to start muted
+   * (see the note above), so re-running it on an unmute tap would briefly mute
+   * a video the member just unmuted - a visible audio flicker. Mute is applied by
+   * its own effect below.
    */
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = muted;
-    if (active) {
-      // Autoplay can be rejected (Low Power Mode, data saver). Swallow the
-      // rejection rather than surfacing an error - the first frame still shows.
-      void video.play().catch(() => undefined);
-    } else {
+
+    if (!active) {
+      // Off-screen: stop decoding immediately...
       video.pause();
+      // ...then RELEASE the buffered media. Pausing alone is not enough: a paused
+      // element keeps its decoded frames and network buffers alive, and a dozen
+      // paused-but-buffered videos is how a phone runs out of memory and the
+      // browser starts killing hardware decoders (which then fail to start at
+      // all). Clearing the source and calling load() drops the buffer and frees
+      // the decoder, so rapid scrolling cannot pile them up. The card is
+      // re-armed the next time it becomes active, so revisiting a card costs one
+      // extra request - a deliberate trade of bandwidth for a stable memory
+      // ceiling.
+      //
+      // React will not restore the attribute on a later render because the `src`
+      // prop is unchanged and React diffs props, not the DOM, so this survives
+      // re-renders until the effect re-arms it.
+      video.removeAttribute("src");
+      video.load();
+      return;
     }
-  }, [active, muted, moment.id]);
+
+    // Re-arm after the unload above. Compared as an ATTRIBUTE because the src
+    // property is always absolute once resolved, so a strict compare against the
+    // relative URL would never match and would reload on every activation.
+    if (video.getAttribute("src") !== moment.mediaUrl) {
+      video.src = moment.mediaUrl;
+      video.load();
+    }
+
+    video.muted = mutedRef.current;
+    const started = video.play();
+    // A rejected play (Low Power Mode, data saver) is swallowed deliberately:
+    // the first frame still shows and the member can start it from the mute
+    // control. It is NOT an error state, so `failed` is left alone.
+    if (started) void started.catch(() => undefined);
+  }, [active, moment.id, moment.mediaUrl, retryKey]);
+
+  /**
+   * Mute state, applied on its own.
+   *
+   * Browsers only permit AUDIBLE autoplay after a user gesture. An unmute tap IS
+   * a gesture, so this is the one place audibility is granted; playback itself is
+   * started muted by the effect above, which is why scrolling back to an unmuted
+   * card no longer gets rejected by the autoplay policy.
+   */
+  useEffect(() => {
+    mutedRef.current = muted;
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = muted;
+  }, [muted, active, moment.id]);
 
   const surfaceClass = [
     "h-full w-full object-cover transition-opacity duration-300",
     ready ? "opacity-100" : "opacity-0",
   ].join(" ");
 
+  /**
+   * A failure renders INSTEAD of the media, not underneath it.
+   *
+   * Swapping rather than overlaying matters: the video element would otherwise
+   * keep its box and a failed card would still be a black rectangle behind the
+   * message. `key` on the retry counter remounts the element, which is what
+   * makes a retry actually re-request rather than no-op on a poisoned element.
+   */
+  if (failed) {
+    return (
+      <MediaFallback onRetry={() => setRetryKey((k) => k + 1)} />
+    );
+  }
+
   if (moment.mediaType === "video") {
+    // Off-screen cards keep `metadata` (enough to know the duration) but an
+    // active card is told to fetch. A fast flick must not open a connection to
+    // every video it passes.
+    const preload = active ? "auto" : "metadata";
+
     return (
       // eslint-disable-next-line jsx-a11y/media-has-caption
       <video
+        key={retryKey}
         ref={videoRef}
         src={moment.mediaUrl}
+        // Re-asserted on every render as well as imperatively in the effect:
+        // React writes the ATTRIBUTE, and some mobile engines have decided
+        // audibility from the attribute present at load time rather than from
+        // the live property. Setting both removes the ambiguity.
         muted={muted}
         loop
+        // Required for iOS Safari, which otherwise takes the video fullscreen
+        // on play. A no-op everywhere else.
         playsInline
+        // Stops iOS painting its native control bar over the feed chrome.
+        controls={false}
+        // Suppresses the iOS Picture-in-Picture affordance on long-press.
+        disablePictureInPicture
         // No `autoPlay` attribute: it would play every mounted card at once.
         // The effect above is the single source of truth for playback.
-        preload={active ? "auto" : "metadata"}
+        preload={preload}
         onLoadedData={() => setReady(true)}
+        // A decode, format or network failure must not leave a silent black
+        // card. This is the handler that turns a blank screen into a message.
+        onError={() => {
+          setReady(false);
+          setFailed(true);
+        }}
         className={surfaceClass}
       />
     );
@@ -1150,8 +1381,39 @@ function MediaSurface({
       loading={active ? "eager" : "lazy"}
       decoding="async"
       onLoad={() => setReady(true)}
+      // Same reasoning as the video: a broken image previously rendered as an
+      // empty box with no affordance and no explanation.
+      onError={() => setFailed(true)}
       className={surfaceClass}
     />
+  );
+}
+
+/**
+ * Shown in place of a moment whose media could not be decoded.
+ *
+ * Deliberately dependency-free and inline: this renders at the exact moment the
+ * rest of the card has failed, so it must not depend on anything that could
+ * itself be the thing that broke.
+ */
+function MediaFallback({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div
+      className="flex h-full w-full flex-col items-center justify-center gap-3 bg-slate-900 px-6 text-center"
+      role="status"
+    >
+      <p className="text-sm font-semibold text-white">This moment won&apos;t load</p>
+      <p className="max-w-xs text-xs leading-5 text-ink-300">
+        The file may still be processing, or it is no longer available.
+      </p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
+      >
+        Try again
+      </button>
+    </div>
   );
 }
 

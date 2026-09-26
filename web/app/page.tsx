@@ -5,7 +5,7 @@ import { LocationBadge } from "@/components/app/LocationBadge";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
 import { InviteSignupWallFromCookie } from "@/components/app/InviteSignupWall";
-import { WatchAdForTokens } from "@/components/app/WatchAdForTokens";
+import { SponsoredMomentCard } from "@/components/app/SponsoredMomentCard";
 import { getNextAdRewardAtAction } from "@/lib/actions/ad-rewards";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { searchMembers } from "@/lib/server/profiles";
@@ -71,11 +71,24 @@ export default async function HomePage({
       fill={Boolean(session)}
       searchSlot={<MediaFeedSearch action="/" />}
       topRightSlot={<LocationBadge />}
-      rewardSlot={
-        session ? (
-          <WatchAdForTokens nextAvailableAt={nextAdRewardAt} />
-        ) : null
-      }
+      // The sponsored card replaces the old earn-tokens button. It is rendered
+      // as a function of `active` so its watch timer runs only while it is the
+      // card actually snapped into view.
+      //
+      // Shown to signed-out visitors too (they see the "Sign in to start"
+      // state) because that is the acquisition surface - a member only learns
+      // the mechanic exists by meeting it before signing in.
+      sponsoredSlot={(active) => (
+        <SponsoredMomentCard
+          active={active}
+          viewerId={session?.uid ?? null}
+          nextAvailableAt={nextAdRewardAt}
+        />
+      )}
+      // Second position: the first card stays a real moment, so a new member
+      // opens on community content rather than on an ad.
+      sponsoredPosition={1}
+      rewardSlot={null}
       emptyTitle="No moments yet"
       emptyBody="Members who share a photo or short video in the Task Center see it here instantly. Be the first."
     />
