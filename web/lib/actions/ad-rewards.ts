@@ -166,3 +166,48 @@ export async function getAdRewardHistoryAction(): Promise<
   }));
 }
 
+/**
+ * When this member may claim again, or null if they may claim right now.
+ *
+ * Server-calculated from the same ledger and the same COOLDOWN_MINUTES the claim
+ * path enforces, so the button's disabled state can never be more permissive
+ * than the server actually is. The countdown is a courtesy to the member - the
+ * cooldown check in `claimAdRewardAction` remains the authority, and a member
+ * who races the timer just gets the usual "come back shortly" message.
+ */
+export async function getNextAdRewardAtAction(): Promise<string | null> {
+  const user = await getCurrentSessionUser();
+  if (!user) return null;
+
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+
+  const cutoff = new Date(Date.now() - COOLDOWN_MINUTES * 60_000).toISOString();
+  const { data, error } = await supabase
+    .from("ad_rewards_ledger")
+    .select("created_at")
+    .eq("user_id", user.uid)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    console.error("[ad-reward] cooldown read failed", supabaseErrorDetail(error));
+    // Fail OPEN here on purpose: this value only drives a disabled button. If
+    // the read fails we would rather show an enabled button that the server
+    // then rejects with a clear message, than a permanently disabled one that
+    // looks broken and gives the member no way forward.
+    return null;
+  }
+
+  const last = (data ?? [])[0] as { created_at?: string } | undefined;
+  if (!last?.created_at) return null;
+
+  const nextEligible = new Date(
+    new Date(last.created_at).getTime() + COOLDOWN_MINUTES * 60_000,
+  );
+  if (Number.isNaN(nextEligible.getTime())) return null;
+
+  return nextEligible.getTime() > Date.now() ? nextEligible.toISOString() : null;
+}
+

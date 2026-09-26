@@ -6,6 +6,7 @@ import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
 import { InviteSignupWallFromCookie } from "@/components/app/InviteSignupWall";
 import { WatchAdForTokens } from "@/components/app/WatchAdForTokens";
+import { getNextAdRewardAtAction } from "@/lib/actions/ad-rewards";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { searchMembers } from "@/lib/server/profiles";
 import type { MomentView } from "@/lib/moments";
@@ -56,6 +57,11 @@ export default async function HomePage({
   // feed mark which moments this member has already reacted to.
   const moments: MomentView[] = await getRecentMoments(12, session?.uid ?? null).catch(() => []);
 
+  // Cooldown state for the reward button, so a member who already claimed sees
+  // a live countdown instead of a button that silently stops working. Fail-soft
+  // to null (claimable) for the same reason as the feed above.
+  const nextAdRewardAt = session ? await getNextAdRewardAtAction().catch(() => null) : null;
+
   const view = (
     <MediaFeed
       moments={moments}
@@ -65,7 +71,11 @@ export default async function HomePage({
       fill={Boolean(session)}
       searchSlot={<MediaFeedSearch action="/" />}
       topRightSlot={<LocationBadge />}
-      rewardSlot={session ? <WatchAdForTokens /> : null}
+      rewardSlot={
+        session ? (
+          <WatchAdForTokens nextAvailableAt={nextAdRewardAt} />
+        ) : null
+      }
       emptyTitle="No moments yet"
       emptyBody="Members who share a photo or short video in the Task Center see it here instantly. Be the first."
     />
