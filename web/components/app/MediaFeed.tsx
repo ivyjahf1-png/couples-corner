@@ -16,7 +16,7 @@ import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
-import type { MomentCommentView, MomentView } from "@/lib/moments";
+import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 
 /**
  * Immersive media feed.
@@ -54,8 +54,9 @@ import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 const MAX_CAPTION = 2200;
 
-/** Reaction kinds persisted in `moment_reactions.kind` (migration 036). */
-type ReactionKind = "like" | "love" | "fire" | "laugh";
+// `ReactionKind` is imported from @/lib/moments rather than redeclared here.
+// The feed, the server actions and the view model must agree on the set of
+// persisted kinds; a second local union is how they drift.
 
 /** Quick-reaction row shown in the bottom bar. */
 const QUICK_REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] = [
@@ -107,8 +108,15 @@ export function MediaFeed({
   const [muted, setMuted] = useState(true);
   // Engagement overrides keyed by moment id. Seeded from the server payload,
   // then superseded by the authoritative result of each action.
+  //
+  // `kinds` is the per-kind split, so each reaction button reconciles its OWN
+  // number from the server rather than every button snapping to the combined
+  // total.
   const [social, setSocial] = useState<
-    Record<string, { count: number; reacted: boolean; comments: number }>
+    Record<
+      string,
+      { count: number; reacted: boolean; comments: number; kinds: ReactionTally }
+    >
   >({});
   const [draft, setDraft] = useState("");
   const [sendError, setSendError] = useState<string | null>(null);
@@ -118,6 +126,9 @@ export function MediaFeed({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [commentList, setCommentList] = useState<MomentCommentView[]>([]);
+  // Scroll container for the comment sheet, so a new comment can be scrolled
+  // into view.
+  const commentListRef = useRef<HTMLDivElement>(null);
   const [commentDraft, setCommentDraft] = useState("");
   // Which emoji the viewer currently used, so the row can highlight it.
   const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
@@ -133,6 +144,16 @@ export function MediaFeed({
   const reactions = current
     ? (social[current.id]?.count ?? current.reactionCount ?? 0)
     : 0;
+  // Per-kind split, so each reaction button shows its OWN number. Falls back to
+  // the server-rendered tally, then to the combined total attributed to the
+  // viewer's own kind (so a legacy row with no split still reads sensibly).
+  const reactionKinds = current
+    ? (social[current.id]?.kinds ??
+       current.reactionKinds ??
+       (current.reactedByMe && current.myReactionKind
+         ? { [current.myReactionKind]: current.reactionCount ?? 0 }
+         : {}))
+    : {};
   const reacted = current
     ? (social[current.id]?.reacted ?? current.reactedByMe ?? false)
     : false;
@@ -150,6 +171,39 @@ export function MediaFeed({
   );
   const { presence } = usePresence(authorIds, authorIds.length > 0);
   const authorOnline = current ? Boolean(presence[current.userId]?.online) : false;
+
+  /**
+   * Per-user media navigation (story-style).
+   *
+   * For each card, the index of the previous/next card by the SAME author, plus
+   * that author's position and total. Precomputed once per feed so a tap is a pure
+   * lookup rather than a scan, and so a member whose uploads are interleaved with
+   * other people's gets the right neighbours rather than merely the adjacent card.
+   *
+   * `null` means "this author has no further media in the feed", which is the
+   * common case and is why those tap zones are not rendered at all.
+   */
+  const authorNav = useMemo(() => {
+    const byAuthor = new Map<string, number[]>();
+    feed.forEach((moment, i) => {
+      const list = byAuthor.get(moment.userId);
+      if (list) list.push(i);
+      else byAuthor.set(moment.userId, [i]);
+    });
+
+    return feed.map((moment, i) => {
+      const indices = byAuthor.get(moment.userId) ?? [i];
+      const at = indices.indexOf(i);
+      return {
+        prev: at > 0 ? indices[at - 1] : null,
+        next: at < indices.length - 1 ? indices[at + 1] : null,
+        position: at + 1,
+        total: indices.length,
+      };
+    });
+  }, [feed]);
+
+  const nav = authorNav[safeIndex] ?? { prev: null, next: null, position: 1, total: 1 };
 
   /**
    * Scroll to a card by index.
@@ -252,6 +306,7 @@ export function MediaFeed({
       count: current.reactionCount ?? 0,
       reacted: current.reactedByMe ?? false,
       comments: current.commentCount ?? 0,
+      kinds: current.reactionKinds ?? {},
     };
     // Optimistic flip, then reconcile with the server's authoritative count.
     setSocial((prev) => ({
@@ -266,10 +321,35 @@ export function MediaFeed({
         setSendError(result.error ?? "Could not save your reaction");
         return;
       }
-      setSocial((prev) => ({ ...prev, [momentId]: { ...base, reacted: result.reacted, count: result.count } }));
+      // `kinds` comes straight from the server so the per-button numbers
+      // reconcile independently rather than all snapping to one total.
+      setSocial((prev) => ({
+        ...prev,
+        [momentId]: { ...base, reacted: result.reacted, count: result.count, kinds: result.kinds },
+      }));
+      // The tally does not say which kind the VIEWER picked, so the highlight
+      // follows the local state we already track: this button only ever writes
+      // "like", so a fresh toggle is always the like chip.
+      setReactionKind(result.reacted ? "like" : null);
       setSendError(null);
     });
   }
+
+  // Keep the newest comment in view.
+  //
+  // The sheet is chronologically ordered (oldest first, so it reads as a
+  // conversation) which means the newest entry is at the BOTTOM. Without this
+  // the list opens scrolled to the top and a member who just posted has to hunt
+  // for their own comment — the single most confusing state a live thread can be
+  // in. rAF because the sheet may not be laid out yet when the list changes.
+  useEffect(() => {
+    if (!commentsOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const el = commentListRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [commentList, commentsOpen]);
 
   function reactWith(kind: ReactionKind) {
     if (!current || !viewerId) return;
@@ -278,13 +358,25 @@ export function MediaFeed({
       count: current.reactionCount ?? 0,
       reacted: current.reactedByMe ?? false,
       comments: current.commentCount ?? 0,
+      kinds: current.reactionKinds ?? {},
     };
     // Optimistic: the row swaps immediately, then the server confirms.
     const nextReacted = !(reactionKind === kind && base.reacted);
     setReactionKind(nextReacted ? kind : null);
+    // Move this ONE kind's number optimistically, so the chip the member just
+    // tapped visibly increments instead of waiting on the round trip. The other
+    // chips are untouched, which is the point of a per-kind counter.
+    const optimisticKinds = { ...base.kinds };
+    if (nextReacted) optimisticKinds[kind] = (optimisticKinds[kind] ?? 0) + 1;
+    else optimisticKinds[kind] = Math.max(0, (optimisticKinds[kind] ?? 0) - 1);
     setSocial((prev) => ({
       ...prev,
-      [momentId]: { ...base, reacted: nextReacted, count: Math.max(0, base.count + (nextReacted ? 1 : -1)) },
+      [momentId]: {
+        ...base,
+        reacted: nextReacted,
+        count: Math.max(0, base.count + (nextReacted ? 1 : -1)),
+        kinds: optimisticKinds,
+      },
     }));
     startTransition(async () => {
       const result = await setMomentReactionAction({ momentId, kind });
@@ -294,7 +386,16 @@ export function MediaFeed({
         setSendError(result.error ?? "Could not save your reaction");
         return;
       }
-      setSocial((prev) => ({ ...prev, [momentId]: { ...base, reacted: result.reacted, count: result.count } }));
+      // Server is authoritative for both the total and the split.
+      setSocial((prev) => ({
+        ...prev,
+        [momentId]: {
+          ...base,
+          reacted: result.reacted,
+          count: result.count,
+          kinds: result.kinds,
+        },
+      }));
       setSendError(null);
     });
   }
@@ -456,6 +557,13 @@ export function MediaFeed({
               </Link>
               <p className="truncate text-xs text-white/70 drop-shadow">
               {formatWhen(current.createdAt)}
+                {/* Story-style position within this author's own media. Shown
+                    only when they have more than one item in the feed. */}
+                {nav.total > 1 ? (
+                  <span className="ml-1.5 rounded-full bg-black/40 px-1.5 py-px text-[10px] font-semibold text-white/80">
+                    {nav.position}/{nav.total}
+                  </span>
+                ) : null}
             </p>
             </div>
           </div>
@@ -518,7 +626,10 @@ export function MediaFeed({
           data-moments-scroller
           className="h-full min-h-0 w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
         >
-          {feed.map((moment, i) => (
+          {feed.map((moment, i) => {
+            const item = authorNav[i];
+            if (!item) return null;
+            return (
             <article
               key={moment.id}
               // `h-full` matches the scroller so each snap point is exact;
@@ -534,8 +645,39 @@ export function MediaFeed({
                 muted={muted}
                 active={i === safeIndex}
               />
+
+              {/* Story-style tap navigation within one author's media.
+
+                  Only rendered when that author has a previous/next item in
+                  this feed, so the common single-post case has no invisible
+                  hit targets. The centre third is deliberately left open so a
+                  tap there hits the caption/controls rather than silently
+                  paging.
+
+                  These are <button>s, not touch handlers, so they cannot
+                  interfere with the vertical snap gesture: a scroll is a drag
+                  and never fires a click. */}
+              {item.prev !== null ? (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden
+                  onClick={() => goTo(item.prev as number)}
+                  className="absolute inset-y-0 left-0 z-10 w-1/3 cursor-pointer"
+                />
+              ) : null}
+              {item.next !== null ? (
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-hidden
+                  onClick={() => goTo(item.next as number)}
+                  className="absolute inset-y-0 right-0 z-10 w-1/3 cursor-pointer"
+                />
+              ) : null}
             </article>
-          ))}
+            );
+          })}
         </div>
 
           {/* Caption only. The author identity (avatar, handle, timestamp) now
@@ -661,22 +803,32 @@ export function MediaFeed({
           <div className="pointer-events-auto mb-2 flex items-center justify-center gap-1.5">
             {QUICK_REACTIONS.map((option) => {
               const active = reacted && reactionKind === option.kind;
+              // Each chip carries its OWN number rather than every chip
+              // repeating the combined total, so tapping one visibly moves one
+              // counter instead of all of them at once.
+              const n = reactionKinds[option.kind] ?? 0;
               return (
                 <button
                   key={option.kind}
                   type="button"
                   onClick={() => reactWith(option.kind)}
                   disabled={!viewerId}
-                  aria-label={`React with ${option.label}`}
+                  aria-label={`${option.label}${n > 0 ? `, ${n} so far` : ""}`}
                   aria-pressed={active}
                   className={[
-                    "flex h-9 w-9 items-center justify-center rounded-full border text-base backdrop-blur-md transition active:scale-90 disabled:opacity-40",
+                    "flex items-center gap-1 rounded-full border text-base backdrop-blur-md transition active:scale-90 disabled:opacity-40",
+                    // A zero counter collapses to the bare emoji so the row stays
+                    // tidy until there is something to report.
+                    n > 0 ? "px-2.5 py-1" : "h-9 w-9 justify-center",
                     active
                       ? "border-orange-400/70 bg-orange-500/25 scale-110"
                       : "border-white/15 bg-slate-950/60 hover:bg-white/10",
                   ].join(" ")}
                 >
                   <span aria-hidden>{option.emoji}</span>
+                  {n > 0 ? (
+                    <span className="text-xs font-semibold tabular-nums text-white/90">{n}</span>
+                  ) : null}
                 </button>
               );
             })}
@@ -747,7 +899,7 @@ export function MediaFeed({
               </button>
             </header>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            <div ref={commentListRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
               {commentList.length === 0 ? (
                 <p className="py-6 text-center text-sm text-ink-400">
                   No comments yet. Be the first to say something.
@@ -756,10 +908,21 @@ export function MediaFeed({
                 <ul className="flex flex-col gap-3">
                   {commentList.map((comment) => (
                     <li key={comment.id} className="flex items-start gap-2.5">
-                      <Avatar name={comment.authorName ?? "Member"} size="sm" />
+                      {/* Avatar resolved server-side; falls back to initials when
+                          the member has no photo. */}
+                      <Avatar
+                        name={comment.authorName ?? "Member"}
+                        src={comment.authorAvatarUrl}
+                        size="sm"
+                      />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs font-semibold text-white">
-                          {comment.authorName ?? "Member"}
+                        <p className="flex items-baseline gap-2">
+                          <span className="truncate text-xs font-semibold text-white">
+                            {comment.authorName ?? "Member"}
+                          </span>
+                          <span className="shrink-0 text-[10px] text-ink-400">
+                            {formatWhen(comment.createdAt)}
+                          </span>
                         </p>
                         <p className="text-sm leading-6 text-ink-200">{comment.body}</p>
                       </div>

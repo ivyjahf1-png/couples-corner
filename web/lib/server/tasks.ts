@@ -17,7 +17,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { fetchAuthors } from "@/lib/server/profile-lookup";
-import type { MomentCommentView, MomentView } from "@/lib/moments";
+import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 
 /**
  * COLUMN NAME: the moments table stores the text in `content`
@@ -478,12 +478,28 @@ export async function getRecentMoments(
   }
 
   const reactionCounts = new Map<string, number>();
+  // Per-kind tallies so each reaction button can render its OWN number rather
+  // than every button showing the same combined total. Grouped from the rows we
+  // already fetch, so this costs no extra query.
+  const reactionTallies = new Map<string, ReactionTally>();
   const reactedBy = new Set<string>();
+  const myReactionKind = new Map<string, ReactionKind>();
   for (const raw of reactionsResult.data ?? []) {
-    const r = raw as { moment_id?: string | null; user_id?: string | null };
+    const r = raw as {
+      moment_id?: string | null;
+      user_id?: string | null;
+      kind?: string | null;
+    };
     if (!r.moment_id) continue;
     reactionCounts.set(r.moment_id, (reactionCounts.get(r.moment_id) ?? 0) + 1);
-    if (viewerId && r.user_id === viewerId) reactedBy.add(r.moment_id);
+    const kind = (r.kind ?? "like") as ReactionKind;
+    const tally = reactionTallies.get(r.moment_id) ?? {};
+    tally[kind] = (tally[kind] ?? 0) + 1;
+    reactionTallies.set(r.moment_id, tally);
+    if (viewerId && r.user_id === viewerId) {
+      reactedBy.add(r.moment_id);
+      myReactionKind.set(r.moment_id, kind);
+    }
   }
 
   const commentCounts = new Map<string, number>();
@@ -505,8 +521,10 @@ export async function getRecentMoments(
       authorAvatarUrl: author?.avatarUrl ?? null,
       createdAt: row.created_at,
       reactionCount: reactionCounts.get(row.id) ?? 0,
+      reactionKinds: reactionTallies.get(row.id) ?? {},
       commentCount: commentCounts.get(row.id) ?? 0,
       reactedByMe: reactedBy.has(row.id),
+      myReactionKind: myReactionKind.get(row.id) ?? null,
       isMine: Boolean(viewerId && row.user_id === viewerId),
     };
   });
@@ -517,8 +535,10 @@ type SupabaseServer = NonNullable<ReturnType<typeof getSupabaseServerClient>>;
 export async function toggleMomentReaction(
   userId: string,
   momentId: string,
-  kind: "like" | "love" | "fire" | "laugh" = "like"
-): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
+  kind: ReactionKind = "like"
+): Promise<
+  { ok: true; reacted: boolean; count: number; kinds: ReactionTally } | { ok: false; error: string }
+> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Supabase not configured" };
 
@@ -536,14 +556,14 @@ export async function toggleMomentReaction(
       .delete()
       .eq("id", (existing as { id: string }).id);
     if (error) return { ok: false, error: "Could not remove your reaction" };
-    return { ok: true, reacted: false, count: await countReactions(supabase, momentId) };
+    return { ok: true, reacted: false, ...(await reactionState(supabase, momentId)) };
   }
 
   const { error } = await supabase
     .from("moment_reactions")
     .insert({ moment_id: momentId, user_id: userId, kind });
   if (error) return { ok: false, error: "Could not save your reaction" };
-  return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+  return { ok: true, reacted: true, ...(await reactionState(supabase, momentId)) };
 }
 
 /**
@@ -557,8 +577,10 @@ export async function toggleMomentReaction(
 export async function setMomentReaction(
   userId: string,
   momentId: string,
-  kind: "like" | "love" | "fire" | "laugh"
-): Promise<{ ok: true; reacted: boolean; count: number } | { ok: false; error: string }> {
+  kind: ReactionKind
+): Promise<
+  { ok: true; reacted: boolean; count: number; kinds: ReactionTally } | { ok: false; error: string }
+> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Supabase not configured" };
 
@@ -575,7 +597,7 @@ export async function setMomentReaction(
     // Same emoji again -> clear it.
     const { error } = await supabase.from("moment_reactions").delete().eq("id", current.id);
     if (error) return { ok: false, error: "Could not remove your reaction" };
-    return { ok: true, reacted: false, count: await countReactions(supabase, momentId) };
+    return { ok: true, reacted: false, ...(await reactionState(supabase, momentId)) };
   }
 
   if (current?.id) {
@@ -586,22 +608,50 @@ export async function setMomentReaction(
       .update({ kind })
       .eq("id", current.id);
     if (error) return { ok: false, error: "Could not change your reaction" };
-    return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+    // Both per-kind counters move on a swap (one leaves the old kind, one joins
+    // the new), which is exactly why the split has to come back from the server.
+    return { ok: true, reacted: true, ...(await reactionState(supabase, momentId)) };
   }
 
   const { error } = await supabase
     .from("moment_reactions")
     .insert({ moment_id: momentId, user_id: userId, kind });
   if (error) return { ok: false, error: "Could not save your reaction" };
-  return { ok: true, reacted: true, count: await countReactions(supabase, momentId) };
+  return { ok: true, reacted: true, ...(await reactionState(supabase, momentId)) };
 }
 
-async function countReactions(supabase: SupabaseServer, momentId: string): Promise<number> {
-  const { count } = await supabase
+/**
+ * Reaction totals split by kind.
+ *
+ * The feed renders a separate counter per reaction button, so the write path
+ * has to return the same split the read path computes. Without this the client
+ * could only reconcile a single combined total, and every button would keep
+ * showing the pre-tap number for its own kind even after the server changed it.
+ */
+async function tallyReactions(
+  supabase: SupabaseServer,
+  momentId: string
+): Promise<ReactionTally> {
+  const { data } = await supabase
     .from("moment_reactions")
-    .select("id", { count: "exact", head: true })
+    .select("kind")
     .eq("moment_id", momentId);
-  return count ?? 0;
+  const tally: ReactionTally = {};
+  for (const row of (data ?? []) as Array<{ kind?: string | null }>) {
+    const kind = (row.kind ?? "like") as ReactionKind;
+    tally[kind] = (tally[kind] ?? 0) + 1;
+  }
+  return tally;
+}
+
+/** Combined count + per-kind split, so callers never have to derive one. */
+async function reactionState(
+  supabase: SupabaseServer,
+  momentId: string
+): Promise<{ count: number; kinds: ReactionTally }> {
+  const kinds = await tallyReactions(supabase, momentId);
+  const count = Object.values(kinds).reduce<number>((sum, n) => sum + (n ?? 0), 0);
+  return { count, kinds };
 }
 
 /** Post a comment on a moment. */
@@ -645,6 +695,10 @@ export async function addMomentComment(
       id: row.id,
       userId: row.user_id,
       authorName: author?.displayName ?? null,
+      // Resolved from the same profiles lookup as the name, so the comment that
+      // just posted renders with an avatar immediately rather than flashing
+      // initials for everyone else in the thread.
+      authorAvatarUrl: author?.avatarUrl ?? null,
       body: row.body,
       createdAt: row.created_at,
     },
@@ -684,6 +738,7 @@ export async function listMomentComments(momentId: string, limit = 50): Promise<
     id: row.id,
     userId: row.user_id,
     authorName: authors.get(row.user_id)?.displayName ?? null,
+    authorAvatarUrl: authors.get(row.user_id)?.avatarUrl ?? null,
     body: row.body,
     createdAt: row.created_at,
   }));

@@ -16,7 +16,7 @@ import {
   type MomentResult,
   type TaskView,
 } from "@/lib/server/tasks";
-import type { MomentCommentView } from "@/lib/moments";
+import type { MomentCommentView, ReactionKind, ReactionTally } from "@/lib/moments";
 
 /** Today's task list for the signed-in user. */
 export async function getUserTasksAction(): Promise<TaskView[]> {
@@ -118,9 +118,9 @@ export async function publishMomentAction(input: {
  */
 export async function toggleMomentReactionAction(params: {
   momentId: string;
-  kind?: "like" | "love" | "fire" | "laugh";
+  kind?: ReactionKind;
 }): Promise<
-  | { ok: true; reacted: boolean; count: number }
+  | { ok: true; reacted: boolean; count: number; kinds: ReactionTally }
   | { ok: false; error: string }
 > {
   try {
@@ -138,9 +138,9 @@ export async function toggleMomentReactionAction(params: {
 /** Set (or swap, or clear) the viewer's emoji reaction on a moment. */
 export async function setMomentReactionAction(params: {
   momentId: string;
-  kind: "like" | "love" | "fire" | "laugh";
+  kind: ReactionKind;
 }): Promise<
-  | { ok: true; reacted: boolean; count: number }
+  | { ok: true; reacted: boolean; count: number; kinds: ReactionTally }
   | { ok: false; error: string }
 > {
   try {
