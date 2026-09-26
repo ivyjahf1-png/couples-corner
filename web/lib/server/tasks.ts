@@ -17,6 +17,19 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { MomentCommentView, MomentView } from "@/lib/moments";
 
+/**
+ * COLUMN NAME: the moments table stores the text in `content`
+ * (migration 034, `content text not null default ''`). Several OTHER tables in
+ * this schema use `caption` instead — `user_media.caption` (008/014),
+ * `profile_photos.caption` — which is the likely source of a
+ * "column moments.content does not exist" error: the two names get conflated.
+ *
+ * This constant exists so the write below and every read in this file
+ * (getMoments) name the same column, and so there is exactly one place to
+ * change if the deployed table really does use a different name.
+ */
+const MOMENT_TEXT_COLUMN = "content";
+
 export type TaskStatus = "available" | "claimed";
 
 export interface TaskView {
@@ -175,15 +188,20 @@ export async function publishMoment(
   if (!content && !input.mediaUrl) return { ok: false, error: "Add a description or media" };
   if (content.length > 2200) return { ok: false, error: "Descriptions must be 2,200 characters or fewer" };
 
+  // Built through a typed record so the text column is named by the single
+  // MOMENT_TEXT_COLUMN constant rather than a bare `content` shorthand, which
+  // is what silently drifted against the other `caption` tables in this schema.
+  const row: Record<string, unknown> = {
+    user_id: userId,
+    media_url: input.mediaUrl,
+    media_type: input.mediaType,
+    task_slug: input.taskSlug ?? null,
+  };
+  row[MOMENT_TEXT_COLUMN] = content;
+
   const { data, error } = await supabase
     .from("moments")
-    .insert({
-      user_id: userId,
-      content,
-      media_url: input.mediaUrl,
-      media_type: input.mediaType,
-      task_slug: input.taskSlug ?? null,
-    })
+    .insert(row)
     .select("id, media_url")
     .single();
   if (error || !data) {
