@@ -320,7 +320,11 @@ export function LiveConversationThread({
                         }}
                         rows={1}
                         aria-label="Edit message"
-                        className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 text-white outline-none placeholder:text-white/60"
+                        // The wrapper suppresses the native long-press callout, but
+                        // the textarea is a separate focusable element with its own
+                        // gesture handling, so it needs the suppression too or a press
+                        // inside the editor raises the OS callout instead of the menu.
+                        className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 text-white outline-none placeholder:text-white/60 select-none [-webkit-touch-callout:none]"
                       />
                       <div className="flex items-center justify-end gap-2 px-1 pb-0.5 pt-1">
                         <button

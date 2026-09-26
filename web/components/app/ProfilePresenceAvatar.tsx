@@ -33,7 +33,19 @@ export function ProfilePresenceAvatar({
   const { presence } = usePresence(ids, Boolean(userId));
 
   const entry = presence[userId];
-  const online = entry ? entry.online : initialOnline;
+
+  // Re-derive freshness locally rather than trusting the server's boolean alone.
+  // The map was fetched up to one poll interval ago, so by the time it renders a
+  // member may have crossed the online window. `isPresenceOnline` applies the
+  // identical 90s rule the server used, so the two can never disagree.
+  //
+  // With no entry yet, fall back to the server-rendered seed rather than
+  // defaulting to offline — otherwise every profile load flashes "Offline"
+  // before the first poll resolves.
+  const online = entry
+    ? entry.online && isPresenceOnline(entry.lastSeenAt)
+    : initialOnline;
+
   const src = photoUrl ?? (storagePath ? `/api/photos/${userId}/${storagePath.split("/").pop()}` : null);
 
   return (
@@ -58,6 +70,3 @@ export function ProfilePresenceAvatar({
     </span>
   );
 }
-
-/** Exported for tests/consumers that need the same rule without rendering. */
-export { isPresenceOnline };

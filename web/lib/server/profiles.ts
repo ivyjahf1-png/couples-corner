@@ -1,4 +1,4 @@
-﻿import "server-only";
+import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit, recordAuditBestEffort } from "./audit";

@@ -1,4 +1,4 @@
-﻿
+
 /**
  * Couples Corner — presence service (server side).
  *

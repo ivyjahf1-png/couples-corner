@@ -149,7 +149,12 @@ export function MessageActionsMenu({
           const el = e.currentTarget.getBoundingClientRect();
           openAt(el.left + el.width / 2, el.top + el.height / 2);
         }}
-        className="touch-pan-y"
+        // `-webkit-touch-callout: none` is what stops iOS Safari from raising
+        // its own "Copy / Look Up" callout on top of ours the instant the press
+        // is recognised as long. `select-none` prevents the same gesture from
+        // selecting the message text. Without both, the two menus fight and the
+        // member sees the wrong one on iPhone.
+        className="touch-pan-y select-none [-webkit-touch-callout:none]"
       >
         {children}
       </div>
