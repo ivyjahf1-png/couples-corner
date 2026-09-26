@@ -14,10 +14,31 @@ export interface MessageAction {
   tone?: "default" | "danger";
 }
 
-/** Edit / Delete / Copy, in the order a member expects them. */
+/**
+ * The full action set — only ever offered on the signed-in member's own
+ * messages.
+ *
+ * Edit and Delete are destructive writes to a row the caller must own; that is
+ * enforced in the database (the UPDATE/DELETE's WHERE clause includes
+ * `sender_id`), but hiding the affordance is the first line of defence. Someone
+ * who long-presses their own message should see everything they can do to it.
+ */
 export const MESSAGE_ACTIONS: MessageAction[] = [
   { id: "edit", label: "Edit" },
   { id: "delete", label: "Delete", tone: "danger" },
+  { id: "copy", label: "Copy" },
+];
+
+/**
+ * Copy only — offered on messages sent by OTHER members.
+ *
+ * Copy is the one action that is legitimate on someone else's message: it acts
+ * on text the reader can already see, and it changes nothing on the server.
+ * Edit and Delete are hidden entirely rather than disabled, so a long-press on
+ * an incoming bubble still feels responsive and useful instead of opening a menu
+ * whose entries would immediately fail.
+ */
+export const COPY_ONLY_ACTIONS: MessageAction[] = [
   { id: "copy", label: "Copy" },
 ];
 
@@ -34,8 +55,10 @@ export const MESSAGE_ACTIONS: MessageAction[] = [
  * scrolling the thread on a phone would open a menu on every bubble passed over.
  * That is the single most common way this interaction gets built wrong.
  *
- * Only the sender's own messages get this menu; the parent passes
- * `actions={[]}` for incoming messages.
+ * The caller chooses the action set: `MESSAGE_ACTIONS` (Edit/Delete/Copy) for
+ * the signed-in member's own messages, `COPY_ONLY_ACTIONS` for anyone else's.
+ * Edit and Delete mutate a row the caller must own, so they are never offered on
+ * another member's message.
  */
 export function MessageActionsMenu({
   messageId,
@@ -69,17 +92,26 @@ export function MessageActionsMenu({
     setPosition(null);
   }, []);
 
-  const openAt = useCallback((clientX: number, clientY: number) => {
-    // Anchor the menu near the press point, then clamp it inside the viewport
-    // so a press near the right or bottom edge never opens a menu that runs off
-    // screen.
-    const width = 176;
-    const height = 132;
-    const left = Math.min(Math.max(8, clientX - width / 2), window.innerWidth - width - 8);
-    const top = Math.min(Math.max(8, clientY - height / 2), window.innerHeight - height - 8);
-    setPosition({ top, left });
-    setOpen(true);
-  }, []);
+  const openAt = useCallback(
+    (clientX: number, clientY: number) => {
+      // Anchor the menu near the press point, then clamp it inside the viewport
+      // so a press near the right or bottom edge never opens a menu that runs off
+      // screen.
+      //
+      // The height must follow the item count: the menu is Copy-only on incoming
+      // messages, and clamping against a hardcoded 3-item height would shove a
+      // 1-item menu ~44px further from the press than it needs to be — enough to
+      // look detached from the bubble it came from.
+      const width = 176;
+      // 12px of vertical padding plus ~40px per row (py-2.5 + a text-sm line).
+      const height = 12 + actions.length * 40;
+      const left = Math.min(Math.max(8, clientX - width / 2), window.innerWidth - width - 8);
+      const top = Math.min(Math.max(8, clientY - height / 2), window.innerHeight - height - 8);
+      setPosition({ top, left });
+      setOpen(true);
+    },
+    [actions.length]
+  );
 
   const beginPress = useCallback(
     (clientX: number, clientY: number) => {

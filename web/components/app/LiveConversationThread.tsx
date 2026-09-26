@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
 import {
+  COPY_ONLY_ACTIONS,
   MESSAGE_ACTIONS,
   MessageActionsMenu,
   type MessageAction,
@@ -284,15 +285,25 @@ export function LiveConversationThread({
               ) : null}
               <div className={isMine ? "flex justify-end" : "flex justify-start"}>
                 {/*
-                  The long-press menu wraps EVERY bubble, but is only armed for
-                  the sender's own messages (`actions={[]}` on incoming ones).
-                  Wrapping both keeps the DOM shape uniform, which matters because
-                  a differing subtree per side is what made the row heights drift
-                  between the left- and right-aligned bubbles.
+                  Permission model: the menu is offered on EVERY bubble, but the
+                  action set depends on who sent it.
+
+                    own message      -> Edit, Delete, Copy
+                    someone else's   -> Copy only
+
+                  Edit and Delete are hidden rather than disabled, so a long-press
+                  on an incoming bubble still does something useful. The server
+                  independently enforces the same rule — the UPDATE/DELETE carry
+                  `sender_id` in their WHERE clause — so this is presentation, not
+                  the security boundary.
+
+                  The wrapper renders on both sides to keep the DOM shape uniform;
+                  a differing subtree per side is what made row heights drift
+                  between left- and right-aligned bubbles.
                 */}
                 <MessageActionsMenu
                   messageId={message.id}
-                  actions={isMine ? MESSAGE_ACTIONS : []}
+                  actions={isMine ? MESSAGE_ACTIONS : COPY_ONLY_ACTIONS}
                   onAction={handleMessageAction}
                   disabled={busy}
                 >
