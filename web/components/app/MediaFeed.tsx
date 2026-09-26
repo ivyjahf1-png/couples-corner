@@ -79,6 +79,12 @@ interface MediaFeedProps {
   emptyTitle?: string;
   emptyBody?: string;
   /**
+   * Optional control rendered beneath the empty-state copy (e.g. the rewarded-ad
+   * "earn tokens" button). Passed in as a slot rather than imported, so MediaFeed
+   * stays free of reward/business logic and the host page decides what to offer.
+   */
+  rewardSlot?: ReactNode;
+  /**
    * True when rendered INSIDE AppShell. The shell already owns the 100dvh
    * viewport lock and reserves the top bar and tab nav as in-flow segments, so
    * the feed must fill the region it is given. Leaving `min-h-dvh` on in that
@@ -96,6 +102,7 @@ export function MediaFeed({
   topRightSlot,
   emptyTitle = "No moments yet",
   emptyBody = "Share a photo or short video and it will appear here for everyone.",
+  rewardSlot,
   fill = false,
 }: MediaFeedProps) {
   const router = useRouter();
@@ -684,6 +691,10 @@ export function MediaFeed({
               ) : null
             }
           />
+          {/* Reward / earn control, supplied by the host page. Sits below the
+              empty-state copy so it never competes with the primary upload
+              action above it. */}
+          {rewardSlot ? <div className="mt-4 w-full max-w-xs">{rewardSlot}</div> : null}
         </div>
       ) : (
         <>
@@ -769,6 +780,14 @@ export function MediaFeed({
               <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95 drop-shadow">
                 {current.content}
               </p>
+            ) : null}
+            {/* Reward control, pinned above the bottom bar so it is reachable
+                while the feed is populated (the empty-state copy of the same
+                slot only renders when there is nothing to play). This container
+                is pointer-events-none so taps fall through to the media beneath,
+                hence the explicit pointer-events-auto on the slot itself. */}
+            {rewardSlot ? (
+              <div className="pointer-events-auto mt-3 max-w-xs">{rewardSlot}</div>
             ) : null}
           </div>
 

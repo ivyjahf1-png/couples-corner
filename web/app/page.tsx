@@ -5,6 +5,7 @@ import { LocationBadge } from "@/components/app/LocationBadge";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
 import { InviteSignupWallFromCookie } from "@/components/app/InviteSignupWall";
+import { WatchAdForTokens } from "@/components/app/WatchAdForTokens";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { searchMembers } from "@/lib/server/profiles";
 import type { MomentView } from "@/lib/moments";
@@ -64,6 +65,7 @@ export default async function HomePage({
       fill={Boolean(session)}
       searchSlot={<MediaFeedSearch action="/" />}
       topRightSlot={<LocationBadge />}
+      rewardSlot={session ? <WatchAdForTokens /> : null}
       emptyTitle="No moments yet"
       emptyBody="Members who share a photo or short video in the Task Center see it here instantly. Be the first."
     />
