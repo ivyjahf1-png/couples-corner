@@ -6,6 +6,7 @@ import { AuthShell, Field, FormAlert } from "@/components/auth/AuthUI";
 import { Button } from "@/components/ui/Button";
 import { signInWithEmail, sendEmailSignInLink, registerAndProvision } from "@/lib/supabase/auth-client";
 import { authErrorMessage } from "@/lib/supabase/auth-errors";
+import { INVITE_STORAGE_KEY, normalizeInviteCode } from "@/lib/utils/invite";
 
 /**
  * Custom event payload: `{ which: "login" | "register" }`
@@ -153,6 +154,23 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  // Referral read from storage AFTER mount.
+  //
+  // Not read during render: `localStorage` does not exist during SSR, and a
+  // client component is server-rendered too, so touching it in the render body
+  // would throw on the server and produce a hydration mismatch. The state
+  // starts null and is filled in by the effect below.
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = window.localStorage.getItem(INVITE_STORAGE_KEY);
+    } catch {
+      /* storage disabled: the signup simply carries no referral */
+    }
+    setInviteCode(normalizeInviteCode(stored));
+  }, []);
 
   function validate(data: FormData): Record<string, string> {
     const errors: Record<string, string> = {};
@@ -182,7 +200,11 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
       await registerAndProvision(
         String(data.get("email")),
         String(data.get("password")),
-        String(data.get("displayName")).trim()
+        String(data.get("displayName")).trim(),
+        // Referral is passed here so the invite funnel records attribution.
+        // Previously the modal dropped it, and the referral was lost even though
+        // the code was still in storage.
+        inviteCode ?? undefined
       );
       notifyAuthSuccess("register");
       onClose();
@@ -221,6 +243,15 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
       </button>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {formError ? <FormAlert message={formError} /> : null}
+        {/* Confirms the referral is being honoured. Without this the visitor has
+            no way to know their friend gets credit, which is the whole reason
+            they followed the link. */}
+        {inviteCode ? (
+          <p className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm text-orange-200">
+            You were invited with code{" "}
+            <span className="font-bold">{inviteCode}</span>
+          </p>
+        ) : null}
         <Field id="displayName" label="Display name" autoComplete="name" placeholder="How should we greet you?" required error={fieldErrors.displayName} />
         <Field id="email" label="Email" type="email" autoComplete="email" placeholder="you@example.com" required error={fieldErrors.email} />
         <Field id="password" label="Password" type="password" autoComplete="new-password" placeholder="At least 8 characters" required minLength={8} hint="At least 8 characters with a letter and a number." error={fieldErrors.password} />

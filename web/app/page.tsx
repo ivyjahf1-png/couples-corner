@@ -4,6 +4,7 @@ import { MediaFeedSearch } from "@/components/app/MediaFeedSearch";
 import { LocationBadge } from "@/components/app/LocationBadge";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
+import { InviteSignupWallFromCookie } from "@/components/app/InviteSignupWall";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { searchMembers } from "@/lib/server/profiles";
 import type { MomentView } from "@/lib/moments";
@@ -70,5 +71,18 @@ export default async function HomePage({
 
   // Signed-in members get the full app chrome (sidebar + fixed bottom nav).
   // Signed-out visitors get the same feed without app chrome.
-  return session ? <AppShell>{view}</AppShell> : view;
+  //
+  // The signup wall is mounted ONLY for signed-out visitors, and only once the
+  // feed actually has something to play. Gating on a non-empty feed matters: an
+  // invite visitor arriving at 3am with an empty feed would be asked to
+  // register to watch a blank screen - strictly worse than showing nothing.
+  // The wall itself no-ops without a referral cookie.
+  const showWall = !session && moments.length > 0;
+
+  return (
+    <>
+      {session ? <AppShell>{view}</AppShell> : view}
+      {showWall ? <InviteSignupWallFromCookie /> : null}
+    </>
+  );
 }

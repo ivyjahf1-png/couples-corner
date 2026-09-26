@@ -125,7 +125,17 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function registerAndProvision(
   email: string,
   password: string,
-  displayName?: string
+  displayName?: string,
+  /**
+   * Public invite code (NNXXXX) that referred this signup.
+   *
+   * The `/register` page form has always passed this. The signup wall's modal
+   * path previously did NOT, so anyone who registered through the invite
+   * funnel silently lost their attribution even though the code was sitting in
+   * storage. Passed through to the provisioning route, which re-validates it
+   * with `resolveUserCode` and drops bogus or self-referral codes.
+   */
+  inviteCode?: string
 ): Promise<User> {
   ensureSupabaseConfigured();
   const supabase = getSupabaseClient();
@@ -162,6 +172,7 @@ export async function registerAndProvision(
       body: JSON.stringify({
         accessToken: session?.access_token,
         displayName: displayName?.trim() || undefined,
+        inviteCode,
       }),
     });
     if (!res.ok) {

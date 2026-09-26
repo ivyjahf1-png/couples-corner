@@ -1,27 +1,45 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Logo } from "@/components/ui/Logo";
-import { InviteCodeStash } from "./invite-code-stash";
-import { normalizeInviteCode } from "@/lib/utils/invite";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { normalizeInviteCode, INVITE_COOKIE } from "@/lib/utils/invite";
 
 /**
- * Public invite landing page (Server Component).
+ * Invite landing page.
  *
- * Validates the code format, then hands it to a tiny client component that
- * stashes it in localStorage before the visitor follows the link to
- * `/register?invite=CODE`. The stash is what survives a visitor who navigates
- * to /register directly, or who signs up via a social provider that drops the
- * query string; RegisterForm reads it back as a fallback.
+ * THE FUNNEL: a visitor arrives here from a shared `/invite/CODE` link. Rather
+ * than showing a static "Accept invitation" card, this route hands the
+ * referral off to the home feed and redirects there, so the visitor lands
+ * straight into the immersive feed with a video already playing. The feed then
+ * runs a 3-second timer and raises the signup wall (see
+ * `components/app/InviteSignupWall.tsx`).
+ *
+ * WHY A SERVER COOKIE IS SET HERE: the referral has to survive a redirect to
+ * `/`, and it also has to be readable by the SERVER component that renders the
+ * feed (so the wall is present in the first HTML paint, not only after
+ * hydration). A cookie is the only store that satisfies both. It is
+ * intentionally NOT httpOnly - the client reads it to pass the code into
+ * registration, which happens entirely in the browser. The value is a
+ * public, non-secret invite code, so there is nothing to protect here.
+ *
+ * Attribution survives independently of this route: `invite-code-stash` also
+ * writes localStorage, and RegisterForm reads that as a fallback.
  */
 export default async function InvitePage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const normalized = normalizeInviteCode(code);
-  if (!normalized) notFound();
+  if (!normalized) redirect("/");
 
-  return (
-    <>
-      <InviteCodeStash code={normalized} />
-      <main className="grid min-h-dvh place-items-center bg-[#0B1120] px-6 text-white"><section className="w-full max-w-md rounded-3xl border border-white/15 bg-white/5 p-8 text-center"><Logo className="mx-auto" /><p className="mt-6 text-sm text-white/60">You were invited by</p><h1 className="mt-2 text-3xl font-extrabold">Join Couple&apos;s Corner</h1><p className="mt-3 text-lg font-bold text-orange-300">{normalized}</p><p className="mt-3 text-sm text-white/70">Create your account and start building meaningful connections.</p><Link href={`/register?invite=${normalized}`} className="mt-7 inline-flex rounded-xl bg-orange-500 px-6 py-3 font-bold text-white">Accept invitation</Link></section></main>
-    </>
-  );
+  const cookieStore = await cookies();
+  cookieStore.set(INVITE_COOKIE, normalized, {
+    // Referral attribution should outlive a short browsing session - the
+    // visitor watches the feed, may explore, and only then registers. 30 days
+    // is a standard referral window; `maxAge` matches it exactly.
+    maxAge: 60 * 60 * 24 * 30,
+    path: "/",
+    sameSite: "lax",
+    // `secure` so the referral is never sent over plaintext. This is a
+    // production HTTPS app; the guard keeps local http dev working.
+    secure: process.env.NODE_ENV === "production",
+  });
+
+  redirect("/");
 }
