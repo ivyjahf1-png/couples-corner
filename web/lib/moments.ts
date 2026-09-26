@@ -34,6 +34,9 @@ export interface MomentView {
   myReactionKind: ReactionKind | null;
   /** True when the viewing member authored the moment (own-post affordances). */
   isMine: boolean;
+  /** Follower count for the author, and whether the viewer follows them. */
+  authorFollowerCount: number;
+  amFollowingAuthor: boolean;
 }
 
 /** A single comment, as rendered in the feed's comment sheet. */

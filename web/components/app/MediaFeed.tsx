@@ -14,6 +14,7 @@ import {
 import { EmptyState } from "@/components/app/EmptyState";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { usePresence } from "@/lib/hooks/usePresence";
+import { setFollowAction } from "@/lib/actions/follow";
 import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
 import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
@@ -130,6 +131,14 @@ export function MediaFeed({
   // into view.
   const commentListRef = useRef<HTMLDivElement>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  // Follow overrides keyed by author id, superseded by each action's result.
+  // Held separately from `social` because a follow is a property of the AUTHOR,
+  // not of one moment: following someone once must hold for every card they
+  // have posted, so it cannot be keyed by moment id.
+  const [followOverrides, setFollowOverrides] = useState<
+    Record<string, { following: boolean; followerCount: number }>
+  >({});
+  const [followBusy, setFollowBusy] = useState(false);
   // Which emoji the viewer currently used, so the row can highlight it.
   const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -157,6 +166,51 @@ export function MediaFeed({
   const reacted = current
     ? (social[current.id]?.reacted ?? current.reactedByMe ?? false)
     : false;
+  // Follow state for the ACTIVE card's author, with any local override applied.
+  const amFollowingAuthor = current
+    ? (followOverrides[current.userId]?.following ?? current.amFollowingAuthor ?? false)
+    : false;
+
+  /**
+   * Follow / unfollow the active card's author.
+   *
+   * Optimistic, then reconciled with the server's follower count. The override
+   * is keyed by AUTHOR rather than moment id, so tapping Follow on one card
+   * immediately updates every other card that same member has posted - the
+   * button must never disagree with itself as the viewer scrolls.
+   */
+  function toggleFollow() {
+    if (!current || current.isMine || !viewerId || followBusy) return;
+    const targetId = current.userId;
+    const base = followOverrides[targetId] ?? {
+      following: current.amFollowingAuthor ?? false,
+      followerCount: current.authorFollowerCount ?? 0,
+    };
+    const next = !base.following;
+    setFollowBusy(true);
+    setFollowOverrides((prev) => ({
+      ...prev,
+      [targetId]: {
+        following: next,
+        followerCount: Math.max(0, base.followerCount + (next ? 1 : -1)),
+      },
+    }));
+    startTransition(async () => {
+      const result = await setFollowAction({ targetUserId: targetId, follow: next });
+      setFollowBusy(false);
+      if (!result.ok) {
+        // Roll back to the server-known state.
+        setFollowOverrides((prev) => ({ ...prev, [targetId]: base }));
+        setSendError(result.error ?? "Couldn't update follow");
+        return;
+      }
+      setFollowOverrides((prev) => ({
+        ...prev,
+        [targetId]: { following: result.following, followerCount: result.followerCount },
+      }));
+      setSendError(null);
+    });
+  }
   const commentCount = current
     ? (social[current.id]?.comments ?? current.commentCount ?? 0)
     : 0;
@@ -566,6 +620,33 @@ export function MediaFeed({
                 ) : null}
             </p>
             </div>
+
+            {/* Follow control.
+                Deliberately in the creator bar rather than the action rail:
+                the rail is a fixed-width column whose geometry was just fixed
+                (0deef74), and a variable-width pill would re-introduce the
+                overlap that commit removed. */}
+            {current && !current.isMine ? (
+              <button
+                type="button"
+                onClick={toggleFollow}
+                disabled={!viewerId || followBusy}
+                aria-pressed={amFollowingAuthor}
+                aria-label={
+                  amFollowingAuthor
+                    ? `Unfollow ${current.authorName ?? "this member"}`
+                    : `Follow ${current.authorName ?? "this member"}`
+                }
+                className={[
+                  "shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 disabled:opacity-50",
+                  amFollowingAuthor
+                    ? "border border-white/25 bg-white/10 text-white/80"
+                    : "border border-transparent bg-white text-slate-950",
+                ].join(" ")}
+              >
+                {amFollowingAuthor ? "Following" : "Follow"}
+              </button>
+            ) : null}
           </div>
         ) : null}
 

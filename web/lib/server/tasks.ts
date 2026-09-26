@@ -17,6 +17,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { fetchAuthors } from "@/lib/server/profile-lookup";
+import { getFollowStates } from "@/lib/server/follows";
 import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 
 /**
@@ -462,10 +463,15 @@ export async function getRecentMoments(
 
   const ids = rows.map((row) => row.id);
 
-  const [reactionsResult, commentsResult, authors] = await Promise.all([
+  const [reactionsResult, commentsResult, authors, followStates] = await Promise.all([
     supabase.from("moment_reactions").select("moment_id, user_id").in("moment_id", ids),
     supabase.from("moment_comments").select("moment_id").in("moment_id", ids),
     fetchAuthors(rows.map((row) => row.user_id)),
+    // Batched across every author on screen - one pass, not one per card.
+    getFollowStates(
+      viewerId,
+      Array.from(new Set(rows.map((row) => row.user_id)))
+    ),
   ]);
 
   // Engagement tables are optional (migration 036 may be unapplied), so their
@@ -526,6 +532,10 @@ export async function getRecentMoments(
       reactedByMe: reactedBy.has(row.id),
       myReactionKind: myReactionKind.get(row.id) ?? null,
       isMine: Boolean(viewerId && row.user_id === viewerId),
+      // Absent from the map means "no follow row" -> not following, zero
+      // followers, which is the correct reading for a member nobody follows.
+      authorFollowerCount: followStates.get(row.user_id)?.followerCount ?? 0,
+      amFollowingAuthor: followStates.get(row.user_id)?.following ?? false,
     };
   });
 }
