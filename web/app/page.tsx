@@ -58,8 +58,8 @@ export default async function HomePage({
     <MediaFeed
       moments={moments}
       viewerId={session?.uid ?? null}
-      /* Inside AppShell the shell owns the viewport lock, so the feed must fill
-         the region rather than claim a full 100dvh of its own. */
+      // Inside AppShell the shell owns the viewport lock, so the feed must fill
+      // the region rather than claim a full 100dvh of its own.
       fill={Boolean(session)}
       searchSlot={<MediaFeedSearch action="/" />}
       topRightSlot={<LocationBadge />}

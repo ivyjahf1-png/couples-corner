@@ -79,8 +79,8 @@ export default async function ProfilePage() {
       className="mx-auto w-full max-w-xl"
       bodyClassName="flex flex-col gap-5 pb-10"
       head={
-        /* The identity card stays pinned; the stats, menu and gallery below it
-           are the only things that scroll. */
+        // The identity card stays pinned; the stats, menu and gallery below it
+        // are the only things that scroll.
         <section aria-label="Profile header" className="glam-shell p-5 sm:p-6">
         <div className="relative flex items-start gap-3">
           <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-rose-400 to-indigo-400 p-[2px] shadow-lg shadow-rose-500/20">
@@ -162,12 +162,12 @@ export default async function ProfilePage() {
       }
     >
 
-      /* ------------------------------------------------------------------
-         TABBED BODY. One category is mounted at a time (see ProfileTabs), so
-         the first screen is never the full clutter stack. The identity card
-         above stays pinned in PageLock's head slot; only the active panel
-         scrolls, inside PageLock's single overflow-y-auto body.
-         ------------------------------------------------------------------ */
+      {/* ------------------------------------------------------------------
+          TABBED BODY. One category is mounted at a time (see ProfileTabs), so
+          the first screen is never the full clutter stack. The identity card
+          above stays pinned in PageLock's head slot; only the active panel
+          scrolls, inside PageLock's single overflow-y-auto body.
+          ------------------------------------------------------------------ */}
       <ProfileTabs
         panels={
           {
