@@ -301,8 +301,14 @@ export async function publishMomentFromStorage(
 
     const publicUrl = supabase.storage.from("user-media").getPublicUrl(path).data.publicUrl;
 
-    // Mirror the gallery row so the moment also appears on the member's profile.
-    // Best-effort: a failure here must not block publishing the moment itself.
+    // The permanent-gallery link (REQUIREMENT: every published moment stays in the
+    // member's profile gallery until they delete it).
+    //
+    // This used to be best-effort, which quietly violated that guarantee: if the
+    // insert failed the moment still went live while the gallery row silently did
+    // not, so the member could never find or delete their own upload. It is now a
+    // hard precondition — if the gallery row cannot be written, the upload is
+    // rolled back and nothing is published.
     const { data: maxRow } = await supabase
       .from("user_media")
       .select("sort_order")
@@ -311,6 +317,7 @@ export async function publishMomentFromStorage(
       .limit(1)
       .maybeSingle();
     const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+
     const { error: mediaRowError } = await supabase.from("user_media").insert({
       user_id: userId,
       storage_path: path,
@@ -319,7 +326,19 @@ export async function publishMomentFromStorage(
       sort_order: sortOrder,
     });
     if (mediaRowError) {
-      console.error("[moments] user_media mirror failed", mediaRowError);
+      console.error("[moments] user_media link failed, rolling back", mediaRowError);
+      // Remove the uploaded object: it is now unreferenced and unreachable from
+      // the UI, so leaving it would burn storage forever.
+      const { error: cleanupError } = await supabase.storage
+        .from("user-media")
+        .remove([path]);
+      if (cleanupError) {
+        console.error("[moments] rollback cleanup failed", cleanupError);
+      }
+      return {
+        ok: false,
+        error: `Could not save this to your profile: ${mediaRowError.message}`,
+      };
     }
 
     // The moments row. Only real columns: user_id, media_url, media_type and the
@@ -341,6 +360,17 @@ export async function publishMomentFromStorage(
 
     if (error || !data) {
       console.error("[moments] publish insert failed", error);
+      // Roll back the gallery row created above. Publishing must be all-or-
+      // nothing: a gallery entry with no moment is an orphan the member can see
+      // but never explain, which is the mirror image of the bug above.
+      const { error: rollbackError } = await supabase
+        .from("user_media")
+        .delete()
+        .eq("user_id", userId)
+        .eq("storage_path", path);
+      if (rollbackError) {
+        console.error("[moments] gallery rollback failed", rollbackError);
+      }
       return {
         ok: false,
         error: error

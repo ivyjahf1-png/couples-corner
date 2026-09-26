@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
-import { completeOnboardingAction } from "@/lib/actions/profile";
-import { getFreshAccessToken } from "@/lib/supabase/auth-client";
+import { completeOnboardingAction, setProfilePhotoAction } from "@/lib/actions/profile";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { PROFILE_PHOTOS_BUCKET, uploadFileDirect } from "@/lib/utils/direct-upload";
 
 type Gender = "male" | "female";
 
@@ -66,24 +67,35 @@ function PersonalInfoStep({ data, onUpdate, onBack, onComplete, saving, error }:
     setUploading(true);
     setUploadError(null);
     try {
-      const accessToken = await getFreshAccessToken();
-      if (!accessToken) {
+      // Straight to the `photos` bucket, then a small action links it to the
+      // profile row. Posting FormData to /api/photos/profile made the file the
+      // request body of a Vercel function, so anything over 4.5 MB was rejected
+      // before our code ran — and this step's own cap (5 MB) sat just above
+      // that cliff, so a 4.6 MB photo failed with a network error.
+      const uid = data.uid;
+      if (!uid) throw new Error("Your account is still being set up. Please try again.");
+
+      const { data: auth } = await getSupabaseClient().auth.getUser();
+      if (!auth.user || auth.user.id !== uid) {
         throw new Error("You're signed out. Please sign in again, then retry the upload.");
       }
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("uid", data.uid ?? "");
-      const response = await fetch("/api/photos/profile", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
+
+      const uploaded = await uploadFileDirect(uid, file, {
+        bucket: PROFILE_PHOTOS_BUCKET,
+        profilePhoto: true,
       });
-      if (!response.ok) {
-        const resData = await response.json().catch(() => ({}));
-        throw new Error(resData.error || "Upload failed");
+      if (!uploaded.ok) throw new Error(uploaded.error);
+
+      const linked = await setProfilePhotoAction({ userId: uid, storagePath: uploaded.storagePath });
+      if (!linked.ok) {
+        // Roll back the orphaned object so a failed link cannot strand storage.
+        await getSupabaseClient()
+          .storage.from(PROFILE_PHOTOS_BUCKET)
+          .remove([uploaded.storagePath])
+          .catch(() => undefined);
+        throw new Error(linked.error);
       }
-      const result = await response.json();
-      onUpdate("avatarUrl", result.url);
+      onUpdate("avatarUrl", linked.url);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {

@@ -5,8 +5,13 @@ import { Avatar } from "@/components/app/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/landing/Icon";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { setProfilePhotoAction } from "@/lib/actions/profile";
+import {
+  PROFILE_PHOTOS_BUCKET,
+  uploadFileDirect,
+} from "@/lib/utils/direct-upload";
 import { PROFILE_PHOTO_MIME_TYPES, validateMediaFile } from "@/lib/utils/media-upload";
-import { uploadWithProgress } from "@/lib/utils/upload-progress";
 
 interface ProfilePhotoUploaderProps {
   uid: string;
@@ -47,23 +52,41 @@ export function ProfilePhotoUploader({
     setProgress(0);
 
     try {
-      // Attach a fresh Supabase access token: the httpOnly session cookie
-      // holds the sign-in-time token (expires ~1h) while the browser client
-      // auto-refreshes. Without this, uploads fail with 401 for long-lived
-      // sessions even though the user is still signed in.
-      const accessToken = await getFreshAccessToken();
-      if (!accessToken) {
+      // The photo goes straight to the `photos` bucket from the browser, then a
+      // small action links it to the profile row.
+      //
+      // This previously posted FormData to /api/photos/profile, which made the
+      // file the request body of a Vercel function — so the UI promised "up to
+      // 20 MB" while the platform silently refused anything over 4.5 MB. See
+      // lib/utils/direct-upload.ts for the full explanation.
+      const { data: auth } = await getSupabaseClient().auth.getUser();
+      if (!auth.user || auth.user.id !== uid) {
         throw new Error("You're signed out. Please sign in again, then retry the upload.");
       }
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("uid", uid);
+      const uploaded = await uploadFileDirect(uid, file, {
+        bucket: PROFILE_PHOTOS_BUCKET,
+        profilePhoto: true,
+        onProgress: setProgress,
+      });
+      if (!uploaded.ok) throw new Error(uploaded.error);
 
-      const result = await uploadWithProgress("/api/photos/profile", formData,
-        { Authorization: `Bearer ${accessToken}` }, setProgress) as { url?: string };
-      if (!result.url) throw new Error("Upload response did not include a photo URL.");
-      onUploadComplete(result.url);
+      // Only the path crosses the server boundary now.
+      const linked = await setProfilePhotoAction({
+        userId: uid,
+        storagePath: uploaded.storagePath,
+      });
+      if (!linked.ok) {
+        // Roll the uploaded object back: if the profile row was not updated the
+        // file is unreachable from the UI, so leaving it would strand storage.
+        await getSupabaseClient()
+          .storage.from(PROFILE_PHOTOS_BUCKET)
+          .remove([uploaded.storagePath])
+          .catch(() => undefined);
+        throw new Error(linked.error);
+      }
+
+      onUploadComplete(linked.url);
       setSuccess(true);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Upload failed");

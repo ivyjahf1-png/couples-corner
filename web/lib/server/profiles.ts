@@ -721,6 +721,74 @@ export async function completeOnboarding(uid: string, input: ProfileUpdateInput)
 
   await recordAudit({ adminUserId: uid, action: "update", targetRef: { type: "onboarding", id: uid }, reason: "onboarding completed" });
 }
+/**
+ * Link an ALREADY-UPLOADED profile photo to the profile row.
+ *
+ * Split out of `uploadProfilePhoto` so the browser can upload the bytes straight
+ * to the `photos` bucket (bypassing Vercel's 4.5 MB function body cap) and then
+ * call this with just the path. The two halves must stay in step: the storage
+ * write and the profile-row write have always been a pair with a rollback
+ * between them, and separating them without care is how a photo ends up
+ * referenced by the profile but missing from the bucket, or vice versa.
+ *
+ * `uploadProfilePhoto` remains the combined server-side path and is still used
+ * wherever the file already arrives on the server; both share this function so
+ * the jsonb validation and compare-and-swap cannot drift apart.
+ */
+export async function linkProfilePhoto(
+  uid: string,
+  path: string
+): Promise<{ url: string; path: string }> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) {
+    throw new Error("Supabase not configured");
+  }
+
+  // Ownership: the path must sit in this member's own folder. The service-role
+  // client bypasses RLS, so without this the caller could point their profile at
+  // any object in the bucket.
+  if (!path.startsWith(`profiles/${uid}/`) || path.includes("..") || path.includes("\\")) {
+    console.error("[profile-photo] rejected foreign path", { uid, path });
+    throw new Error("You can only set your own profile photo.");
+  }
+
+  const { data: profileRow, error: profileError } = await supabase
+    .from("profiles").select("photos").eq("user_id", uid).single();
+  if (profileError || !profileRow) {
+    console.error("[profile-photo] profile lookup failed", profileError);
+    throw new Error("Could not load your profile. Save your profile details first, then retry.");
+  }
+  const existing = profileRow.photos as ProfilePhoto[] | null;
+  if (existing !== null && (!Array.isArray(existing) || existing.some(
+    (photo) => !photo || typeof photo !== "object" || typeof photo.storagePath !== "string"
+  ))) {
+    console.error("[profile-photo] incompatible photos data; apply migration 015_profile_photos_jsonb_repair.sql");
+    throw new Error("Profile photo storage needs a database repair. Please contact support.");
+  }
+
+  const photos: ProfilePhoto[] = [
+    { id: path, storagePath: path, isPrimary: true },
+    ...(existing ?? []).map((photo) => ({ ...photo, isPrimary: false })),
+  ];
+  // Compare-and-swap prevents concurrent uploads from losing existing photos.
+  let save = supabase.from("profiles")
+    .update({ photos, updated_at: new Date().toISOString() }).eq("user_id", uid);
+  save = existing === null ? save.is("photos", null) : save.eq("photos", JSON.stringify(existing));
+  const { data: saved, error: saveError } = await save.select("user_id").single();
+  if (saveError || !saved) {
+    console.error("[profile-photo] save failed", saveError);
+    if (saveError?.code === "22P02" || saveError?.code === "42883") {
+      console.error("[profile-photo] check photos column type; apply migration 015_profile_photos_jsonb_repair.sql");
+      throw new Error("Profile photo storage needs a database repair. Please contact support.");
+    }
+    throw new Error("Photo could not be linked to your profile. Please retry.");
+  }
+
+  await recordAuditBestEffort({ adminUserId: uid, action: "upload", targetRef: { type: "profilePhoto", id: path }, reason: "profile photo upload" });
+
+  return { url: photoStoragePathToApiUrl(path), path };
+}
+
 export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url: string; path: string }> {
   const validationError = validateMediaFile(file, true);
   if (validationError) throw new Error(validationError);
@@ -759,27 +827,16 @@ export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url
     throw new Error(`Failed to upload photo: ${uploadError.message}`);
   }
 
-  const photos: ProfilePhoto[] = [
-    { id: path, storagePath: path, isPrimary: true },
-    ...(existing ?? []).map((photo) => ({ ...photo, isPrimary: false })),
-  ];
-  // Compare-and-swap prevents concurrent uploads from losing existing photos.
-  let save = supabase.from("profiles")
-    .update({ photos, updated_at: new Date().toISOString() }).eq("user_id", uid);
-  save = existing === null ? save.is("photos", null) : save.eq("photos", JSON.stringify(existing));
-  const { data: saved, error: saveError } = await save.select("user_id").single();
-  if (saveError || !saved) {
-    console.error("[profile-photo] save failed", saveError);
-    const { error: cleanupError } = await supabase.storage.from(PROFILE_PHOTOS_BUCKET).remove([path]);
+  try {
+    return await linkProfilePhoto(uid, path);
+  } catch (error) {
+    // The profile row could not be updated, so the uploaded object is now
+    // unreferenced. Remove it: an orphaned file in the bucket is invisible,
+    // costs storage forever, and is exactly what "delete removes it" has to
+    // not leave behind.
+    const { error: cleanupError } = await supabase.storage
+      .from(PROFILE_PHOTOS_BUCKET).remove([path]);
     if (cleanupError) console.error("[profile-photo] cleanup failed", cleanupError);
-    if (saveError?.code === "22P02" || saveError?.code === "42883") {
-      console.error("[profile-photo] check photos column type; apply migration 015_profile_photos_jsonb_repair.sql");
-      throw new Error("Profile photo storage needs a database repair. Please contact support.");
-    }
-    throw new Error("Photo could not be linked to your profile. Please retry.");
+    throw error;
   }
-
-  await recordAuditBestEffort({ adminUserId: uid, action: "upload", targetRef: { type: "profilePhoto", id: path }, reason: "profile photo upload" });
-
-  return { url: photoStoragePathToApiUrl(path), path };
 }

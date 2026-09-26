@@ -11,6 +11,7 @@ import {
   createProfile,
   getOwnProfile,
   updateOwnProfile,
+  linkProfilePhoto,
   type ProfileUpdateInput,
 } from "@/lib/server/profiles";
 import { publishMoment } from "@/lib/server/tasks";
@@ -21,6 +22,23 @@ export interface MediaUploadResult {
   data?: { id: string; publicUrl: string; storagePath: string };
 }
 
+/**
+ * DEPRECATED — do not call this for new code.
+ *
+ * This action receives the whole `File` as a Server Action request body, so it
+ * cannot work for anything over Vercel's 4.5 MB function body limit: the request
+ * is rejected with 413 before this function body runs, and the action client
+ * throws E394 ("An unexpected response was received from the server"). No
+ * error handling here can catch that, because the code never executes.
+ *
+ * It is retained only because `web/scripts/test-profile-photo.cjs` exercises it
+ * directly. New callers must use the two-step flow instead:
+ *
+ *   1. `uploadFileDirect(uid, file, ...)` in lib/utils/direct-upload.ts — the
+ *      bytes go browser -> Supabase Storage, no function in the path.
+ *   2. `recordUserMediaAction({ userId, storagePath, mediaType, caption })` —
+ *      a few hundred bytes of JSON that writes the database row.
+ */
 export async function uploadUserMediaAction(
   userId: string,
   file: File,
@@ -126,6 +144,156 @@ export async function uploadUserMediaAction(
 }
 
 /**
+ * Record a `user_media` row for a file the browser has ALREADY uploaded.
+ *
+ * This is the second half of every direct upload. `uploadUserMediaAction` above
+ * combined "upload bytes + write row" and so had to receive the File through the
+ * Server Action, which capped it at Vercel's 4.5 MB function body limit. The
+ * bytes now go browser -> storage via lib/utils/direct-upload.ts, and only this
+ * small JSON payload crosses the action boundary.
+ *
+ * SECURITY: `storagePath` is client-supplied and is therefore NOT trusted. It
+ * must sit under the caller's own folder; without that check a member could
+ * register someone else's private media in their own gallery. The service-role
+ * client bypasses RLS, so this check is the only thing enforcing ownership.
+ *
+ * Idempotent per path: re-recording the same path returns the existing row rather
+ * than creating a duplicate, so a retry after a dropped response is safe.
+ */
+export async function recordUserMediaAction(params: {
+  userId: string;
+  storagePath: string;
+  mediaType: "image" | "video";
+  caption?: string;
+}): Promise<MediaUploadResult> {
+  try {
+    await requireSessionUid(params.userId);
+
+    const path = (params.storagePath ?? "").trim();
+    if (!path.startsWith(`${params.userId}/`) || path.includes("..") || path.includes("\\")) {
+      console.error("[user-media] rejected foreign storage path", {
+        userId: params.userId,
+        path,
+      });
+      return { ok: false, error: "You can only add your own media." };
+    }
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    const mediaType: "image" | "video" = params.mediaType === "video" ? "video" : "image";
+
+    // Already recorded (retry after a lost response): return it untouched.
+    const { data: existing } = await supabase
+      .from("user_media")
+      .select("id, storage_path")
+      .eq("user_id", params.userId)
+      .eq("storage_path", path)
+      .limit(1)
+      .maybeSingle();
+    if (existing) {
+      const url = supabase.storage.from("user-media").getPublicUrl(path).data.publicUrl;
+      return {
+        ok: true,
+        data: {
+          id: (existing as { id: string }).id,
+          publicUrl: url,
+          storagePath: path,
+        },
+      };
+    }
+
+    // Confirm the object is really in the bucket before recording it, so the
+    // gallery can never list a file that 404s.
+    const folder = path.slice(0, path.lastIndexOf("/"));
+    const name = path.slice(path.lastIndexOf("/") + 1);
+    const { data: found, error: listError } = await supabase.storage
+      .from("user-media")
+      .list(folder, { search: name, limit: 1 });
+    if (listError) {
+      return { ok: false, error: `Could not verify the upload: ${listError.message}` };
+    }
+    if (!found || found.length === 0) {
+      return { ok: false, error: "The upload did not complete. Please try again." };
+    }
+
+    const { data: maxRow, error: orderError } = await supabase
+      .from("user_media")
+      .select("sort_order")
+      .eq("user_id", params.userId)
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (orderError) {
+      console.error("[user-media] sort_order lookup failed", orderError);
+      return { ok: false, error: "Media storage is not ready. Contact support to check the database migration." };
+    }
+    const sortOrder = (maxRow?.sort_order ?? -1) + 1;
+
+    const { data: inserted, error: insertErr } = await supabase
+      .from("user_media")
+      .insert({
+        user_id: params.userId,
+        storage_path: path,
+        media_type: mediaType,
+        caption: params.caption?.trim() ? params.caption.trim() : null,
+        sort_order: sortOrder,
+      })
+      .select("id")
+      .single();
+
+    if (insertErr || !inserted) {
+      console.error("[user-media] record failed", insertErr);
+      return { ok: false, error: insertErr?.message ?? "Failed to save media record" };
+    }
+
+    const url = supabase.storage.from("user-media").getPublicUrl(path).data.publicUrl;
+
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${params.userId}`);
+    revalidatePath("/feed");
+    revalidatePath("/discover");
+
+    return {
+      ok: true,
+      data: { id: inserted.id, publicUrl: url, storagePath: path },
+    };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    console.error("[user-media] record action failed:", err);
+    return { ok: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Point the signed-in member's profile at a photo they already uploaded to the
+ * `photos` bucket.
+ *
+ * The counterpart to the direct upload in ProfilePhotoUploader: the file goes
+ * straight to storage, this only writes the profile row. Ownership of the path is
+ * re-checked server-side.
+ */
+export async function setProfilePhotoAction(params: {
+  userId: string;
+  storagePath: string;
+}): Promise<{ ok: true; url: string } | { ok: false; error: string }> {
+  try {
+    await requireSessionUid(params.userId);
+    const result = await linkProfilePhoto(params.userId, params.storagePath);
+    revalidatePath("/profile");
+    revalidatePath(`/profile/${params.userId}`);
+    return { ok: true, url: result.url };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    console.error("[profile-photo] link action failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Couldn't set your profile photo.",
+    };
+  }
+}
+
+/**
  * Publish an existing profile-gallery item to the community Moments feed.
  *
  * Deliberately OPT-IN rather than automatic: a profile gallery is a private-ish
@@ -208,6 +376,36 @@ export async function deleteUserMediaAction(
 
     if (storageErr) {
       return { ok: false, error: `Failed to delete file: ${storageErr.message}` };
+    }
+
+    // Also remove any moment published from this file.
+    //
+    // A moment stores the file's public URL, not a foreign key back to
+    // user_media, so deleting the gallery row alone leaves a moment in the feed
+    // pointing at a file that no longer exists — a permanently broken card that
+    // no amount of retrying will fix. Deleting "the media" has to mean the
+    // moment too, otherwise the item is only half deleted.
+    const publicUrl = supabase.storage
+      .from("user-media")
+      .getPublicUrl(media.storage_path).data.publicUrl;
+    const { error: momentErr } = await supabase
+      .from("moments")
+      .delete()
+      .eq("user_id", userId)
+      .eq("media_url", publicUrl);
+    if (momentErr) {
+      // The storage object and gallery row are already gone, so this cannot be
+      // rolled back. Log loudly rather than reporting a failure the member
+      // cannot act on, and let them know a stray moment may remain.
+      console.error("[user-media] orphaned moment after delete", {
+        userId,
+        publicUrl,
+        ...momentErr,
+      });
+      return {
+        ok: false,
+        error: "File deleted, but a feed post still references it. Please contact support.",
+      };
     }
 
     const { error: dbErr } = await supabase

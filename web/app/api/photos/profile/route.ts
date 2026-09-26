@@ -7,11 +7,29 @@ import { recordAuditBestEffort } from "@/lib/server/audit";
 /**
  * POST /api/photos/profile
  *
- * Authenticated profile-photo upload. The file is validated (type + size),
- * owned by the session user's uid in the storage path, and recorded on their
- * profile document via the Admin SDK. The browser never sees Admin credentials.
+ * LEGACY — superseded by direct browser -> storage upload.
+ *
+ * This route reads the file with `await request.formData()`, which makes it the
+ * request body of a Vercel function. Vercel rejects any function request body
+ * over 4.5 MB with 413 FUNCTION_PAYLOAD_TOO_LARGE *before* this handler runs,
+ * so a photo between 4.5 MB and the advertised 20 MB cap could never be
+ * uploaded through here — the client just saw a network error.
+ *
+ * Kept working and kept correct rather than deleted, because removing an
+ * endpoint is a breaking change for any client that has not been redeployed (a
+ * cached old bundle, a native wrapper). New code should use:
+ *   1. `uploadFileDirect(uid, file, { bucket: "photos", profilePhoto: true })`
+ *   2. `setProfilePhotoAction({ userId, storagePath })`
+ *
+ * Auth = httpOnly session cookie, with fallback to an Authorization bearer
+ * token carrying a fresh Supabase access token (the cookie's token expires
+ * after ~1h while the cookie lives 14 days; see lib/supabase/auth-client).
  */
 export async function POST(request: NextRequest) {
+  console.warn(
+    "[profile-photo] legacy upload route used; migrate the client to direct storage upload"
+  );
+
   // Auth = httpOnly session cookie, with fallback to an Authorization bearer
   // token carrying a fresh Supabase access token (the cookie's token expires
   // after ~1h while the cookie lives 14 days; see lib/supabase/auth-client).
