@@ -86,12 +86,42 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
+/**
+ * Critical, render-blocking styles inlined into <head>.
+ *
+ * WHY THIS IS INLINE: the dark canvas on <body> is defined in globals.css, and
+ * <html> has no background of its own. Until that stylesheet is fetched and
+ * parsed, the browser paints the root canvas WHITE and renders unstyled text —
+ * a flash of unstyled content, most visible on the public invite landing page
+ * where a visitor is on a cold cache and on a slow connection.
+ *
+ * Inlining a handful of bytes removes the flash entirely, because the first
+ * paint is already dark. This is deliberately NOT a JS "hide until mounted"
+ * trick: a gate that starts at opacity-0 leaves the page blank for any visitor
+ * whose JS fails, is slow, or has it disabled, and hides content from crawlers.
+ * These rules are unconditional and need no hydration.
+ *
+ * The values mirror :root/body in globals.css. If the palette there changes,
+ * update the fallbacks below too — they are a pre-paint approximation, not a
+ * source of truth.
+ */
+const CRITICAL_CSS = `
+  html { background-color: #080b18; color-scheme: dark; }
+  body { background-color: #080b18; color: #f8fafc; margin: 0; }
+  @media (prefers-color-scheme: light) {
+    html, body { background-color: #080b18; }
+  }
+`.trim();
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        <style dangerouslySetInnerHTML={{ __html: CRITICAL_CSS }} />
+      </head>
       <body className="app-canvas flex min-h-full flex-col overflow-x-hidden overscroll-y-none text-foreground">
         <ThemeColorSync />
         <FailureToasts />
