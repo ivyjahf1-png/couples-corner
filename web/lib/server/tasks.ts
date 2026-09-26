@@ -15,6 +15,8 @@ import "server-only";
  */
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
+import { fetchAuthors } from "@/lib/server/profile-lookup";
 import type { MomentCommentView, MomentView } from "@/lib/moments";
 
 /**
@@ -399,11 +401,31 @@ export async function publishMomentFromStorage(
 /**
  * Recent public moments, newest first, syndicated to the home discovery feed.
  *
- * Engagement (reaction count, comment count, "did I react") is aggregated in
- * parallel queries rather than N+1 per row. `moment_reactions` /
- * `moment_comments` only exist once migration 036 has been applied; on an
- * un-migrated database those selects fail soft and the feed still renders with
- * zeroed counters.
+ * ── WHY THE AUTHOR JOIN IS DONE IN CODE, NOT IN THE SELECT ───────────────────
+ * This used to read the author with a PostgREST embed:
+ *
+ *   .select("..., profiles(display_name, photos)")
+ *
+ * PostgREST can only resolve an embedded resource through a DECLARED FOREIGN
+ * KEY. `moments.user_id` references `auth.users(id)` (migration 034) and
+ * `profiles.user_id` is merely UNIQUE (migration 005) — there is no foreign key
+ * from `moments` to `profiles`, so PostgREST rejects the relationship and fails
+ * the ENTIRE query with "Could not find a relationship between 'moments' and
+ * 'profiles' in the schema cache".
+ *
+ * That failure was invisible: the result was destructured to `{ data: rows }`
+ * with the `error` discarded, so `rows` was null, `rows ?? []` produced an empty
+ * array, and the home feed rendered "No moments yet" while the same rows were
+ * perfectly readable without the embed. Uploads were unaffected, which is why
+ * it presented as "I uploaded a video but the feed is empty".
+ *
+ * So the author data is fetched in its own query and stitched in JS. This is
+ * also the same shape already used for reactions/comments below, and it keeps
+ * working whether or not a moments -> profiles FK exists.
+ *
+ * Every query here now logs its error. A silently swallowed PostgREST error is
+ * indistinguishable from "there is genuinely nothing to show", which is exactly
+ * what made this bug so hard to see.
  *
  * `viewerId` is optional: an anonymous visitor still gets the feed, just with
  * `reactedByMe` false everywhere.
@@ -415,29 +437,49 @@ export async function getRecentMoments(
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data: idRows } = await supabase
+  // One query for the moments themselves — no embed, so no dependency on a
+  // moments -> profiles relationship that does not exist.
+  const { data: momentRows, error: momentsError } = await supabase
     .from("moments")
-    .select("id")
+    .select("id, user_id, content, media_url, media_type, created_at")
     .order("created_at", { ascending: false })
     .limit(limit);
-  const ids = (idRows ?? [])
-    .map((row) => (row as { id?: string | null }).id)
-    .filter((id): id is string => Boolean(id));
-  if (ids.length === 0) return [];
 
-  const [{ data: reactions }, { data: comments }, { data: rows }] = await Promise.all([
+  if (momentsError) {
+    console.error("[moments] feed query failed", supabaseErrorDetail(momentsError));
+    return [];
+  }
+
+  const rows = (momentRows ?? []) as Array<{
+    id: string;
+    user_id: string;
+    content: string;
+    media_url: string;
+    media_type: "image" | "video";
+    created_at: string;
+  }>;
+  if (rows.length === 0) return [];
+
+  const ids = rows.map((row) => row.id);
+
+  const [reactionsResult, commentsResult, authors] = await Promise.all([
     supabase.from("moment_reactions").select("moment_id, user_id").in("moment_id", ids),
     supabase.from("moment_comments").select("moment_id").in("moment_id", ids),
-    supabase
-      .from("moments")
-      .select("id, user_id, content, media_url, media_type, created_at, profiles(display_name, photos)")
-      .in("id", ids)
-      .order("created_at", { ascending: false }),
+    fetchAuthors(rows.map((row) => row.user_id)),
   ]);
+
+  // Engagement tables are optional (migration 036 may be unapplied), so their
+  // failures only zero the counters rather than emptying the feed.
+  if (reactionsResult.error) {
+    console.error("[moments] reactions query failed", supabaseErrorDetail(reactionsResult.error));
+  }
+  if (commentsResult.error) {
+    console.error("[moments] comments query failed", supabaseErrorDetail(commentsResult.error));
+  }
 
   const reactionCounts = new Map<string, number>();
   const reactedBy = new Set<string>();
-  for (const raw of reactions ?? []) {
+  for (const raw of reactionsResult.data ?? []) {
     const r = raw as { moment_id?: string | null; user_id?: string | null };
     if (!r.moment_id) continue;
     reactionCounts.set(r.moment_id, (reactionCounts.get(r.moment_id) ?? 0) + 1);
@@ -445,32 +487,22 @@ export async function getRecentMoments(
   }
 
   const commentCounts = new Map<string, number>();
-  for (const raw of comments ?? []) {
+  for (const raw of commentsResult.data ?? []) {
     const c = raw as { moment_id?: string | null };
     if (!c.moment_id) continue;
     commentCounts.set(c.moment_id, (commentCounts.get(c.moment_id) ?? 0) + 1);
   }
 
-  return (rows ?? []).map((raw) => {
-    const row = raw as {
-      id: string;
-      user_id: string;
-      content: string;
-      media_url: string;
-      media_type: "image" | "video";
-      created_at: string;
-      profiles?: { display_name?: string | null; photos?: unknown } | null;
-    };
-    const photos = row.profiles?.photos;
-    const firstPhoto = Array.isArray(photos) && photos.length > 0 ? (photos[0] as { publicUrl?: string | null }) : null;
+  return rows.map((row) => {
+    const author = authors.get(row.user_id);
     return {
       id: row.id,
       userId: row.user_id,
       content: row.content,
       mediaUrl: row.media_url,
       mediaType: row.media_type,
-      authorName: row.profiles?.display_name ?? null,
-      authorAvatarUrl: firstPhoto?.publicUrl ?? null,
+      authorName: author?.displayName ?? null,
+      authorAvatarUrl: author?.avatarUrl ?? null,
       createdAt: row.created_at,
       reactionCount: reactionCounts.get(row.id) ?? 0,
       commentCount: commentCounts.get(row.id) ?? 0,
@@ -584,26 +616,35 @@ export async function addMomentComment(
   const body = (rawBody ?? "").trim().slice(0, 500);
   if (!body) return { ok: false, error: "Write something first" };
 
+  // No `profiles(...)` embed here — see lib/server/profile-lookup.ts. The
+  // embed made PostgREST reject the whole query (no FK from moment_comments to
+  // profiles), so posting a comment failed outright.
   const { data, error } = await supabase
     .from("moment_comments")
     .insert({ moment_id: momentId, user_id: userId, body })
-    .select("id, user_id, body, created_at, profiles(display_name)")
+    .select("id, user_id, body, created_at")
     .single();
-  if (error || !data) return { ok: false, error: "Could not post your comment" };
+  if (error || !data) {
+    console.error("[moments] comment insert failed", supabaseErrorDetail(error));
+    return { ok: false, error: "Could not post your comment" };
+  }
 
   const row = data as {
     id: string;
     user_id: string;
     body: string;
     created_at: string;
-    profiles?: { display_name?: string | null } | null;
   };
+
+  const authors = await fetchAuthors([row.user_id]);
+  const author = authors.get(row.user_id);
+
   return {
     ok: true,
     comment: {
       id: row.id,
       userId: row.user_id,
-      authorName: row.profiles?.display_name ?? null,
+      authorName: author?.displayName ?? null,
       body: row.body,
       createdAt: row.created_at,
     },
@@ -615,27 +656,35 @@ export async function listMomentComments(momentId: string, limit = 50): Promise<
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data } = await supabase
+  // Same embed caveat as above: a `profiles(...)` select here returned nothing
+  // at all, so the comment sheet was permanently empty.
+  const { data, error } = await supabase
     .from("moment_comments")
-    .select("id, user_id, body, created_at, profiles(display_name)")
+    .select("id, user_id, body, created_at")
     .eq("moment_id", momentId)
     .order("created_at", { ascending: true })
     .limit(limit);
 
-  return (data ?? []).map((raw) => {
-    const row = raw as {
-      id: string;
-      user_id: string;
-      body: string;
-      created_at: string;
-      profiles?: { display_name?: string | null } | null;
-    };
-    return {
-      id: row.id,
-      userId: row.user_id,
-      authorName: row.profiles?.display_name ?? null,
-      body: row.body,
-      createdAt: row.created_at,
-    };
-  });
+  if (error) {
+    console.error("[moments] comment list failed", supabaseErrorDetail(error));
+    return [];
+  }
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    user_id: string;
+    body: string;
+    created_at: string;
+  }>;
+  if (rows.length === 0) return [];
+
+  const authors = await fetchAuthors(rows.map((row) => row.user_id));
+
+  return rows.map((row) => ({
+    id: row.id,
+    userId: row.user_id,
+    authorName: authors.get(row.user_id)?.displayName ?? null,
+    body: row.body,
+    createdAt: row.created_at,
+  }));
 }

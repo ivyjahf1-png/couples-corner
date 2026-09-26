@@ -15,6 +15,7 @@ import {
   type ProfileUpdateInput,
 } from "@/lib/server/profiles";
 import { publishMoment } from "@/lib/server/tasks";
+import { fetchAuthors } from "@/lib/server/profile-lookup";
 
 export interface MediaUploadResult {
   ok: boolean;
@@ -817,20 +818,33 @@ export async function getStoryCommentsAction(
     if (!supabase) return { ok: false, error: "Supabase not configured" };
     const { data, error } = await supabase
       .from("story_comments")
-      .select("id, body, created_at, user_id, profiles(display_name)")
+      .select("id, body, created_at, user_id")
       .eq("story_id", storyId)
       .order("created_at", { ascending: true })
       .limit(100);
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      console.error("[stories] comment list failed", error);
+      return { ok: false, error: error.message };
+    }
+
+    // Author names are resolved in a second query: `story_comments.user_id`
+    // references auth.users, not profiles, so the `profiles(display_name)` embed
+    // this used to carry made PostgREST fail the whole select. See
+    // lib/server/profile-lookup.ts.
+    const rows = (data ?? []) as Array<{
+      id: string;
+      body: string;
+      created_at: string;
+      user_id: string;
+    }>;
+    const authors = await fetchAuthors(rows.map((c) => c.user_id));
+
     return {
       ok: true,
-      comments: ((data ?? []) as Array<{
-        id: string; body: string; created_at: string;
-        profiles?: { display_name?: string | null } | null;
-      }>).map((c) => ({
+      comments: rows.map((c) => ({
         id: c.id,
         body: c.body,
-        authorName: c.profiles?.display_name ?? "Member",
+        authorName: authors.get(c.user_id)?.displayName ?? "Member",
         createdAt: c.created_at,
       })),
     };

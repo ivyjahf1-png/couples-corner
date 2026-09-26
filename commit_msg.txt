@@ -1,0 +1,37 @@
+fix(moments): feed was empty because of an unresolvable PostgREST embed
+
+The home feed selected the author with an embed:
+
+  .select("id, ..., profiles(display_name, photos)")
+
+PostgREST resolves an embedded resource only through a DECLARED FOREIGN KEY.
+moments.user_id references auth.users(id) (migration 034) and
+profiles.user_id is only UNIQUE (migration 005) - there is no FK between them.
+PostgREST therefore rejects the relationship and fails the ENTIRE query with
+"Could not find a relationship between moments and profiles in the schema
+cache".
+
+The result was destructured as { data: rows } with `error` discarded, so rows
+came back null, "rows ?? []" produced [], and the page rendered "No moments yet".
+The same rows were readable fine without the embed - which is why uploads worked
+and only the feed was blank, and why nothing was ever logged.
+
+Fixed by resolving authors in a second query and stitching in JS
+(lib/server/profile-lookup.ts), which does not depend on that relationship
+existing. This also collapsed the redundant id-only moments query, so the feed
+is now one moments round trip instead of two.
+
+Every query in getRecentMoments now logs its error. A swallowed PostgREST error
+is indistinguishable from an empty table, which is what made this invisible.
+
+The same embed bug was present in three more places and is fixed the same way:
+  - addMomentComment        - posting a comment failed outright
+  - listMomentComments      - the comment sheet was permanently empty
+  - getStoryCommentsAction  - story comments never loaded
+
+Migration 040 re-asserts the "moments public read" RLS policy and the
+created_at index idempotently. RLS with no select policy returns zero rows and
+no error, so a partially-applied database produces exactly this symptom too.
+It deliberately does NOT add a moments -> profiles foreign key: that is what
+broke the reads, and it would also start rejecting inserts for members whose
+profile row is not provisioned yet.
