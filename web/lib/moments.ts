@@ -13,12 +13,22 @@ export type ReactionKind = "like" | "love" | "fire" | "laugh";
 /** Reaction totals split by kind, for the per-kind counters in the feed. */
 export type ReactionTally = Partial<Record<ReactionKind, number>>;
 
+/**
+ * What kind of media a moment carries.
+ *
+ * - `image` / `video`: a file in our own storage bucket, played directly.
+ * - `link`: an embed of a video hosted on YouTube / TikTok / Instagram. The
+ *   URL in `mediaUrl` is a validated, allowlisted EMBED url produced server-side
+ *   (see lib/utils/video-embed.ts) - never the raw string the member pasted.
+ */
+export type MomentMediaType = "image" | "video" | "link";
+
 export interface MomentView {
   id: string;
   userId: string;
   content: string;
   mediaUrl: string;
-  mediaType: "image" | "video";
+  mediaType: MomentMediaType;
   authorName: string | null;
   authorAvatarUrl: string | null;
   createdAt: string;

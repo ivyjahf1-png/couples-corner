@@ -16,9 +16,10 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
+import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 import { fetchAuthors } from "@/lib/server/profile-lookup";
 import { getFollowStates } from "@/lib/server/follows";
-import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
+import type { MomentCommentView, MomentMediaType, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 
 /**
  * COLUMN NAME: the moments table stores the text in `content`
@@ -226,6 +227,69 @@ export async function publishMoment(
     };
   }
   return { ok: true, momentId: (data as { id: string }).id, mediaUrl: (data as { media_url: string }).media_url };
+}
+
+/**
+ * Publish a moment whose media is an EMBED from another site.
+ *
+ * WHY A SEPARATE PATH: `publishMoment` and `publishMomentFromStorage` both
+ * assume a file that already exists in our own storage bucket and verify the
+ * member owns it. A link embed has no file, so neither can express it.
+ *
+ * SECURITY: the URL is validated server-side by `parseVideoEmbedUrl`, which
+ * allowlists the host and rebuilds the embed URL from the extracted video id.
+ * The client's copy is discarded. Storing the raw pasted string would let a
+ * member frame any origin they liked inside the app.
+ */
+export async function publishLinkMoment(
+  userId: string,
+  input: { content: string; embedUrl: string }
+): Promise<MomentResult> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const content = input.content.trim();
+  if (!content && !input.embedUrl) return { ok: false, error: "Add a description or a link" };
+  if (content.length > 2200) {
+    return { ok: false, error: "Descriptions must be 2,200 characters or fewer" };
+  }
+
+  // Re-validate here, not only in the action. This is the function that writes,
+  // so this is the last point at which a bad host can be stopped; the service
+  // role bypasses RLS and nothing upstream is trusted.
+  const parsed = parseVideoEmbedUrl(input.embedUrl);
+  if (!parsed.ok) return { ok: false, error: parsed.error };
+
+  const row: Record<string, unknown> = {
+    user_id: userId,
+    // Stored in media_url so the feed's existing deep-link and ordering
+    // behaviour works unchanged for link moments. See migration 045.
+    media_url: parsed.embedUrl,
+    media_type: "link",
+  };
+  row[MOMENT_TEXT_COLUMN] = content;
+
+  const { data, error } = await supabase
+    .from("moments")
+    .insert(row)
+    .select("id, media_url")
+    .single();
+
+  if (error || !data) {
+    console.error("[moments] publish link insert failed", error);
+    return {
+      ok: false,
+      error: error
+        ? `Could not publish your moment: ${error.message}`
+        : "Could not publish your moment. Please try again.",
+    };
+  }
+
+  return {
+    ok: true,
+    momentId: (data as { id: string }).id,
+    mediaUrl: (data as { media_url: string }).media_url,
+  };
 }
 
 /**
@@ -456,7 +520,7 @@ export async function getRecentMoments(
     user_id: string;
     content: string;
     media_url: string;
-    media_type: "image" | "video";
+    media_type: MomentMediaType;
     created_at: string;
   }>;
   if (rows.length === 0) return [];

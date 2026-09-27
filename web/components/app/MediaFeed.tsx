@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,7 @@ import { setFollowAction } from "@/lib/actions/follow";
 import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
 import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
+import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 
 /**
  * Immersive media feed.
@@ -80,10 +81,10 @@ const MAX_CAPTION = 2200;
 
 /** Quick-reaction row shown in the bottom bar. */
 const QUICK_REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] = [
-  { kind: "love", emoji: "❤️", label: "Love" },
-  { kind: "like", emoji: "👍", label: "Like" },
-  { kind: "fire", emoji: "🔥", label: "Fire" },
-  { kind: "laugh", emoji: "😂", label: "Funny" },
+  { kind: "love", emoji: "â¤ï¸", label: "Love" },
+  { kind: "like", emoji: "ðŸ‘", label: "Like" },
+  { kind: "fire", emoji: "ðŸ”¥", label: "Fire" },
+  { kind: "laugh", emoji: "ðŸ˜‚", label: "Funny" },
 ];
 
 interface MediaFeedProps {
@@ -552,7 +553,7 @@ export function MediaFeed({
   // The sheet is chronologically ordered (oldest first, so it reads as a
   // conversation) which means the newest entry is at the BOTTOM. Without this
   // the list opens scrolled to the top and a member who just posted has to hunt
-  // for their own comment — the single most confusing state a live thread can be
+  // for their own comment â€” the single most confusing state a live thread can be
   // in. rAF because the sheet may not be laid out yet when the list changes.
   useEffect(() => {
     if (!commentsOpen) return;
@@ -866,15 +867,15 @@ export function MediaFeed({
             CSS scroll-snap decides where it rests.
 
             LAYOUT CONTRACT - exactly one scroll region:
-              • This div is the ONLY scroller. The section above is
+              â€¢ This div is the ONLY scroller. The section above is
                 `overflow-hidden`, so a flick here can never chain to the page.
-              • Each card is exactly the scroller's height, so `snap-start` has
+              â€¢ Each card is exactly the scroller's height, so `snap-start` has
                 an exact boundary to land on. A card shorter than the viewport
                 would leave a gap the snap point could rest inside.
-              • `snap-mandatory` (not `proximity`) is what makes a partial flick
+              â€¢ `snap-mandatory` (not `proximity`) is what makes a partial flick
                 complete to the next card instead of resting between two, which
                 is the behaviour a reel-style feed is expected to have.
-              • `scrollbar-none` hides the track; the progress bars in the
+              â€¢ `scrollbar-none` hides the track; the progress bars in the
                 header already show position. */}
         <div
           ref={scrollRef}
@@ -1000,7 +1001,7 @@ export function MediaFeed({
 
               They duplicated the vertical ^/v pager (all three drove the same
               `go`), and with the pager relocated to its own column the "next"
-              chevron at `right-16` would have landed INSIDE that column —
+              chevron at `right-16` would have landed INSIDE that column â€”
               reintroducing exactly the overlap this fix removes. Paging remains
               fully available via swipe (touch), the vertical arrows (pointer),
               wheel and arrow keys. */}
@@ -1139,7 +1140,7 @@ export function MediaFeed({
                     if (event.key === "Enter") sendQuickMessage();
                   }}
                   maxLength={MAX_CAPTION}
-                  placeholder={`Message ${current.authorName ?? "them"}…`}
+                  placeholder={`Message ${current.authorName ?? "them"}â€¦`}
                   className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-white/50 focus:outline-none"
                 />
                 <button
@@ -1297,7 +1298,7 @@ export function MediaFeed({
                       }
                     }}
                     maxLength={500}
-                    placeholder="Add a comment…"
+                    placeholder="Add a commentâ€¦"
                     className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 focus:border-orange-400/50 focus:outline-none"
                   />
                   <button
@@ -1520,6 +1521,10 @@ function MediaSurface({
     );
   }
 
+  if (moment.mediaType === "link") {
+    return <MediaEmbed moment={moment} active={active} />;
+  }
+
   if (moment.mediaType === "video") {
     // Off-screen cards ask the browser for NOTHING. `none` (rather than
     // "metadata") is what keeps a long feed from holding a buffer per card -
@@ -1720,3 +1725,85 @@ function formatWhen(iso: string): string {
   if (days < 7) return `${days}d`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
+/**
+ * A moment whose media is a video hosted elsewhere (YouTube / TikTok /
+ * Instagram), rendered as an iframe.
+ *
+ * WHY CLICK-TO-LOAD, NOT AN AUTO-LOADING IFRAME:
+ *
+ * 1. Bandwidth. A feed of ten cards would open ten third-party connections and
+ *    pull megabytes nobody asked for. Only the card in view is ever loaded.
+ * 2. Cookies. An auto-loading embed hands a third party a request on page load
+ *    - and a way to set cookies - before the member has done anything. The
+ *    member's tap is the consent that makes it happen.
+ * 3. Autoplay. Embedded players autoplay with sound, which is exactly the
+ *    thing the direct-file path is careful to avoid.
+ *
+ * The poster is the provider's own thumbnail where one exists, so the card is
+ * recognisable before it is loaded.
+ */
+function MediaEmbed({ moment, active }: { moment: MomentView; active: boolean }) {
+  // Mounting the iframe is irreversible for this card, so this deliberately
+  // latches: once loaded, scrolling away and back must NOT tear the player down
+  // and restart the video from zero.
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const embed = parseVideoEmbedUrl(moment.mediaUrl);
+  // A row that exists but does not parse should degrade to the fallback rather
+  // than render a bare iframe pointing nowhere. Cannot normally happen - the
+  // server validates before storing - but a link that has since been withdrawn
+  // by the provider can still fail to render.
+  if (!embed.ok) {
+    return <MediaFallback onRetry={() => setFailed(false)} />;
+  }
+
+  return (
+    <div className="relative h-full w-full bg-black">
+      {loaded ? (
+        <iframe
+          src={embed.embedUrl}
+          title={`Video shared by ${moment.authorName ?? "a member"}`}
+          // Scoped deliberately: no allow-same-origin, no allow-top-navigation.
+          // The provider's player does not need either, and granting them would
+          // hand a third party access to this origin.
+          allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+          allowFullScreen
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="h-full w-full border-0"
+          onError={() => setFailed(true)}
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setLoaded(true)}
+          className="group relative flex h-full w-full items-center justify-center bg-[#0F172A]"
+        >
+          {embed.thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={embed.thumbnailUrl}
+              alt=""
+              // Only fetched once the card is in view, for the same bandwidth
+              // reason as the iframe itself.
+              loading={active ? "eager" : "lazy"}
+              className="h-full w-full object-cover opacity-80"
+            />
+          ) : null}
+          <span className="absolute flex h-16 w-16 items-center justify-center rounded-full bg-black/55 text-white ring-1 ring-white/25 transition group-hover:scale-105">
+            <svg viewBox="0 0 24 24" className="ml-1 h-7 w-7 fill-current" aria-hidden>
+              <path d="M8 5.14v13.72L19 12 8 5.14Z" />
+            </svg>
+          </span>
+          <span className="absolute bottom-6 left-0 right-0 px-6 text-center text-xs text-white/80">
+            {embed.provider === "youtube" ? "YouTube" : embed.provider === "tiktok" ? "TikTok" : "Instagram"}
+            {" Â· tap to play"}
+          </span>
+        </button>
+      )}
+      {failed ? <MediaFallback onRetry={() => { setFailed(false); setLoaded(false); }} /> : null}
+    </div>
+  );
+}
+

@@ -8,6 +8,7 @@ import {
   claimTaskReward,
   getUserTasks,
   publishMomentFromStorage,
+  publishLinkMoment,
   toggleMomentReaction,
   setMomentReaction,
   addMomentComment,
@@ -103,6 +104,44 @@ export async function publishMomentAction(input: {
     // error toast on the upload screen.
     rethrowIfNavigation(err);
     console.error("[moments] publish action failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Publish failed",
+    };
+  }
+}
+
+/**
+ * Publish a moment whose media is a LINK to a video hosted elsewhere.
+ *
+ * The client may pre-validate to give fast feedback, but the pasted string is
+ * treated as untrusted here and re-parsed server-side before anything is
+ * written (see publishLinkMoment).
+ */
+export async function publishLinkMomentAction(input: {
+  url: string;
+  content: string;
+}): Promise<MomentResult> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to publish" };
+
+    const result = await publishLinkMoment(user.uid, {
+      content: input.content,
+      embedUrl: input.url,
+    });
+
+    if (result.ok) {
+      revalidatePath("/task");
+      revalidatePath("/task/upload-moment");
+      revalidatePath("/feed");
+      revalidatePath("/profile");
+      revalidatePath("/");
+    }
+    return result;
+  } catch (err) {
+    rethrowIfNavigation(err);
+    console.error("[moments] publish link action failed:", err);
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Publish failed",
