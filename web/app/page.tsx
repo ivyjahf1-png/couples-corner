@@ -71,20 +71,23 @@ export default async function HomePage({
       fill={Boolean(session)}
       searchSlot={<MediaFeedSearch action="/" />}
       topRightSlot={<LocationBadge />}
-      // The sponsored card replaces the old earn-tokens button. It is rendered
-      // as a function of `active` so its watch timer runs only while it is the
-      // card actually snapped into view.
+      // The sponsored card replaces the old earn-tokens button.
+      //
+      // A PLAIN ELEMENT, not a render function: this page is a Server Component
+      // and MediaFeed is a Client Component, and a function prop cannot cross
+      // that boundary (it throws "Functions cannot be passed directly to Client
+      // Components" at runtime). The card reads its own active state from
+      // FeedActiveContext inside the feed.
       //
       // Shown to signed-out visitors too (they see the "Sign in to start"
       // state) because that is the acquisition surface - a member only learns
       // the mechanic exists by meeting it before signing in.
-      sponsoredSlot={(active) => (
+      sponsoredSlot={
         <SponsoredMomentCard
-          active={active}
           viewerId={session?.uid ?? null}
           nextAvailableAt={nextAdRewardAt}
         />
-      )}
+      }
       // Second position: the first card stays a real moment, so a new member
       // opens on community content rather than on an ad.
       sponsoredPosition={1}

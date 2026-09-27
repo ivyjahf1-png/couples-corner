@@ -12,6 +12,7 @@ import {
   getMomentCommentsAction,
 } from "@/lib/actions/tasks";
 import { EmptyState } from "@/components/app/EmptyState";
+import { FeedActiveProvider } from "@/components/app/FeedActiveContext";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { setFollowAction } from "@/lib/actions/follow";
@@ -108,11 +109,14 @@ interface MediaFeedProps {
    * a slot for the same reason as `rewardSlot`: MediaFeed owns layout, the host
    * page owns what the card means and what it credits.
    *
-   * Accepts a render function so the host can be told whether THIS card is the
-   * one currently snapped into view - the card needs it to run its watch timer
-   * only while it is actually being looked at, and only MediaFeed knows that.
+   * MUST be a plain ReactNode, never a function. This is a Client Component and
+   * the host page is a Server Component, and a function prop cannot cross that
+   * boundary - it throws at runtime with
+   * "Functions cannot be passed directly to Client Components". The card learns
+   * whether it is the visible card from FeedActiveContext instead. See
+   * components/app/FeedActiveContext.tsx.
    */
-  sponsoredSlot?: ReactNode | ((active: boolean) => ReactNode);
+  sponsoredSlot?: ReactNode;
   /**
    * Index at which the sponsored card is inserted. Defaults to 0 so it is the
    * first thing a member sees. Values beyond the feed length are clamped.
@@ -225,10 +229,17 @@ export function MediaFeed({
   const total = cards.length;
   const safeIndex = total > 0 ? Math.min(Math.max(index, 0), total - 1) : 0;
 
-  // The card actually snapped into view. `current` is null for the sponsored
-  // card, which is exactly what the moment-only overlays already handle by
-  // testing `current` - so the sponsored card suppresses them for free instead
-  // of needing a branch at each of the ~20 `current.` dereferences below.
+  // Where the sponsored card landed, published to client children (the card
+  // itself) through context. Computed from the SAME clamped value the `cards`
+  // memo uses, so the two can never disagree about the index.
+  const sponsoredIndex = useMemo(
+    () =>
+      sponsoredSlot
+        ? Math.min(Math.max(sponsoredPosition, 0), feed.length)
+        : null,
+    [sponsoredSlot, sponsoredPosition, feed.length]
+  );
+
   const activeCard = cards[safeIndex] ?? null;
   // `current` is null for the sponsored card, which is exactly what the
   // moment-only overlays already handle by testing `current` - so the card
@@ -587,7 +598,12 @@ export function MediaFeed({
   }
 
   return (
-    <section
+    // Provider, not a wrapper element: the card is nested several levels down
+    // inside the scroller, and context is the only way to reach it without
+    // threading `active` through every intermediate component. Values are
+    // primitives, so this adds no render cost of its own.
+    <FeedActiveProvider value={{ activeIndex: safeIndex, sponsoredIndex }}>
+      <section
       data-zone="app"
       // This is the POSITIONING context, not the scroller. Everything overlaid
       // (header, caption, action rail, composer, upload FAB) is absolutely
@@ -828,9 +844,7 @@ export function MediaFeed({
                   aria-roledescription="sponsored moment"
                   aria-label={`Sponsored moment, ${i + 1} of ${total}`}
                 >
-                  {typeof sponsoredSlot === "function"
-                    ? sponsoredSlot(i === safeIndex)
-                    : sponsoredSlot}
+                  {sponsoredSlot}
                 </article>
               );
             }
@@ -1188,6 +1202,7 @@ export function MediaFeed({
         </div>
       ) : null}
     </section>
+    </FeedActiveProvider>
   );
 }
 

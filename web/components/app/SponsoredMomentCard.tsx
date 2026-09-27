@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Gift, Sparkles, Check } from "lucide-react";
 import { claimAdRewardAction } from "@/lib/actions/ad-rewards";
 import { notifySuccess, notifyFailure } from "@/components/ui/FailureToasts";
+import { useFeedActiveState } from "@/components/app/FeedActiveContext";
 
 /**
  * Seconds the member must keep the card on screen to earn the grant.
@@ -18,11 +19,6 @@ const WATCH_SECONDS = 12;
 const TICK_MS = 100;
 
 export interface SponsoredMomentCardProps {
-  /**
-   * True when this card is the one snapped into view. The timer runs ONLY while
-   * true, so a member cannot park the feed and let it complete unattended.
-   */
-  active: boolean;
   /** Signed-in member, or null. No timer runs for a signed-out visitor. */
   viewerId: string | null;
   /**
@@ -59,10 +55,22 @@ export interface SponsoredMomentCardProps {
  * ───────────────────────────────────────────────────────────────────────────
  */
 export function SponsoredMomentCard({
-  active,
   viewerId,
   nextAvailableAt = null,
 }: SponsoredMomentCardProps) {
+  // Whether this card is the one snapped into view, read from the feed rather
+  // than passed in. The timer runs ONLY while this is true, so a member cannot
+  // park the feed and let it complete unattended.
+  //
+  // The null-guard matters: rendered outside a MediaFeed there is no provider,
+  // and defaulting to `true` there would start the timer for a card nobody is
+  // looking at. Unknown means NOT active, so the safe default is to do nothing.
+  const feedActive = useFeedActiveState();
+  const active = Boolean(
+    feedActive &&
+      feedActive.sponsoredIndex !== null &&
+      feedActive.activeIndex === feedActive.sponsoredIndex
+  );
   // Seconds elapsed on the current view. Reset whenever the card leaves view so
   // progress cannot be banked across visits.
   const [elapsed, setElapsed] = useState(0);
