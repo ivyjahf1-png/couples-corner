@@ -323,11 +323,11 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
       {impressionsModal ? (
         <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Send First Impressions">
           <button type="button" aria-label="Close" onClick={() => setImpressionsModal(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400/15 text-sky-300"><Icon name="send" className="h-6 w-6" /></span>
+          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:p-5">
+            <div className="mb-3 flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300"><Icon name="send" className="h-5 w-5" /></span>
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold text-white">Send First Impressions</h2>
+                <h2 className="text-base font-semibold text-white">Send First Impressions</h2>
                 <p className="truncate text-xs text-ink-300">To {name}</p>
               </div>
               <button type="button" onClick={() => setImpressionsModal(false)} aria-label="Close" className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
@@ -335,57 +335,83 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               </button>
             </div>
             {impressionsSent ? (
-              <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="flex flex-col items-center gap-3 py-5 text-center">
                 <Icon name="check" className="h-10 w-10 text-success-400" />
                 <p className="font-semibold text-white">Impression sent!</p>
                 <p className="text-sm text-ink-300">They&apos;ll see your message at the top of their inbox.</p>
                 {/* When the coin system goes live, Continue routes to the coin purchase modal. */}
                 <button type="button" onClick={() => { if (!requireCoins("first_impression_continue").allowed) return; setImpressionsModal(false); }}
-                  className="mt-2 rounded-xl bg-gradient-to-br from-orange-500 to-[#FF5722] px-6 py-2.5 text-sm font-semibold text-white">
+                  className="mt-1 rounded-xl bg-gradient-to-br from-orange-500 to-[#FF5722] px-6 py-2.5 text-sm font-semibold text-white">
                   Continue
                 </button>
               </div>
             ) : (
               <>
-                <label htmlFor="first-impressions-input" className="sr-only">Your first impression</label>
-                <textarea
-                  id="first-impressions-input"
-                  rows={4}
-                  value={impressionsText}
-                  onChange={(event) => setImpressionsText(event.target.value)}
-                  placeholder={`Say something unforgettable to ${name}…`}
-                  maxLength={500}
-                  className="w-full resize-none rounded-2xl border border-ink-700 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
-                  onKeyDown={(event) => {
-                    // Enter sends; Shift+Enter inserts a newline.
-                    // A textarea swallows Enter for a line break, so without this
-                    // the keyboard is a dead end - the only way to submit was
-                    // reaching for the button with a finger.
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault();
-                      void sendFirstImpressions();
-                    }
-                  }}
-                />
-                <p className="mt-1 text-right text-xs text-ink-400">{impressionsText.length}/500</p>
-                <button
-                  type="button"
-                  onClick={() => void sendFirstImpressions()}
-                  disabled={!impressionsText.trim() || impressionsBusy}
-                  className={[
-                    "mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition",
-                    // The disabled state used a 50%-opacity gradient, which on the
-                    // dark sheet read as "no button here" rather than "not ready
-                    // yet" - the control genuinely looked missing. Now it keeps a
-                    // solid, legible shape and only the colour dims.
-                    impressionsText.trim() && !impressionsBusy
-                      ? "bg-gradient-to-br from-orange-500 to-[#FF5722] text-white hover:brightness-110"
-                      : "border border-white/15 bg-white/[0.06] text-ink-400",
-                  ].join(" ")}
-                >
-                  <Icon name="send" className="h-4 w-4" aria-hidden />
-                  {impressionsBusy ? "Sending…" : "Send First Impression"}
-                </button>
+                {/*
+                  COMPACT COMPOSER.
+
+                  The send control lives INSIDE the input container, bottom-right,
+                  rather than as a full-width bar underneath. That is the pattern
+                  every first-impression composer uses, and it is what makes this
+                  fit: a separate button row below forced the sheet to grow by
+                  another ~56px, and the whole modal was reaching halfway up the
+                  discover card.
+
+                  The textarea is rows={3} (was 4) and carries extra right padding
+                  (`pr-14`) so text scrolls clear of the floating button instead of
+                  running underneath it.
+                */}
+                <div className="relative">
+                  <label htmlFor="first-impressions-input" className="sr-only">Your first impression</label>
+                  <textarea
+                    id="first-impressions-input"
+                    rows={3}
+                    value={impressionsText}
+                    onChange={(event) => setImpressionsText(event.target.value)}
+                    placeholder={`Say something unforgettable to ${name}…`}
+                    maxLength={500}
+                    className="w-full resize-none rounded-2xl border border-ink-700 bg-white/[0.04] py-2.5 pl-3.5 pr-14 text-sm leading-6 text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
+                    onKeyDown={(event) => {
+                      // Enter sends; Shift+Enter inserts a newline. A textarea
+                      // swallows Enter for a line break, so without this the
+                      // keyboard is a dead end for anyone not using a mouse.
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        void sendFirstImpressions();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void sendFirstImpressions()}
+                    disabled={!impressionsText.trim() || impressionsBusy}
+                    aria-label="Send first impression"
+                    title="Send"
+                    className={[
+                      "absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full transition",
+                      // The disabled state keeps a solid, legible shape. A dimmed
+                      // gradient or bare icon read as "no button here" rather than
+                      // "not ready yet", which is the whole point of showing it.
+                      impressionsText.trim() && !impressionsBusy
+                        ? "bg-gradient-to-br from-orange-500 to-[#FF5722] text-white hover:brightness-110"
+                        : "border border-white/15 bg-white/[0.06] text-ink-400",
+                    ].join(" ")}
+                  >
+                    {/* Stays the send glyph while in flight - swapping to a tick
+                        would read as "delivered" before the request has returned.
+                        The disabled styling and the "Sending…" label carry the
+                        state instead. */}
+                    <Icon name="send" className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+                {/* Counter plus a text label for the control, so the icon is not
+                    the only thing announcing what it does. */}
+                <div className="mt-2 flex items-center justify-between px-1">
+                  <span className="text-[11px] text-ink-400">
+                    {impressionsBusy ? "Sending…" : "Enter to send · Shift+Enter for a new line"}
+                  </span>
+                  <span className="text-[11px] tabular-nums text-ink-400">{impressionsText.length}/500</span>
+                </div>
               </>
             )}
           </div>
