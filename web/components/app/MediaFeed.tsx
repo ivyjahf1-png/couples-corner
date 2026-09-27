@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX } from "lucide-react";
+import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2 } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   toggleMomentReactionAction,
@@ -440,6 +440,12 @@ export function MediaFeed({
     setMenuOpen(false);
     setCommentsOpen(false);
     setReactionKind(null);
+    // Re-mute on every card change. Without this the unmuted state CARRIES to
+    // the next video, so two elements can believe they own the audio channel and
+    // the browser silently drops one of them - a very real cause of the reported
+    // "sound drops". Re-muting here also means a newly focused card always
+    // starts under the autoplay-safe default and sound is an explicit opt-in.
+    setMuted(true);
   }, [safeIndex]);
 
   // Keyboard paging. Arrow keys step cards because unlike wheel and touch -
@@ -864,6 +870,9 @@ export function MediaFeed({
                 moment={moment}
                 muted={muted}
                 active={i === safeIndex}
+                // Keeps the rail's mute icon honest when recovery grants sound
+                // imperatively, outside React's state.
+                onRequestUnmuteProp={() => setMuted(false)}
               />
 
               {/* Story-style tap navigation within one author's media.
@@ -1214,11 +1223,18 @@ function MediaSurface({
   moment,
   muted,
   active,
+  onRequestUnmuteProp,
 }: {
   moment: MomentView;
   muted: boolean;
   /** True for the card currently snapped into view. */
   active: boolean;
+  /**
+   * Called when the member taps "tap for sound" and the element is unmuted
+   * imperatively (outside React's state), so the parent's mute icon stays in
+   * sync with what is actually audible.
+   */
+  onRequestUnmuteProp?: () => void;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   // Mirrors the `muted` prop for the playback effect, which must NOT depend on
@@ -1236,6 +1252,19 @@ function MediaSurface({
   // Reloads a failed video in place, so a transient network failure is
   // recoverable by tapping rather than forcing a page reload.
   const [retryKey, setRetryKey] = useState(0);
+  // True while the element has run out of buffered media and is waiting on the
+  // network. Drives a spinner so a mid-playback rebuffer is visibly "loading"
+  // rather than looking like a random pause.
+  const [buffering, setBuffering] = useState(false);
+  // True when the browser refused audible autoplay. Offers the member the one
+  // thing that can recover it: a tap, which is the gesture the policy demands.
+  const [blocked, setBlocked] = useState(false);
+  // Lets the parent sync its own mute icon when recovery grants sound, so the
+  // control never claims "muted" while the video is actually audible.
+  const onRequestUnmute = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    onRequestUnmute.current = onRequestUnmuteProp ?? null;
+  }, [onRequestUnmuteProp]);
 
   // A new moment means a new frame to wait for; drop back to the hidden state
   // before the next decode lands. The same reset clears a previous failure,
@@ -1276,40 +1305,49 @@ function MediaSurface({
     if (!video) return;
 
     if (!active) {
-      // Off-screen: stop decoding immediately...
+      // Off-screen: stop decoding, and stop the audio channel dead.
       video.pause();
-      // ...then RELEASE the buffered media. Pausing alone is not enough: a paused
-      // element keeps its decoded frames and network buffers alive, and a dozen
-      // paused-but-buffered videos is how a phone runs out of memory and the
-      // browser starts killing hardware decoders (which then fail to start at
-      // all). Clearing the source and calling load() drops the buffer and frees
-      // the decoder, so rapid scrolling cannot pile them up. The card is
-      // re-armed the next time it becomes active, so revisiting a card costs one
-      // extra request - a deliberate trade of bandwidth for a stable memory
-      // ceiling.
+      // Deliberately NOT `removeAttribute("src") + load()`. That tears down the
+      // whole media pipeline - it destroys the audio channel and throws away
+      // the buffer - so every scroll back onto a card had to re-establish the
+      // connection and rebuffer from byte zero. That was the source of the
+      // reported "sound drops" and "random pausing": the media element was
+      // being reset on every single swipe, not just the ones that needed it.
       //
-      // React will not restore the attribute on a later render because the `src`
-      // prop is unchanged and React diffs props, not the DOM, so this survives
-      // re-renders until the effect re-arms it.
-      video.removeAttribute("src");
-      video.load();
+      // `preload="none"` (applied on the element below) achieves the memory
+      // goal that unload was for - the browser keeps no buffer for a paused,
+      // never-fetched card - WITHOUT destroying the element, so scrolling back
+      // is instant and the audio channel is still intact.
+      setBuffering(false);
       return;
     }
 
-    // Re-arm after the unload above. Compared as an ATTRIBUTE because the src
-    // property is always absolute once resolved, so a strict compare against the
-    // relative URL would never match and would reload on every activation.
-    if (video.getAttribute("src") !== moment.mediaUrl) {
+    // Re-arm only if the element genuinely has no source. Deliberately no
+    // `load()` here: load() resets currentTime and the media pipeline, which
+    // is exactly the rebuffer we are avoiding.
+    if (!video.getAttribute("src")) {
       video.src = moment.mediaUrl;
-      video.load();
     }
 
     video.muted = mutedRef.current;
     const started = video.play();
-    // A rejected play (Low Power Mode, data saver) is swallowed deliberately:
-    // the first frame still shows and the member can start it from the mute
-    // control. It is NOT an error state, so `failed` is left alone.
-    if (started) void started.catch(() => undefined);
+    if (started) {
+      void started
+        .then(() => {
+          setBlocked(false);
+          setBuffering(false);
+        })
+        .catch((err: unknown) => {
+          // NotAllowedError means the browser refused to autoplay. The video
+          // keeps its first frame and the member is offered an explicit unmute
+          // affordance, which IS a user gesture and therefore always permitted.
+          if (err instanceof DOMException && err.name === "NotAllowedError") {
+            setBlocked(true);
+          }
+          // Anything else (Low Power Mode, data saver) is not an error state:
+          // the card still shows its first frame and the member can retry.
+        });
+    }
   }, [active, moment.id, moment.mediaUrl, retryKey]);
 
   /**
@@ -1326,6 +1364,37 @@ function MediaSurface({
     if (!video) return;
     video.muted = muted;
   }, [muted, active, moment.id]);
+
+  /**
+   * Recover a card that autoplay refused, or that stalled.
+   *
+   * Exposed as a callback so the parent can offer a real button instead of
+   * leaving the member staring at a frozen frame. Calling play() from a click
+   * handler is a user gesture, which is precisely what the autoplay policy
+   * requires, so this always succeeds where the automatic attempt could not.
+   */
+  const resumePlayback = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.getAttribute("src")) {
+      video.src = moment.mediaUrl;
+    }
+    // Unmute as part of the recovery: the member tapped a control that says
+    // "tap for sound", so granting sound is what they asked for, and the tap
+    // is the gesture the policy needs.
+    video.muted = false;
+    // Ref, not the prop itself: the prop is captured in the ref so this callback
+    // never goes stale. Calling the ref object directly is the bug this line
+    // previously had.
+    onRequestUnmute.current?.();
+    setBlocked(false);
+    const resumed = video.play();
+    if (resumed) {
+      void resumed
+        .then(() => setBuffering(false))
+        .catch(() => setBlocked(true));
+    }
+  }, [moment.mediaUrl, onRequestUnmute]);
 
   const surfaceClass = [
     "h-full w-full object-cover transition-opacity duration-300",
@@ -1347,42 +1416,82 @@ function MediaSurface({
   }
 
   if (moment.mediaType === "video") {
-    // Off-screen cards keep `metadata` (enough to know the duration) but an
-    // active card is told to fetch. A fast flick must not open a connection to
-    // every video it passes.
-    const preload = active ? "auto" : "metadata";
+    // Off-screen cards ask the browser for NOTHING. `none` (rather than
+    // "metadata") is what keeps a long feed from holding a buffer per card -
+    // the memory pressure the old unload-on-scroll was trying to solve - but it
+    // does so WITHOUT destroying the element or its audio channel, so scrolling
+    // back is instant and free of sound drops.
+    const preload = active ? "auto" : "none";
 
     return (
-      // eslint-disable-next-line jsx-a11y/media-has-caption
-      <video
-        key={retryKey}
-        ref={videoRef}
-        src={moment.mediaUrl}
-        // Re-asserted on every render as well as imperatively in the effect:
-        // React writes the ATTRIBUTE, and some mobile engines have decided
-        // audibility from the attribute present at load time rather than from
-        // the live property. Setting both removes the ambiguity.
-        muted={muted}
-        loop
-        // Required for iOS Safari, which otherwise takes the video fullscreen
-        // on play. A no-op everywhere else.
-        playsInline
-        // Stops iOS painting its native control bar over the feed chrome.
-        controls={false}
-        // Suppresses the iOS Picture-in-Picture affordance on long-press.
-        disablePictureInPicture
-        // No `autoPlay` attribute: it would play every mounted card at once.
-        // The effect above is the single source of truth for playback.
-        preload={preload}
-        onLoadedData={() => setReady(true)}
-        // A decode, format or network failure must not leave a silent black
-        // card. This is the handler that turns a blank screen into a message.
-        onError={() => {
-          setReady(false);
-          setFailed(true);
-        }}
-        className={surfaceClass}
-      />
+      <>
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          key={retryKey}
+          ref={videoRef}
+          src={moment.mediaUrl}
+          // Re-asserted on every render as well as imperatively in the effect:
+          // React writes the ATTRIBUTE, and some mobile engines have decided
+          // audibility from the attribute present at load time rather than from
+          // the live property. Setting both removes the ambiguity.
+          muted={muted}
+          loop
+          // Required for iOS Safari, which otherwise takes the video fullscreen
+          // on play. A no-op everywhere else.
+          playsInline
+          // Stops iOS painting its native control bar over the feed chrome.
+          controls={false}
+          // Suppresses the iOS Picture-in-Picture affordance on long-press.
+          disablePictureInPicture
+          // No `autoPlay` attribute: it would play every mounted card at once.
+          // The effect above is the single source of truth for playback.
+          preload={preload}
+          onLoadedData={() => setReady(true)}
+          // Buffering is a normal, recoverable state. Surfacing it means a
+          // mid-play rebuffer reads as "loading" rather than a random pause.
+          // Nothing here RESTARTS playback - the element resumes by itself once
+          // data arrives, and forcing a restart is what used to reset the
+          // playback position and re-trigger the audio glitch.
+          onWaiting={() => setBuffering(true)}
+          onStalled={() => setBuffering(true)}
+          onPlaying={() => {
+            setBuffering(false);
+            setBlocked(false);
+          }}
+          onCanPlay={() => setBuffering(false)}
+          // A decode, format or network failure must not leave a silent black
+          // card. This is the handler that turns a blank screen into a message.
+          onError={() => {
+            setReady(false);
+            setFailed(true);
+          }}
+          className={surfaceClass}
+        />
+        {/* Buffering spinner. pointer-events-none so it never eats the tap
+            zones; aria-hidden because the media element already conveys state. */}
+        {active && buffering ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+          >
+            <Loader2 className="h-10 w-10 animate-spin text-white/80" />
+          </div>
+        ) : null}
+        {/* The one recovery that works when autoplay is refused: a tap. */}
+        {active && blocked ? (
+          <button
+            type="button"
+            onClick={resumePlayback}
+            aria-label="Tap to play with sound"
+            className="absolute inset-0 z-20 flex items-center justify-center"
+          >
+            <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur">
+              <VolumeX className="h-4 w-4" aria-hidden />
+              Tap for sound
+            </span>
+          </button>
+        ) : null}
+      </>
     );
   }
 
