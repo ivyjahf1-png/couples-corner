@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2 } from "lucide-react";
+import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2, type LucideIcon } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   toggleMomentReactionAction,
@@ -79,12 +79,25 @@ const MAX_CAPTION = 2200;
 // The feed, the server actions and the view model must agree on the set of
 // persisted kinds; a second local union is how they drift.
 
-/** Quick-reaction row shown in the bottom bar. */
-const QUICK_REACTIONS: { kind: ReactionKind; emoji: string; label: string }[] = [
-  { kind: "love", emoji: "â¤ï¸", label: "Love" },
-  { kind: "like", emoji: "ðŸ‘", label: "Like" },
-  { kind: "fire", emoji: "ðŸ”¥", label: "Fire" },
-  { kind: "laugh", emoji: "ðŸ˜‚", label: "Funny" },
+/**
+ * Quick-reaction row shown in the bottom bar.
+ *
+ * Lucide ICONS, not emoji. These were literal emoji characters until now, but
+ * every one of them was reaching the browser as mojibake - the feed chips
+ * rendered as scrambled sequences rather than a heart, a thumb, a flame and
+ * a laughing face. Whatever mangled them (a UTF-8 -> Latin-1 round-trip at some
+ * point in this file history) is not worth chasing, because SVG cannot be
+ * mangled: there is no encoding layer for a glyph to get lost in, and no
+ * dependence on whether a given Android or iOS build ships the emoji font.
+ *
+ * The persisted ReactionKind values are untouched, so this is presentational
+ * only and no stored reaction row moves.
+ */
+const QUICK_REACTIONS: { kind: ReactionKind; Icon: LucideIcon; label: string }[] = [
+  { kind: "love", Icon: Heart, label: "Love" },
+  { kind: "like", Icon: ThumbsUp, label: "Like" },
+  { kind: "fire", Icon: Flame, label: "Fire" },
+  { kind: "laugh", Icon: Laugh, label: "Funny" },
 ];
 
 interface MediaFeedProps {
@@ -553,7 +566,7 @@ export function MediaFeed({
   // The sheet is chronologically ordered (oldest first, so it reads as a
   // conversation) which means the newest entry is at the BOTTOM. Without this
   // the list opens scrolled to the top and a member who just posted has to hunt
-  // for their own comment â€” the single most confusing state a live thread can be
+  // for their own comment — the single most confusing state a live thread can be
   // in. rAF because the sheet may not be laid out yet when the list changes.
   useEffect(() => {
     if (!commentsOpen) return;
@@ -867,15 +880,15 @@ export function MediaFeed({
             CSS scroll-snap decides where it rests.
 
             LAYOUT CONTRACT - exactly one scroll region:
-              â€¢ This div is the ONLY scroller. The section above is
+              • This div is the ONLY scroller. The section above is
                 `overflow-hidden`, so a flick here can never chain to the page.
-              â€¢ Each card is exactly the scroller's height, so `snap-start` has
+              • Each card is exactly the scroller's height, so `snap-start` has
                 an exact boundary to land on. A card shorter than the viewport
                 would leave a gap the snap point could rest inside.
-              â€¢ `snap-mandatory` (not `proximity`) is what makes a partial flick
+              • `snap-mandatory` (not `proximity`) is what makes a partial flick
                 complete to the next card instead of resting between two, which
                 is the behaviour a reel-style feed is expected to have.
-              â€¢ `scrollbar-none` hides the track; the progress bars in the
+              • `scrollbar-none` hides the track; the progress bars in the
                 header already show position. */}
         <div
           ref={scrollRef}
@@ -1001,7 +1014,7 @@ export function MediaFeed({
 
               They duplicated the vertical ^/v pager (all three drove the same
               `go`), and with the pager relocated to its own column the "next"
-              chevron at `right-16` would have landed INSIDE that column â€”
+              chevron at `right-16` would have landed INSIDE that column —
               reintroducing exactly the overlap this fix removes. Paging remains
               fully available via swipe (touch), the vertical arrows (pointer),
               wheel and arrow keys. */}
@@ -1109,7 +1122,7 @@ export function MediaFeed({
                   aria-pressed={active}
                   className={[
                     "flex items-center gap-1 rounded-full border text-base backdrop-blur-md transition active:scale-90 disabled:opacity-40",
-                    // A zero counter collapses to the bare emoji so the row stays
+                    // A zero counter collapses to the bare icon so the row stays
                     // tidy until there is something to report.
                     n > 0 ? "px-2.5 py-1" : "h-9 w-9 justify-center",
                     active
@@ -1117,7 +1130,15 @@ export function MediaFeed({
                       : "border-white/15 bg-slate-950/60 hover:bg-white/10",
                   ].join(" ")}
                 >
-                  <span aria-hidden>{option.emoji}</span>
+                  <option.Icon
+                    aria-hidden
+                    className={[
+                      "h-4 w-4 shrink-0 transition",
+                      // Love is the app's signature reaction, so it reads filled
+                      // once chosen. Every other kind stays a plain outline.
+                      active && option.kind === "love" ? "fill-current" : "",
+                    ].join(" ")}
+                  />
                   {n > 0 ? (
                     <span className="text-xs font-semibold tabular-nums text-white/90">{n}</span>
                   ) : null}
@@ -1140,7 +1161,7 @@ export function MediaFeed({
                     if (event.key === "Enter") sendQuickMessage();
                   }}
                   maxLength={MAX_CAPTION}
-                  placeholder={`Message ${current.authorName ?? "them"}â€¦`}
+                  placeholder={`Message ${current.authorName ?? "them"}…`}
                   className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-white/50 focus:outline-none"
                 />
                 <button
@@ -1298,7 +1319,7 @@ export function MediaFeed({
                       }
                     }}
                     maxLength={500}
-                    placeholder="Add a commentâ€¦"
+                    placeholder="Add a comment…"
                     className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 focus:border-orange-400/50 focus:outline-none"
                   />
                   <button
@@ -1798,7 +1819,7 @@ function MediaEmbed({ moment, active }: { moment: MomentView; active: boolean })
           </span>
           <span className="absolute bottom-6 left-0 right-0 px-6 text-center text-xs text-white/80">
             {embed.provider === "youtube" ? "YouTube" : embed.provider === "tiktok" ? "TikTok" : "Instagram"}
-            {" Â· tap to play"}
+            {" · tap to play"}
           </span>
         </button>
       )}
