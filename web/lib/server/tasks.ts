@@ -187,6 +187,161 @@ export type MomentResult =
   | { ok: true; momentId: string; mediaUrl: string }
   | { ok: false; error: string };
 
+/**
+ * Delete one of the signed-in member's own moments, and the file behind it.
+ *
+ * AUTHORIZATION: `userId` is the caller's uid, taken from the server session by
+ * the action in lib/actions/tasks.ts - never from the client. Every read and
+ * every write below is scoped with `.eq("user_id", userId)`, so a member who
+ * guesses or replays another member's moment id matches zero rows and gets
+ * "not found". This mirrors the RLS policy added in migration 034
+ * ("users delete own moments", `using (auth.uid() = user_id)`) but is applied in
+ * the query as well, because this function runs on the SERVICE-ROLE client, which
+ * bypasses RLS entirely. The policy is defence in depth for any other caller; it
+ * is not what protects this path.
+ *
+ * ORDER OF OPERATIONS — the row goes first, deliberately:
+ *   Deleting the storage object first would leave a window in which the moment
+ *   row still exists and still points at a file that no longer resolves, which
+ *   renders as a permanently broken card. Deleting the row first means the worst
+ *   case is an orphaned object — invisible, unreferenced, reclaimable — rather
+ *   than a visible post that can never load. If the storage delete then fails we
+ *   report it, because silently leaking storage is worse than an error message.
+ *
+ * Link embeds (`media_type = 'link'`) have no file in our bucket, so there is
+ * nothing to remove from storage for those; the row deletion alone is correct.
+ *
+ * Reactions and comments cascade in the database (migration 036), so they go
+ * with the moment and no orphan engagement is left behind.
+ */
+export async function deleteMoment(
+  userId: string,
+  momentId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  const id = (momentId ?? "").trim();
+  if (!id) return { ok: false, error: "That moment could not be found" };
+
+  // Read scoped to the caller: a moment owned by somebody else is invisible here
+  // and is reported identically to a missing one, so this cannot be used to probe
+  // which moment ids exist.
+  const { data: moment, error: readError } = await supabase
+    .from("moments")
+    .select("id, media_url, media_type")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (readError) {
+    console.error("[moments] delete read failed", supabaseErrorDetail(readError));
+    return { ok: false, error: "Could not load that moment" };
+  }
+  if (!moment) {
+    return { ok: false, error: "That moment could not be found" };
+  }
+
+  const row = moment as { id: string; media_url: string; media_type: string };
+
+  // 1. The database row, first. See the ordering note above.
+  const { error: deleteError } = await supabase
+    .from("moments")
+    .delete()
+    .eq("id", row.id)
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    console.error("[moments] delete failed", supabaseErrorDetail(deleteError));
+    return { ok: false, error: "Could not delete that moment. Please try again." };
+  }
+
+  // 2. The file, only for moments that own one.
+  if (row.media_type !== "link" && row.media_url) {
+    // Recover the storage path from the public URL. `moments` stores the URL
+    // rather than the path (migration 045 deliberately kept one column for both
+    // cases), so the path is taken from the object's own `user_media` row - NOT
+    // parsed out of the URL string. Parsing would mean trusting a stored value as
+    // a filesystem path, and a crafted URL could otherwise point the delete at an
+    // arbitrary key in the bucket.
+    //
+    // The lookup is additionally scoped to this member's folder, so even a wrong
+    // match cannot remove another member's file.
+    const path = await storagePathFromPublicUrl(supabase, row.media_url, userId);
+
+    if (path) {
+      const { error: storageError } = await supabase.storage
+        .from("user-media")
+        .remove([path]);
+
+      if (storageError) {
+        // The moment is already deleted, so this cannot be undone. Say so
+        // plainly: the member's post is gone but bytes remain in the bucket.
+        console.error("[moments] storage cleanup failed after row delete", {
+          userId,
+          path,
+          ...storageError,
+        });
+        return {
+          ok: false,
+          error: "Your moment was deleted, but the file could not be removed. Please contact support.",
+        };
+      }
+    } else {
+      // No resolvable path. The row is gone either way; log it so the leak is
+      // visible rather than silent.
+      console.warn("[moments] deleted moment had no resolvable storage path", {
+        userId,
+        momentId: row.id,
+        mediaUrl: row.media_url,
+      });
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Find the `user_media` row that owns a moment's file, and return its path.
+ *
+ * `moments` stores the public URL, not the storage path (migration 045 kept one
+ * column for both upload and link cases), so the path is resolved through the
+ * member's own `user_media` rows by reconstructing each row's public URL and
+ * comparing. Every candidate is scoped to `user_id = userId`, so a match can only
+ * ever be a file in this member's own folder — a crafted `media_url` cannot make
+ * this remove someone else's object.
+ *
+ * Returns null when no gallery row matches, which the caller logs and skips rather
+ * than guessing at: the moment row is already gone, so the only cost is an
+ * orphaned file, never a wrong file deleted.
+ */
+async function storagePathFromPublicUrl(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  publicUrl: string,
+  userId: string
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("user_media")
+    .select("storage_path")
+    .eq("user_id", userId);
+
+  if (error) {
+    console.warn("[moments] user_media lookup failed", supabaseErrorDetail(error));
+    return null;
+  }
+
+  for (const raw of data ?? []) {
+    const storagePath = (raw as { storage_path?: string | null }).storage_path;
+    if (!storagePath) continue;
+
+    const candidate = supabase.storage.from("user-media").getPublicUrl(storagePath).data
+      .publicUrl;
+    if (candidate === publicUrl) return storagePath;
+  }
+
+  return null;
+}
+
 /** Publish a moment. Moments are public and syndicated to the home feed. */
 export async function publishMoment(
   userId: string,

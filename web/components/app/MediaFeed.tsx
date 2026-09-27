@@ -3,13 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2, type LucideIcon } from "lucide-react";
+import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2, Trash2, type LucideIcon } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   toggleMomentReactionAction,
   setMomentReactionAction,
   addMomentCommentAction,
   getMomentCommentsAction,
+  deleteMomentAction,
 } from "@/lib/actions/tasks";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FeedActiveProvider } from "@/components/app/FeedActiveContext";
@@ -74,6 +75,19 @@ type FeedCard =
 const SPONSORED_CARD_KEY = "sponsored-moment";
 
 const MAX_CAPTION = 2200;
+
+/**
+ * Width of the window the top progress segments represent: the last 24 hours.
+ *
+ * This matches the stories expiry window (migration 038, `now() + interval '24
+ * hours'`) so the two "recent activity" surfaces agree on what recent means.
+ */
+const SEGMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Start of the segment window, as an epoch-ms value comparable to Date.parse. */
+function segmentCutoffNow(): number {
+  return Date.now() - SEGMENT_WINDOW_MS;
+}
 
 // `ReactionKind` is imported from @/lib/moments rather than redeclared here.
 // The feed, the server actions and the view model must agree on the set of
@@ -159,6 +173,22 @@ interface MediaFeedProps {
    * slide past the navigation.
    */
   fill?: boolean;
+  /**
+   * Called after the member deletes one of their own moments, with its id.
+   *
+   * Optional because MediaFeed does not own the moment list — the host page
+   * fetched it. This is a notification, not control: without a handler the card
+   * still disappears once the revalidated server payload arrives, just less
+   * immediately. Hosts that keep the feed in state should drop the id from it
+   * here so the card is gone on the next render rather than after a round-trip.
+   *
+   * NOTE: the home page (app/page.tsx) is a Server Component and therefore
+   * cannot pass this at all — a function prop cannot cross that boundary. That
+   * is safe, and the reason this is optional: deleteMomentAction revalidates "/",
+   * so the deleted moment leaves the server payload regardless. Only a
+   * client-side host that owns the feed in state needs to supply it.
+   */
+  onDeleted?: (momentId: string) => void;
 }
 
 export function MediaFeed({
@@ -174,6 +204,7 @@ export function MediaFeed({
   deepLinkMomentId = null,
   sponsoredNextAvailableAt = null,
   fill = false,
+  onDeleted,
 }: MediaFeedProps) {
   const router = useRouter();
   // The scroll container. Cards are all mounted and the browser owns the
@@ -268,6 +299,59 @@ export function MediaFeed({
   );
 
   const activeCard = cards[safeIndex] ?? null;
+
+  /**
+   * SEGMENT FILTER - the progress bars count only the last 24 HOURS.
+   *
+   * The segment strip is a "what's happening right now" readout, so it is scoped
+   * to the same 24-hour window the stories surface uses (migration 038). An older
+   * moment is still a real card the member can scroll to and it still renders in
+   * full - this filter changes how many segments are DRAWN, never which moments
+   * exist. Nothing is deleted, hidden from the feed, or excluded from a profile.
+   *
+   * WHY THE CUTOFF IS COMPUTED HERE AND NOT IN SQL: the server still returns the
+   * full feed (older posts must remain reachable), so the window is a presentational
+   * concern. Filtering the query instead would make historical posts disappear from
+   * the feed, which is explicitly not wanted.
+   *
+   * The cutoff is recomputed on an interval rather than frozen at mount, so a feed
+   * left open across the boundary does not keep ageing moments in its count forever.
+   */
+  const [segmentCutoff, setSegmentCutoff] = useState(() => segmentCutoffNow());
+  useEffect(() => {
+    const id = window.setInterval(
+      () => setSegmentCutoff(segmentCutoffNow()),
+      SEGMENT_WINDOW_MS / 8
+    );
+    return () => window.clearInterval(id);
+  }, []);
+
+  // Positions of the cards inside the window, in scroller order. Kept as indices
+  // rather than moment ids so a segment can be matched to the active card without
+  // a second lookup, and so the sponsored card (which has no moment) is excluded.
+  const segmentIndices = useMemo(() => {
+    const out: number[] = [];
+    cards.forEach((card, i) => {
+      if (card.kind !== "moment") return;
+      if (Date.parse(card.moment.createdAt) >= segmentCutoff) out.push(i);
+    });
+    return out;
+  }, [cards, segmentCutoff]);
+
+  /**
+   * How many segments to fill, derived from the active card's position among the
+   * in-window segments rather than from `safeIndex` directly.
+   *
+   * Without this the bars would fill against the WRONG denominator: `safeIndex`
+   * counts every card including out-of-window ones, so a member three cards into a
+   * feed whose first two are two days old would see all three segments filled even
+   * though only one moment is inside the window. Returns 0 when the card on screen
+   * is itself out of window, so nothing is falsely reported as "current".
+   */
+  const segmentsFilled = useMemo(() => {
+    const at = segmentIndices.indexOf(safeIndex);
+    return at === -1 ? 0 : at + 1;
+  }, [segmentIndices, safeIndex]);
   // `current` is null for the sponsored card, which is exactly what the
   // moment-only overlays already handle by testing `current` - so the card
   // suppresses them for free, without a branch at each of the ~20
@@ -626,6 +710,47 @@ export function MediaFeed({
     });
   }
 
+  /**
+   * Delete the active moment, after an explicit confirmation.
+   *
+   * The button only renders for `current.isMine`, but that is a UI affordance
+   * only — the real check is server-side, in `deleteMoment`, which scopes every
+   query to the session uid. Hiding the control for other members' posts is a
+   courtesy, never the enforcement.
+   *
+   * `window.confirm` rather than a custom dialog: deletion is destructive and
+   * irreversible here (the file is removed from the bucket), and the browser
+   * dialog is the one confirmation that cannot be styled away or dismissed by a
+   * stray Enter keypress on the feed.
+   */
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function deleteActiveMoment() {
+    if (!current || deleteBusy) return;
+    if (!window.confirm("Delete this moment? This cannot be undone.")) return;
+
+    const momentId = current.id;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteMomentAction(momentId);
+      if (!result.ok) {
+        setDeleteError(result.error);
+        return;
+      }
+      // Drop the card locally so the feed responds immediately rather than
+      // waiting for the revalidated server payload to come back down.
+      onDeleted?.(momentId);
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Could not delete your moment"
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
   function postComment() {
     if (!current || !commentDraft.trim()) return;
     const momentId = current.id;
@@ -827,17 +952,21 @@ export function MediaFeed({
           </div>
         ) : null}
 
-        {/* Progress bars - one segment per CARD, filled up to the current. Mapped
-            over `cards` rather than `feed` so the segments stay in step with the
-            scroller's child count. */}
-        {total > 1 ? (
+        {/* Progress bars - one segment per CARD posted in the last 24 HOURS.
+            Mapped over `segmentIndices` rather than `cards` so the strip counts
+            only in-window moments, while the scroller still holds every card.
+            Older posts remain scrollable and fully rendered; they just do not
+            contribute a segment. */}
+        {segmentIndices.length > 1 ? (
           <div className="pointer-events-none mt-3 flex gap-1 px-3 sm:px-5" aria-hidden>
-            {cards.map((card, i) => (
+            {segmentIndices.map((cardIndex, n) => (
               <span
-                key={card.kind === "moment" ? card.moment.id : card.key}
+                key={cards[cardIndex].kind === "moment" ? cards[cardIndex].moment.id : cardIndex}
                 className={[
                   "h-0.5 flex-1 rounded-full transition-colors",
-                  i <= safeIndex ? "bg-white" : "bg-white/30",
+                  // `n` is the position among SEGMENTS, not among cards, so the
+                  // fill tracks the window rather than the scroller offset.
+                  n < segmentsFilled ? "bg-white" : "bg-white/30",
                 ].join(" ")}
               />
             ))}
@@ -1146,6 +1275,36 @@ export function MediaFeed({
               );
             })}
           </div>
+
+          {/* Owner-only delete.
+              Rendered only for `current.isMine`; the enforcement is server-side
+              in deleteMoment, which scopes every query to the session uid, so
+              this is purely a courtesy affordance. Placed in its own row rather
+              than the fixed-width right-hand rail, whose geometry is
+              load-bearing and must not grow. */}
+          {current && current.isMine ? (
+            <div className="pointer-events-auto mb-2 flex items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={deleteActiveMoment}
+                disabled={deleteBusy}
+                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/60 px-3 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-md transition hover:border-danger-300/60 hover:bg-danger-500/20 hover:text-danger-200 disabled:opacity-40"
+              >
+                {deleteBusy ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {deleteBusy ? "Deleting…" : "Delete"}
+              </button>
+              {deleteError ? (
+                <p role="alert" className="text-[11px] text-danger-300">
+                  {deleteError}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
 
           <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 backdrop-blur-md">
             {viewerId ? (

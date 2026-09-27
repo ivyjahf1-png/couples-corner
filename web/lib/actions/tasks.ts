@@ -9,6 +9,7 @@ import {
   getUserTasks,
   publishMomentFromStorage,
   publishLinkMoment,
+  deleteMoment,
   toggleMomentReaction,
   setMomentReaction,
   addMomentComment,
@@ -145,6 +146,47 @@ export async function publishLinkMomentAction(input: {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "Publish failed",
+    };
+  }
+}
+
+/**
+ * Delete one of the caller's own moments.
+ *
+ * The uid comes from the server session via `getCurrentSessionUser()` and is
+ * NEVER taken from the client payload — the client sends only a moment id. That
+ * is the whole authorization story at this layer: there is no userId argument for
+ * a caller to forge, so the only question is whether the id names a moment this
+ * session actually owns, which `deleteMoment` answers by scoping every query to
+ * that uid.
+ *
+ * `/profile` and `/` are revalidated because the same moment is syndicated to the
+ * member's profile gallery and to the home feed; deleting it must disappear from
+ * all of them, not just the card the member happened to be looking at.
+ */
+export async function deleteMomentAction(
+  momentId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to delete a moment" };
+
+    const result = await deleteMoment(user.uid, momentId);
+
+    if (result.ok) {
+      revalidatePath("/task");
+      revalidatePath("/task/upload-moment");
+      revalidatePath("/feed");
+      revalidatePath("/profile");
+      revalidatePath("/");
+    }
+    return result;
+  } catch (err) {
+    rethrowIfNavigation(err);
+    console.error("[moments] delete action failed:", err);
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Could not delete your moment",
     };
   }
 }
