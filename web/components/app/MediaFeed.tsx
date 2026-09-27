@@ -825,7 +825,13 @@ export function MediaFeed({
             <div className="relative shrink-0">
               <button
                 type="button"
-                onClick={() => setMenuOpen((open) => !open)}
+                onClick={() => {
+                  setMenuOpen((open) => !open);
+                  // Clear a previous failure as the member re-opens the menu:
+                  // that is where they came to retry, so a stale error would
+                  // still be on screen when the action they want sits under it.
+                  setDeleteError(null);
+                }}
                 aria-label="Moment options"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
@@ -872,12 +878,70 @@ export function MediaFeed({
                   >
                     View {current.authorName ?? "creator"}
                   </Link>
+
+                  {/* Owner-only delete, inside the menu rather than on the card.
+                      Destructive actions belong in a menu: a free-standing
+                      button one stray tap from the reaction row is how a member
+                      loses a post they meant to scroll past. Hiding it here is a
+                      courtesy — the enforcement is server-side in deleteMoment,
+                      which scopes every query to the session uid, so a member
+                      who reaches this by any other route still cannot delete
+                      somebody else's moment. */}
+                  {current.isMine ? (
+                    <>
+                      {/* Hairline above the destructive row, so it reads as a
+                          separate group rather than a fourth peer option. */}
+                      <span aria-hidden className="my-1 block h-px bg-white/10" />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          // Close first: the confirmation dialog is modal, and a
+                          // menu left open behind it would be a stray click
+                          // target on the way back.
+                          setMenuOpen(false);
+                          void deleteActiveMoment();
+                        }}
+                        disabled={deleteBusy}
+                        className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-rose-300 transition hover:bg-rose-500/15 disabled:opacity-50"
+                      >
+                        <span>Delete Moment</span>
+                        {deleteBusy ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        ) : (
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        )}
+                      </button>
+                    </>
+                  ) : null}
                 </div>
               ) : null}
             </div>
           ) : null}
           </div>
         </div>
+
+        {/* Delete failure notice.
+            Lives in the overlay rather than in the options menu because the menu
+            is closed the moment a delete is attempted — an error rendered inside
+            it would never be seen. Dismissed explicitly, since a delete that
+            half-failed (row gone, file left behind) is exactly the case a member
+            needs to read and then act on. */}
+        {deleteError ? (
+          <div className="pointer-events-auto mx-3 mt-2 flex items-center justify-between gap-2 sm:mx-5">
+            <p role="alert" className="text-xs text-rose-300">
+              {deleteError}
+            </p>
+            <button
+              type="button"
+              onClick={() => setDeleteError(null)}
+              className="shrink-0 text-[11px] font-semibold text-white/70 underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
 
         {/* ------------------------------------------- creator identity (top bar)
             The reel/stories standard puts WHO posted and WHEN directly above
@@ -1218,7 +1282,13 @@ export function MediaFeed({
         <Link
           href="/task/upload-moment"
           aria-label="Upload a moment"
-          className="absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-gradient-to-br from-orange-500 to-[#FF5722] text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
+          // Solid `bg-orange-500` rather than the orange -> #FF5722 gradient this
+          // wore before. The bottom tab bar marks its active item in the same
+          // orange, so the primary "share something" action and the navigation
+          // highlight now read as one colour system. The gradient's second stop
+          // is a different, redder orange, which made the FAB look like it
+          // belonged to a different theme than the nav beneath it.
+          className="absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1275,35 +1345,6 @@ export function MediaFeed({
               );
             })}
           </div>
-
-          {/* Owner-only delete.
-              Rendered only for `current.isMine`; the enforcement is server-side
-              in deleteMoment, which scopes every query to the session uid, so
-              this is purely a courtesy affordance. Placed in its own row rather
-              than the fixed-width right-hand rail, whose geometry is
-              load-bearing and must not grow. */}
-          {current && current.isMine ? (
-            <div className="pointer-events-auto mb-2 flex items-center justify-center gap-2">
-              <button
-                type="button"
-                onClick={deleteActiveMoment}
-                disabled={deleteBusy}
-                className="flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/60 px-3 py-1.5 text-xs font-semibold text-white/80 backdrop-blur-md transition hover:border-danger-300/60 hover:bg-danger-500/20 hover:text-danger-200 disabled:opacity-40"
-              >
-                {deleteBusy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                )}
-                {deleteBusy ? "Deleting…" : "Delete"}
-              </button>
-              {deleteError ? (
-                <p role="alert" className="text-[11px] text-danger-300">
-                  {deleteError}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
 
 
           <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 backdrop-blur-md">
@@ -1548,6 +1589,102 @@ function MediaSurface({
   // Lets the parent sync its own mute icon when recovery grants sound, so the
   // control never claims "muted" while the video is actually audible.
   const onRequestUnmute = useRef<(() => void) | null>(null);
+
+  /**
+   * FULLSCREEN ON ROTATION.
+   *
+   * A landscape phone is wide and short, and `object-cover` on a portrait-shot
+   * video crops almost all of it away — the member rotates to see more and gets
+   * the same cropped frame, just sideways. So on rotating into landscape we ask
+   * the element for real fullscreen, which drops the feed chrome and lets the
+   * browser letterbox the video across the whole screen.
+   *
+   * WHY THIS IS A REQUEST, NOT A LAYOUT SWITCH: `requestFullscreen()` requires a
+   * user gesture on most engines. A rotation IS a user gesture for this purpose
+   * in the browsers that matter, but not all, so the promise is caught and
+   * ignored — the feed simply stays as it is, which is the correct degradation
+   * and never a broken state.
+   *
+   * Rotating back to portrait exits fullscreen, restoring the feed. Exiting is
+   * not gated on a gesture, so it always works.
+   *
+   * `screen.orientation` is the modern API and is what fires on rotation;
+   * `orientationchange` is kept for older iOS Safari, which lacks the former.
+   * Both listeners are registered, and both are cheap no-ops when nothing
+   * changes.
+   *
+   * Only the ACTIVE card participates. Every card in the feed is mounted, so
+   * without the `active` guard a rotation would pull eleven off-screen videos
+   * into fullscreen and leave whichever won the race on screen.
+   */
+  useEffect(() => {
+    if (!active) return;
+
+    const video = videoRef.current;
+    if (!video) return;
+
+    type WebkitVideo = HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitExitFullscreen?: () => void;
+      webkitSupportsFullscreen?: boolean;
+    };
+    const el = video as WebkitVideo;
+
+    const isLandscape = () => {
+      const angle = screen.orientation?.type;
+      if (angle) return angle === "landscape-primary" || angle === "landscape-secondary";
+      // Fallback for engines without the Screen Orientation API.
+      return window.innerWidth > window.innerHeight;
+    };
+
+    const enter = () => {
+      // Standard path: fullscreen the element itself so the video fills the
+      // screen and the page chrome (top bar, composer, action rail) is dropped.
+      if (el.requestFullscreen) {
+        void el.requestFullscreen().catch(() => {});
+        return;
+      }
+      // iPhone Safari on iOS: the element fullscreen API is absent and only
+      // `webkitEnterFullscreen` works, which gives the native video player.
+      if (typeof el.webkitEnterFullscreen === "function") {
+        try {
+          el.webkitEnterFullscreen();
+        } catch {
+          /* nothing to do — the inline player is still usable */
+        }
+      }
+    };
+
+    const exit = () => {
+      if (document.fullscreenElement) {
+        void document.exitFullscreen().catch(() => {});
+        return;
+      }
+      if (typeof el.webkitExitFullscreen === "function") {
+        try {
+          el.webkitExitFullscreen();
+        } catch {
+          /* already out of fullscreen */
+        }
+      }
+    };
+
+    const sync = () => {
+      if (isLandscape()) enter();
+      else exit();
+    };
+
+    screen.orientation?.addEventListener?.("change", sync);
+    window.addEventListener("orientationchange", sync);
+    window.addEventListener("resize", sync);
+
+    return () => {
+      screen.orientation?.removeEventListener?.("change", sync);
+      window.removeEventListener("orientationchange", sync);
+      window.removeEventListener("resize", sync);
+    };
+  }, [active, retryKey]);
+
   useEffect(() => {
     onRequestUnmute.current = onRequestUnmuteProp ?? null;
   }, [onRequestUnmuteProp]);
@@ -1682,8 +1819,29 @@ function MediaSurface({
     }
   }, [moment.mediaUrl, onRequestUnmute]);
 
+  /**
+   * The class the media surface carries.
+   *
+   * `h-full`/`w-full` resolve against the card, which is sized from the viewport,
+   * so the box itself already re-lays out on rotation. What needed help was the
+   * FILL: `object-cover` on a portrait-shot video in a short landscape viewport
+   * crops the top and bottom off entirely, so rotating to landscape produced the
+   * same heavily-cropped frame, just sideways.
+   *
+   * Hence `[@media(orientation:landscape)]:object-contain` — a pure CSS
+   * media query, applied by the engine rather than by React state. That matters
+   * for a rotation: a state-driven version has to wait for a JS round-trip
+   * between the physical rotation and the re-render, and on a slow device that
+   * gap is exactly when the member sees the wrong crop. The media query changes
+   * on the same frame as the viewport.
+   *
+   * This covers the INLINE case. When the element manages to claim real
+   * fullscreen (see the rotation effect above) the browser letterboxes it and
+   * this class is moot — the two mechanisms are complementary, not competing.
+   */
   const surfaceClass = [
     "h-full w-full object-cover transition-opacity duration-300",
+    "[@media(orientation:landscape)]:object-contain",
     ready ? "opacity-100" : "opacity-0",
   ].join(" ");
 
@@ -1729,6 +1887,15 @@ function MediaSurface({
           // Required for iOS Safari, which otherwise takes the video fullscreen
           // on play. A no-op everywhere else.
           playsInline
+          // The legacy iOS spelling of `playsInline`. React only writes the modern
+          // attribute, and older iOS Safari looks for this one — without it the
+          // video still hijacks the screen on rotation.
+          webkit-playsinline="true"
+          // Android Chrome: without this the element may be promoted out of the
+          // page and the feed's own fullscreen handling is bypassed, so rotating
+          // back would strand the member in a player with no way to the feed.
+          x5-playsinline="true"
+          x-webkit-airplay="deny"
           // Stops iOS painting its native control bar over the feed chrome.
           controls={false}
           // Suppresses the iOS Picture-in-Picture affordance on long-press.
