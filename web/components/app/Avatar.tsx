@@ -52,8 +52,18 @@ export function Avatar({ name, src, kind = "person", size = "md", className }: A
         // feed header wraps it in a fixed-size overflow-hidden ring) can
         // override the default size instead of fighting it with two competing
         // height utilities.
+        // `shrink-0` is REQUIRED here, not decorative.
+        //
+        // This element is a flex item in the comment row. Without it, a photo
+        // with a large intrinsic size can shrink the avatar below its box and,
+        // because the text column beside it is `min-w-0 flex-1`, squeeze that
+        // column to roughly one character wide - which is what forces text to
+        // wrap letter-by-letter down the screen.
+        //
+        // The initials branch below already had `shrink-0`; the image branch did
+        // not, so the bug only appeared for members WITH a profile photo.
         className={[
-          "h-full w-full rounded-full object-cover",
+          "h-full w-full shrink-0 rounded-full object-cover",
           sizeClasses[size],
           className ?? "",
         ]

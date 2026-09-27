@@ -1175,7 +1175,12 @@ export function MediaFeed({
             onClick={() => setCommentsOpen(false)}
             className="absolute inset-0 h-full w-full cursor-default"
           />
-          <div className="relative z-10 flex max-h-[85%] flex-col overflow-hidden rounded-t-3xl border-t border-white/10 bg-[#0F172A] shadow-2xl">
+          {/* `w-full` is load-bearing. As a flex item in a column container this
+              sheet sized to its CONTENT, so a short comment thread (or one whose
+              text wrapped narrow) shrank the sheet and squeezed every row with
+              it. Explicitly filling the width makes the text column's available
+              space independent of the content. */}
+          <div className="relative z-10 flex w-full max-w-lg max-h-[85%] flex-col overflow-hidden rounded-t-3xl border-t border-white/10 bg-[#0F172A] shadow-2xl">
             {/* Drag handle. Purely decorative - the sheet is dismissed by the
                 backdrop or the close button, not by dragging - but it is the
                 strongest signal that this is a dismissible sheet rather than a
@@ -1233,13 +1238,23 @@ export function MediaFeed({
                         size="sm"
                         className="shrink-0"
                       />
-                      {/* Vertical stack - author, then body, then time. Three
-                          short lines per comment keep a long thread scannable
-                          instead of becoming a wall of text. */}
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">
+                      {/* Vertical stack - author, then body, then time.
+                          `min-w-0` is what allows the text to shrink BELOW its
+                          intrinsic width so long words wrap instead of forcing the
+                          row wider; `flex-1` gives it the leftover space after the
+                          avatar. Both are required: drop `min-w-0` and a single
+                          long unbroken string (a URL) pushes the avatar out and
+                          the text breaks one character per line. */}
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <p className="truncate text-sm font-semibold text-white">
                           {comment.authorName ?? "Member"}
                         </p>
+                        {/*
+                          `break-words` (not `break-all`): wraps a long URL at a
+                          sensible point instead of mid-word. `whitespace-pre-wrap`
+                          preserves the author's newlines, which is what makes a
+                          threaded reply readable.
+                        */}
                         <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-6 text-ink-200">
                           {comment.body}
                         </p>
