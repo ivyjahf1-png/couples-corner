@@ -122,6 +122,18 @@ interface MediaFeedProps {
    * first thing a member sees. Values beyond the feed length are clamped.
    */
   sponsoredPosition?: number;
+  /**
+   * Moment id to scroll to on mount, from `?moment=<id>`.
+   *
+   * The share link at MediaSurface already builds `/?moment=<id>` URLs, but
+   * nothing ever READ that param, so every shared link silently opened the feed
+   * on whatever card happened to be first. This is the reader.
+   *
+   * Uses `scrollTo` with instant behaviour rather than `goTo` (which is smooth):
+   * on a deep link the user has not swiped yet, so animating the journey just
+   * plays a long scroll through unrelated people's posts.
+   */
+  deepLinkMomentId?: string | null;
   /** ISO cooldown deadline for the sponsored card, or null when claimable. */
   sponsoredNextAvailableAt?: string | null;
   /**
@@ -145,6 +157,7 @@ export function MediaFeed({
   rewardSlot,
   sponsoredSlot,
   sponsoredPosition = 0,
+  deepLinkMomentId = null,
   sponsoredNextAvailableAt = null,
   fill = false,
 }: MediaFeedProps) {
@@ -365,6 +378,38 @@ export function MediaFeed({
   }, [cards]);
 
   const nav = authorNav[safeIndex] ?? { prev: null, next: null, position: 1, total: 1 };
+
+  /**
+   * Jump to the deep-linked moment once, after the feed's first paint.
+   *
+   * Two things this deliberately gets right:
+   *
+   * - Gated on a ref, so it cannot fight the user. Without it, any re-render
+   *   triggered while they are reading the target (a comment lands, a reaction
+   *   reconciles) would yank them back to the same card.
+   * - The target index is resolved against `cards`, which is the SPONSORED-AWARE
+   *   list. Resolving against `feed` instead would be off by one for every moment
+   *   after the sponsored slot, landing on a neighbouring card.
+   */
+  const deepLinkDone = useRef(false);
+  useEffect(() => {
+    if (deepLinkDone.current) return;
+    if (!deepLinkMomentId || total === 0) return;
+    const at = cards.findIndex(
+      (c) => c.kind === "moment" && c.moment.id === deepLinkMomentId
+    );
+    // Unknown id (deleted post, or one filtered out of the feed): leave the user
+    // at the top rather than scrolling to a wrong-but-valid index.
+    if (at < 0) {
+      deepLinkDone.current = true;
+      return;
+    }
+    deepLinkDone.current = true;
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: at * el.clientHeight, behavior: "instant" as ScrollBehavior });
+    setIndex(at);
+  }, [deepLinkMomentId, cards, total]);
 
   /**
    * Scroll to a card by index.

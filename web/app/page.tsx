@@ -34,10 +34,10 @@ export const dynamic = "force-dynamic";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; moment?: string }>;
 }) {
   const session = await getSessionUser();
-  const { q } = await searchParams;
+  const { q, moment } = await searchParams;
 
   // Search: an exact 6-character code or a single unambiguous name goes
   // straight to the profile; anything with several candidates lands on the
@@ -91,6 +91,11 @@ export default async function HomePage({
       // Second position: the first card stays a real moment, so a new member
       // opens on community content rather than on an ad.
       sponsoredPosition={1}
+      // Deep link from a post-like row (or a share link): scroll straight to that
+      // moment instead of opening the feed on whatever card happens to be first.
+      // Trimmed and length-capped because it arrives from the URL, and an
+      // unvalidated id is passed to a client component as an attribute.
+      deepLinkMomentId={moment?.trim().slice(0, 64) || null}
       rewardSlot={null}
       emptyTitle="No moments yet"
       emptyBody="Members who share a photo or short video in the Task Center see it here instantly. Be the first."
