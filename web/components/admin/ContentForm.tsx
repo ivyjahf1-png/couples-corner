@@ -17,8 +17,9 @@ import {
 import {
   createContentAction,
   updateContentAction,
-  uploadContentMedia,
 } from "@/lib/actions/content";
+import { uploadFileDirect } from "@/lib/utils/direct-upload";
+import { getSupabaseClient } from "@/lib/supabase/client";
 
 interface ContentFormProps {
   category: ContentCategory;
@@ -68,6 +69,10 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
   // File chosen in the picker — uploaded on submit (overrides pasted media URL).
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Byte-level progress. A 100 MB video on a slow uplink is a long wait, and an
+  // indeterminate spinner during it is indistinguishable from a hang - the same
+  // reason the direct-upload module has a dedicated XHR path for progress.
+  const [uploadPercent, setUploadPercent] = useState(0);
   // Captured after the first successful create so a retry following an upload
   // failure updates the same row instead of creating a duplicate.
   const [savedId, setSavedId] = useState<string | null>(editingItem?.id ?? null);
@@ -147,7 +152,35 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
       if (mediaFile) {
         setUploading(true);
         try {
-          const { mediaUrl: uploadedUrl } = await uploadContentMedia(contentId, mediaFile);
+          // DIRECT TO STORAGE. This used to call the `uploadContentMedia` Server
+          // Action, which made the File the action's request body - so Vercel
+          // rejected any video over 4.5 MB with 413 "Payload too large" BEFORE
+          // the action ran, and the action's own `await file.arrayBuffer()`
+          // then buffered the whole file in serverless memory for good measure.
+          //
+          // The bytes now go browser -> Supabase Storage. Only a short string
+          // (the resulting public URL) ever reaches the database action.
+          //
+          // Permitted by migration 029, which grants authenticated ADMINS direct
+          // insert on the `media` bucket precisely so the admin dashboard can
+          // upload from the browser. RLS rejects the write for a non-admin, and
+          // that is the correct outcome - not something to work around.
+          const uploaded = await uploadFileDirect(adminUid, mediaFile, {
+            bucket: "media",
+            pathPrefix: `content/${contentId}`,
+            onProgress: (pct) => setUploadPercent(pct),
+          });
+          if (!uploaded.ok) {
+            setUploading(false);
+            fail(uploaded.error);
+            return;
+          }
+
+          // The `media` bucket is public (migration 010), so the public URL is a
+          // pure function of the path - no extra round-trip needed.
+          const uploadedUrl = getSupabaseClient()
+            .storage.from("media")
+            .getPublicUrl(uploaded.storagePath).data.publicUrl;
           const uploadedType: MediaType = mediaFile.type.startsWith("video/")
             ? "video"
             : "image";
@@ -295,7 +328,7 @@ export function ContentForm({ category, editingItem, adminUid, onClose }: Conten
               {busy ? <Icon name="sparkle" className="h-4 w-4 animate-pulse" /> : null}
               {busy
                 ? uploading
-                  ? "Uploading…"
+                  ? `Uploading… ${uploadPercent}%`
                   : "Saving…"
                 : editingItem || savedId
                   ? "Save changes"

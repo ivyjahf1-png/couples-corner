@@ -59,6 +59,14 @@ export interface DirectUploadOptions {
   onProgress?: (percent: number) => void;
   /** Apply the stricter profile-photo type allowlist (images only). */
   profilePhoto?: boolean;
+  /**
+   * Override the leading path segment(s), e.g. `content/<id>`.
+   *
+   * Needed for buckets whose RLS keys off a folder that is NOT the caller's uid
+   * - the admin `media` bucket stores campaign media under `content/<id>/`.
+   * Left undefined, the shape below is used, which storage RLS requires.
+   */
+  pathPrefix?: string;
 }
 
 /**
@@ -72,8 +80,14 @@ export interface DirectUploadOptions {
  *     `foldername[1] = 'profiles'` and `foldername[2] = auth.uid()`.
  * A path that does not match is rejected by the database, not by this code.
  */
-function buildStoragePath(bucket: string, uid: string, fileName: string): string {
+function buildStoragePath(bucket: string, uid: string, fileName: string, pathPrefix?: string): string {
   const safe = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  if (pathPrefix) {
+    // Trailing slashes are stripped so a caller passing "content/abc/" cannot
+    // produce a double slash, which some storage backends treat as a distinct
+    // (and unlisted) object key.
+    return `${pathPrefix.replace(/\/+$/, "")}/${Date.now()}_${safe}`;
+  }
   if (bucket === PROFILE_PHOTOS_BUCKET) {
     return `profiles/${uid}/${Date.now()}_${safe}`;
   }
@@ -96,6 +110,7 @@ export async function uploadFileDirect(
     bucket = USER_MEDIA_BUCKET,
     onProgress,
     profilePhoto = false,
+    pathPrefix,
   } = options;
 
   const invalid = validateMediaFile(file, profilePhoto);
@@ -127,7 +142,7 @@ export async function uploadFileDirect(
     };
   }
 
-  const path = buildStoragePath(bucket, uid, file.name);
+  const path = buildStoragePath(bucket, uid, file.name, pathPrefix);
   const ext = (path.split(".").pop() ?? "").toLowerCase();
   // Derived from the RESOLVED type, never file.type: an empty file.type makes
   // startsWith("video/") false and files every video as an image, which then
