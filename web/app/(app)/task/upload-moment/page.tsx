@@ -2,11 +2,23 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ImagePlus, Video } from "lucide-react";
-import { publishMomentAction, claimTaskAction } from "@/lib/actions/tasks";
+import { CheckCircle2, ImagePlus, Link2, Upload, Video } from "lucide-react";
+import {
+  publishMomentAction,
+  publishLinkMomentAction,
+  claimTaskAction,
+} from "@/lib/actions/tasks";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 import { PageLock } from "@/components/app/PageHeader";
+
+/**
+ * A moment's media is either a file this app uploaded, or an embed of a video
+ * hosted elsewhere — never both. Tabs rather than one long form, because
+ * showing both inputs at once would leave the member guessing which wins.
+ */
+type Mode = "upload" | "link";
 
 /**
  * Per-file cap. Matches MAX_USER_MEDIA_BYTES in lib/utils/media-upload.ts,
@@ -52,6 +64,8 @@ export function MomentUploadForm() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [mode, setMode] = useState<Mode>("upload");
+  const [linkUrl, setLinkUrl] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,10 +79,30 @@ export function MomentUploadForm() {
   const [progress, setProgress] = useState(0);
 
   const isVideo = file?.type.startsWith("video/") ?? false;
-  const ready = Boolean(file) && content.trim().length > 0 && file!.size <= MAX_BYTES;
+
+  // Client-side preview of what the server will accept. publishLinkMomentAction
+  // re-parses the pasted string server-side, so this is only there to avoid a
+  // pointless round-trip — it is NOT the check that decides what gets stored.
+  const linkCheck = linkUrl.trim() ? parseVideoEmbedUrl(linkUrl) : null;
+
+  const providerLabel =
+    linkCheck && linkCheck.ok
+      ? linkCheck.provider === "youtube"
+        ? "YouTube"
+        : linkCheck.provider === "tiktok"
+          ? "TikTok"
+          : "Instagram"
+      : null;
+
+  // Gated per mode: in link mode the link must actually parse, so a member
+  // cannot publish something guaranteed to be rejected server-side.
+  const ready =
+    mode === "link"
+      ? Boolean(linkUrl.trim()) && content.trim().length > 0 && linkCheck?.ok === true
+      : Boolean(file) && content.trim().length > 0 && file!.size <= MAX_BYTES;
 
   async function publish() {
-    if (!file || !ready || busy) return;
+    if (!ready || busy) return;
     setBusy(true);
     setError(null);
     setProgress(0);
@@ -77,6 +111,31 @@ export function MomentUploadForm() {
     // — success, handled error, thrown error, or timeout — can leave the
     // button stuck on "Publishing...".
     try {
+      if (mode === "link") {
+        // A link embed has no bytes, so it skips storage entirely and goes
+        // straight to the one small action. The server re-validates the host
+        // allowlist before writing.
+        setStatus("Publishing...");
+        const result = await publishLinkMomentAction({
+          url: linkUrl.trim(),
+          content,
+        });
+        setStatus("");
+
+        if (!result.ok) {
+          setError(result.error ?? "Could not publish your moment. Please try again.");
+          return;
+        }
+        setDone(true);
+        const claim = await claimTaskAction("upload-moment");
+        if (claim.ok) {
+          setReward(`+${claim.rewardCoins} coins added to your wallet`);
+          router.refresh();
+        }
+        return;
+      }
+
+      if (!file) return;
       // The uid comes from the live Supabase session, never from a prop or
       // form field: the storage path is namespaced by it and the storage RLS
       // policy checks it, so a forged uid would write into someone else's
@@ -153,7 +212,7 @@ export function MomentUploadForm() {
         <div>
           <h1 className="text-lg font-bold tracking-wide text-white sm:text-xl">Upload a Moment</h1>
           <p className="mt-0.5 text-xs text-ink-300 sm:text-sm">
-            Share a photo or short video. It appears on the home feed for everyone.
+            Share a photo or a short video, or paste a link to one. It appears on the home feed for everyone.
           </p>
         </div>
       }
@@ -175,6 +234,73 @@ export function MomentUploadForm() {
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
+          {/* Two ways to add media, side by side. Tabs rather than one long form
+              because the paths are mutually exclusive: a moment is either an
+              uploaded file or an embed, never both. */}
+          <div
+            role="tablist"
+            aria-label="Moment media type"
+            className="flex shrink-0 gap-1 rounded-2xl border border-white/10 bg-slate-950/60 p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "upload"}
+              onClick={() => { setMode("upload"); setError(null); }}
+              className={[
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                mode === "upload" ? "bg-orange-500/20 text-orange-200" : "text-ink-400 hover:text-white",
+              ].join(" ")}
+            >
+              <Upload className="h-4 w-4" aria-hidden /> Upload a file
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "link"}
+              onClick={() => { setMode("link"); setError(null); }}
+              className={[
+                "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition",
+                mode === "link" ? "bg-orange-500/20 text-orange-200" : "text-ink-400 hover:text-white",
+              ].join(" ")}
+            >
+              <Link2 className="h-4 w-4" aria-hidden /> Paste a video link
+            </button>
+          </div>
+
+          {mode === "link" ? (
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="moment-video-link" className="text-sm font-medium text-white">
+                Video link
+              </label>
+              <input
+                id="moment-video-link"
+                type="url"
+                inputMode="url"
+                value={linkUrl}
+                onChange={(event) => { setLinkUrl(event.target.value); setError(null); }}
+                placeholder="https://…  YouTube, TikTok or Instagram"
+                aria-invalid={linkCheck ? !linkCheck.ok : undefined}
+                aria-describedby="moment-video-link-hint"
+                className="w-full rounded-2xl border border-indigo-500/25 bg-indigo-950/50 p-3 text-sm text-white placeholder:text-ink-400 focus:border-orange-400/50 focus:outline-none"
+              />
+              {/* Inline validation, so a bad link is obvious before publishing
+                  rather than only after a round-trip. The server is the
+                  authority; this only saves the round-trip. */}
+              <p id="moment-video-link-hint" className="text-[11px] text-ink-400">
+                {linkCheck ? (
+                  linkCheck.ok ? (
+                    <span className="text-emerald-300">{providerLabel} link ready.</span>
+                  ) : (
+                    <span className="text-danger-300">{linkCheck.error}</span>
+                  )
+                ) : (
+                  "Paste a link to a YouTube, TikTok or Instagram video."
+                )}
+              </p>
+            </div>
+          ) : (
+            <>
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -207,6 +333,8 @@ export function MomentUploadForm() {
             }}
             aria-label="Choose moment photo or video"
           />
+            </>
+          )}
 
           <label htmlFor="moment-description" className="text-sm font-medium text-white">
             Describe your moment
