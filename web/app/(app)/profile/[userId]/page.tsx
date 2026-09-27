@@ -7,6 +7,7 @@ import { Avatar } from "@/components/app/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { ProfileConnectionActions } from "@/components/app/ProfileConnectionActions";
+import { MessageProfileButton } from "@/components/app/MessageProfileButton";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { BlockDialog } from "@/components/app/BlockDialog";
 import { PublicMediaGallery } from "@/components/app/PublicMediaGallery";
@@ -180,22 +181,42 @@ export default async function PublicProfilePage({
             </Card>
           ) : null}
 
-          {/* Actions */}
-          {!isSelf && (
+          {/*
+            Primary actions, directly under the profile details.
+
+            Connect and Message are the two things a visitor actually came here
+            to do, so they sit first and at full size. Report and Block follow as
+            smaller secondary controls - they are safety affordances, not the
+            main event, and giving them equal weight buries the primary pair.
+
+            The Connect button is the existing ProfileConnectionActions widget
+            (Connect / Request sent / Accept / Connected, driven by real state);
+            it is NOT recreated here, so the two entry points - this page and the
+            discover deck - can never disagree about the connection state.
+          */}
+          {!isSelf ? (
             <div className="flex flex-wrap items-center gap-2">
-              <ProfileConnectionActions
-                targetUserId={userId}
-                viewerUid={session?.uid ?? null}
-                size="md"
-              />
-              <ReportDialog
-                targetLabel={profile.displayName}
-                entityType="user"
-                entityId={userId}
-              />
-              <BlockDialog targetLabel={profile.displayName} targetUid={userId} />
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+                <ProfileConnectionActions
+                  targetUserId={userId}
+                  viewerUid={session?.uid ?? null}
+                  size="md"
+                />
+                <MessageProfileButton
+                  recipientId={userId}
+                  recipientName={profile.displayName}
+                />
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <ReportDialog
+                  targetLabel={profile.displayName}
+                  entityType="user"
+                  entityId={userId}
+                />
+                <BlockDialog targetLabel={profile.displayName} targetUid={userId} />
+              </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
