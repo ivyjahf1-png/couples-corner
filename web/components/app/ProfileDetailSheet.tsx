@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
 import { Chip } from "@/components/ui/Chip";
+import { SHEET_SHELL, SHEET_BACKDROP, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 import {
   getProfileDetailAction,
   type ProfileDetailView,
@@ -74,7 +75,7 @@ export function ProfileDetailSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
+      className={SHEET_SHELL}
       role="dialog"
       aria-modal="true"
       aria-label={`${displayName} — full profile`}
@@ -83,9 +84,9 @@ export function ProfileDetailSheet({
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm"
+        className={SHEET_BACKDROP}
       />
-      <div className="relative z-10 max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0F172A] shadow-2xl sm:rounded-3xl">
+      <div className={`${SHEET_PANEL_RELATIVE} max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0F172A] shadow-2xl sm:rounded-3xl`}>
         {/* Sheet grab handle */}
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0F172A]/95 px-5 py-4 backdrop-blur">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300">

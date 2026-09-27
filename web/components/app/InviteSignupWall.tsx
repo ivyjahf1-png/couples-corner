@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { openAuthModal } from "@/components/auth/AuthModals";
+import { SHEET_SHELL } from "@/components/ui/layers";
 import {
   INVITE_COOKIE,
   INVITE_STORAGE_KEY,
@@ -114,7 +115,7 @@ export function InviteSignupWall({ inviteCode }: { inviteCode: string | null }) 
   if (!inviteCode || dismissed || !visible) return null;
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/30 p-4 backdrop-blur-sm sm:items-center"
+      className={`${SHEET_SHELL} bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/30 p-4 backdrop-blur-sm sm:p-4`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="invite-wall-title"

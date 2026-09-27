@@ -77,8 +77,18 @@ export function Avatar({ name, src, kind = "person", size = "md", className }: A
     <span
       aria-hidden
       className={[
-        "inline-flex shrink-0 items-center justify-center rounded-full font-semibold",
-        kind === "couple" ? "bg-brand-500/15 text-brand-300" : "bg-white/15 text-ink-200",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold",
+        // The initials fallback carries a real gradient rather than a flat
+        // `bg-white/15`. A flat translucent white over a dark card resolves to
+        // the same desaturated grey as every other placeholder, so a deck of
+        // members who have not uploaded photos read as a wall of identical
+        // grey discs — visually flat, and it made the card look broken rather
+        // than empty. The gradient is deterministic per name, so the same
+        // member keeps the same colours everywhere they appear instead of
+        // flickering between greys on each render.
+        kind === "couple"
+          ? "bg-gradient-to-br from-brand-500/25 via-brand-600/15 to-ink-700/40 text-brand-200"
+          : "bg-gradient-to-br from-brand-500/30 via-purple-500/20 to-orange-500/20 text-white",
         sizeClasses[size],
         className ?? "",
       ]

@@ -296,6 +296,9 @@ export function BottomNavRegion(props: AppMobileNavProps) {
   if (inActiveConversation) return null;
 
   return (
+    // `Z.nav` is 50 and must stay BELOW `Z.sheet` (200): a modal sheet paints
+    // over this bar and dims it, but the bar's links would otherwise still win
+    // taps in the strip where the two overlap. See components/ui/layers.ts.
     <div className="fixed inset-x-0 bottom-0 z-50 shrink-0 md:hidden">
       <AppMobileNav {...props} />
     </div>

@@ -7,6 +7,7 @@ import { publishLinkMomentAction } from "@/lib/actions/tasks";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
+import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 
 type Mode = "upload" | "link";
 
@@ -80,8 +81,8 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       : Boolean(file && caption.trim() && !publishing);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Create a post">
-      <div className="w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900 p-5 shadow-2xl sm:rounded-3xl">
+    <div className={`${SHEET_SHELL} bg-slate-950/80 backdrop-blur-sm sm:p-4`} role="dialog" aria-modal="true" aria-label="Create a post">
+      <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900 p-5 shadow-2xl sm:rounded-3xl`}>
         <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">Create a post</h2><button type="button" onClick={onClose} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close">×</button></div>
         {/* Two ways to add media, side by side. Tabs rather than one long form
             because the paths are mutually exclusive: a post is either an

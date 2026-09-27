@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageCircle, X, Send } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { notifyFailure } from "@/components/ui/FailureToasts";
+import { SHEET_SHELL, SHEET_BACKDROP, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 
 /**
  * "Message" action for another member's profile.
@@ -74,7 +75,7 @@ export function MessageProfileButton({
 
       {open ? (
         <div
-          className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center"
+          className={SHEET_SHELL}
           role="dialog"
           aria-modal="true"
           aria-label={`Message ${name}`}
@@ -83,9 +84,9 @@ export function MessageProfileButton({
             type="button"
             aria-label="Close"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm"
+            className={SHEET_BACKDROP}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:p-5">
+          <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-4 shadow-2xl sm:rounded-3xl sm:p-5`}>
             <div className="mb-3 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300">
                 <MessageCircle className="h-5 w-5" />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@/components/landing/Icon";
 import { Avatar } from "@/components/app/Avatar";
 import { Chip } from "@/components/ui/Chip";
+import { SHEET_SHELL, SHEET_BACKDROP, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 import { sendConnectionAction } from "@/lib/actions/connections";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
@@ -178,14 +179,41 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
         <>
           {/* ---------------------------------------------------------------- Card */}
           <div className="relative aspect-[3/4] w-full select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card">
-            {/* Photo (optional-chained; falls back to the gradient avatar) */}
+            {/* Photo, or a designed fallback when there is none.
+                The old fallback dropped a plain avatar onto the bare card
+                gradient, leaving a large flat expanse of near-black with a
+                small disc in the middle — the card read as "failed to load"
+                rather than "no photo yet". The fallback now fills the frame
+                with a member-themed gradient plus a soft bloom, so the card
+                looks deliberate at every state and the initials stay the
+                focal point.
+
+                All three fallback layers live inside the `else` below, so a
+                member who HAS a photo never gets a gradient or an avatar
+                painted over their face. */}
             {current?.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={current.avatarUrl ?? ""} alt={name} className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Avatar name={name} kind={current?.kind} size="xl" className="bg-gradient-to-br from-brand-500/25 via-brand-600/10 to-ink-700/40 ring-1 ring-white/10" />
-              </div>
+              <>
+                <div className="absolute inset-0 bg-gradient-to-br from-brand-600/30 via-[#1E293B] to-orange-600/20" />
+                <div
+                  aria-hidden
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(60% 45% at 50% 38%, rgba(255,138,76,0.22), transparent 70%)",
+                  }}
+                />
+                <div aria-hidden className="absolute inset-0 flex items-center justify-center">
+                  <Avatar
+                    name={name}
+                    kind={current?.kind}
+                    size="xl"
+                    className="h-32 w-32 bg-gradient-to-br from-brand-500/40 via-purple-500/30 to-orange-500/30 text-3xl font-bold text-white ring-2 ring-white/20 shadow-2xl"
+                  />
+                </div>
+              </>
             )}
             {/* Bottom scrim keeps the text legible without forcing white cards. */}
             <div aria-hidden className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-[#0F172A] via-[#0F172A]/85 to-transparent" />
@@ -212,7 +240,21 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                 <div className="min-w-0">
                   <h2 className="truncate text-2xl font-bold text-white">{name}</h2>
                   <p className="truncate text-sm text-ink-300">
-                    {[current?.age != null ? `${current.age}` : null, current?.location?.trim() || "Location not shared"].filter(Boolean).join(" · ")}
+                    {/* Age and location are independent, so a member with no
+                        location used to render the bare literal "Location not
+                        shared" — which reads as an error string rather than a
+                        missing field. An en dash with the same grey carries the
+                        same information without looking like a failure, and the
+                        age still stands alone when location is absent. */}
+                    {current?.age != null ? `${current.age}` : null}
+                    {current?.location?.trim() ? (
+                      <>
+                        {current?.age != null ? " · " : null}
+                        {current.location.trim()}
+                      </>
+                    ) : current?.age != null ? (
+                      " · Location private"
+                    ) : null}
                   </p>
                 </div>
                 {connection ? (
@@ -284,9 +326,9 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* ------------------------------------------------ Get Super Likes modal */}
       {superLikeModal ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Super Likes">
-          <button type="button" aria-label="Close" onClick={() => setSuperLikeModal(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
+        <div className={SHEET_SHELL} role="dialog" aria-modal="true" aria-label="Get Super Likes">
+          <button type="button" aria-label="Close" onClick={() => setSuperLikeModal(false)} className={SHEET_BACKDROP} />
+          <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl`}>
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300"><Icon name="star" className="h-6 w-6" /></span>
               <div>
@@ -321,9 +363,9 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* --------------------------------------- First Impressions overlay */}
       {impressionsModal ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Send First Impressions">
-          <button type="button" aria-label="Close" onClick={() => setImpressionsModal(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-3xl sm:p-5">
+        <div className={SHEET_SHELL} role="dialog" aria-modal="true" aria-label="Send First Impressions">
+          <button type="button" aria-label="Close" onClick={() => setImpressionsModal(false)} className={SHEET_BACKDROP} />
+          <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-4 shadow-2xl sm:rounded-3xl sm:p-5`}>
             <div className="mb-3 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/15 text-sky-300"><Icon name="send" className="h-5 w-5" /></span>
               <div className="min-w-0">
@@ -421,9 +463,9 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
       {/* ------------------------------ Coin purchase / tier modal (future) */}
       {coinModalOpen ? (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-label="Get Coins">
-          <button type="button" aria-label="Close" onClick={() => setCoinModalOpen(false)} className="absolute inset-0 h-full w-full cursor-default bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-10 w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl">
+        <div className={SHEET_SHELL} role="dialog" aria-modal="true" aria-label="Get Coins">
+          <button type="button" aria-label="Close" onClick={() => setCoinModalOpen(false)} className={SHEET_BACKDROP} />
+          <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-sm rounded-t-3xl border border-white/10 bg-[#0F172A] p-6 shadow-2xl sm:rounded-3xl`}>
             <div className="mb-4 flex items-center gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-500/15 text-orange-300"><Icon name="sparkle" className="h-6 w-6" /></span>
               <div>
