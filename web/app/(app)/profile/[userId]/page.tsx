@@ -62,7 +62,11 @@ export default async function PublicProfilePage({
   const initialOnline = presence[userId]?.online ?? false;
 
   return (
-    <div className="flex flex-col gap-8">
+    // `pb-28` clears the FIXED bottom nav bar. Without it the final block -
+    // the action cards - renders underneath the nav, unreachable: the page
+    // scrolls to its true end and the last content sits behind the bar.
+    // 7rem covers the bar plus its safe-area inset on notched phones.
+    <div className="flex flex-col gap-8 pb-28">
       <PageHeader
         eyebrow="Profile"
         title={profile.displayName}
