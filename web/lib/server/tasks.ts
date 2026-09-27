@@ -679,10 +679,18 @@ export async function addMomentComment(
   // No `profiles(...)` embed here — see lib/server/profile-lookup.ts. The
   // embed made PostgREST reject the whole query (no FK from moment_comments to
   // profiles), so posting a comment failed outright.
+  //
+  // COLUMN NAME: the live column is `comment`, NOT `body`. Migration 036
+  // declares `body`, so the database and that migration disagree; the deployed
+  // schema is the one that is actually there. Writing `body` fails with
+  //     PGRST204: Could not find the 'body' column of 'moment_comments'
+  // which is what surfaced to members as "Could not post your comment".
+  // Verified against the live database. Migration 044 reconciles the migration
+  // with the deployed schema, so do not "fix" this back to `body`.
   const { data, error } = await supabase
     .from("moment_comments")
-    .insert({ moment_id: momentId, user_id: userId, body })
-    .select("id, user_id, body, created_at")
+    .insert({ moment_id: momentId, user_id: userId, comment: body })
+    .select("id, user_id, comment, created_at")
     .single();
   if (error || !data) {
     console.error("[moments] comment insert failed", supabaseErrorDetail(error));
@@ -692,7 +700,7 @@ export async function addMomentComment(
   const row = data as {
     id: string;
     user_id: string;
-    body: string;
+    comment: string;
     created_at: string;
   };
 
@@ -709,7 +717,7 @@ export async function addMomentComment(
       // just posted renders with an avatar immediately rather than flashing
       // initials for everyone else in the thread.
       authorAvatarUrl: author?.avatarUrl ?? null,
-      body: row.body,
+      body: row.comment,
       createdAt: row.created_at,
     },
   };
@@ -722,9 +730,13 @@ export async function listMomentComments(momentId: string, limit = 50): Promise<
 
   // Same embed caveat as above: a `profiles(...)` select here returned nothing
   // at all, so the comment sheet was permanently empty.
+  //
+  // `comment`, not `body` - see addMomentComment. This select had the same
+  // column drift, so reading also failed with PGRST204 and the sheet rendered
+  // empty even when comments existed.
   const { data, error } = await supabase
     .from("moment_comments")
-    .select("id, user_id, body, created_at")
+    .select("id, user_id, comment, created_at")
     .eq("moment_id", momentId)
     .order("created_at", { ascending: true })
     .limit(limit);
@@ -737,7 +749,7 @@ export async function listMomentComments(momentId: string, limit = 50): Promise<
   const rows = (data ?? []) as Array<{
     id: string;
     user_id: string;
-    body: string;
+    comment: string;
     created_at: string;
   }>;
   if (rows.length === 0) return [];
@@ -749,7 +761,7 @@ export async function listMomentComments(momentId: string, limit = 50): Promise<
     userId: row.user_id,
     authorName: authors.get(row.user_id)?.displayName ?? null,
     authorAvatarUrl: authors.get(row.user_id)?.avatarUrl ?? null,
-    body: row.body,
+    body: row.comment,
     createdAt: row.created_at,
   }));
 }
