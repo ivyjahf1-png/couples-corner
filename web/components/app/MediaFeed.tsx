@@ -1130,8 +1130,15 @@ export function MediaFeed({
             onClick={() => setCommentsOpen(false)}
             className="absolute inset-0 h-full w-full cursor-default"
           />
-          <div className="relative z-10 flex max-h-[70%] flex-col rounded-t-3xl border-t border-white/10 bg-[#0F172A]">
-            <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3">
+          <div className="relative z-10 flex max-h-[85%] flex-col overflow-hidden rounded-t-3xl border-t border-white/10 bg-[#0F172A] shadow-2xl">
+            {/* Drag handle. Purely decorative - the sheet is dismissed by the
+                backdrop or the close button, not by dragging - but it is the
+                strongest signal that this is a dismissible sheet rather than a
+                separate page, and every sheet in this pattern has one. */}
+            <div aria-hidden className="shrink-0 pt-2.5">
+              <div className="mx-auto h-1 w-10 rounded-full bg-white/25" />
+            </div>
+            <header className="flex shrink-0 items-center justify-between px-4 pb-3 pt-2">
               <h2 className="text-sm font-semibold text-white">
                 {commentCount > 0 ? `${commentCount} comment${commentCount === 1 ? "" : "s"}` : "Comments"}
               </h2>
@@ -1145,32 +1152,55 @@ export function MediaFeed({
               </button>
             </header>
 
-            <div ref={commentListRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {/*
+              The list, and nothing else.
+
+              NO MEDIA IS RENDERED IN HERE. The moment stays on screen behind the
+              scrim, so repeating its photo or video inside the drawer would show
+              the same thing twice and push the conversation below the fold. The
+              sheet is opaque and tall for the same reason: the point of opening
+              it is to read and reply, not to re-watch the moment.
+
+              `overscroll-contain` stops a flick at the end of the thread from
+              chaining through to the feed's own snap scroller behind it, which
+              would silently page away from the moment the member is reading.
+            */}
+            <div
+              ref={commentListRef}
+              className="min-h-0 flex-1 overscroll-contain overflow-y-auto overscroll-y-contain px-4 pb-2"
+            >
               {commentList.length === 0 ? (
-                <p className="py-6 text-center text-sm text-ink-400">
+                <p className="py-8 text-center text-sm text-ink-400">
                   No comments yet. Be the first to say something.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-3">
+                <ul className="flex flex-col">
                   {commentList.map((comment) => (
-                    <li key={comment.id} className="flex items-start gap-2.5">
-                      {/* Avatar resolved server-side; falls back to initials when
-                          the member has no photo. */}
+                    <li
+                      key={comment.id}
+                      className="flex items-start gap-3 border-b border-white/5 py-3.5 last:border-b-0"
+                    >
+                      {/* Circular avatar; falls back to initials when the member
+                          has no photo, and to initials again if the image 404s. */}
                       <Avatar
                         name={comment.authorName ?? "Member"}
                         src={comment.authorAvatarUrl}
                         size="sm"
+                        className="shrink-0"
                       />
+                      {/* Vertical stack - author, then body, then time. Three
+                          short lines per comment keep a long thread scannable
+                          instead of becoming a wall of text. */}
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-baseline gap-2">
-                          <span className="truncate text-xs font-semibold text-white">
-                            {comment.authorName ?? "Member"}
-                          </span>
-                          <span className="shrink-0 text-[10px] text-ink-400">
-                            {formatWhen(comment.createdAt)}
-                          </span>
+                        <p className="text-sm font-semibold text-white">
+                          {comment.authorName ?? "Member"}
                         </p>
-                        <p className="text-sm leading-6 text-ink-200">{comment.body}</p>
+                        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm leading-6 text-ink-200">
+                          {comment.body}
+                        </p>
+                        <p className="mt-1 text-[11px] text-ink-400">
+                          {formatWhen(comment.createdAt)}
+                        </p>
                       </div>
                     </li>
                   ))}
@@ -1179,7 +1209,17 @@ export function MediaFeed({
             </div>
 
             {viewerId ? (
-              <div className="shrink-0 border-t border-white/10 px-3 py-2">
+              /*
+                Sticky composer.
+
+                It is a `shrink-0` sibling of the scrolling list inside a flex
+                column, which is what actually keeps it docked: the list takes
+                the remaining space and scrolls, the composer keeps its natural
+                height. `env(safe-area-inset-bottom)` matters on notched phones
+                and in the iOS browser, where the home indicator otherwise sits
+                directly on top of the send button.
+              */
+              <div className="shrink-0 border-t border-white/10 bg-[#0F172A] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5">
                 <div className="flex items-center gap-2">
                   <label htmlFor="moment-comment" className="sr-only">
                     Add a comment
@@ -1189,7 +1229,12 @@ export function MediaFeed({
                     value={commentDraft}
                     onChange={(event) => setCommentDraft(event.target.value)}
                     onKeyDown={(event) => {
-                      if (event.key === "Enter") postComment();
+                      if (event.key === "Enter") {
+                        // This is an <input>, not a textarea, so Enter is
+                        // unambiguously "send" rather than a newline.
+                        event.preventDefault();
+                        postComment();
+                      }
                     }}
                     maxLength={500}
                     placeholder="Add a comment…"
