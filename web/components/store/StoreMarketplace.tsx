@@ -74,17 +74,17 @@ export function StoreMarketplace({
     <div className="relative flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm text-amber-300">Premium collection</p>
+          <p className="lux-metal text-sm font-bold">Premium collection</p>
           <h1 className="text-3xl font-bold text-white">Store</h1>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-500/15 px-3 py-1.5 text-sm font-bold text-amber-200">
+          <span className="lux-coin text-sm">
             <Coins className="h-4 w-4" /> {coins.toLocaleString()}
           </span>
           <button
             type="button"
             onClick={() => setBagOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-amber-300/30 bg-amber-400/10 px-4 py-2 text-sm font-bold text-amber-200"
+            className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-2 text-sm font-bold text-white/90 backdrop-blur-md transition hover:bg-white/10"
             aria-label="Open bag"
           >
             <ShoppingBag className="h-4 w-4" /> Bag ({owned.length})
@@ -100,11 +100,7 @@ export function StoreMarketplace({
             role="tab"
             aria-selected={category === name}
             onClick={() => setCategory(name)}
-            className={`whitespace-nowrap rounded-full border px-4 py-2 text-xs font-semibold transition ${
-              category === name
-                ? "border-amber-300 bg-amber-300 text-slate-950"
-                : "border-white/10 bg-white/5 text-white/70"
-            }`}
+            className="lux-tab"
           >
             {name}
           </button>
@@ -114,28 +110,69 @@ export function StoreMarketplace({
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => {
           const isOwned = ownedIds.has(item.id);
+          // Featured is driven by the catalog's own `badge` field rather than
+          // by index, so the halo always lands on the items merchandising
+          // actually wants to push. Without this the first card in the grid
+          // glowed on every category regardless of merit.
+          const isFeatured = item.badge === "Featured";
           return (
-            <article key={item.id} className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 shadow-xl">
-              <div className={`relative flex h-36 items-center justify-center bg-gradient-to-br ${item.gradient} text-6xl`}>
-                {item.icon}
+            <article
+              key={item.id}
+              className={`lux-card group overflow-hidden ${isFeatured ? "lux-card--featured" : ""}`}
+            >
+              {/* Preview focal point.
+                  The gradient panel is the product image, so it gets the most
+                  space on the card (h-44) and the glyph is scaled up and lifted
+                  off the panel rather than sitting flat in the middle of it. A
+                  soft radial highlight behind the glyph gives the plate a
+                  specular sheen, which is what stops these reading as coloured
+                  rectangles with an emoji on them. */}
+              <div
+                className={`relative flex h-44 items-center justify-center bg-gradient-to-br ${item.gradient}`}
+              >
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_35%,rgba(255,255,255,0.45),transparent_70%)]"
+                />
+                {/* Duration tag. The single most useful fact about a store item
+                    is what you are actually buying, so it moves from a dim grey
+                    "/28D" in the title row to a real tag on the preview, where
+                    it is readable at a glance. */}
+                <span className="lux-tag absolute right-2 top-2 z-10">{item.durationDays} DAYS</span>
                 {item.badge ? (
-                  <span className="absolute left-2 top-2 rounded-full bg-black/40 px-2 py-0.5 text-[10px] font-bold text-amber-200">
+                  <span className="absolute left-2 top-2 z-10 rounded-full bg-slate-950/70 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-200 ring-1 ring-amber-300/40">
                     {item.badge}
                   </span>
                 ) : null}
+                <span
+                  aria-hidden
+                  className="relative z-10 text-7xl drop-shadow-[0_6px_18px_rgba(0,0,0,0.45)] transition-transform duration-300 group-hover:scale-105"
+                >
+                  {item.icon}
+                </span>
+                {isOwned ? (
+                  <span className="absolute inset-x-0 bottom-0 z-10 bg-slate-950/70 py-1 text-center text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+                    In your bag
+                  </span>
+                ) : null}
               </div>
-              <div className="p-4">
-                <div className="flex justify-between gap-2">
-                  <h2 className="truncate font-semibold text-white">{item.name}</h2>
-                  <span className="whitespace-nowrap text-xs text-white/45">/{item.durationDays}D</span>
-                </div>
-                <div className="mt-4 flex items-center justify-between gap-2">
-                  <span className="font-bold text-amber-300">🪙 {item.price.toLocaleString()}</span>
+              <div className="relative z-10 p-4">
+                <h2 className="truncate font-semibold text-white">{item.name}</h2>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  {/* Metallic price. `lux-metal` paints the gradient through the
+                      text, so the number catches the same gold as the featured
+                      halo without introducing a second accent colour. */}
+                  <span className="lux-metal text-sm font-extrabold tabular-nums">
+                    {item.price.toLocaleString()}
+                    <span className="ml-1 text-[10px] font-bold uppercase tracking-wider text-amber-200/70">
+                      coins
+                    </span>
+                  </span>
                   <button
                     type="button"
                     disabled={isOwned || isPending}
                     onClick={() => buy(item)}
-                    className="rounded-lg bg-amber-400 px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-amber-300 disabled:opacity-50"
+                    className="lux-cta px-3 py-1.5 text-xs"
                   >
                     {isOwned ? "Owned" : pendingId === item.id ? "..." : "Buy"}
                   </button>
