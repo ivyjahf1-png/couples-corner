@@ -76,18 +76,13 @@ const SPONSORED_CARD_KEY = "sponsored-moment";
 
 const MAX_CAPTION = 2200;
 
-/**
- * Width of the window the top progress segments represent: the last 24 hours.
- *
- * This matches the stories expiry window (migration 038, `now() + interval '24
- * hours'`) so the two "recent activity" surfaces agree on what recent means.
- */
-const SEGMENT_WINDOW_MS = 24 * 60 * 60 * 1000;
-
-/** Start of the segment window, as an epoch-ms value comparable to Date.parse. */
-function segmentCutoffNow(): number {
-  return Date.now() - SEGMENT_WINDOW_MS;
-}
+// The 24-hour segment window (`SEGMENT_WINDOW_MS`, `segmentCutoffNow`) was
+// removed with the progress bars. It existed only to decide how many segments
+// to DRAW; it never filtered which moments appear in the feed, so deleting it
+// changes nothing about persistence. Moments have no expiry at all — they
+// remain in the feed until their owner deletes them. The 24-hour expiry that
+// does exist in this product belongs to a separate `stories` table
+// (migration 038), which this feed does not read.
 
 // `ReactionKind` is imported from @/lib/moments rather than redeclared here.
 // The feed, the server actions and the view model must agree on the set of
@@ -309,58 +304,13 @@ export function MediaFeed({
 
   const activeCard = cards[safeIndex] ?? null;
 
-  /**
-   * SEGMENT FILTER - the progress bars count only the last 24 HOURS.
-   *
-   * The segment strip is a "what's happening right now" readout, so it is scoped
-   * to the same 24-hour window the stories surface uses (migration 038). An older
-   * moment is still a real card the member can scroll to and it still renders in
-   * full - this filter changes how many segments are DRAWN, never which moments
-   * exist. Nothing is deleted, hidden from the feed, or excluded from a profile.
-   *
-   * WHY THE CUTOFF IS COMPUTED HERE AND NOT IN SQL: the server still returns the
-   * full feed (older posts must remain reachable), so the window is a presentational
-   * concern. Filtering the query instead would make historical posts disappear from
-   * the feed, which is explicitly not wanted.
-   *
-   * The cutoff is recomputed on an interval rather than frozen at mount, so a feed
-   * left open across the boundary does not keep ageing moments in its count forever.
-   */
-  const [segmentCutoff, setSegmentCutoff] = useState(() => segmentCutoffNow());
-  useEffect(() => {
-    const id = window.setInterval(
-      () => setSegmentCutoff(segmentCutoffNow()),
-      SEGMENT_WINDOW_MS / 8
-    );
-    return () => window.clearInterval(id);
-  }, []);
-
-  // Positions of the cards inside the window, in scroller order. Kept as indices
-  // rather than moment ids so a segment can be matched to the active card without
-  // a second lookup, and so the sponsored card (which has no moment) is excluded.
-  const segmentIndices = useMemo(() => {
-    const out: number[] = [];
-    cards.forEach((card, i) => {
-      if (card.kind !== "moment") return;
-      if (Date.parse(card.moment.createdAt) >= segmentCutoff) out.push(i);
-    });
-    return out;
-  }, [cards, segmentCutoff]);
-
-  /**
-   * How many segments to fill, derived from the active card's position among the
-   * in-window segments rather than from `safeIndex` directly.
-   *
-   * Without this the bars would fill against the WRONG denominator: `safeIndex`
-   * counts every card including out-of-window ones, so a member three cards into a
-   * feed whose first two are two days old would see all three segments filled even
-   * though only one moment is inside the window. Returns 0 when the card on screen
-   * is itself out of window, so nothing is falsely reported as "current".
-   */
-  const segmentsFilled = useMemo(() => {
-    const at = segmentIndices.indexOf(safeIndex);
-    return at === -1 ? 0 : at + 1;
-  }, [segmentIndices, safeIndex]);
+  // The 24-hour segment window, its interval, `segmentIndices` and
+  // `segmentsFilled` were removed along with the progress bars. They existed
+  // only to draw the strip; nothing else read them. Note that the window was
+  // presentational and never filtered the feed — an older moment was always a
+  // real, scrollable, fully rendered card — so removing it changes nothing
+  // about which moments exist. See SEGMENT_WINDOW_MS's removal above.
+  //
   // `current` is null for the sponsored card, which is exactly what the
   // moment-only overlays already handle by testing `current` - so the card
   // suppresses them for free, without a branch at each of the ~20
@@ -1116,27 +1066,6 @@ export function MediaFeed({
             ) : null}
           </div>
         ) : null}
-
-        {/* Progress bars - one segment per CARD posted in the last 24 HOURS.
-            Mapped over `segmentIndices` rather than `cards` so the strip counts
-            only in-window moments, while the scroller still holds every card.
-            Older posts remain scrollable and fully rendered; they just do not
-            contribute a segment. */}
-        {segmentIndices.length > 1 ? (
-          <div className="pointer-events-none mt-3 flex gap-1 px-3 sm:px-5" aria-hidden>
-            {segmentIndices.map((cardIndex, n) => (
-              <span
-                key={cards[cardIndex].kind === "moment" ? cards[cardIndex].moment.id : cardIndex}
-                className={[
-                  "h-0.5 flex-1 rounded-full transition-colors",
-                  // `n` is the position among SEGMENTS, not among cards, so the
-                  // fill tracks the window rather than the scroller offset.
-                  n < segmentsFilled ? "bg-white" : "bg-white/30",
-                ].join(" ")}
-              />
-            ))}
-          </div>
-        ) : null}
       </header>
       {/* -------------------------------------------------------- the media
           Gated on `feed.length`, NOT on `current`. The sponsored card makes
@@ -1219,44 +1148,51 @@ export function MediaFeed({
               aria-roledescription="moment"
               aria-label={`${moment.authorName ?? "Member"}'s moment, ${i + 1} of ${total}`}
             >
-              <MediaSurface
-                moment={moment}
-                muted={muted}
-                active={i === safeIndex}
-                // Keeps the rail's mute icon honest when recovery grants sound
-                // imperatively, outside React's state.
-                onRequestUnmuteProp={() => setMuted(false)}
-              />
+              {/* `z-20` IS LOAD-BEARING, and this is the fix for the YouTube play
+                  button doing nothing.
 
-              {/* Story-style tap navigation within one author's media.
+                  The cinema-view overlay elsewhere in this component is a
+                  full-surface button at `z-10`, and it is painted BEFORE the
+                  scroller. The media used to be unpositioned (`z-auto`) inside
+                  the article, so a `z-10` overlay earlier in source order beat
+                  it and swallowed every tap aimed at the media — the YouTube
+                  poster's own "tap to play" button, and the native <video>
+                  element's controls.
 
-                  Only rendered when that author has a previous/next item in
-                  this feed, so the common single-post case has no invisible
-                  hit targets. The centre third is deliberately left open so a
-                  tap there hits the caption/controls rather than silently
-                  paging.
-
-                  These are <button>s, not touch handlers, so they cannot
-                  interfere with the vertical snap gesture: a scroll is a drag
-                  and never fires a click. */}
-              {item.prev !== null ? (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-hidden
-                  onClick={() => goTo(item.prev as number)}
-                  className="absolute inset-y-0 left-0 z-10 w-1/3 cursor-pointer"
+                  Lifting the whole media stack to `z-20` puts the media, its
+                  tap-to-play button and the embed poster above that overlay, so
+                  taps reach the media as intended. The chrome (header at z-30,
+                  action rail and caption at z-20+) is unaffected: those are
+                  pointer-events-none containers whose actual controls re-enable
+                  pointer events on themselves only, so they still win on the
+                  few pixels they genuinely occupy. */}
+              <div className="relative z-20 h-full w-full">
+                <MediaSurface
+                  moment={moment}
+                  muted={muted}
+                  active={i === safeIndex}
+                  // Keeps the rail's mute icon honest when recovery grants sound
+                  // imperatively, outside React's state.
+                  onRequestUnmuteProp={() => setMuted(false)}
                 />
-              ) : null}
-              {item.next !== null ? (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-hidden
-                  onClick={() => goTo(item.next as number)}
-                  className="absolute inset-y-0 right-0 z-10 w-1/3 cursor-pointer"
-                />
-              ) : null}
+              </div>
+
+              {/* Story-style tap navigation within one author's media was removed.
+
+                  These were invisible one-third-wide <button>s over the left and
+                  right edges. They are gone for two reasons:
+
+                    1. They are pointer navigation, and paging is now purely the
+                       vertical snap scroller (swipe / wheel / arrow keys).
+                    2. More importantly they were INVISIBLE HIT TARGETS over the
+                       media. Together with the full-surface cinema-view target
+                       they covered essentially the whole card, which is why taps
+                       never reached the video's own controls. With tap-to-play
+                       now living on the media itself, any full-width overlay
+                       sitting above the video silently breaks playback.
+
+                  `item.prev` / `item.next` are still used for the creator bar's
+                  position readout, so the per-author media map is unchanged. */}
             </article>
             );
           })}
@@ -1290,38 +1226,17 @@ export function MediaFeed({
             ) : null}
           </div>
 
-          {/* Vertical pager, in its OWN column clear of the action rail.
+          {/* The vertical ^/v pager was removed. Combined with the progress bars
+              and the horizontal chevrons, it left the feed with three separate
+              paging affordances for one gesture, and the arrows were the worst of
+              them: a fixed control sitting over the video on a phone, in a column
+              that had already collided with the action rail once and needed its
+              own `right-20` column to avoid a second collision.
 
-              This used to sit at `right-0 w-12` (occupying 0-48px from the
-              right edge) while the action rail sat at `sm:right-5` (20-68px).
-              Those bands overlapped by 48px, and because the pager is vertically
-              centred while the rail grows upward from the bottom, they collided
-              vertically too on any normal phone height - the "up" arrow landing
-              on top of the like button.
-
-              Offsetting the pager left (right-20 / sm:right-28) gives each control
-              its own non-overlapping column, so the collision cannot reappear at
-              any screen height. gap-2 tightens the pair. */}
-          {total > 1 ? (
-            <div
-              className={[
-                "absolute inset-y-0 right-20 z-20 flex w-12 flex-col justify-center gap-2 sm:right-28",
-                chromeClass,
-              ].join(" ")}
-            >
-              <PagerButton direction="up" onClick={() => goTo(safeIndex - 1)} disabled={safeIndex === 0} />
-              <PagerButton direction="down" onClick={() => goTo(safeIndex + 1)} disabled={safeIndex >= total - 1} />
-            </div>
-          ) : null}
-
-          {/* Horizontal chevrons were removed.
-
-              They duplicated the vertical ^/v pager (all three drove the same
-              `go`), and with the pager relocated to its own column the "next"
-              chevron at `right-16` would have landed INSIDE that column —
-              reintroducing exactly the overlap this fix removes. Paging remains
-              fully available via swipe (touch), the vertical arrows (pointer),
-              wheel and arrow keys. */}
+              Navigation is now purely the vertical snap scroller — swipe, wheel,
+              or arrow keys — which is the whole point of a short-video feed. The
+              keyboard handler is untouched, so this removes a redundant pointer
+              control without removing any way of getting around the feed. */}
 
           {/* Action rail - reactions, comments, share and mute.
 
@@ -1894,6 +1809,54 @@ function MediaSurface({
    * there without tripping the policy.
    */
   /**
+   * TAP TO PLAY / TAP TO PAUSE — the standard short-video gesture.
+   *
+   * `userPaused` records that the member explicitly paused THIS card. It exists
+   * because the source-lifecycle effect above is the single source of truth for
+   * playback and re-runs whenever `active` flips: without this flag, scrolling
+   * away to the next card and back would silently restart a video the member had
+   * deliberately stopped, which is the most annoying possible behaviour in a
+   * feed like this.
+   *
+   * The flag is reset when the moment changes (below) so it can never leak from
+   * one card to the next.
+   */
+  const [userPaused, setUserPaused] = useState(false);
+  /** Which glyph the centre indicator should show, and for how long. */
+  const [indicator, setIndicator] = useState<"play" | "pause" | null>(null);
+
+  /**
+   * Flip playback on a tap, and flash the matching glyph.
+   *
+   * The indicator is a short, purely visual acknowledgement — it is cleared on a
+   * timer and is never a control, so it is `pointer-events-none` and
+   * `aria-hidden`. Playback state itself is announced by the button's accessible
+   * label, not by this glyph.
+   */
+  function togglePlayback() {
+    const video = videoRef.current;
+    if (!video) return;
+    const nextPaused = !video.paused;
+    if (nextPaused) {
+      video.pause();
+    } else {
+      // Resuming from a tap is a genuine user gesture, so this is also the one
+      // path on which sound can be granted if the member had muted.
+      void video.play().catch(() => undefined);
+    }
+    setUserPaused(nextPaused);
+    setIndicator(nextPaused ? "pause" : "play");
+    window.setTimeout(() => setIndicator(null), 700);
+  }
+
+  useEffect(() => {
+    // A new moment means a new video: the previous card's pause decision must
+    // not carry over.
+    setUserPaused(false);
+    setIndicator(null);
+  }, [moment.id, retryKey]);
+
+  /**
    * Source lifecycle: arm, play, pause and UNLOAD. Deliberately does NOT depend
    * on `muted`.
    *
@@ -1932,6 +1895,12 @@ function MediaSurface({
     }
 
     video.muted = mutedRef.current;
+    // Respect an explicit pause. Without this the effect would restart a video
+    // the member stopped by tapping, the moment they scrolled back onto it.
+    if (userPaused) {
+      video.pause();
+      return;
+    }
     const started = video.play();
     if (started) {
       void started
@@ -1950,7 +1919,7 @@ function MediaSurface({
           // the card still shows its first frame and the member can retry.
         });
     }
-  }, [active, moment.id, moment.mediaUrl, retryKey]);
+  }, [active, moment.id, moment.mediaUrl, retryKey, userPaused]);
 
   /**
    * Mute state, applied on its own.
@@ -2103,6 +2072,42 @@ function MediaSurface({
           }}
           className={surfaceClass}
         />
+        {/* Tap to play / pause.
+            This is a real <button> covering the media rather than an onClick on
+            the <video> itself. Two reasons:
+              • A <video> has no accessible name or role, so a click handler on it
+                is invisible to a screen reader; a button can carry one.
+              • It is the only element that reliably receives the tap, because
+                the cinema-view overlay sits above the video in the stacking
+                order. See the note on the card wrapper in MediaFeed's JSX. */}
+        <button
+          type="button"
+          onClick={togglePlayback}
+          aria-label={userPaused ? "Play video" : "Pause video"}
+          aria-pressed={userPaused}
+          className="absolute inset-0 z-10 cursor-pointer"
+        />
+        {/* Centre indicator. Purely a visual acknowledgement of the tap, so it
+            is aria-hidden and pointer-events-none — it must never intercept the
+            next tap, which has to reach the button above. */}
+        {indicator ? (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+          >
+            <span className="flex h-20 w-20 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm">
+              {indicator === "play" ? (
+                <svg viewBox="0 0 24 24" className="ml-1 h-10 w-10 fill-white" aria-hidden>
+                  <path d="M8 5.14v13.72L19 12 8 5.14Z" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-10 w-10 fill-white" aria-hidden>
+                  <path d="M7 5h3.5v14H7V5Zm6.5 0H17v14h-3.5V5Z" />
+                </svg>
+              )}
+            </span>
+          </div>
+        ) : null}
         {/* Buffering spinner. pointer-events-none so it never eats the tap
             zones; aria-hidden because the media element already conveys state. */}
         {active && buffering ? (
@@ -2113,13 +2118,16 @@ function MediaSurface({
             <Loader2 className="h-10 w-10 animate-spin text-white/80" />
           </div>
         ) : null}
-        {/* The one recovery that works when autoplay is refused: a tap. */}
+        {/* The one recovery that works when autoplay is refused: a tap.
+            z-30 so it sits ABOVE the tap-to-play button below: when autoplay has
+            been refused the member's tap must unmute, not be swallowed by the
+            play/pause toggle, which would look like a dead screen. */}
         {active && blocked ? (
           <button
             type="button"
             onClick={resumePlayback}
             aria-label="Tap to play with sound"
-            className="absolute inset-0 z-20 flex items-center justify-center"
+            className="absolute inset-0 z-30 flex items-center justify-center"
           >
             <span className="inline-flex items-center gap-2 rounded-full bg-black/60 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur">
               <VolumeX className="h-4 w-4" aria-hidden />
@@ -2174,36 +2182,6 @@ function MediaFallback({ onRetry }: { onRetry: () => void }) {
         Try again
       </button>
     </div>
-  );
-}
-
-function PagerButton({
-  direction,
-  onClick,
-  disabled,
-}: {
-  direction: "up" | "down";
-  onClick: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-label={direction === "up" ? "Previous moment" : "Next moment"}
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition hover:bg-black/50 disabled:opacity-20"
-    >
-      {direction === "up" ? (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="m6 15 6-6 6 6" />
-        </svg>
-      ) : (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      )}
-    </button>
   );
 }
 
