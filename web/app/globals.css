@@ -1705,6 +1705,23 @@ button,
 @keyframes game-winner-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .game-winner-track { animation: none; } }
 
+/* Live-room chat + gift feed line.
+   New lines pop in rather than appearing instantly, so a gift reads as an
+   EVENT in the feed instead of just another row of text. The small upward
+   drift plus fade matches how mainstream live rooms animate incoming chat.
+   The translate is kept tiny (6px) on purpose: the feed sits over the host's
+   video, and a large slide would be visible motion over their face.
+   The reduced-motion block below disables it — this is decorative motion, and
+   a user who asked for less motion should not get it. */
+.cc-feed-line {
+  animation: cc-feed-in 300ms ease-out both;
+}
+@keyframes cc-feed-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) { .cc-feed-line { animation: none; } }
+
 /* Hide a scrollbar without disabling scrolling.
    Used by the moments feed: a visible 15px track eats real estate from a
    full-bleed card, and the feed already has its own progress indicator showing
