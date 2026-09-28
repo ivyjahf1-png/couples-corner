@@ -46,7 +46,7 @@ export const appSecondaryNavItems: AppNavItem[] = [
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
-  { href: "/aristocracy", label: "Aristocracy", icon: "crown" },
+  { href: "/aristocracy", label: "VIP Club", icon: "crown" },
   { href: "/task", label: "Task Center", icon: "check" },
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/settings", label: "Settings", icon: "settings" },
@@ -60,7 +60,7 @@ export const menuDrawerItems: AppNavItem[] = [
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
-  { href: "/aristocracy", label: "Aristocracy", icon: "crown" },
+  { href: "/aristocracy", label: "VIP Club", icon: "crown" },
   { href: "/task", label: "Task Center", icon: "check" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ];

@@ -11,7 +11,59 @@ import { PageLock } from "@/components/app/PageHeader";
 import { PersistentIdBadge } from "@/components/profile/InviteLinkButton";
 import { PersistentUserId } from "@/components/profile/InviteLinkButton";
 import Link from "next/link";
+import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
 import type { ReactNode } from "react";
+
+/**
+ * Quick actions on the "More" panel.
+ *
+ * Declared at module scope rather than inline in JSX: it is static navigation
+ * config, not per-request data, and hoisting it keeps the render body about
+ * layout. `primary` marks the one action that earns the orange accent, so the
+ * strip has a single clear focal point instead of three equally-weighted tiles.
+ *
+ * `icon` is an ICON NAME, not a component. This file is a Server Component and
+ * cannot pass a component function across the client boundary — see
+ * ProfileIcon for the detail.
+ */
+const QUICK_ACTIONS: {
+  label: string;
+  href: string;
+  icon: ProfileIconName;
+  primary?: boolean;
+}[] = [
+  { label: "Rewards", href: "/task", icon: "gift", primary: true },
+  { label: "Store", href: "/store", icon: "shopping-bag" },
+  { label: "VIP Club", href: "/aristocracy", icon: "crown" },
+];
+
+/**
+ * "Ways to earn" — the concrete routes to coins, shown on the Wallet & Earnings
+ * panel.
+ *
+ * This is what the old "Income" quick action was gesturing at. "Income" was a
+ * single tile pointing at /subscription, which is a page about PAYING for a
+ * membership — the exact opposite of what someone tapping "Income" is looking
+ * for. Naming the real routes is the whole point of the section, so every entry
+ * here must lead somewhere a member can actually act on:
+ *
+ *   • Daily rewards (/task) — the daily and achievement payouts.
+ *   • Coin store (/store)    — spends coins; listed because it is the other
+ *                              half of the coin economy and members look for
+ *                              it here.
+ *   • Membership             — the paid tier, kept last and labelled as an
+ *                              upgrade so it is not mistaken for an earn route.
+ */
+const EARN_LINKS: {
+  label: string;
+  hint: string;
+  href: string;
+  icon: ProfileIconName;
+}[] = [
+  { label: "Daily rewards", hint: "Check in and complete tasks for coins", href: "/task", icon: "gift" },
+  { label: "Coin store", hint: "Spend coins on frames, vehicles and themes", href: "/store", icon: "shopping-bag" },
+  { label: "Upgrade membership", hint: "Get more coins with a paid tier", href: "/subscription", icon: "crown" },
+];
 
 /**
  * "Me" - the signed-in member's own profile.
@@ -55,11 +107,23 @@ export default async function ProfilePage() {
     { label: "Visitors", value: stats.visitors, href: "/likes" },
   ];
 
+  /**
+   * Games are de-emphasised, not removed.
+   *
+   * The four casino-style tiles (Fortune Gems, WealthyTiger…) used to sit in a
+   * 4-up gradient grid directly above the quick actions, each a saturated
+   * square with its own colourway. On a dating profile that block dominated
+   * the fold and read as a casino lobby rather than a social product — it was
+   * the loudest thing on a screen whose job is to introduce a person.
+   *
+   * They now live as ONE quiet row that defers to the member, and the full
+   * catalogue stays reachable at /games. The games themselves are untouched.
+   */
   const recommendedGames = [
-    { id: "fortune-gems", title: "Fortune Gems", emoji: "💎", gradient: "from-orange-500 via-amber-400 to-sky-600" },
-    { id: "wealthy-tiger", title: "WealthyTiger", emoji: "🐯", gradient: "from-amber-500 via-orange-600 to-rose-600" },
-    { id: "world-goal", title: "World Goal", emoji: "⚽", gradient: "from-emerald-500 via-teal-600 to-cyan-700" },
-    { id: "rocket-star", title: "Rocket Star", emoji: "🚀", gradient: "from-sky-500 via-blue-600 to-violet-700" },
+    { id: "fortune-gems", title: "Fortune Gems", emoji: "💎" },
+    { id: "wealthy-tiger", title: "WealthyTiger", emoji: "🐯" },
+    { id: "world-goal", title: "World Goal", emoji: "⚽" },
+    { id: "rocket-star", title: "Rocket Star", emoji: "🚀" },
   ];
 
   const menuItems: { label: string; emoji: string; href: string; trailing?: ReactNode }[] = [
@@ -233,7 +297,22 @@ export default async function ProfilePage() {
                 </Link>
               </div>
             ),
-            /* ---------------- Wallet & VIP --------------------------------- */
+            /* ---------------- Wallet & Earnings ----------------------------
+                The panel is now "Wallet & Earnings" rather than "Wallet & VIP":
+                it is where balance AND ways to earn both live, and the old name
+                implied it was only about a paid tier.
+
+                TILE LABELS: the balance sub-label was "Coins / Balance", which
+                names the same quantity twice — now just "Coin balance". A bare
+                "SVIP" code is now paired with "VIP status", so a member who is
+                not yet SVIP sees what they are working toward rather than an
+                unexplained string. The membership tile also points at
+                /aristocracy (the VIP Club), which is where membership actually
+                lives, rather than at /subscription.
+
+                The two tiles drop their multi-colour gradient emoji chips for a
+                single tinted Lucide icon each, so the pair reads as one system
+                instead of two unrelated decorations. */
             wallet: (
               <div className="flex flex-col gap-5 pb-10">
                 {/* --------------------------- Balance + membership (glass tiles) */}
@@ -244,35 +323,84 @@ export default async function ProfilePage() {
         >
           <span
             aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 to-yellow-500 text-xl shadow-md shadow-amber-500/25"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-500/20 text-orange-200"
           >
-            🪙
+            <ProfileIcon name="wallet" className="h-5 w-5" />
           </span>
           <span className="min-w-0">
-            <span className="block text-lg font-extrabold tabular-nums text-amber-100">
+            <span className="block text-lg font-extrabold leading-tight tabular-nums text-orange-100">
               {wallet.coinBalance}
             </span>
-            <span className="block text-[11px] font-semibold text-amber-200/80">
-              Coins / Balance
+            <span className="block text-[11px] font-semibold text-orange-200/80">
+              Coin balance
             </span>
           </span>
         </Link>
         <Link
-          href="/subscription"
+          href="/aristocracy"
           className="glam-tile glam-tile--violet flex items-center gap-3 rounded-2xl p-4"
         >
           <span
             aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-400 to-fuchsia-500 text-xl shadow-md shadow-indigo-500/25"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/20 text-violet-200"
           >
-            📛
+            <ProfileIcon name="crown" className="h-5 w-5" />
           </span>
           <span className="min-w-0">
-            <span className="block text-lg font-extrabold tracking-wide text-violet-100">SVIP</span>
-            <span className="block text-[11px] font-semibold text-violet-200/80">Membership</span>
+            <span className="block text-lg font-extrabold leading-tight tracking-wide text-violet-100">
+              SVIP
+            </span>
+            <span className="block text-[11px] font-semibold text-violet-200/80">
+              VIP status
+            </span>
           </span>
         </Link>
         </section>
+
+      {/* ------------------------------------------------- 2. Ways to earn
+          This block replaces the old standalone "Income" quick action. "Income"
+          was one ambiguous tile pointing at the subscription page, which told a
+          member nothing about how to actually GET coins. This lists the
+          concrete routes, so the product's financial tools live together under
+          one heading instead of being scattered across a tab and a shortcut. */}
+      <section aria-labelledby="earn-heading" className="flex flex-col gap-2.5">
+        <h2 id="earn-heading" className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
+          Ways to earn
+        </h2>
+        <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          {EARN_LINKS.map((item) => (
+            <li key={item.label}>
+              <Link
+                href={item.href}
+                className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.05]"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-ink-300"
+                >
+                  <ProfileIcon name={item.icon} className="h-4 w-4" />
+                </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-white">{item.label}</span>
+                    {item.hint ? (
+                      <span className="block text-[11px] text-ink-400">{item.hint}</span>
+                    ) : null}
+                  </span>
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4 shrink-0 text-ink-500"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={2.5}
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
+              </li>
+          ))}
+        </ul>
+      </section>
 
       {/* --------------------------------------------- 3. Relationship card */}
       <section
@@ -294,75 +422,60 @@ export default async function ProfilePage() {
 
               </div>
             ),
-            /* ---------------- Extras: games, quick actions, menu rows ----- */
+            /* ---------------- Extras: quick actions, menu rows, games ----- */
             extras: (
               <div className="flex flex-col gap-5 pb-10">
-                {/* --------------------------------------- 4. Recommended games row */}
-                <section aria-labelledby="recommended-games-heading" className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h2 id="recommended-games-heading" className="font-semibold text-white">
-            Recommended Games
-          </h2>
-          <Link
-            href="/games"
-            aria-label="See all games"
-            className="glass-action glass-action--quiet h-8 w-8 justify-center p-0"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2.5}
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </Link>
-        </div>
-        <ul className="grid grid-cols-4 gap-3">
-          {recommendedGames.map((game) => (
-            <li key={game.id}>
-              <Link
-                href={`/games/${game.id}`}
-                aria-label={`Play ${game.title}`}
-                className={`flex aspect-square flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-br ${game.gradient} shadow-lg ring-1 ring-white/15 transition hover:-translate-y-0.5 hover:brightness-110`}
-              >
-                <span aria-hidden className="text-2xl">
-                  {game.emoji}
-                </span>
-                <span className="px-1 text-center text-[10px] font-bold leading-tight text-white">
-                  {game.title}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+                {/* --------------------------------- 4. Quick actions (see below) */}
+      {/* ---------------------------- 5. Quick actions (coloured glass tiles)
+          LABELS: "Tasks" -> "Rewards" and "Aristocracy" -> "VIP Club".
+          "Tasks" is a build-work word; members recognise a list of things that
+          pay out as rewards. "Aristocracy" reads as a game-faction rank and is
+          replaced by the tier language the rest of the product already uses.
 
-      {/* ---------------------------- 5. Quick actions (coloured glass tiles) */}
-      <section aria-label="Quick actions" className="grid grid-cols-4 gap-3">
-        {[
-          { label: "Tasks", emoji: "📋", href: "/task", tone: "glam-tile--warm" },
-          { label: "Income", emoji: "💰", href: "/subscription", tone: "glam-tile--aqua" },
-          { label: "Store", emoji: "🛍️", href: "/store", tone: "glam-tile--rose" },
-          { label: "Aristocracy", emoji: "🏰", href: "/aristocracy", tone: "glam-tile--violet" },
-        ].map((action) => (
+          "Income" is gone from this row on purpose: it pointed at the same
+          /subscription surface as the wallet tab, so the page showed two
+          differently-named doors to one room. Financial tools now live in one
+          place — the "Wallet & Earnings" tab.
+
+          ICONS: Lucide line icons, not emoji, so every tile in the grid sits on
+          the same optical centre. The previous emoji circles were also 40px of
+          saturated colour each, which made four competing focal points in a row
+          that should read as one strip.
+
+          THEME: a single Midnight Slate surface with one orange accent (the
+          primary action), rather than four differently-coloured tiles. The
+          multi-hue `glam-tile--*` modifiers are still used for genuine status
+          tiles (balance, membership) but not for navigation, where colour
+          variety reads as noise. */}
+      <nav aria-label="Quick actions" className="grid grid-cols-3 gap-2.5">
+        {QUICK_ACTIONS.map((action) => (
           <Link
             key={action.label}
             href={action.href}
-            className={`glam-tile ${action.tone} flex flex-col items-center gap-1.5 rounded-2xl p-3`}
+            className={[
+              "group flex flex-col items-center gap-2 rounded-2xl px-2 py-3.5 text-center transition",
+              "border border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.08]",
+              "focus-visible:ring-2 focus-visible:ring-orange-400/70",
+              action.primary ? "border-orange-400/40 bg-orange-500/[0.12]" : "",
+            ].join(" ")}
           >
             <span
               aria-hidden
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/10 text-lg shadow-md"
+              className={[
+                "flex h-9 w-9 items-center justify-center rounded-xl transition",
+                action.primary
+                  ? "bg-orange-500/20 text-orange-300"
+                  : "bg-white/[0.07] text-ink-300 group-hover:text-white",
+              ].join(" ")}
             >
-              {action.emoji}
+              <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
             </span>
-            <span className="text-[11px] font-semibold text-white/90">{action.label}</span>
+            <span className="text-[11px] font-semibold leading-tight text-white/85">
+              {action.label}
+            </span>
           </Link>
         ))}
-      </section>
+      </nav>
 
       {/* --------------------------- 6. Menu rows (metallic hairline frame) */}
       <nav aria-label="Profile menu" className="glam-frame">
@@ -396,6 +509,51 @@ export default async function ProfilePage() {
           ))}
         </ul>
       </nav>
+
+      {/* --------------------------------- 7. Games — deliberately last, quiet
+          The same four games this page always linked to, re-presented as one
+          low-contrast row placed AFTER the quick actions and menu rows.
+
+          WHAT CHANGED AND WHY: the old 4-up grid of saturated gradient squares
+          sat directly under the identity card, so it was the first thing below
+          the member's name and the loudest block on the screen. A profile whose
+          job is to introduce a person should not open with a casino lobby.
+
+          The row keeps the same hrefs and the same emoji glyphs, but at 28px on
+          a plain slate chip with no per-game colourway. Four games now read as
+          one quiet strip of secondary links rather than four competing
+          calls to action, and "All games" keeps the full catalogue one tap away. */}
+      <section aria-labelledby="games-heading" className="flex flex-col gap-2.5">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 id="games-heading" className="text-xs font-semibold uppercase tracking-wider text-ink-400">
+            Games
+          </h2>
+          <Link
+            href="/games"
+            className="text-[11px] font-semibold text-orange-300 transition hover:text-orange-200"
+          >
+            All games
+          </Link>
+        </div>
+        <ul className="grid grid-cols-4 gap-2">
+          {recommendedGames.map((game) => (
+            <li key={game.id}>
+              <Link
+                href={`/games/${game.id}`}
+                aria-label={`Play ${game.title}`}
+                className="group flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-1 py-2.5 transition hover:border-white/15 hover:bg-white/[0.07]"
+              >
+                <span aria-hidden className="text-xl opacity-70 transition group-hover:opacity-100">
+                  {game.emoji}
+                </span>
+                <span className="px-0.5 text-center text-[10px] font-medium leading-tight text-ink-300 transition group-hover:text-white/90">
+                  {game.title}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
               </div>
             ),

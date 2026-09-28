@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { User, Wallet, Sparkles, type LucideIcon } from "lucide-react";
 
 /**
  * Tabbed shell for the "Me" profile view.
@@ -26,10 +27,24 @@ import { useState, type ReactNode } from "react";
 
 export type ProfileTabId = "profile" | "wallet" | "extras";
 
-const TABS: { id: ProfileTabId; label: string; icon: string }[] = [
-  { id: "profile", label: "Profile", icon: "👤" },
-  { id: "wallet", label: "Wallet & VIP", icon: "💎" },
-  { id: "extras", label: "Extras", icon: "✨" },
+/**
+ * LABEL CHANGES (product wording):
+ *   • "Wallet & VIP" -> "Wallet & Earnings". The old name implied this tab was
+ *     only about a paid tier, but the tab is where balance and earnings live.
+ *     "Earnings" is also the word a member looking for ways to earn coins
+ *     actually searches for.
+ *   • "Extras" -> "More". "Extras" is vague about what it holds; "More" is the
+ *     conventional label for a catch-all section and sets the expectation that
+ *     it is secondary, which is how it is placed in the tab order.
+ *
+ * ICONS: Lucide line icons rather than emoji. Emoji render at a different
+ * weight and baseline on every platform, so a tab bar built from them never
+ * lines up cleanly; the line icons share one 24px grid and one stroke weight.
+ */
+const TABS: { id: ProfileTabId; label: string; icon: LucideIcon }[] = [
+  { id: "profile", label: "Profile", icon: User },
+  { id: "wallet", label: "Wallet & Earnings", icon: Wallet },
+  { id: "extras", label: "More", icon: Sparkles },
 ];
 
 export function ProfileTabs({
@@ -54,6 +69,7 @@ export function ProfileTabs({
         <div className="glam-frame__inner flex gap-1 p-1">
           {TABS.map((tab) => {
             const selected = active === tab.id;
+            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
@@ -70,9 +86,7 @@ export function ProfileTabs({
                     : "text-ink-300 hover:bg-white/[0.06] hover:text-white",
                 ].join(" ")}
               >
-                <span aria-hidden className="text-sm">
-                  {tab.icon}
-                </span>
+                <Icon aria-hidden className="h-4 w-4 shrink-0" />
                 <span className="truncate">{tab.label}</span>
               </button>
             );
