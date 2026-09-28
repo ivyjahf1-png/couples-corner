@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Volume2, VolumeX, Loader2, Trash2, type LucideIcon } from "lucide-react";
+import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Loader2, Trash2, type LucideIcon } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   toggleMomentReactionAction,
@@ -265,6 +265,15 @@ export function MediaFeed({
   // into view.
   const commentListRef = useRef<HTMLDivElement>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  /**
+   * Tap-to-hide. When false, every non-essential overlay (top bar, action rail,
+   * bottom bar, caption) fades out so the media plays completely unobstructed —
+   * the same gesture-driven "cinema view" every reels/stories product has.
+   *
+   * Separate from the per-card reset below: that one restores chrome when the
+   * CARD changes, this one is the member's own intent on the current card.
+   */
+  const [chromeVisible, setChromeVisible] = useState(true);
   // Follow overrides keyed by author id, superseded by each action's result.
   // Held separately from `social` because a follow is a property of the AUTHOR,
   // not of one moment: following someone once must hold for every card they
@@ -425,6 +434,37 @@ export function MediaFeed({
     ? (social[current.id]?.comments ?? current.commentCount ?? 0)
     : 0;
 
+  /**
+   * Shared fade for every non-essential overlay.
+   *
+   * `pointer-events-none` alongside `opacity-0` is essential, not cosmetic: a
+   * fully transparent button still swallows taps, so the hidden action rail
+   * would silently eat taps meant for the media underneath. Hiding the chrome
+   * has to make the area genuinely inert.
+   */
+  const chromeClass = [
+    "transition-opacity duration-300 ease-out",
+    chromeVisible ? "opacity-100" : "pointer-events-none opacity-0",
+  ].join(" ");
+
+  /**
+   * Tap anywhere neutral to toggle the chrome.
+   *
+   * The target is a transparent full-surface button rather than an onClick on
+   * the <article>, because a click handler on an ancestor would ALSO fire when
+   * the member taps a real control inside it (like, comment, the pager) — the
+   * event bubbles up. React's synthetic events make this easy to get wrong:
+   * the like button would register, and the chrome would then hide out from
+   * under the reaction the member just made. A dedicated button that the
+   * overlays are SIBLINGS of (not descendants of) cannot catch their clicks.
+   *
+   * It is a <button>, not a touch handler, so it never interferes with the
+   * vertical snap gesture: a scroll is a drag and does not fire a click.
+   */
+  function toggleChrome() {
+    setChromeVisible((visible) => !visible);
+  }
+
   // Watch every author in the feed, not just the visible card, so paging
   // forward shows an already-correct dot instead of an offline flash that
   // resolves a poll later. Signed-out visitors still get accurate dots (they
@@ -583,6 +623,11 @@ export function MediaFeed({
     setMenuOpen(false);
     setCommentsOpen(false);
     setReactionKind(null);
+    // A new moment always starts with its chrome showing. Carrying the previous
+    // card's hidden state forward would drop the viewer into a bare frame with
+    // no obvious way back, because the tap target that reveals the chrome is
+    // itself part of the chrome.
+    setChromeVisible(true);
     // Re-mute on every card change. Without this the unmuted state CARRIES to
     // the next video, so two elements can believe they own the audio channel and
     // the browser silently drops one of them - a very real cause of the reported
@@ -809,8 +854,64 @@ export function MediaFeed({
         fill ? "h-full min-h-0" : "h-dvh",
       ].join(" ")}
     >
+      {/* -------------------------------------------------- gradient scrims
+          Legibility without a blocking card.
+
+          White text over arbitrary video is unreadable — a bright frame (snow,
+          sky, a white shirt) erases the caption and the creator's name entirely.
+          The previous fix was `drop-shadow` on the text, which produces a hard
+          dark outline that reads as a sticker stuck to the image.
+
+          A soft gradient is the professional answer: it darkens the image only
+          where text actually sits, falls off smoothly, and leaves the middle of
+          the frame — the part the member is actually looking at — completely
+          untouched. Both scrims are siblings that render BEFORE the overlays and
+          ignore pointer events, so they never intercept a tap.
+
+          GATED ON `feed.length` for the same reason the media is: with an empty
+          feed there is no image to darken, and scrims would just wash out the
+          empty-state copy. */}
+      {feed.length > 0 ? (
+        <>
+          <div
+            aria-hidden
+            className={[
+              "pointer-events-none absolute inset-x-0 top-0 z-20 h-40",
+              "bg-gradient-to-b from-slate-950/85 via-slate-950/45 to-transparent",
+              "sm:h-48",
+              chromeClass,
+            ].join(" ")}
+          />
+          <div
+            aria-hidden
+            className={[
+              "pointer-events-none absolute inset-x-0 bottom-0 z-20 h-64",
+              "bg-gradient-to-t from-slate-950/90 via-slate-950/55 to-transparent",
+              "sm:h-72",
+              chromeClass,
+            ].join(" ")}
+          />
+
+          {/* Tap target for cinema view. Sits UNDER every overlay (z-10) and
+              spans the stage, so a tap in any empty area toggles the chrome
+              while taps on real controls are handled by the controls themselves. */}
+          <button
+            type="button"
+            onClick={toggleChrome}
+            aria-label={chromeVisible ? "Hide interface" : "Show interface"}
+            className="absolute inset-0 z-10 cursor-default"
+            tabIndex={-1}
+          />
+        </>
+      ) : null}
+
       {/* ---------------------------------------------------- top overlay */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0">
+      <header
+        className={[
+          "pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0",
+          chromeClass,
+        ].join(" ")}
+      >
         {/* Two rows on phones: the search unit owns a full-width line of its own,
             with the secondary controls tucked to its right. From `sm` up they
             share one row, because there is finally room for both. The search is
@@ -971,11 +1072,11 @@ export function MediaFeed({
             <div className="min-w-0 flex-1">
               <Link
                 href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-                className="block truncate text-sm font-semibold text-white drop-shadow"
+                className="block truncate text-sm font-semibold text-white"
               >
                 {current.authorName ?? "Member"}
               </Link>
-              <p className="truncate text-xs text-white/70 drop-shadow">
+              <p className="truncate text-xs text-white/70">
               {formatWhen(current.createdAt)}
                 {/* Story-style position within this author's own media. Shown
                     only when they have more than one item in the feed. */}
@@ -1164,13 +1265,18 @@ export function MediaFeed({
           {/* Caption only. The author identity (avatar, handle, timestamp) now
               lives in the top bar above, per the reel/stories standard, so
               repeating it here would print the same name twice on one card. */}
-          <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28">
+          <div
+            className={[
+              "pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28",
+              chromeClass,
+            ].join(" ")}
+          >
             {/* Caption only, and only for a moment. `current` is null while the
                 sponsored card is on screen, so the test doubles as the
                 moment/sponsored discriminator - the card renders its own body
                 and needs no caption here. */}
             {current?.content ? (
-              <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95 drop-shadow">
+              <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95">
                 {current.content}
               </p>
             ) : null}
@@ -1197,7 +1303,12 @@ export function MediaFeed({
               its own non-overlapping column, so the collision cannot reappear at
               any screen height. gap-2 tightens the pair. */}
           {total > 1 ? (
-            <div className="absolute inset-y-0 right-20 z-20 flex w-12 flex-col justify-center gap-2 sm:right-28">
+            <div
+              className={[
+                "absolute inset-y-0 right-20 z-20 flex w-12 flex-col justify-center gap-2 sm:right-28",
+                chromeClass,
+              ].join(" ")}
+            >
               <PagerButton direction="up" onClick={() => goTo(safeIndex - 1)} disabled={safeIndex === 0} />
               <PagerButton direction="down" onClick={() => goTo(safeIndex + 1)} disabled={safeIndex >= total - 1} />
             </div>
@@ -1212,7 +1323,20 @@ export function MediaFeed({
               fully available via swipe (touch), the vertical arrows (pointer),
               wheel and arrow keys. */}
 
-          {/* Action rail - reactions, comments and mute.
+          {/* Action rail - reactions, comments, share and mute.
+
+              STRUCTURE: each control is a `RailItem` - a button with its counter
+              directly beneath it, inside one wrapper. The old markup emitted the
+              button, then a SEPARATE `-mt-2` span, then the next button, so the
+              gap between two controls was whatever `gap-4` happened to be
+              minus a negative margin, and the counters sat closer to the next
+              control than to their own button. Grouping them makes each
+              control+count an inseparable unit that floats cleanly.
+
+              LIGHTER SURFACE: `bg-slate-950/60` with a `border-white/10` edge
+              read as a solid tile sitting ON the video. The buttons are now
+              smaller and more transparent, so they float over the frame rather
+              than cutting a chunk out of it.
 
               `bottom-44 sm:bottom-52` (176 / 208px) is set by the upload FAB
               directly below it, not picked for looks. The FAB is 56px tall at
@@ -1223,39 +1347,65 @@ export function MediaFeed({
 
               `right-3 sm:right-4` keeps the rail in the outermost column, which
               the pager (right-20 / sm:right-28) is offset clear of. */}
-          <div className="absolute bottom-44 right-3 z-20 flex flex-col items-center gap-4 sm:bottom-52 sm:right-4">
-            <ActionButton
-              label={reacted ? "Remove like" : "Like this moment"}
-              active={reacted}
-              disabled={!viewerId}
-              onClick={toggleReact}
-            >
-              <Heart className="h-6 w-6" fill={reacted ? "currentColor" : "none"} />
-            </ActionButton>
-            {reactions > 0 ? (
-              <span className="-mt-2 text-[11px] font-semibold text-white/90 drop-shadow">
-                {reactions}
-              </span>
-            ) : null}
-            <ActionButton
-              label="Open comments"
-              onClick={() => {
-                setCommentsOpen(true);
-                if (!current) return;
-                const momentId = current.id;
-                startTransition(async () => {
-                  const existing = await getMomentCommentsAction(momentId);
-                  setCommentList(existing);
-                });
-              }}
-            >
-              <MessageCircle className="h-6 w-6" />
-            </ActionButton>
-            {commentCount > 0 ? (
-              <span className="-mt-2 text-[11px] font-semibold text-white/90 drop-shadow">
-                {commentCount}
-              </span>
-            ) : null}
+          <div
+            className={[
+              "absolute bottom-44 right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-52 sm:right-4",
+              chromeClass,
+            ].join(" ")}
+          >
+            <RailItem count={reactions}>
+              <ActionButton
+                label={reacted ? "Remove like" : "Like this moment"}
+                active={reacted}
+                disabled={!viewerId}
+                onClick={toggleReact}
+              >
+                <Heart className="h-6 w-6" fill={reacted ? "currentColor" : "none"} />
+              </ActionButton>
+            </RailItem>
+
+            <RailItem count={commentCount}>
+              <ActionButton
+                label="Open comments"
+                onClick={() => {
+                  setCommentsOpen(true);
+                  if (!current) return;
+                  const momentId = current.id;
+                  startTransition(async () => {
+                    const existing = await getMomentCommentsAction(momentId);
+                    setCommentList(existing);
+                  });
+                }}
+              >
+                <MessageCircle className="h-6 w-6" />
+              </ActionButton>
+            </RailItem>
+
+            {/* Share sits in the rail rather than only behind the overflow
+                menu: it is a primary, frequent action, and burying it one
+                menu deep is the main reason members did not share moments.
+
+                The URL is built inline to match the overflow menu's handler
+                exactly, so both entry points produce byte-identical links —
+                `shareOrCopy` returns a plain status string, not an object. */}
+            <RailItem>
+              <ActionButton
+                label="Share this moment"
+                onClick={async () => {
+                  const url = `${window.location.origin}/?moment=${current?.id ?? ""}`;
+                  const outcome = await shareOrCopy({
+                    title: "Couple's Corner",
+                    message: `${current?.authorName ?? "Someone"} shared a moment on Couple's Corner. ${url}`,
+                  });
+                  if (outcome === "copied") notifySuccess("Link copied to clipboard");
+                  if (outcome === "failed") {
+                    setSendError("Couldn't share or copy this link. Please try again.");
+                  }
+                }}
+              >
+                <Share2 className="h-6 w-6" />
+              </ActionButton>
+            </RailItem>
 
             {/* Optional chained because the rail is a moment-only affordance and
                 `current` is null while the sponsored card holds the screen. The
@@ -1263,9 +1413,14 @@ export function MediaFeed({
                 the `?.` is here so the narrowing survives into this nested
                 closure, where TypeScript cannot see the guard. */}
             {current?.mediaType === "video" ? (
-              <ActionButton label={muted ? "Unmute" : "Mute"} onClick={() => setMuted((m) => !m)}>
-                {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-              </ActionButton>
+              <RailItem>
+                <ActionButton
+                  label={muted ? "Unmute" : "Mute"}
+                  onClick={() => setMuted((m) => !m)}
+                >
+                  {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
+                </ActionButton>
+              </RailItem>
             ) : null}
           </div>
         </>
@@ -1296,15 +1451,26 @@ export function MediaFeed({
 
       {/* --------------------------------- bottom bar: reactions + messaging */}
       {current ? (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5">
+        <div
+          className={[
+            "pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0",
+            "px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5",
+            chromeClass,
+          ].join(" ")}
+        >
           {sendError ? (
             <p role="alert" className="mb-2 text-center text-xs text-rose-300">
               {sendError}
             </p>
           ) : null}
 
-          {/* Quick reactions - one tap to react to THIS moment. */}
-          <div className="pointer-events-auto mb-2 flex items-center justify-center gap-1.5">
+          {/* Quick reactions - one tap to react to THIS moment.
+
+              Left-aligned rather than centred: the row now sits directly above
+              the message trigger, and centring both left the reactions
+              visibly detached from the input they visually belong with. The
+              trigger below is `max-w-xl`, so the two share a left edge. */}
+          <div className="pointer-events-auto mb-2 flex max-w-xl items-center gap-1.5">
             {QUICK_REACTIONS.map((option) => {
               const active = reacted && reactionKind === option.kind;
               // Each chip carries its OWN number rather than every chip
@@ -1320,13 +1486,13 @@ export function MediaFeed({
                   aria-label={`${option.label}${n > 0 ? `, ${n} so far` : ""}`}
                   aria-pressed={active}
                   className={[
-                    "flex items-center gap-1 rounded-full border text-base backdrop-blur-md transition active:scale-90 disabled:opacity-40",
+                    "flex items-center gap-1 rounded-full border text-base transition active:scale-90 disabled:opacity-40",
                     // A zero counter collapses to the bare icon so the row stays
                     // tidy until there is something to report.
                     n > 0 ? "px-2.5 py-1" : "h-9 w-9 justify-center",
                     active
-                      ? "border-orange-400/70 bg-orange-500/25 scale-110"
-                      : "border-white/15 bg-slate-950/60 hover:bg-white/10",
+                      ? "scale-110 border-orange-400/70 bg-orange-500/30"
+                      : "border-white/10 bg-white/10 hover:bg-white/20",
                   ].join(" ")}
                 >
                   <option.Icon
@@ -1346,8 +1512,19 @@ export function MediaFeed({
             })}
           </div>
 
+          {/* Message trigger.
 
-          <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/15 bg-slate-950/70 px-3 py-2 backdrop-blur-md">
+              LIGHTER SURFACE: was `border-white/15 bg-slate-950/70` with
+              `backdrop-blur-md` — a near-opaque slab across the bottom of the
+              frame. It is now a translucent `bg-white/10` that lets the video
+              read through, matching the action rail so the two edges of the
+              screen speak the same visual language.
+
+              The send button only appears once there is something to send.
+              A permanently orange button advertised an action that was almost
+              always disabled, pulling the eye to the brightest object on an
+              otherwise calm surface. */}
+          <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 backdrop-blur-md transition focus-within:border-white/25 focus-within:bg-white/15">
             {viewerId ? (
               <>
                 <label htmlFor="moment-reply" className="sr-only">
@@ -1362,17 +1539,19 @@ export function MediaFeed({
                   }}
                   maxLength={MAX_CAPTION}
                   placeholder={`Message ${current.authorName ?? "them"}…`}
-                  className="min-w-0 flex-1 bg-transparent px-2 py-1.5 text-sm text-white placeholder:text-white/50 focus:outline-none"
+                  className="min-w-0 flex-1 bg-transparent px-2 py-1 text-sm text-white placeholder:text-white/55 focus:outline-none"
                 />
-                <button
-                  type="button"
-                  onClick={sendQuickMessage}
-                  disabled={!draft.trim() || isPending}
-                  aria-label="Send message"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-400 disabled:opacity-40"
-                >
-                  <Send className="h-4 w-4" />
-                </button>
+                {draft.trim() ? (
+                  <button
+                    type="button"
+                    onClick={sendQuickMessage}
+                    disabled={isPending}
+                    aria-label="Send message"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-400 disabled:opacity-50"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                ) : null}
               </>
             ) : (
               <p className="flex flex-1 items-center justify-center gap-2 px-2 py-1.5 text-sm text-white/80">
@@ -2028,6 +2207,26 @@ function PagerButton({
   );
 }
 
+/**
+ * One control plus its counter, grouped so the two stay together.
+ *
+ * The counter renders only when it is non-zero, so a control with nothing to
+ * report stays a clean circle instead of showing a lonely "0" — and the rail
+ * does not reflow as counts change.
+ */
+function RailItem({ count, children }: { count?: number; children: ReactNode }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      {children}
+      {count && count > 0 ? (
+        <span className="text-[11px] font-semibold tabular-nums text-white/90">
+          {count > 999 ? "999+" : count}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function ActionButton({
   label,
   active = false,
@@ -2049,7 +2248,10 @@ function ActionButton({
       aria-label={label}
       aria-pressed={active}
       className={[
-        "flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 backdrop-blur-sm transition hover:scale-105 disabled:opacity-40",
+        // 11 rather than 12: the rail now carries four controls, and the
+        // smaller circle plus the transparent fill keeps the stack from
+        // reading as a solid bar laid over the video.
+        "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 backdrop-blur-md transition hover:bg-white/20 active:scale-95 disabled:opacity-40",
         active ? "text-rose-400" : "text-white",
       ].join(" ")}
     >
