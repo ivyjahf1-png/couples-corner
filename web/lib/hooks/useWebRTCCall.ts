@@ -3,20 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
-
-/**
- * Public STUN only. A STUN server discovers the public mapping of a local
- * ICE candidate; it does not relay media. Peers behind symmetric NAT — both
- * on mobile carriers, which is common on a dating app — can therefore fail to
- * connect with no TURN server configured. Point `iceServers` at a TURN service
- * before relying on this for production call quality.
- */
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
+// Shared ICE/TURN configuration. See rtcConfig.ts for why TURN is required and
+// why all five Metered URLs must stay in the list.
+import { RTC_CONFIG } from "./rtcConfig";
 
 /** A session description or ICE candidate in flight between the two peers. */
 interface Signal {

@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { RealtimeChannel, RealtimePresenceState } from "@supabase/supabase-js";
 import { getSupabaseClient } from "@/lib/supabase/client";
+// Shared ICE/TURN configuration. See rtcConfig.ts for why TURN is required and
+// why all five Metered URLs must stay in the list.
+import { RTC_CONFIG } from "./rtcConfig";
 
 /** A member visible in the live room. */
 export interface LiveParticipant {
@@ -42,13 +45,6 @@ export interface UseLiveRoomOptions {
   /** True for the member who owns the broadcast. */
   isHost: boolean;
 }
-
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
 
 /** Cap the feed so a busy room cannot grow React state without bound. */
 const MAX_FEED_ITEMS = 60;
