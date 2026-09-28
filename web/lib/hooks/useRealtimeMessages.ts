@@ -13,6 +13,13 @@ export interface RealtimeMessage {
   read_at: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Set ONLY by the edit path; null means never edited. The chat thread reads
+   * this rather than comparing `updated_at` to `created_at`, because a read
+   * receipt is also an update and used to make every message look edited.
+   * See migration 044.
+   */
+  edited_at?: string | null;
 }
 
 interface UseRealtimeMessagesOptions {

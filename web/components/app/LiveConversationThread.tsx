@@ -18,6 +18,12 @@ interface Message {
   body: string | null;
   created_at: string;
   updated_at?: string | null;
+  /**
+   * Set ONLY by the edit path. Null means the message has never been edited.
+   * See `hasBeenEdited` below and migration 044 for why this cannot be
+   * inferred from `updated_at`.
+   */
+  edited_at?: string | null;
 }
 
 interface LiveConversationThreadProps {
@@ -31,6 +37,58 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/**
+ * Has this message been edited?
+ *
+ * WHY THIS IS A NULL CHECK AND NOT A TIMESTAMP COMPARISON — the bug this fixes:
+ *
+ * The thread used to render the tag from
+ *
+ *     updated_at && new Date(updated_at) > new Date(created_at) + 1000
+ *
+ * which reported "edited" on essentially every message. The `+ 1000` fudge made
+ * it look deliberate, so the real defect went unexamined: `markConversationRead`
+ * was stamping `updated_at` on every unread message each time a conversation was
+ * OPENED, because a read receipt is an update and shared that column.
+ *
+ * A REAL EDIT ALSO MOVES `updated_at`. So the two are indistinguishable by
+ * comparison, and no threshold fixes that: tight enough to survive read-receipt
+ * drift and you miss genuine edits; loose enough to catch them and untouched
+ * messages get labelled. Worse, rows already stamped look genuinely edited
+ * forever, so the damage is not undone by fixing the UI.
+ *
+ * The fix removes the ambiguity instead of tolerating it. `edited_at`
+ * (migration 044) is written ONLY by the edit path, and marking a message as
+ * read no longer touches `updated_at` at all. "Is this edited?" is now a single
+ * null check that cannot drift.
+ *
+ * The `updated_at` comparison is retained ONLY as a fallback for rows written
+ * between the app deploy and the migration landing, where `edited_at` does not
+ * exist yet. Those rows are few and the window is one deploy; once the
+ * migration has run, `edited_at` is always present and this branch is dead.
+ */
+function hasBeenEdited(message: Message): boolean {
+  // AUTHORITATIVE PATH — the row carries the marker, so it knows the answer.
+  //
+  // The `in` check, not a truthiness check, is load-bearing. A row that HAS the
+  // column and holds NULL is a definitive "this message was never edited", and
+  // it must answer from that alone. Falling through to the timestamp
+  // comparison on a null marker is exactly the original bug: a read receipt
+  // moves `updated_at` forward, the comparison says "edited", and the null —
+  // which is the only trustworthy signal on that row — is ignored.
+  if ("edited_at" in message) return Boolean(message.edited_at);
+
+  // FALLBACK — pre-migration rows, which have no marker to consult. These are
+  // the only rows still judged by comparison, and they are judged with the
+  // same heuristic that caused the bug, because nothing better is available
+  // for them. The window closes once migration 044 has been applied.
+  if (!message.updated_at || !message.created_at) return false;
+  const created = new Date(message.created_at).getTime();
+  const updated = new Date(message.updated_at).getTime();
+  if (Number.isNaN(created) || Number.isNaN(updated)) return false;
+  return updated > created;
 }
 
 function dayLabel(iso: string): string {
@@ -118,7 +176,14 @@ export function LiveConversationThread({
       // Only rewrite when something actually changed, so an unrelated presence
       // or read_at tick cannot restart the auto-scroll effect every time.
       if (existing && (existing.body ?? "") !== (m.body ?? "")) {
-        merged.current.set(m.id, { ...existing, body: m.body, updated_at: m.updated_at });
+        // `edited_at` must be carried through too, or an edit made on another
+        // device updates the text but leaves the bubble unlabelled.
+        merged.current.set(m.id, {
+          ...existing,
+          body: m.body,
+          updated_at: m.updated_at,
+          edited_at: m.edited_at,
+        });
         changed = true;
       }
     }
@@ -129,7 +194,16 @@ export function LiveConversationThread({
   function applyLocalEdit(messageId: string, body: string) {
     const existing = merged.current.get(messageId);
     if (!existing) return;
-    merged.current.set(messageId, { ...existing, body, updated_at: new Date().toISOString() });
+    const stamp = new Date().toISOString();
+    // `edited_at` is set locally too, otherwise the optimistic bubble would
+    // render WITHOUT the "edited" tag and only pick it up when the server
+    // echoed the row back.
+    merged.current.set(messageId, {
+      ...existing,
+      body,
+      updated_at: stamp,
+      edited_at: stamp,
+    });
     setRenderTick((t) => t + 1);
   }
 
@@ -171,11 +245,20 @@ export function LiveConversationThread({
     setActionError(null);
     // Optimistic: the bubble updates immediately, and a failure reverts it.
     const previous = merged.current.get(messageId)?.body ?? "";
+    // Capture the ORIGINAL marker so a failed save can restore it verbatim.
+    // Reverting through `applyLocalEdit` would stamp a fresh `edited_at` and
+    // permanently label a message whose edit never actually landed.
+    const previousEditedAt = merged.current.get(messageId)?.edited_at ?? null;
     applyLocalEdit(messageId, body);
     const result = await editMessageAction({ messageId, body }).catch(() => null);
     setBusy(false);
     if (!result?.ok) {
-      applyLocalEdit(messageId, previous);
+      merged.current.set(messageId, {
+        ...merged.current.get(messageId)!,
+        body: previous,
+        edited_at: previousEditedAt,
+      });
+      setRenderTick((t) => t + 1);
       setActionError(result?.error ?? "Couldn't save your edit. Please try again.");
       return;
     }
@@ -359,9 +442,27 @@ export function LiveConversationThread({
                     <div
                       className={[
                         "max-w-[80%] px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
+                        // SENT vs RECEIVED — the core hierarchy of the thread.
+                        //
+                        // The two used to be a purple gradient and a solid
+                        // slate card. Purple read as a brand accent on BOTH
+                        // sides of the conversation, because the received card
+                        // was dark enough to blend into the page background
+                        // and the two styles only differed in hue. Alignment
+                        // alone (right vs left) was doing all the work.
+                        //
+                        // Sent is now the app's actual accent — an orange
+                        // brand tint with a warm border, matching the Midnight
+                        // Slate & Orange theme used across the profile and feed
+                        // rather than a second, competing purple ramp. Received
+                        // is a translucent slate that visibly sits ON the canvas
+                        // instead of dissolving into it. Colour and luminance
+                        // now reinforce the alignment cue rather than duplicate
+                        // it, so the thread reads correctly at a glance and to
+                        // anyone who cannot rely on position alone.
                         isMine
-                          ? "rounded-2xl rounded-br-md bg-gradient-to-br from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-950/40"
-                          : "rounded-2xl rounded-bl-md border border-white/10 bg-[#1E293B] text-white shadow-md shadow-black/30",
+                          ? "rounded-2xl rounded-br-md border border-orange-400/25 bg-gradient-to-br from-orange-500/85 to-orange-600/80 text-white shadow-lg shadow-orange-950/30"
+                          : "rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.06] text-white shadow-md shadow-black/25 backdrop-blur-sm",
                       ].join(" ")}
                     >
                       {message.body}
@@ -369,12 +470,16 @@ export function LiveConversationThread({
                         aria-hidden
                         className={[
                           "mt-1 flex items-center justify-end gap-1.5 text-[11px]",
-                          isMine ? "text-white/70" : "text-ink-400",
+                          // The old pair (white/70 vs ink-400) was tuned for a
+                          // violet bubble and a near-black card. The sent bubble
+                          // is now a lighter orange, which needs a touch more
+                          // contrast for the meta line, while the received
+                          // bubble is lighter than the old #1E293B, so its
+                          // timestamp moves up a step to stay readable.
+                          isMine ? "text-white/80" : "text-ink-300",
                         ].join(" ")}
                       >
-                        {message.updated_at &&
-                        new Date(message.updated_at).getTime() >
-                          new Date(message.created_at).getTime() + 1000 ? (
+                        {hasBeenEdited(message) ? (
                           <span className="italic">edited</span>
                         ) : null}
                         {copiedId === message.id ? (

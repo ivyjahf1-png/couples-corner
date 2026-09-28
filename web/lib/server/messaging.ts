@@ -205,6 +205,11 @@ export async function updateMessage(params: {
       body: params.body,
       content: params.body,
       updated_at: new Date().toISOString(),
+      // The ONLY writer of `edited_at`. This is what the chat thread reads to
+      // decide whether to show the "edited" tag, so it has to be set here and
+      // nowhere else. See migration 044 for why the tag cannot be inferred
+      // from `updated_at` any more.
+      edited_at: new Date().toISOString(),
     })
     .eq("id", params.messageId)
     .eq("sender_id", params.senderId)
@@ -319,6 +324,23 @@ export async function findConversationBetweenUsers(
  * Mark every message in a conversation as read for the acting user.
  * Safe to call repeatedly — only messages that are unread and from the
  * other participant get touched.
+ *
+ * WHY THIS USED TO ALSO WRITE `updated_at` — AND WHY IT MUST NOT:
+ *
+ * Read state has its own column, `read_at`. `updated_at` means "the CONTENT of
+ * this message changed", and the chat thread decides whether to show the
+ * "edited" tag by comparing `updated_at` against `created_at`.
+ *
+ * Stamping `updated_at` here made simply OPENING a conversation rewrite the
+ * edit timestamp on every unread message in it. The conversation page calls
+ * this on load, so a member who opened a chat once saw "edited" under every
+ * message in it — including messages they had never touched. Worse, the damage
+ * was persistent: once stamped, the row looks genuinely edited forever, so the
+ * tag could not be undone by fixing the UI.
+ *
+ * Marking as read is a delivery concern, not an authorship one. It now touches
+ * `read_at` and nothing else, which is both correct and cheaper: the write no
+ * longer dirties rows the sender owns.
  */
 export async function markConversationRead(params: {
   conversationId: string;
@@ -331,7 +353,7 @@ export async function markConversationRead(params: {
 
   await supabase
     .from("messages")
-    .update({ read_at: now, updated_at: now })
+    .update({ read_at: now })
     .eq("conversation_id", params.conversationId)
     .neq("sender_id", params.userId)
     .is("read_at", null)
