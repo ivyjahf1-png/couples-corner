@@ -20,8 +20,13 @@ interface Message {
   updated_at?: string | null;
   /**
    * Set ONLY by the edit path. Null means the message has never been edited.
-   * See `hasBeenEdited` below and migration 044 for why this cannot be
-   * inferred from `updated_at`.
+   *
+   * NOT RENDERED ANYWHERE. The "edited" label was removed from the bubble by
+   * product decision; this field is kept on the wire type because it is still
+   * written and returned by the server (see migration 044), and leaving it
+   * declared documents the shape of the payload the client actually receives.
+   * Do not re-add an `edited` tag on the strength of this field — the
+   * timestamp is for auditing, not display.
    */
   edited_at?: string | null;
 }
@@ -37,58 +42,6 @@ function formatTime(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-/**
- * Has this message been edited?
- *
- * WHY THIS IS A NULL CHECK AND NOT A TIMESTAMP COMPARISON — the bug this fixes:
- *
- * The thread used to render the tag from
- *
- *     updated_at && new Date(updated_at) > new Date(created_at) + 1000
- *
- * which reported "edited" on essentially every message. The `+ 1000` fudge made
- * it look deliberate, so the real defect went unexamined: `markConversationRead`
- * was stamping `updated_at` on every unread message each time a conversation was
- * OPENED, because a read receipt is an update and shared that column.
- *
- * A REAL EDIT ALSO MOVES `updated_at`. So the two are indistinguishable by
- * comparison, and no threshold fixes that: tight enough to survive read-receipt
- * drift and you miss genuine edits; loose enough to catch them and untouched
- * messages get labelled. Worse, rows already stamped look genuinely edited
- * forever, so the damage is not undone by fixing the UI.
- *
- * The fix removes the ambiguity instead of tolerating it. `edited_at`
- * (migration 044) is written ONLY by the edit path, and marking a message as
- * read no longer touches `updated_at` at all. "Is this edited?" is now a single
- * null check that cannot drift.
- *
- * The `updated_at` comparison is retained ONLY as a fallback for rows written
- * between the app deploy and the migration landing, where `edited_at` does not
- * exist yet. Those rows are few and the window is one deploy; once the
- * migration has run, `edited_at` is always present and this branch is dead.
- */
-function hasBeenEdited(message: Message): boolean {
-  // AUTHORITATIVE PATH — the row carries the marker, so it knows the answer.
-  //
-  // The `in` check, not a truthiness check, is load-bearing. A row that HAS the
-  // column and holds NULL is a definitive "this message was never edited", and
-  // it must answer from that alone. Falling through to the timestamp
-  // comparison on a null marker is exactly the original bug: a read receipt
-  // moves `updated_at` forward, the comparison says "edited", and the null —
-  // which is the only trustworthy signal on that row — is ignored.
-  if ("edited_at" in message) return Boolean(message.edited_at);
-
-  // FALLBACK — pre-migration rows, which have no marker to consult. These are
-  // the only rows still judged by comparison, and they are judged with the
-  // same heuristic that caused the bug, because nothing better is available
-  // for them. The window closes once migration 044 has been applied.
-  if (!message.updated_at || !message.created_at) return false;
-  const created = new Date(message.created_at).getTime();
-  const updated = new Date(message.updated_at).getTime();
-  if (Number.isNaN(created) || Number.isNaN(updated)) return false;
-  return updated > created;
 }
 
 function dayLabel(iso: string): string {
@@ -195,9 +148,9 @@ export function LiveConversationThread({
     const existing = merged.current.get(messageId);
     if (!existing) return;
     const stamp = new Date().toISOString();
-    // `edited_at` is set locally too, otherwise the optimistic bubble would
-    // render WITHOUT the "edited" tag and only pick it up when the server
-    // echoed the row back.
+    // `edited_at` is stamped locally as well, so the optimistic bubble and the
+    // row the server echoes back agree. Nothing renders it today; it is kept in
+    // sync for audit and so the two sources cannot drift.
     merged.current.set(messageId, {
       ...existing,
       body,
@@ -479,9 +432,6 @@ export function LiveConversationThread({
                           isMine ? "text-white/80" : "text-ink-300",
                         ].join(" ")}
                       >
-                        {hasBeenEdited(message) ? (
-                          <span className="italic">edited</span>
-                        ) : null}
                         {copiedId === message.id ? (
                           <span className="font-medium text-emerald-200">Copied</span>
                         ) : null}
