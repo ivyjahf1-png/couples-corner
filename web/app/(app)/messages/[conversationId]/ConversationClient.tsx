@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChatHeader } from "@/components/app/ChatHeader";
 import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
+import { markConversationReadAction } from "@/lib/actions/messaging";
 import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MessageComposer, useChatTheme } from "@/components/app/MessageComposer";
@@ -60,6 +61,30 @@ export default function ConversationClient({
   // a disclosure arrow hid exactly what the card is for. The member can still
   // collapse it to get the messages back.
   const [summaryExpanded, setSummaryExpanded] = useState(true);
+
+  /* Mark the thread read, ONCE, after the view has mounted.
+
+     This used to be fired from the server page's render. That was wrong twice
+     over and crashed the app on opening any conversation:
+
+       • `markConversationReadAction` calls `revalidatePath`, and Next.js only
+         permits that inside a Server Action or Route Handler invoked as a
+         MUTATION. From a render pass it throws "Route /messages/... used
+         `revalidatePath` ... during render which is unsupported".
+       • A render must be side-effect free. Writing `read_at` from one is a write
+         React can perform on its own, with no member action behind it.
+
+     A mount effect is the right home for it: it runs after commit, in response
+     to the member actually opening the thread, and a Server Action called from
+     the client is exactly the mutation context `revalidatePath` expects.
+
+     `conversationId` is the only dependency, so switching threads re-marks and
+     re-rendering for any other reason does not. `void` keeps the rejection from
+     becoming an unhandled promise rejection if the write fails — failing to
+     clear a badge is not worth taking the conversation down for. */
+  useEffect(() => {
+    void markConversationReadAction(conversationId);
+  }, [conversationId]);
 
   // Icebreakers only make sense on a thread that has not started. Derived from
   // the message list rather than a server flag, so it stays correct as messages

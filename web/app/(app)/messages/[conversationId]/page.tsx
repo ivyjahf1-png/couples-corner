@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import ConversationClient from "./ConversationClient";
 import {
   getConversationChatDataAction,
-  markConversationReadAction,
 } from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getPresenceForUsers } from "@/lib/server/presence";
@@ -51,8 +50,18 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   const presence = otherId ? await getPresenceForUsers([otherId]) : {};
   const otherOnline = otherId ? Boolean(presence[otherId]?.online) : false;
 
-  // Mark messages read on first load so the Chat tab badge clears.
-  void markConversationReadAction(conversationId);
+  // NOTE: marking the thread read is NOT done here.
+  //
+  // It used to be `void markConversationReadAction(conversationId)` on this line,
+  // which is invalid: this is a Server Component render, and that action calls
+  // `revalidatePath`. Next.js rejects `revalidatePath` outside a mutation with
+  // "used `revalidatePath` ... during render which is unsupported", so opening
+  // any conversation threw. A render must also be side-effect free — writing
+  // `read_at` from one means a write React can repeat on its own.
+  //
+  // `ConversationClient` now calls it from a mount effect, which is a genuine
+  // mutation context. See that file, and `markConversationReadAction` for the
+  // full note.
 
   return (
     <ConversationClient

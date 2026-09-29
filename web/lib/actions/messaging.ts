@@ -221,11 +221,41 @@ export async function deleteMessageAction(params: {
   }
 }
 
-/** Mark a conversation as read for the current user. */
+/**
+ * Mark a conversation as read for the current user.
+ *
+ * ── WHY THIS MUST NOT RUN DURING RENDER ─────────────────────────────────────
+ * This used to be called straight from the conversation page's render, via
+ * `void markConversationReadAction(conversationId)`. That is invalid in two
+ * separate ways, and both produced a runtime crash on opening any chat:
+ *
+ *   1. `revalidatePath` is only legal inside a Server Action or Route Handler
+ *      invoked as a MUTATION. Next.js throws
+ *      "Route /messages/... used `revalidatePath` ... during render which is
+ *      unsupported" when it runs from a render pass. The page is a Server
+ *      Component, so calling this during its render put `revalidatePath`
+ *      squarely in a render context.
+ *   2. A render must be side-effect free. Marking rows read mutates the
+ *      database, and React may render a component more than once (Strict Mode
+ *      deliberately does), so a write in render is a write that can happen
+ *      without the member doing anything.
+ *
+ * The write itself correctly belongs here — this IS a mutation, and it is
+ * correctly revalidating the inbox so the unread badge clears. The fix was on
+ * the CALLER: `ConversationClient` now invokes this from a mount effect, which
+ * is a real mutation context. See
+ * `app/(app)/messages/[conversationId]/ConversationClient.tsx`.
+ *
+ * ── WHY ONLY `/messages` IS REVALIDATED ─────────────────────────────────────
+ * The thread path is deliberately NOT revalidated. The member is looking at it,
+ * and its server render already carries the correct, freshly-read data.
+ * Revalidating the route currently being viewed re-renders the page underneath
+ * the client that just asked for the write, for no visible gain. The inbox is
+ * the one surface whose cached copy is now stale.
+ */
 export async function markConversationReadAction(conversationId: string) {
   const user = await requireUser();
   await markConversationRead({ conversationId, userId: user.uid });
-  revalidatePath(`/messages/${conversationId}`);
   revalidatePath("/messages");
 }
 
