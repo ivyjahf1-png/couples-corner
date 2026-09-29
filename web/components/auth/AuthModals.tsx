@@ -297,7 +297,7 @@ export function AuthModal({ which, onClose }: { which: AuthModalType; onClose: (
  * Global provider component — mount once in the root layout.
  *
  * Listens for `couplescorner:open-auth-modal` events and renders the overlay.
- * Also listens for `couplescorner:auth-success` to redirect to the dashboard
+ * Also listens for `couplescorner:auth-success` to navigate to Explore
  * after a successful sign-in / sign-up.
  */
 export function AuthModalProvider() {
@@ -326,12 +326,19 @@ export function AuthModalProvider() {
     }
   }, [active]);
 
-  // Handle successful auth — close modal and redirect to dashboard
+  // Handle successful auth — close the modal, then do a FULL page navigation to
+  // Explore.
+  //
+  // `window.location.href` rather than the router, deliberately: the session is
+  // an httpOnly cookie written by a Server Action, and a client-side route
+  // change would re-render the CURRENT RSC tree with the shell's cached server
+  // component — which can still be the pre-auth one. A hard navigation forces
+  // the server to re-read the session cookie, so the member lands authenticated
+  // rather than briefly seeing a signed-out shell.
   const handleAuthSuccess = useCallback(() => {
     setActive(null);
-    // Redirect to dashboard after successful login/signup
     if (typeof window !== "undefined") {
-      window.location.href = "/dashboard";
+      window.location.href = "/discover";
     }
   }, []);
 

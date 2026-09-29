@@ -62,13 +62,19 @@ export function LoginForm() {
       }
 
       // Exchange the access token for an httpOnly session cookie so the server
-      // recognizes the user as authenticated on the dashboard.
+      // recognizes the user as authenticated on the landing screen.
       if (data.session?.access_token) {
         await exchangeSessionCookie(data.session.access_token);
       }
 
-      // Navigate to dashboard
-      router.push("/dashboard");
+      // Land on EXPLORE, not the dashboard.
+      //
+      // Explore is the first tab and the product's core loop — it is where a
+      // member actually meets people. Sending a returning member to the moment
+      // feed on sign-in meant they opened the app to a wall of other people's
+      // clips instead of the thing they came back for. This also matches
+      // post-signup, which has always finished on /discover via OnboardingFlow.
+      router.push("/discover");
       router.refresh();
       setLoading(false);
     } catch (err: unknown) {

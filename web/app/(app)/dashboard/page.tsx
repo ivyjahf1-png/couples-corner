@@ -1,15 +1,17 @@
 /**
- * Home ("Your corner") - now a thin redirect.
+ * Legacy "/dashboard" — now a thin redirect to EXPLORE.
  *
- * The immersive moment and media feed is the real home experience and lives at
- * the root route (`app/page.tsx`). This page previously rendered the
- * "Welcome back" / "Your corner" hero, the "Enter 5-character User ID" search,
- * the Discover + quick-action grid, "Suggested for you" and "Near you" - all of
- * which are now removed.
+ * The immersive moment and media feed lives at the root route (`app/page.tsx`)
+ * and is reached from the "Moment" tab on /feed. Explore is the product's core
+ * loop and is now the default landing screen after sign-in/sign-up, so this
+ * alias points there rather than at the feed.
  *
- * A redirect (rather than a second implementation) keeps existing deep links,
- * the "Home" nav entry and the logo link working without duplicating feed
- * state, and preserves `?q=` search handling on the root route.
+ * The `?q=` passthrough is preserved: the root route still owns search
+ * resolution (exact code -> profile, ambiguous -> /search), so a deep link like
+ * /dashboard?q=21ATZE must keep working rather than dropping the query.
+ *
+ * Kept rather than deleted because it is a bookmarked legacy URL and
+ * `requireGuest` redirects here for an already-signed-in member.
  */
 import { redirect } from "next/navigation";
 
@@ -19,5 +21,5 @@ export default async function DashboardPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  redirect(q?.trim() ? `/?q=${encodeURIComponent(q.trim())}` : "/");
+  redirect(q?.trim() ? `/?q=${encodeURIComponent(q.trim())}` : "/discover");
 }

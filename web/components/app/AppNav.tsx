@@ -11,10 +11,10 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
  * Couples Corner — app navigation (VISUAL SHELL ONLY).
  *
  * Layout contract:
- *   • Mobile (<768px): a 4-item bottom bar — Home | Moments | Messages | Me.
- *     "Moments" points at the community feed route (`/feed`). The "Menu"
- *     drawer (opened from the top bar) holds the secondary destinations
- *     (Messages, Home, Profile, Feed, Alerts, Subscription, Settings) + sign out.
+ *   • Mobile (<768px): a 5-item bottom bar — Explore | Moment | Likes |
+ *     Messages | Me, in that order. Explore leads (see `mobileTabs` for why)
+ *     and is also the post-auth landing screen. The "Menu" drawer (opened from
+ *     the top bar) holds the secondary destinations + sign out.
  *   • Tablet + desktop (≥768px): one fixed left-hand navy (#0F172A) sidebar
  *     carrying the complete navigation.
  *
@@ -32,10 +32,10 @@ export interface AppNavItem {
   alsoActiveFor?: string[];
 }
 
-/** Sidebar group 1 — the core discovery loop. */
+/** Sidebar group 1 — the core loop, mirroring the mobile bar's order. */
 export const appNavItems: AppNavItem[] = [
-  { href: "/", label: "Home", icon: "home", alsoActiveFor: ["/dashboard"] },
-  { href: "/discover", label: "Discover", icon: "compass" },
+  { href: "/discover", label: "Explore", icon: "compass", alsoActiveFor: ["/explore"] },
+  { href: "/feed", label: "Moment", icon: "moments" },
   { href: "/likes", label: "Likes", icon: "flame" },
   { href: "/matches", label: "Matches", icon: "heart" },
   { href: "/messages", label: "Messages", icon: "chat" },
@@ -48,7 +48,10 @@ export const appSecondaryNavItems: AppNavItem[] = [
   // feature one click away instead of buried in the profile or behind the "+"
   // sheet. It was previously reachable only by typing /live.
   { href: "/live", label: "Go Live", icon: "live" },
-  { href: "/feed", label: "Feed", icon: "moments" },
+  // "/" is no longer a nav item anywhere, but the route still serves the
+  // immersive feed for deep links and shares. It is listed here under its
+  // former name so a member with the old bookmark has a way back to it.
+  { href: "/", label: "Home (immersive feed)", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
   { href: "/aristocracy", label: "Aristocracy", icon: "crown" },
@@ -63,9 +66,10 @@ export const menuDrawerItems: AppNavItem[] = [
   // third overall so it is above the fold of the drawer.
   { href: "/live", label: "Go Live", icon: "live" },
   { href: "/messages", label: "Messages", icon: "chat" },
-  { href: "/", label: "Home", icon: "home", alsoActiveFor: ["/dashboard"] },
+  // Explore and Moment are the bottom bar now, so they are not repeated here.
+  // "/" stays reachable as the immersive feed for old bookmarks and deep links.
+  { href: "/", label: "Home (immersive feed)", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/profile", label: "Profile", icon: "profile" },
-  { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
   { href: "/aristocracy", label: "Aristocracy", icon: "crown" },
@@ -74,15 +78,16 @@ export const menuDrawerItems: AppNavItem[] = [
 ];
 
 function isActive(pathname: string, item: AppNavItem) {
-  // Normalize trailing slashes first. The Home tab's href is "/", so a
-  // `pathname` of "" or "/" must both resolve to it; without normalization the
-  // root tab silently fails to light up and Home looks inert next to every
-  // other tab.
+  // Normalize trailing slashes first. "/" is still a real nav item (the drawer
+  // and sidebar), so a `pathname` of "" or "/" must both resolve to it; without
+  // normalization the root entry silently fails to light up.
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
 
-  // Root ("/") must match only exactly. A naive `startsWith("/")` would make
-  // Home look active on EVERY route, which is why the extra hrefs are
-  // enumerated via alsoActiveFor rather than relying on prefix matching.
+  // Root ("/") must match only exactly. A naive `startsWith("/")` would make the
+  // root entry look active on EVERY route, which is why the extra hrefs are
+  // enumerated via alsoActiveFor rather than relying on prefix matching. This is
+  // what keeps the drawer's "Home (immersive feed)" from lighting up while the
+  // member is on /discover.
   return [item.href, ...(item.alsoActiveFor ?? [])].some(
     (href) => path === href || (href !== "/" && path.startsWith(`${href}/`))
   );
@@ -160,14 +165,32 @@ interface MobileTab extends AppNavItem {
 }
 
 /**
- * Mobile bottom-bar tabs — the exact 5-tab sequence: Home · Explore · Likes · Messages · Me.
+ * Mobile bottom-bar tabs — the exact 5-tab sequence:
+ * Explore · Moment · Likes · Messages · Me.
  * Every href is an absolute app route verified to exist in `app/(app)/**`.
  */
 const mobileTabs: MobileTab[] = [
-  // "/" is the real home route; /dashboard now redirects to it, so both are
-  // listed as active paths. Without this the Home tab never lights up.
-  { href: "/", icon: "home", label: "Home", alsoActiveFor: ["/dashboard"] },
-  { href: "/discover", icon: "compass", label: "Explore" },
+  // THE CORE FLOW, IN ORDER: Explore first, then the Moment feed.
+  //
+  // Explore leads because it is the actual purpose of the product — seeing who
+  // is available to meet. The moment feed is a second-order surface you browse
+  // once you have people to browse. Leading with a feed put a member in front
+  // of other people's content before they had met anyone, which is the
+  // opposite of the loop this app runs on.
+  //
+  // "Home" is gone from this bar on purpose. It pointed at "/", which is the
+  // immersive MediaFeed, and that surface is now reachable as the "Moment" tab
+  // via /feed. Keeping both would have offered the same feed twice under two
+  // names, which is worse than not having it. "/" is NOT dropped as a route —
+  // it still serves the signed-in feed for existing deep links — it simply is
+  // no longer a tab. The desktop sidebar still lists it.
+  //
+  // ICONS: `compass` for Explore (discovery) and `moments` for the Moment feed
+  // (short video), so the two read as different things rather than both
+  // looking like a grid. `alsoActiveFor` keeps the tab lit for the nested
+  // routes that belong to it.
+  { href: "/discover", icon: "compass", label: "Explore", alsoActiveFor: ["/explore"] },
+  { href: "/feed", icon: "moments", label: "Moment" },
   { href: "/likes", icon: "heart", label: "Likes" },
   { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
   { href: "/profile", icon: "profile", label: "Me" },
@@ -318,7 +341,8 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 }
 
 /**
- * Mobile chrome: a 5-item bottom bar (Home · Explore · Likes · Messages · Me) rendered as
+ * Mobile chrome: a 5-item bottom bar (Explore · Moment · Likes · Messages · Me)
+ * rendered as
  * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
  * `md` up, where the fixed sidebar takes over. The "Menu" drawer is retained
  * for secondary destinations.
