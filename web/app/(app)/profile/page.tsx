@@ -34,25 +34,30 @@ const QUICK_ACTIONS: {
 }[] = [
   { label: "Rewards", href: "/task", icon: "gift", primary: true },
   { label: "Store", href: "/store", icon: "shopping-bag" },
-  { label: "VIP Club", href: "/aristocracy", icon: "crown" },
+  { label: "VIP Club", href: "/vip-club", icon: "crown" },
 ];
 
 /**
- * "Ways to earn" — the concrete routes to coins, shown on the Wallet & Earnings
- * panel.
+ * The unified financial hub — three categories, one screen.
  *
- * This is what the old "Income" quick action was gesturing at. "Income" was a
- * single tile pointing at /subscription, which is a page about PAYING for a
- * membership — the exact opposite of what someone tapping "Income" is looking
- * for. Naming the real routes is the whole point of the section, so every entry
- * here must lead somewhere a member can actually act on:
+ * WHY THIS EXISTS. The token economy used to be scattered across three
+ * differently-named doors: a "Wallet & Earnings" tab, a "Store" quick action,
+ * and an "Income" quick action that pointed at /subscription — a page about
+ * PAYING for a membership, which is the exact opposite of what someone tapping
+ * "Income" is looking for. Members had to guess which tile moved money in and
+ * which moved money out.
  *
- *   • Daily rewards (/task) — the daily and achievement payouts.
- *   • Coin store (/store)    — spends coins; listed because it is the other
- *                              half of the coin economy and members look for
- *                              it here.
- *   • Membership             — the paid tier, kept last and labelled as an
- *                              upgrade so it is not mistaken for an earn route.
+ * The panel is now one surface with three explicitly-named sections, each
+ * answering a different question, and in the order a member actually asks them:
+ *
+ *   1. WALLET & TOKENS   — "what do I have?"      → balance + VIP standing
+ *   2. REWARDS & PERKS   — "how do I get more?"    → daily check-ins, tasks
+ *   3. DIGITAL STORE    — "what can I spend on?"  → frames, gifts, cosmetics
+ *
+ * Earn routes come before the store on purpose: a member with a low balance
+ * clicking into the Store first is a member about to be disappointed. Spend
+ * links are kept labelled as spending, and the paid tier is labelled as an
+ * upgrade, so none of the three is mistakable for another.
  */
 const EARN_LINKS: {
   label: string;
@@ -60,9 +65,20 @@ const EARN_LINKS: {
   href: string;
   icon: ProfileIconName;
 }[] = [
-  { label: "Daily rewards", hint: "Check in and complete tasks for coins", href: "/task", icon: "gift" },
-  { label: "Coin store", hint: "Spend coins on frames, vehicles and themes", href: "/store", icon: "shopping-bag" },
-  { label: "Upgrade membership", hint: "Get more coins with a paid tier", href: "/subscription", icon: "crown" },
+  { label: "Daily check-in", hint: "Claim your daily token drop", href: "/task", icon: "gift" },
+  { label: "Tasks & achievements", hint: "Complete actions for bonus tokens", href: "/task", icon: "trending-up" },
+  { label: "Upgrade membership", hint: "Unlock the VIP Club tier progression", href: "/vip-club", icon: "crown" },
+];
+
+/** The boutique catalogue — cosmetics and gifts, explicitly the SPEND side. */
+const SPEND_LINKS: {
+  label: string;
+  hint: string;
+  href: string;
+  icon: ProfileIconName;
+}[] = [
+  { label: "Profile frames", hint: "Signature borders and animated avatars", href: "/store", icon: "shopping-bag" },
+  { label: "Gifts & effects", hint: "Send tokens on a moment or a person", href: "/store", icon: "gift" },
 ];
 
 /**
@@ -107,24 +123,30 @@ export default async function ProfilePage() {
     { label: "Visitors", value: stats.visitors, href: "/likes" },
   ];
 
-  /**
-   * Games are de-emphasised, not removed.
-   *
-   * The four casino-style tiles (Fortune Gems, WealthyTiger…) used to sit in a
-   * 4-up gradient grid directly above the quick actions, each a saturated
-   * square with its own colourway. On a dating profile that block dominated
-   * the fold and read as a casino lobby rather than a social product — it was
-   * the loudest thing on a screen whose job is to introduce a person.
-   *
-   * They now live as ONE quiet row that defers to the member, and the full
-   * catalogue stays reachable at /games. The games themselves are untouched.
-   */
-  const recommendedGames = [
-    { id: "fortune-gems", title: "Fortune Gems", emoji: "💎" },
-    { id: "wealthy-tiger", title: "WealthyTiger", emoji: "🐯" },
-    { id: "world-goal", title: "World Goal", emoji: "⚽" },
-    { id: "rocket-star", title: "Rocket Star", emoji: "🚀" },
-  ];
+/**
+ * The social / icebreaker games surfaced on the profile's Play Hub.
+ *
+ * STANDALONES ARE GONE FROM THE PROFILE. This used to be four casino-style
+ * tiles (Fortune Gems, WealthyTiger…) in a 4-up gradient grid sitting directly
+ * under the identity card, each a saturated square with its own colourway. On a
+ * dating profile that block dominated the fold and read as a casino lobby
+ * rather than a social product — it was the loudest thing on a screen whose
+ * entire job is to introduce a person.
+ *
+ * The profile now shows ONE quiet row of SOCIAL games only (the two-player,
+ * talk-while-you-play titles), each linked straight to its game. The full
+ * catalogue lives at /games, rebranded the "Play Hub".
+ *
+ * Deliberately excluded: the Slots and Action categories, which are the
+ * casino-style titles. They remain playable from the Play Hub's own browser,
+ * but a dating profile no longer advertises them.
+ */
+const recommendedGames = [
+  { id: "couples-ludo-advance", title: "Ludo", emoji: "🎲" },
+  { id: "connect-four-fireside", title: "Connect 4", emoji: "🔥" },
+  { id: "trivia-couple-cup", title: "Trivia", emoji: "💡" },
+  { id: "memory-match-hearts", title: "Match", emoji: "💞" },
+];
 
   const menuItems: { label: string; emoji: string; href: string; trailing?: ReactNode }[] = [
     { label: "Bag", emoji: "🛍️", href: "/moments" },
@@ -297,26 +319,43 @@ export default async function ProfilePage() {
                 </Link>
               </div>
             ),
-            /* ---------------- Wallet & Earnings ----------------------------
-                The panel is now "Wallet & Earnings" rather than "Wallet & VIP":
-                it is where balance AND ways to earn both live, and the old name
-                implied it was only about a paid tier.
+            /* ---------------- Financial hub (wallet) -----------------------
+                THE THREE-CATEGORY STRUCTURE. The token economy was previously
+                spread across three differently-named doors — a "Wallet &
+                Earnings" tab, a "Store" quick action, and an "Income" quick
+                action pointing at a page about PAYING for a membership. Members
+                had to guess which tile moved tokens in and which moved them out.
+
+                This panel is now one surface with three headed sections, ordered
+                by the questions a member asks in sequence:
+                  1. Wallet & Tokens  → "what do I have?"
+                  2. Rewards & Perks  → "how do I get more?"
+                  3. Digital Store   → "what can I spend them on?"
+                Earn routes deliberately precede the store: a member with a low
+                balance who taps "Store" first is a member about to be
+                disappointed.
 
                 TILE LABELS: the balance sub-label was "Coins / Balance", which
-                names the same quantity twice — now just "Coin balance". A bare
-                "SVIP" code is now paired with "VIP status", so a member who is
-                not yet SVIP sees what they are working toward rather than an
-                unexplained string. The membership tile also points at
-                /aristocracy (the VIP Club), which is where membership actually
-                lives, rather than at /subscription.
+                names the same quantity twice — now just "Token balance". A bare
+                "SVIP" code is paired with "VIP status", so a member who is not
+                yet a member sees what they are working toward rather than an
+                unexplained string. The membership tile points at /vip-club,
+                which is where membership actually lives.
 
                 The two tiles drop their multi-colour gradient emoji chips for a
                 single tinted Lucide icon each, so the pair reads as one system
                 instead of two unrelated decorations. */
             wallet: (
-              <div className="flex flex-col gap-5 pb-10">
-                {/* --------------------------- Balance + membership (glass tiles) */}
-      <section aria-label="Wallet and membership" className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-6 pb-10">
+                {/* ============ 1. WALLET & TOKENS — "what do I have?" ======== */}
+                <section aria-labelledby="wallet-heading" className="flex flex-col gap-2.5">
+                  <h2
+                    id="wallet-heading"
+                    className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400"
+                  >
+                    Wallet &amp; Tokens
+                  </h2>
+                  <div className="grid grid-cols-2 gap-3">
         <Link
           href="/subscription"
           className="glam-tile glam-tile--warm flex items-center gap-3 rounded-2xl p-4"
@@ -332,12 +371,12 @@ export default async function ProfilePage() {
               {wallet.coinBalance}
             </span>
             <span className="block text-[11px] font-semibold text-orange-200/80">
-              Coin balance
+              Token balance
             </span>
           </span>
         </Link>
         <Link
-          href="/aristocracy"
+          href="/vip-club"
           className="glam-tile glam-tile--violet flex items-center gap-3 rounded-2xl p-4"
         >
           <span
@@ -355,17 +394,16 @@ export default async function ProfilePage() {
             </span>
           </span>
         </Link>
-        </section>
+                  </div>
+                </section>
 
-      {/* ------------------------------------------------- 2. Ways to earn
-          This block replaces the old standalone "Income" quick action. "Income"
-          was one ambiguous tile pointing at the subscription page, which told a
-          member nothing about how to actually GET coins. This lists the
-          concrete routes, so the product's financial tools live together under
-          one heading instead of being scattered across a tab and a shortcut. */}
+      {/* ============ 2. REWARDS & PERKS — "how do I get more?" ==========
+          Replaces the old standalone "Income" quick action, which pointed at the
+          subscription page and so told a member nothing about how to actually GET
+          tokens. These are the concrete inbound routes. */}
       <section aria-labelledby="earn-heading" className="flex flex-col gap-2.5">
         <h2 id="earn-heading" className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
-          Ways to earn
+          Rewards &amp; Daily Perks
         </h2>
         <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
           {EARN_LINKS.map((item) => (
@@ -402,7 +440,53 @@ export default async function ProfilePage() {
         </ul>
       </section>
 
-      {/* --------------------------------------------- 3. Relationship card */}
+      {/* ============ 3. DIGITAL STORE — "what can I spend them on?" ======
+          The boutique side of the economy: profile cosmetics and gifts. Kept as
+          its own headed section rather than folded into the earn list, so the
+          two directions of token flow are never mistaken for one another. */}
+      <section aria-labelledby="store-heading" className="flex flex-col gap-2.5">
+        <h2 id="store-heading" className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
+          Digital Store
+        </h2>
+        <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          {SPEND_LINKS.map((item) => (
+            <li key={item.label}>
+              <Link
+                href={item.href}
+                className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.05]"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-ink-300"
+                >
+                  <ProfileIcon name={item.icon} className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-white">{item.label}</span>
+                  {item.hint ? (
+                    <span className="block text-[11px] text-ink-400">{item.hint}</span>
+                  ) : null}
+                </span>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4 shrink-0 text-ink-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <Link href="/store" className="lux-cta w-full py-3 text-center text-xs">
+          Browse the boutique
+        </Link>
+      </section>
+
+      {/* --------------------------------------------- 4. Relationship card */}
       <section
         aria-label="Relationship"
         className="glam-tile glam-tile--aqua relative overflow-hidden rounded-2xl p-4"
@@ -429,13 +513,16 @@ export default async function ProfilePage() {
       {/* ---------------------------- 5. Quick actions (coloured glass tiles)
           LABELS: "Tasks" -> "Rewards" and "Aristocracy" -> "VIP Club".
           "Tasks" is a build-work word; members recognise a list of things that
-          pay out as rewards. "Aristocracy" reads as a game-faction rank and is
-          replaced by the tier language the rest of the product already uses.
+          pay out as rewards. "Aristocracy" read as a game-faction rank and is
+          replaced by "VIP Club", the tier language the rest of the product uses.
+          The route moved to /vip-club to match, with /aristocracy kept as a
+          redirect in next.config so old links still land somewhere real.
 
           "Income" is gone from this row on purpose: it pointed at the same
           /subscription surface as the wallet tab, so the page showed two
-          differently-named doors to one room. Financial tools now live in one
-          place — the "Wallet & Earnings" tab.
+          differently-named doors to one room. All financial tooling now lives in
+          one place — the "Wallet & Tokens" tab, split into Wallet & Tokens,
+          Rewards & Daily Perks, and Digital Store.
 
           ICONS: Lucide line icons, not emoji, so every tile in the grid sits on
           the same optical centre. The previous emoji circles were also 40px of
@@ -510,23 +597,26 @@ export default async function ProfilePage() {
         </ul>
       </nav>
 
-      {/* --------------------------------- 7. Games — deliberately last, quiet
+      {/* --------------------------------- 7. Play Hub — deliberately last,
+          deliberately quiet, and SOCIAL TITLES ONLY.
+
           The same four games this page always linked to, re-presented as one
           low-contrast row placed AFTER the quick actions and menu rows.
 
           WHAT CHANGED AND WHY: the old 4-up grid of saturated gradient squares
           sat directly under the identity card, so it was the first thing below
           the member's name and the loudest block on the screen. A profile whose
-          job is to introduce a person should not open with a casino lobby.
+          job is to introduce a person should not open with a casino lobby. The
+          grid is now social/icebreaker titles only (Ludo, Connect 4, Trivia,
+          Match) — the two-player games a couple can actually talk over.
 
-          The row keeps the same hrefs and the same emoji glyphs, but at 28px on
-          a plain slate chip with no per-game colourway. Four games now read as
-          one quiet strip of secondary links rather than four competing
-          calls to action, and "All games" keeps the full catalogue one tap away. */}
+          The row keeps plain chips with no per-game colourway, so four games
+          read as one quiet strip of secondary links rather than four competing
+          calls to action, and "Play Hub" keeps the full catalogue one tap away. */}
       <section aria-labelledby="games-heading" className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between px-0.5">
           <h2 id="games-heading" className="text-xs font-semibold uppercase tracking-wider text-ink-400">
-            Games
+            Play Hub
           </h2>
           <Link
             href="/games"

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
 import {
-  activateAristocracyTier,
+  activateVipTier,
   equipInventoryItem,
   purchaseStoreItem,
   type ActivationResult,
@@ -47,14 +47,14 @@ export async function equipInventoryItemAction(
   }
 }
 
-/** Server action: activate a 30-day Aristocracy tier with coins. */
-export async function activateAristocracyTierAction(tier: string): Promise<ActivationResult> {
+/** Server action: activate a 30-day VIP Club tier with tokens. */
+export async function activateVipTierAction(tier: string): Promise<ActivationResult> {
   try {
     const user = await getCurrentSessionUser();
     if (!user) return { ok: false, error: "Sign in to activate" };
-    const result = await activateAristocracyTier(user.uid, tier);
+    const result = await activateVipTier(user.uid, tier);
     if (result.ok) {
-      revalidatePath("/aristocracy");
+      revalidatePath("/vip-club");
       revalidatePath("/profile");
     }
     return result;

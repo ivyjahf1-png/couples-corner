@@ -238,12 +238,12 @@ export default async function SettingsPage() {
               <span className="text-sm font-medium text-white">Bind account</span>
               <span aria-hidden className="text-ink-400">-</span>
             </Link>
-            <Link href="/aristocracy" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
+            <Link href="/vip-club" className="flex items-center justify-between px-5 py-4 transition hover:bg-white/[0.04]">
               <span className="text-sm font-medium text-white">Charge settings</span>
               <span aria-hidden className="text-ink-400">-</span>
             </Link>
             <Row label="Rights Center" hint="Your VIP & SVIP benefits live here.">
-              <Link href="/aristocracy" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>
+              <Link href="/vip-club" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>
             </Row>
             <Row label="Chat settings" hint="Read receipts, who can message you.">
               <Link href="/settings#chat" className="text-sm font-medium text-amber-300 hover:text-amber-200">Open</Link>

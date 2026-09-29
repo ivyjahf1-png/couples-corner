@@ -74,8 +74,11 @@ export function StoreMarketplace({
     <div className="relative flex flex-col gap-6">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="lux-metal text-sm font-bold">Premium collection</p>
-          <h1 className="text-3xl font-bold text-white">Store</h1>
+          <p className="lux-metal text-sm font-bold">The boutique</p>
+          <h1 className="text-3xl font-bold text-white">Digital Store</h1>
+          <p className="mt-1 text-xs text-ink-300">
+            Spend tokens on profile cosmetics and gifts
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="lux-coin text-sm">

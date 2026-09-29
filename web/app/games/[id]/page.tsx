@@ -15,7 +15,7 @@ export async function generateMetadata({
   const { id } = await params;
   const game = getGameBySlug(id);
   return {
-    title: game ? `${game.title} — Game Center` : "Game — Couple's Corner",
+    title: game ? `${game.title} — Play Hub` : "Game — Couple's Corner",
   };
 }
 

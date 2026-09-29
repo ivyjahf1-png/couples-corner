@@ -4,8 +4,8 @@ import { getGameWallet } from "@/lib/server/games";
 import { GameCenterHub } from "@/components/games/GameCenterHub";
 
 export const metadata: Metadata = {
-  title: "Game Center — Couple's Corner",
-  description: "Play, win coins and level up together in the Couple's Corner Game Center.",
+  title: "Play Hub — Couple's Corner",
+  description: "Two-player board games, trivia and icebreakers to play together on Couple's Corner.",
 };
 
 export const dynamic = "force-dynamic";

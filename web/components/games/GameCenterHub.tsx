@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  GAMES,
+  PLAY_HUB_GAMES,
   REWARD_CHESTS,
   levelFromBalance,
   levelProgress,
@@ -11,10 +11,17 @@ import {
 import { CATEGORY_TABS, type GameCategory } from "@/lib/gamesData";
 
 /**
- * Game Center hub — header, reward banners and the featured game grid.
- * The coin pill polls /api/games/reward so the balance stays live while
- * chests are claimed or games pay out. Game cards render dynamically from
- * the registry (lib/gamesData.ts) with category filter tabs.
+ * Play Hub — the product's game surface, rebranded from "Game Center".
+ *
+ * The catalogue is filtered to the two-player / icebreaker categories: board,
+ * strategy, arcade and casual. Slots and action titles are still registered and
+ * still playable by direct link (`/games/[id]` resolves them), they are simply
+ * not advertised here, because a wall of slot-machine reels made an upscale
+ * social dating product read as a casino.
+ *
+ * The coin pill polls /api/games/reward so the balance stays live while chests
+ * are claimed or games pay out. Game cards render from `PLAY_HUB_GAMES` with
+ * category filter tabs.
  */
 
 type TabKey = GameCategory | "All";
@@ -35,12 +42,13 @@ export function GameCenterHub({
   const [toast, setToast] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("All");
 
-  /** Registry-driven, scalable game list filtered by the selected tab. */
+  /** Curated catalogue, filtered by the selected tab. Curated, not the full
+      registry — see PLAY_HUB_CATEGORIES for what is deliberately not shown. */
   const visibleGames = useMemo(
     () =>
       activeTab === "All"
-        ? GAMES
-        : GAMES.filter((game) => game.category === activeTab),
+        ? PLAY_HUB_GAMES
+        : PLAY_HUB_GAMES.filter((game) => game.category === activeTab),
     [activeTab]
   );
 
@@ -110,8 +118,8 @@ export function GameCenterHub({
               🧩
             </Link>
             <div>
-              <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Game Center</h1>
-              <p className="text-xs text-white/50">Play together, win together</p>
+              <h1 className="text-lg font-extrabold tracking-tight sm:text-xl">Play Hub</h1>
+              <p className="text-xs text-white/50">Games to play together</p>
             </div>
           </div>
 
@@ -140,15 +148,15 @@ export function GameCenterHub({
         </div>
       </header>
 
-        <section aria-label="Live winners" className="mt-6 overflow-hidden rounded-2xl border border-amber-300/30 bg-slate-950/80 shadow-[0_0_24px_rgba(251,191,36,0.12)]">
-          <div className="flex items-center gap-3 border-b border-amber-300/20 px-4 py-3">
+        <section aria-label="Live winners" className="mt-6 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+          <div className="flex items-center gap-3 border-b border-white/10 px-4 py-3">
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" aria-hidden="true" />
-            <strong className="text-sm text-amber-100">Live winners</strong>
-            <span className="text-xs text-white/45">Today&apos;s celebration</span>
+            <strong className="text-sm text-white/85">Active tonight</strong>
+            <span className="text-xs text-white/40">Games being played right now</span>
           </div>
           <div className="game-winner-marquee overflow-hidden py-3" role="marquee" aria-label="Recent winners">
             <div className="game-winner-track flex w-max items-center gap-8 px-4">
-              {[...WINNERS, ...WINNERS].map((winner, index) => <span key={`${winner.name}-${index}`} className="whitespace-nowrap text-sm text-white/70"><b className="text-amber-300">{winner.name}</b> won <span className="text-emerald-300">🪙 {winner.amount.toLocaleString()}</span></span>)}
+              {[...WINNERS, ...WINNERS].map((winner, index) => <span key={`${winner.name}-${index}`} className="whitespace-nowrap text-sm text-white/60"><b className="text-white/80">{winner.name}</b> is playing <span className="text-emerald-300/80">for {winner.amount.toLocaleString()} tokens</span></span>)}
             </div>
           </div>
         </section>
@@ -232,7 +240,7 @@ export function GameCenterHub({
         {/* ── Featured game grid ─────────────────────────────────────── */}
         <section aria-label="Featured games" className="mt-12">
           <div className="flex items-end justify-between">
-            <h2 className="text-xl font-bold tracking-tight">Featured Games</h2>
+            <h2 className="text-xl font-bold tracking-tight">Games to play together</h2>
             <span className="text-sm text-white/50">{visibleGames.length} games</span>
           </div>
 

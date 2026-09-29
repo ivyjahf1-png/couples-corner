@@ -29,10 +29,9 @@ export type ProfileTabId = "profile" | "wallet" | "extras";
 
 /**
  * LABEL CHANGES (product wording):
- *   • "Wallet & VIP" -> "Wallet & Earnings". The old name implied this tab was
- *     only about a paid tier, but the tab is where balance and earnings live.
- *     "Earnings" is also the word a member looking for ways to earn coins
- *     actually searches for.
+ *   • "Wallet & VIP" -> "Wallet & Tokens". This tab is no longer just a paid
+ *     tier: it is the whole financial hub, and it opens on the balance. The name
+ *     matches what the first section under it actually shows.
  *   • "Extras" -> "More". "Extras" is vague about what it holds; "More" is the
  *     conventional label for a catch-all section and sets the expectation that
  *     it is secondary, which is how it is placed in the tab order.
@@ -43,7 +42,7 @@ export type ProfileTabId = "profile" | "wallet" | "extras";
  */
 const TABS: { id: ProfileTabId; label: string; icon: LucideIcon }[] = [
   { id: "profile", label: "Profile", icon: User },
-  { id: "wallet", label: "Wallet & Earnings", icon: Wallet },
+  { id: "wallet", label: "Wallet & Tokens", icon: Wallet },
   { id: "extras", label: "More", icon: Sparkles },
 ];
 

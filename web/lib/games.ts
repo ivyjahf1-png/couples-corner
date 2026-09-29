@@ -11,6 +11,7 @@
 import {
   GAMES_REGISTRY,
   getGameById,
+  playHubGames,
   type GameRegistryEntry,
 } from "@/lib/gamesData";
 
@@ -62,6 +63,19 @@ export const GAMES: GameEntry[] = GAMES_REGISTRY.map((entry) => ({
   category: entry.category,
   embedUrl: entry.embedUrl,
 }));
+
+/**
+ * The games the Play Hub lists — `GAMES` minus the casino-style categories.
+ *
+ * IMPORTANT: `GAMES` remains the FULL catalog, and `getGameBySlug` still
+ * resolves every title, so `/games/[id]` keeps working for anything not listed
+ * here. The Play Hub simply does not advertise Slots or Action titles, because
+ * standing reels of slot machines made an upscale social product read as a
+ * casino. See PLAY_HUB_CATEGORIES in lib/gamesData.ts.
+ */
+export const PLAY_HUB_GAMES: GameEntry[] = GAMES.filter((game) =>
+  playHubGames().some((entry) => entry.id === game.slug)
+);
 
 export function getGameBySlug(slug: string): GameEntry | undefined {
   const entry = getGameById(slug);

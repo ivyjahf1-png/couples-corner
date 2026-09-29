@@ -14,6 +14,11 @@ const nextConfig: NextConfig = {
     return [
       { source: "/home", destination: "/dashboard", permanent: false },
       { source: "/main", destination: "/dashboard", permanent: false },
+      // The membership surface was renamed "Aristocracy" -> "VIP Club". Old
+      // bookmarks, shared links and any still-cached bundle pointed at
+      // /aristocracy, so the route is redirected rather than 404'd. `permanent:
+      // false` keeps it re-evaluated, matching the other legacy aliases above.
+      { source: "/aristocracy", destination: "/vip-club", permanent: false },
     ];
   },
   // Server Action request body limit.

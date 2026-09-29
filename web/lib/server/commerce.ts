@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Store + Aristocracy commerce (SERVER ONLY).
+ * Store + VIP Club commerce (SERVER ONLY).
  *
  * Security model
  * --------------
@@ -12,19 +12,23 @@ import "server-only";
  * - Grants are written to public.user_inventory / public.aristocracy_activations
  *   with a 30-day (or item duration) expiry.
  * - Every mutation is recorded in public.game_ledger for auditability.
+ *
+ * The `aristocracy_activations` TABLE NAME is legacy and deliberately frozen:
+ * renaming a table is a data migration, not a rebrand. Only the TypeScript
+ * identifiers below were renamed to VIP. See lib/vipTiers.ts.
  */
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { STORE_ITEMS, type StoreCategory } from "@/lib/storeCatalog";
 import {
-  ARISTOCRACY_TIERS,
+  VIP_TIERS,
   TIER_PRICES,
-  isAristocracyTier,
-  type AristocracyTier,
-} from "@/lib/aristocracyTiers";
+  isVipTier,
+  type VipTier,
+} from "@/lib/vipTiers";
 
-export { ARISTOCRACY_TIERS, TIER_PRICES, isAristocracyTier };
-export type { AristocracyTier };
+export { VIP_TIERS, TIER_PRICES, isVipTier };
+export type { VipTier };
 
 async function ensureWallet(userId: string) {
   const supabase = getSupabaseServerClient();
@@ -64,12 +68,12 @@ export function resolveStoreItem(itemId: string) {
 }
 export interface StoreSnapshot {
   items: InventoryEntry[];
-  activeTier: AristocracyTier | null;
+  activeTier: VipTier | null;
   activeTierExpiresAt: string | null;
   coinBalance: number;
 }
 
-/** Read the user's owned store items and active Aristocracy tier. */
+/** Read the user's owned store items and active VIP Club tier. */
 export async function getUserInventory(userId: string): Promise<StoreSnapshot> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { items: [], activeTier: null, activeTierExpiresAt: null, coinBalance: 0 };
@@ -105,7 +109,7 @@ export async function getUserInventory(userId: string): Promise<StoreSnapshot> {
   const active = activations?.[0];
   return {
     items,
-    activeTier: isAristocracyTier(active?.tier) ? active.tier : null,
+    activeTier: isVipTier(active?.tier) ? active.tier : null,
     activeTierExpiresAt: (active?.expires_at as string | undefined) ?? null,
     coinBalance: wallet?.coin_balance ?? 0,
   };
@@ -203,11 +207,11 @@ export interface ActivationResult {
   expiresAt?: string;
 }
 
-/** Activate (or renew) a 30-day Aristocracy tier using coins. */
-export async function activateAristocracyTier(userId: string, tier: string): Promise<ActivationResult> {
+/** Activate (or renew) a 30-day VIP Club tier using tokens. */
+export async function activateVipTier(userId: string, tier: string): Promise<ActivationResult> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Supabase not configured" };
-  if (!isAristocracyTier(tier)) return { ok: false, error: "Unknown tier" };
+  if (!isVipTier(tier)) return { ok: false, error: "Unknown tier" };
   const cost = TIER_PRICES[tier];
 
   try {

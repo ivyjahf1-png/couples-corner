@@ -530,18 +530,38 @@ export function getGameById(id: string): GameRegistryEntry | undefined {
   return GAMES_REGISTRY.find((game) => game.id === id);
 }
 
+/**
+ * Categories the Play Hub browses.
+ *
+ * WHY SLOTS AND ACTION ARE NOT HERE. The registry still contains them, and
+ * `/games/[id]` still plays them — nothing is deleted or broken, and a direct
+ * link to a specific game keeps working. They are simply no longer *surfaced*.
+ *
+ * The profile is an upscale social/dating surface, and standing reels of slot
+ * machines and solo action titles in its own browser made the product read as a
+ * casino rather than a place to meet people. Board, Strategy, Arcade and
+ * Casual are the two-player and icebreaker titles, which is what this product
+ * is actually for. If these ever need returning, add the key back here — no
+ * other file changes.
+ */
+export const PLAY_HUB_CATEGORIES: GameCategory[] = ["Board", "Strategy", "Arcade", "Casual"];
+
 /** Tab labels for the hub's category filter (in display order). */
 export const CATEGORY_TABS: { key: GameCategory | "All"; label: string }[] = [
   { key: "All", label: "All" },
   { key: "Board", label: "Board Games" },
-  { key: "Slots", label: "Slots" },
-  { key: "Action", label: "Action" },
-  { key: "Arcade", label: "Arcade" },
   { key: "Strategy", label: "Strategy" },
+  { key: "Arcade", label: "Arcade" },
   { key: "Casual", label: "Casual" },
 ];
 
+/** The games the Play Hub lists, in registry order. */
+export function playHubGames(): GameRegistryEntry[] {
+  return GAMES_REGISTRY.filter((game) => PLAY_HUB_CATEGORIES.includes(game.category));
+}
+
 export function gamesByCategory(category: GameCategory | "All"): GameRegistryEntry[] {
-  if (category === "All") return GAMES_REGISTRY;
-  return GAMES_REGISTRY.filter((game) => game.category === category);
+  const inHub = playHubGames();
+  if (category === "All") return inHub;
+  return inHub.filter((game) => game.category === category);
 }
