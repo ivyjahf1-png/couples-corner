@@ -1725,7 +1725,7 @@ button,
 /* ============================================================================
    Premium commerce system — Store cards and VIP tier surfaces.
 
-   Shared by StoreMarketplace and AristocracyCenter so the two commercial
+   Shared by StoreModal and AristocracyCenter so the two commercial
    sections read as one product rather than two hand-styled screens. It extends
    the .glam-* language already established on the profile page.
 

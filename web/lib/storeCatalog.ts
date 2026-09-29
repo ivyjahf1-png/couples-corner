@@ -34,6 +34,29 @@ export const STORE_CATEGORIES: StoreCategory[] = [
   "Themes",
 ];
 
+/**
+ * Tab labels, singular — "Room Entry Effect", "Room Card", "Theme".
+ *
+ * THE STORED VALUES ARE NOT RENAMED, only the labels. `StoreCategory` is
+ * persisted: it is baked into item ids (`room-cards-1`) and lives in
+ * `user_inventory` rows, so renaming the union member would orphan every
+ * purchased item. The tab text is a pure display concern and is decoupled here
+ * for exactly that reason.
+ */
+export const CATEGORY_LABELS: Record<StoreCategory, string> = {
+  Frames: "Frames",
+  Vehicles: "Vehicles",
+  "Room Entry Effects": "Room Entry Effect",
+  Bubbles: "Bubbles",
+  "Room Cards": "Room Card",
+  Themes: "Theme",
+};
+
+/** "7 Days" / "5 Days" — the rental term as the shopper reads it on a card. */
+export function formatDuration(days: number): string {
+  return `${days} ${days === 1 ? "Day" : "Days"}`;
+}
+
 const FRAME_NAMES = [
   "Golden Halo", "Royal Frame", "Crystal Edge", "Velvet Halo", "Aurora Ring",
   "Emerald Crown", "Sapphire Line", "Obsidian Rim", "Pearl Glow", "Sunset Arc",
@@ -83,7 +106,7 @@ const ICONS: Record<StoreCategory, string[]> = {
       "🌟",
       "👑",
       "💎",
-      "\ud83d훡",
+      "🛡️",
       "🕯",
       "🕱",
       "🌙",
@@ -172,12 +195,26 @@ const ICONS: Record<StoreCategory, string[]> = {
       "🕒",
       "🌆",
       "🌊",
-      "\ud83d",
+      "🛳️",
       "⬛️",
       "🎀",
       "🐠"
     ]
   };
+
+/**
+ * Rental terms, exactly as the catalogue shows them.
+ *
+ * The generator below used to hardcode `i % 3 === 0 ? 7 : 30`, which produced
+ * only two terms and never the 5-day rental the store actually sells. Terms are
+ * now the explicit list below, cycled deterministically by index, so the
+ * duration a card advertises is one a member can genuinely buy.
+ *
+ * 5 days is a real product decision, not filler: it is the impulse length. A
+ * member who wants to try a frame for one date pays for 5, not 30. Offering
+ * only long rentals pushes everyone toward the expensive option.
+ */
+const DURATION_TERMS = [7, 30, 5] as const;
 
 function categoryItems(
   category: StoreCategory,
@@ -195,7 +232,7 @@ function categoryItems(
       category,
       name,
       price: basePrice + i * priceStep,
-      durationDays: i % 3 === 0 ? 7 : 30,
+      durationDays: DURATION_TERMS[i % DURATION_TERMS.length],
       icon,
       gradient: GRADIENTS[i % GRADIENTS.length],
       badge: i === 0 ? "Featured" : i % 7 === 0 ? "Hot" : i % 5 === 0 ? "New" : undefined,

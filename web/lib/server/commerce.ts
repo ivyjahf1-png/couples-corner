@@ -117,7 +117,14 @@ export async function getUserInventory(userId: string): Promise<StoreSnapshot> {
 
 export type PurchaseResult =
   | { ok: true; item: InventoryEntry; coinBalance: number }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /** Machine-readable reason, so the UI can open the right recovery. */
+      reason?: "insufficient" | "unknown_item" | "already_owned" | "conflict";
+      /** Present on `insufficient`: the caller's true balance at check time. */
+      coinBalance?: number;
+    };
 
 /** Purchase a store item with coins using a server-authoritative price. */
 export async function purchaseStoreItem(userId: string, itemId: string): Promise<PurchaseResult> {
@@ -128,19 +135,30 @@ export async function purchaseStoreItem(userId: string, itemId: string): Promise
   try {
     item = resolveStoreItem(itemId);
   } catch {
-    return { ok: false, error: "Unknown store item" };
+    return { ok: false, error: "Unknown store item", reason: "unknown_item" };
   }
 
   try {
     const wallet = await ensureWallet(userId);
-    if (wallet.coin_balance < item.price) return { ok: false, error: "Not enough coins" };
+    if (wallet.coin_balance < item.price) {
+      // The balance is returned so the UI can show HAVE / NEED / COST as
+      // numbers. A bare "not enough coins" gives the member nothing to act on.
+      return {
+        ok: false,
+        error: "Not enough coins",
+        reason: "insufficient",
+        coinBalance: wallet.coin_balance,
+      };
+    }
 
     const { count } = await supabase
       .from("user_inventory")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("item_id", itemId);
-    if ((count ?? 0) > 0) return { ok: false, error: "You already own this item" };
+    if ((count ?? 0) > 0) {
+      return { ok: false, error: "You already own this item", reason: "already_owned" };
+    }
 
     const { data: debited, error: debitError } = await supabase
       .from("game_wallets")
@@ -149,8 +167,12 @@ export async function purchaseStoreItem(userId: string, itemId: string): Promise
       .eq("coin_balance", wallet.coin_balance)
       .select("coin_balance")
       .single();
-    if (debitError || !debited) return { ok: false, error: "Purchase conflict, please retry" };
+    if (debitError || !debited) {
+      return { ok: false, error: "Purchase conflict, please retry", reason: "conflict" };
+    }
 
+    // The rental clock starts at purchase, not at equip, so time spent deciding
+    // whether to use it is still paid-for time.
     const expiresAt = addDays(item.durationDays);
     const { error: grantError } = await supabase.from("user_inventory").insert({
       user_id: userId,
