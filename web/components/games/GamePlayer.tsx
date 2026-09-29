@@ -10,6 +10,7 @@ import { TriviaGame } from "@/components/games/TriviaGame";
 import { WordGame } from "@/components/games/WordGame";
 import { SlotsGame } from "@/components/games/SlotsGame";
 import { SlideGame } from "@/components/games/SlideGame";
+import type { AristocracyTier } from "@/lib/aristocracyTiers";
 
 /**
  * Game player container — /games/[id].
@@ -29,11 +30,14 @@ export function GamePlayer({
   related,
   coinBalance: initialBalance,
   authenticated,
+  viewerTier = null,
 }: {
   game: GameEntry;
   related: GameEntry[];
   coinBalance: number;
   authenticated: boolean;
+  /** The viewer's active Aristocracy rank, surfaced in-game. */
+  viewerTier?: AristocracyTier | null;
 }) {
   const [balance, setBalance] = useState(initialBalance);
   const [state, setState] = useState<PlayerState>(game.stake > 0 ? "buy-in" : "playing");
@@ -211,6 +215,7 @@ export function GamePlayer({
               key={session}
               muted={muted}
               coinBalance={balance}
+              viewerTier={viewerTier}
               onGameOver={(won) => {
                 void settle(won);
               }}

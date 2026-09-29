@@ -29,6 +29,12 @@ export interface PaintOptions {
   showStars: boolean;
   /** Toggleable: glow ring around movable tokens. */
   showHints: boolean;
+  /**
+   * Animation phase in 0..1 for the movable-token hint, or null to paint the
+   * static ring. Supplied by the caller from a `requestAnimationFrame` clock;
+   * the painter stays pure so any single frame is still renderable on its own.
+   */
+  pulse: number | null;
 }
 
 /** Lighten (amount > 0) or darken (amount < 0) a #rrggbb hex colour. */
@@ -89,7 +95,8 @@ function drawToken(
   color: string,
   deep: string,
   movable: boolean,
-  showHints: boolean
+  showHints: boolean,
+  pulse: number | null
 ) {
   ctx.save();
   // Ground shadow
@@ -99,15 +106,44 @@ function drawToken(
   ctx.fill();
 
   // Movable hint halo
+  //
+  // `pulse` (0..1) drives a two-stage ring plus a travelling highlight sweep.
+  // The previous version drew ONE static ring, which is the whole reason
+  // "which token can I move?" was hard to answer at a glance: a static outline
+  // looks like a border on the piece rather than an instruction. A ring that
+  // breathes, plus a second ring that expands and fades, reads unmistakably as
+  // "live" and survives being peripheral — the player is looking at the board,
+  // not the token.
+  //
+  // When `pulse` is null (no animation clock running) the ring falls back to
+  // its previous static form, so a single painted frame still looks correct.
   if (movable && showHints) {
+    const phase = pulse ?? 0.5;
+
+    // Expanding ring: grows outward and fades. One full cycle per `pulse`.
     ctx.beginPath();
-    ctx.arc(px, py, radius * 1.5, 0, TAU);
-    ctx.strokeStyle = "rgba(249, 115, 22, 0.7)";
+    ctx.arc(px, py, radius * (1.35 + phase * 0.55), 0, TAU);
+    ctx.strokeStyle = `rgba(249, 115, 22, ${(1 - phase) * 0.55})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Breathing core ring: fixed radius, opacity oscillating.
+    const core = 0.45 + Math.sin(phase * Math.PI * 2) * 0.3;
+    ctx.beginPath();
+    ctx.arc(px, py, radius * 1.42, 0, TAU);
+    ctx.strokeStyle = `rgba(249, 115, 22, ${Math.max(0, core)})`;
     ctx.lineWidth = 3;
     ctx.shadowColor = "rgba(249, 115, 22, 0.95)";
-    ctx.shadowBlur = 14;
+    ctx.shadowBlur = 10 + core * 10;
     ctx.stroke();
     ctx.shadowBlur = 0;
+
+    // A soft fill so the legal piece is distinguishable by AREA as well as by
+    // outline — colour-blind players cannot rely on the orange ring alone.
+    ctx.beginPath();
+    ctx.arc(px, py, radius * 1.2, 0, TAU);
+    ctx.fillStyle = "rgba(249, 115, 22, 0.14)";
+    ctx.fill();
   }
 
   // 3D body
@@ -145,7 +181,7 @@ export function paintBoard(
   state: GameState,
   options: PaintOptions
 ): void {
-  const { pendingMoves, showStars, showHints } = options;
+  const { pendingMoves, showStars, showHints, pulse } = options;
   const cell = SIZE / 15;
   ctx.clearRect(0, 0, SIZE, SIZE);
 
@@ -311,7 +347,8 @@ export function paintBoard(
         PLAYER_COLORS[p],
         PLAYER_DEEP[p],
         movable,
-        showHints
+        showHints,
+        pulse
       );
     }
   }

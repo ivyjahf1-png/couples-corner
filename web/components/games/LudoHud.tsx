@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Icon } from "@/components/landing/Icon";
 import { HOME, PLAYER_COLORS, PLAYER_DEEP, PLAYER_PROFILES, type Tokens } from "./ludoCore";
+import { TIER_MASCOTS, type AristocracyTier } from "@/lib/aristocracyTiers";
 
 /**
  * Ludo Superstar-style HUD pieces for the built-in Ludo game view:
@@ -136,11 +137,22 @@ export function ProfileFrame({
   tokens,
   active,
   align,
+  tier = null,
 }: {
   player: number;
   tokens: Tokens;
   active: boolean;
   align: "start" | "end";
+  /**
+   * The signed-in member's Aristocracy rank, shown on THEIR frame only.
+   *
+   * Null for the three bots, and that is honest rather than a gap: the bots are
+   * fictional opponents in this mode (see `botChoose`), so they have no
+   * membership record and inventing a rank for them would be showing a paid
+   * entitlement that does not exist. Only player 0 is a real account, and only
+   * that frame can carry a real tier.
+   */
+  tier?: AristocracyTier | null;
 }) {
   const profile = PLAYER_PROFILES[player];
   const color = PLAYER_COLORS[player];
@@ -179,6 +191,18 @@ export function ProfileFrame({
             />
           ) : null}
           <span className="truncate text-xs font-bold text-white sm:text-sm">{profile.name}</span>
+          {/* Aristocracy rank. The mascot alone is decorative, so the tier NAME
+              rides along in the accessible label — otherwise a screen-reader
+              user would hear only an emoji with no idea what it means. */}
+          {tier ? (
+            <span
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber-300/40 bg-amber-400/10 px-1.5 py-px text-[9px] font-bold uppercase tracking-wide text-amber-200"
+              title={`Aristocracy rank: ${tier}`}
+            >
+              <span aria-hidden="true">{TIER_MASCOTS[tier]}</span>
+              <span className="sr-only">{`Aristocracy rank: ${tier}`}</span>
+            </span>
+          ) : null}
           <span className="shrink-0 text-[11px] leading-none" aria-label={`Flag ${profile.flag}`}>
             {profile.flag}
           </span>
@@ -204,14 +228,125 @@ export function ProfileFrame({
     </div>
   );
 }
-/* ── Turn indicator + glowing roll control ──────────────────────────── */
+/* ── Dice ───────────────────────────────────────────────────────────────── */
 
+/**
+ * Dice face rendered as VECTOR PIPS, not an emoji.
+ *
+ * The previous implementation showed `dice ?? "🎲"` in a white box. A system
+ * emoji is the wrong tool here for three reasons: its appearance is decided by
+ * the OS rather than by us (the same code looked different on iOS and Android),
+ * it cannot be styled to sit correctly beside a dark control, and it has no
+ * animation surface — the glyph swaps atomically between characters, so there
+ * is no way to actually roll it.
+ *
+ * Drawing the pips means one consistent look everywhere, colour we control, and
+ * a face that can be redrawn per frame while spinning.
+ *
+ * Pip layout per face, in a 0..1 unit square. These are the conventional
+ * arrangements; face 1 is deliberately centred rather than top-left, which is
+ * what keeps a six distinguishable from a five at 24px.
+ */
+const PIPS: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  1: [[0.5, 0.5]],
+  2: [
+    [0.28, 0.28],
+    [0.72, 0.72],
+  ],
+  3: [
+    [0.27, 0.27],
+    [0.5, 0.5],
+    [0.73, 0.73],
+  ],
+  4: [
+    [0.28, 0.28],
+    [0.72, 0.28],
+    [0.28, 0.72],
+    [0.72, 0.72],
+  ],
+  5: [
+    [0.27, 0.27],
+    [0.73, 0.27],
+    [0.5, 0.5],
+    [0.27, 0.73],
+    [0.73, 0.73],
+  ],
+  6: [
+    [0.27, 0.24],
+    [0.73, 0.24],
+    [0.27, 0.5],
+    [0.73, 0.5],
+    [0.27, 0.76],
+    [0.73, 0.76],
+  ],
+};
+
+export const FACE_ORDER = [1, 2, 3, 4, 5, 6] as const;
+
+/**
+ * One die face.
+ *
+ * `face` is the value to DRAW. `rolling` tilts and scales it; the parent swaps
+ * the face each tick, which is what makes the tumble read as motion rather than
+ * a flicker.
+ */
+function DieFace({
+  face,
+  rolling,
+  size = 48,
+  glow = false,
+}: {
+  face: number;
+  rolling: boolean;
+  size?: number;
+  glow?: boolean;
+}) {
+  const pips = PIPS[face] ?? PIPS[1];
+  const radius = size * 0.105;
+  const inset = size * 0.22;
+
+  return (
+    <span
+      className={[
+        "relative grid shrink-0 place-items-center rounded-xl",
+        "bg-gradient-to-b from-white to-slate-200 shadow-inner shadow-white/60",
+        rolling ? "rotate-6 scale-105" : "",
+        glow ? "ring-2 ring-amber-300/80" : "",
+      ].join(" ")}
+      style={{
+        width: size,
+        height: size,
+        // The glow is a box-shadow rather than a layer so it can be toggled
+        // without adding a DOM node per frame.
+        boxShadow: glow
+          ? "0 0 18px rgba(251,191,36,0.55), 0 0 34px rgba(249,115,22,0.35), inset 0 -2px 6px rgba(15,23,42,0.25)"
+          : undefined,
+      }}
+      aria-hidden="true"
+    >
+      {pips.map(([x, y], i) => (
+        <span
+          key={i}
+          className="absolute rounded-full bg-slate-900"
+          style={{
+            width: radius * 2,
+            height: radius * 2,
+            left: inset + x * (size - inset * 2) - radius,
+            top: inset + y * (size - inset * 2) - radius,
+          }}
+        />
+      ))}
+    </span>
+  );
+}
 export function TurnCard({
   turnLabel,
   turnColor,
   log,
   dice,
   canRoll,
+  rolling,
+  rollTick,
   onRoll,
 }: {
   turnLabel: string;
@@ -219,19 +354,36 @@ export function TurnCard({
   log: string;
   dice: number | null;
   canRoll: boolean;
+  /** True for the ~550ms the tumble plays, before the result is revealed. */
+  rolling: boolean;
+  /**
+   * Monotonic counter the parent bumps on an interval while `rolling`. Passed in
+   * rather than sampled here so the face re-rolls in a single React commit —
+   * sampling `Math.random()` during render would pick a new value on every
+   * unrelated re-render and desync the animation from its own label.
+   */
+  rollTick: number;
   onRoll: () => void;
 }) {
+  // While tumbling, derive the visible face from the tick rather than calling
+  // random: deterministic per frame, and it guarantees a VISIBLE change on
+  // every tick instead of occasionally repeating the same face.
+  const shown = rolling ? FACE_ORDER[rollTick % 6] : (dice ?? 1);
+
   return (
     <section
-      className="flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-white/10 bg-[#0F172A]/90 p-3 shadow-xl shadow-black/30 sm:flex-row sm:items-center"
+      className="flex w-full max-w-xl flex-col gap-3 rounded-2xl border border-white/10 bg-[#0F172A]/90 p-3 shadow-xl shadow-black/30 backdrop-blur-md sm:flex-row sm:items-center"
       aria-label="Turn status"
     >
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <span
-          className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-2xl font-black text-slate-900 shadow-inner"
-          aria-label={dice !== null ? `Dice showing ${dice}` : "Dice idle"}
-        >
-          {dice ?? "🎲"}
+        <span className="relative">
+          <DieFace face={shown} rolling={rolling} glow={dice !== null || rolling} />
+          {/* The pips are decorative, so the VALUE must be announced as text —
+              a screen reader cannot count dots. `polite` so it does not cut
+              across whatever is currently being read. */}
+          <span className="sr-only" aria-live="polite">
+            {rolling ? "Rolling" : dice !== null ? `Dice showing ${dice}` : "Dice idle"}
+          </span>
         </span>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-white/40">Turn</p>
@@ -255,14 +407,29 @@ export function TurnCard({
       <button
         type="button"
         onClick={onRoll}
-        disabled={!canRoll}
-        className={`w-full shrink-0 rounded-xl bg-gradient-to-b from-orange-400 to-orange-600 px-6 py-3 text-sm font-black uppercase tracking-wider text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 sm:w-auto ${
-          canRoll
+        disabled={!canRoll || rolling}
+        className={`group relative w-full shrink-0 overflow-hidden rounded-xl bg-gradient-to-b from-orange-400 to-orange-600 px-6 py-3 text-sm font-black uppercase tracking-wider text-white transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100 sm:w-auto ${
+          canRoll && !rolling
             ? "animate-[cc-glow_2.2s_ease-in-out_infinite] motion-reduce:animate-none"
             : ""
         }`}
       >
-        {canRoll ? "Roll dice 🎲" : dice !== null ? "Moving…" : "Waiting…"}
+        {/* Sheen sweep on hover. Driven by `group-hover` on the parent so it is
+            pure CSS — no state, no re-render, and it cannot desync from the
+            button's own state the way a JS timer could. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/30 to-transparent transition-transform duration-700 group-hover:translate-x-full motion-reduce:hidden"
+        />
+        <span className="relative">
+          {rolling
+            ? "Rolling…"
+            : canRoll
+              ? "Roll dice 🎲"
+              : dice !== null
+                ? "Moving…"
+                : "Waiting…"}
+        </span>
       </button>
     </section>
   );
@@ -293,11 +460,14 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 disabled:cursor-not-allowed disabled:opacity-40 ${
-        active
-          ? "border-orange-400/70 bg-orange-500/20 text-orange-100"
-          : "border-white/10 bg-white/5 text-white/80 hover:border-white/25 hover:bg-white/10"
-      }`}
+      className={`relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl border px-1 py-2 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 active:scale-95 motion-reduce:transition-none motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-40 ${
+      active
+        ? // Active state gets BORDER + BACKGROUND + SHADOW so it reads as
+          // "lit" from across a table, not just on hover. The inset highlight
+          // is what sells the glass: light catching a raised edge.
+          "border-orange-400/70 bg-gradient-to-b from-orange-500/30 to-orange-500/10 text-orange-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.25),0_6px_18px_-6px_rgba(249,115,22,0.6)]"
+        : "border-white/10 bg-white/[0.04] text-white/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:border-white/25 hover:bg-white/10 hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.14)]"
+    }`}
     >
       {children}
       <span className="truncate text-[9px] font-black uppercase tracking-wider sm:text-[10px]">
@@ -344,7 +514,13 @@ export function ActionBar({
   onPower: () => void;
 }) {
   return (
-    <div className="grid w-full max-w-xl grid-cols-5 gap-1.5 rounded-2xl border border-white/10 bg-slate-950/70 p-2 sm:gap-2">
+    /* GLASSMORPHISM. Three layers, in the order that reads correctly:
+       `backdrop-blur` samples what is behind, the translucent fill tints it,
+       and the inset top highlight is the light catching the upper edge. The
+       previous `bg-slate-950/70` was opaque enough to hide the board entirely
+       behind it, which is what made the dock feel like a solid bar stuck to the
+       bottom of the screen rather than a panel floating over the game. */
+    <div className="grid w-full max-w-xl grid-cols-5 gap-1.5 rounded-2xl border border-white/15 bg-slate-950/40 p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_12px_32px_-12px_rgba(0,0,0,0.8)] backdrop-blur-xl backdrop-saturate-150 sm:gap-2">
       <ActionButton label="Emoji" onClick={onEmoji} active={emojiOpen}>
         <SmileyIcon className="h-5 w-5" />
       </ActionButton>

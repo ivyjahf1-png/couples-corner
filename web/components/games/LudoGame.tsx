@@ -32,6 +32,7 @@ import {
   type Tokens,
 } from "./ludoCore";
 import { paintBoard } from "./ludoPaint";
+import type { AristocracyTier } from "@/lib/aristocracyTiers";
 import {
   ActionBar,
   CallChip,
@@ -53,11 +54,18 @@ export function LudoGame({
   muted,
   onGameOver,
   coinBalance = 0,
+  viewerTier = null,
 }: {
   muted: boolean;
   onGameOver: (won: boolean) => void;
   /** Live coin balance shown in the top-nav indicator (display only). */
   coinBalance?: number;
+  /**
+   * The signed-in member's Aristocracy rank, shown on their own player frame.
+   * Resolved server-side by the game route and passed down; null when they hold
+   * no active rank. Only player 0 is a real account — see `ProfileFrame`.
+   */
+  viewerTier?: AristocracyTier | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stateRef = useRef<GameState>({
@@ -71,6 +79,43 @@ export function LudoGame({
   const [log, setLog] = useState<string>("You are Red. Roll a 6 to leave your yard!");
   const reportedRef = useRef(false);
   const state = stateRef.current;
+
+  /* ── Dice tumble ─────────────────────────────────────────────────── */
+  // The result is decided UP FRONT and held in `pendingRollRef`; only the
+  // REVEAL is deferred. Deciding it later would mean a re-roll on every frame,
+  // which is both unfair-looking and lets the value change under the animation.
+  const [rolling, setRolling] = useState(false);
+  const [rollTick, setRollTick] = useState(0);
+  const pendingRollRef = useRef<{ player: number; dice: number } | null>(null);
+  const rollTimerRef = useRef<number | null>(null);
+  const tickTimerRef = useRef<number | null>(null);
+
+  /**
+   * Phase for the movable-token hint, 0..1.
+   *
+   * The loop is a no-op when nothing is pending, which is most of the game — an
+   * unconditional `requestAnimationFrame` would repaint a 600×600 canvas 60
+   * times a second for nothing, which is the difference between a smooth game
+   * and a hot phone. It starts the instant the player has a choice to make and
+   * stops on the frame after the last one is consumed.
+   */
+  const [pulse, setPulse] = useState<number | null>(null);
+  useEffect(() => {
+    if (pendingMoves.length === 0) {
+      setPulse(null);
+      return;
+    }
+    let raf = 0;
+    const started = performance.now();
+    const loop = (now: number) => {
+      // ~1.4s per breath: slow enough to read as a deliberate highlight rather
+      // than a flicker, fast enough to feel responsive.
+      setPulse(((now - started) % 1400) / 1400);
+      raf = requestAnimationFrame(loop);
+    };
+    raf = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(raf);
+  }, [pendingMoves.length]);
 
   /* ── HUD state (presentation only) ──────────────────────────────── */
   const [panel, setPanel] = useState<NavPanel | null>(null);
@@ -136,8 +181,9 @@ export function LudoGame({
       pendingMoves,
       showStars: settings.stars,
       showHints: settings.hints,
+      pulse,
     });
-  }, [state.tokens, pendingMoves, settings.stars, settings.hints]);
+  }, [state.tokens, pendingMoves, settings.stars, settings.hints, pulse]);
 
   /* ── Turn flow: settle the stake when the race ends ─────────────── */
   useEffect(() => {
@@ -153,6 +199,72 @@ export function LudoGame({
     }
   }, [state.winner, onGameOver]);
   /* ── Turn flow ───────────────────────────────────────────────────── */
+
+  /**
+   * Resolve a decided roll: work out the legal moves and hand the turn on.
+   *
+   * Split out from `roll` so the dice can TUMBLE first and the rules only be
+   * applied once it settles. Bot and human both call this, so the two stay on
+   * exactly one code path — an animation that quietly gave bots different rules
+   * would be a far worse bug than a slow one.
+   */
+  const resolveRoll = useCallback((player: number, dice: number) => {
+    const current = stateRef.current;
+    // The roll is written into state HERE, not in `roll`. That is what keeps
+    // `roll`'s guard honest: `dice` stays null for the whole animation, so a
+    // double-tap cannot queue a second roll.
+    current.dice = dice;
+    forceRender((n) => n + 1);
+
+    const moves = legalMoves(current, player, dice);
+    if (moves.length === 0) {
+      setLog(`${PLAYER_NAMES[player]} rolled ${dice} — no legal move.`);
+      window.setTimeout(() => {
+        const s = stateRef.current;
+        if (s.winner !== null) return;
+        if (dice !== 6) s.turn = (s.turn + 1) % 4; // a 6 keeps the turn
+        s.dice = null;
+        forceRender((n) => n + 1);
+      }, 900);
+      return;
+    }
+
+    if (player === 0) {
+      // Human: auto-move when only one option, otherwise wait for a pick.
+      if (moves.length === 1) {
+        setLog(`You rolled ${dice}.`);
+        window.setTimeout(() => {
+          stateRef.current = applyMove(stateRef.current, 0, moves[0], dice);
+          setPendingMoves([]);
+          forceRender((n) => n + 1);
+        }, 400);
+      } else {
+        setPendingMoves(moves);
+        setLog(`You rolled ${dice} — choose a token to move.`);
+      }
+    } else {
+      setLog(`${PLAYER_NAMES[player]} rolled ${dice}…`);
+      window.setTimeout(() => {
+        const s = stateRef.current;
+        if (s.winner !== null) return;
+        const token = botChoose(s, s.turn, dice);
+        if (token !== null) {
+          stateRef.current = applyMove(s, s.turn, token, dice);
+          setLog(`${PLAYER_NAMES[s.turn]} moved.`);
+        }
+        forceRender((n) => n + 1);
+      }, 900);
+    }
+  }, []);
+
+  /**
+   * Start a roll: decide the value, then play the tumble, then resolve.
+   *
+   * The outcome is chosen UP FRONT and parked in `pendingRollRef`. That is the
+   * whole design: if the value were picked after the animation, it would have
+   * to be re-rolled every frame and could visibly change underneath the player
+   * as the die slowed down — which reads as a rigged game.
+   */
   const roll = useCallback(() => {
     const current = stateRef.current;
     if (current.winner !== null || current.dice !== null) return;
@@ -176,60 +288,60 @@ export function LudoGame({
     }
 
     const dice = useBoost ? 6 : 1 + Math.floor(Math.random() * 6);
-    current.dice = dice;
-    beep(dice === 6 ? 660 : 440);
-    forceRender((n) => n + 1);
+    const player = current.turn;
+    pendingRollRef.current = { player, dice };
 
-    const moves = legalMoves(current, current.turn, dice);
-    if (moves.length === 0) {
-      setLog(`${PLAYER_NAMES[current.turn]} rolled ${dice} — no legal move.`);
-      window.setTimeout(() => {
-        const s = stateRef.current;
-        if (s.winner !== null) return;
-        if (dice !== 6) s.turn = (s.turn + 1) % 4; // a 6 keeps the turn
-        s.dice = null;
-        forceRender((n) => n + 1);
-      }, 900);
-      return;
-    }
+    setRolling(true);
+    setRollTick(0);
+    let tick = 0;
+    if (tickTimerRef.current !== null) window.clearInterval(tickTimerRef.current);
+    tickTimerRef.current = window.setInterval(() => {
+      tick += 1;
+      setRollTick(tick);
+    }, 70);
 
-    if (current.turn === 0) {
-      // Human: auto-move when only one option, otherwise wait for a pick.
-      if (moves.length === 1) {
-        setLog(`You rolled ${dice}.`);
-        window.setTimeout(() => {
-          stateRef.current = applyMove(stateRef.current, 0, moves[0], dice);
-          setPendingMoves([]);
-          forceRender((n) => n + 1);
-        }, 400);
-      } else {
-        setPendingMoves(moves);
-        setLog(`You rolled ${dice} — choose a token to move.`);
+    rollTimerRef.current = window.setTimeout(() => {
+      if (tickTimerRef.current !== null) {
+        window.clearInterval(tickTimerRef.current);
+        tickTimerRef.current = null;
       }
-    } else {
-      setLog(`${PLAYER_NAMES[current.turn]} rolled ${dice}…`);
-      window.setTimeout(() => {
-        const s = stateRef.current;
-        if (s.winner !== null) return;
-        const token = botChoose(s, s.turn, dice);
-        if (token !== null) {
-          stateRef.current = applyMove(s, s.turn, token, dice);
-          setLog(`${PLAYER_NAMES[s.turn]} moved.`);
-        }
-        forceRender((n) => n + 1);
-      }, 900);
-    }
-  }, [beep]);
+      const pending = pendingRollRef.current;
+      pendingRollRef.current = null;
+      setRolling(false);
+      if (!pending) return;
+      // The beep lands with the REVEAL, not the start, so the sound and the
+      // settled face are the same event.
+      beep(pending.dice === 6 ? 660 : 440);
+      resolveRoll(pending.player, pending.dice);
+    }, 620);
+  }, [beep, resolveRoll]);
 
   // Auto-roll for bot turns (its cleanup cancels a pending bot roll, which
   // is exactly what makes the Undo restore below timer-safe).
+  //
+  // The `!rolling` guard is load-bearing: `state.dice` is written in
+  // `resolveRoll`, i.e. AFTER the 620ms tumble, so for that whole window the
+  // state still reads "bot turn, no dice pending" and this effect would fire a
+  // SECOND roll on top of the one already in flight.
   useEffect(() => {
     if (state.winner !== null) return;
+    if (rolling) return;
     if (state.turn !== 0 && state.dice === null) {
       const id = window.setTimeout(roll, 900);
       return () => window.clearTimeout(id);
     }
-  }, [state.turn, state.dice, state.winner, roll]);
+  }, [state.turn, state.dice, state.winner, rolling, roll]);
+
+  // Clear the tumble timers on unmount. Without this, leaving a game mid-roll
+  // leaves a setInterval and setTimeout running against a dead component —
+  // the tell-tale "setState on unmounted component" leak.
+  useEffect(
+    () => () => {
+      if (rollTimerRef.current !== null) window.clearTimeout(rollTimerRef.current);
+      if (tickTimerRef.current !== null) window.clearInterval(tickTimerRef.current);
+    },
+    []
+  );
 
   const moveToken = useCallback((token: number) => {
     const s = stateRef.current;
@@ -397,6 +509,7 @@ export function LudoGame({
           tokens={state.tokens[0]}
           active={state.winner === null && state.turn === 0}
           align="start"
+          tier={viewerTier}
         />
         <ProfileFrame
           player={1}
@@ -467,6 +580,8 @@ export function LudoGame({
         log={log}
         dice={state.dice}
         canRoll={canRoll}
+        rolling={rolling}
+        rollTick={rollTick}
         onRoll={roll}
       />
       {/* ── Token picker (only when several moves are legal) ──────── */}
