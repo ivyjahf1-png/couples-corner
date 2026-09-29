@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { ChatHeader } from "@/components/app/ChatHeader";
 import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
+import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MessageComposer, useChatTheme } from "@/components/app/MessageComposer";
 import { usePresence } from "@/lib/hooks/usePresence";
@@ -51,6 +53,14 @@ export default function ConversationClient({
 }) {
   const { theme, setTheme } = useChatTheme();
 
+  // The intro card opens EXPANDED here, so the interest tags and photo
+  // previews — the parts that tell a member whether this person is worth
+  // replying to — are visible without a tap. It is the one surface a member
+  // reads before deciding whether to continue, so burying the substance behind
+  // a disclosure arrow hid exactly what the card is for. The member can still
+  // collapse it to get the messages back.
+  const [summaryExpanded, setSummaryExpanded] = useState(true);
+
   // Icebreakers only make sense on a thread that has not started. Derived from
   // the message list rather than a server flag, so it stays correct as messages
   // arrive live. The server-rendered `starter` is available as one more opener
@@ -86,12 +96,33 @@ export default function ConversationClient({
         {showIcebreakers ? <ChatSafetyBanner /> : null}
 
         {/* The ONLY vertical scroll region on this page. */}
-        <div data-chat-scroll className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
-          <LiveConversationThread
-            conversationId={conversationId}
-            currentUserId={currentUserId}
-            initialMessages={initialMessages}
+        <div data-chat-scroll className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
+          {/* The bright-yellow intro card opens the conversation, directly above
+              the thread. It is INSIDE the scroll region rather than pinned
+              beneath the header on purpose: it is tall (avatar, identity chips,
+              badges, photos), and a fixed card of that height on a 320px phone
+              leaves almost no room for the messages it is describing. Pinned,
+              it would also stop the member scrolling back to re-read who they
+              are talking to — which is the single most useful thing on it.
+
+              It carries its own bottom padding and keeps a softened top edge, so
+              it reads as the head of the thread rather than a card floating in a
+              gap above the first message. The rounded top is only visible when
+              the thread is scrolled to the very top, which is exactly when the
+              member is reading it. */}
+          <ConversationSummaryCard
+            summary={summary}
+            expanded={summaryExpanded}
+            onToggleExpand={() => setSummaryExpanded((v) => !v)}
           />
+
+          <div className="p-4">
+            <LiveConversationThread
+              conversationId={conversationId}
+              currentUserId={currentUserId}
+              initialMessages={initialMessages}
+            />
+          </div>
         </div>
       </div>
 

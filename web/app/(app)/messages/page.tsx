@@ -6,6 +6,8 @@ import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
 import { StoryTray } from "@/components/app/StoryTray";
 import { MessagesInboxTabs } from "@/components/app/MessagesInboxTabs";
+import { OfficialTeamCard, ProfileVisitorsCard } from "@/components/app/MessagesInboxCards";
+import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
 import { requireUser } from "@/lib/auth/authorization";
 import { getInboxSummaries } from "@/lib/server/messaging";
@@ -25,6 +27,19 @@ export default async function MessagesPage() {
   const user = await requireUser();
   const conversations = await getInboxSummaries(user.uid);
   const botThreads = await getBotThreadsForUser(user.uid);
+
+  /**
+   * How many members have viewed this profile.
+   *
+   * `null` because there is NO profile-view tracking in the product — no table,
+   * no write path, no read path. See the note on `ProfileVisitorsCard`.
+   *
+   * This is the single place that would need to change when a real visitor log
+   * lands: return its count here and the card appears, untouched. Until then the
+   * card correctly renders nothing rather than inventing a number about real
+   * people.
+   */
+  const profileViewerCount: number | null = null;
 
   const activeChats: Array<{
     key: string;
@@ -94,10 +109,18 @@ export default async function MessagesPage() {
 
       <MessagesInboxTabs activeCount={activeChats.length} />
 
-      {/* Safety reminder. Shown above the conversation list because the inbox is
-          where unsolicited contact actually BEGINS — this is the surface a scam
-          arrives on, not the thread it lands in. */}
-      <ChatSafetyBanner />
+      {/* Scam warning. LOUD variant: this is the surface unsolicited contact
+          actually arrives on, and the specific pattern — coins offered in
+          exchange for money or codes — is named rather than a generic "be
+          careful", so a member can recognise it in a message. */}
+      <ChatSafetyBanner variant="inbox" />
+
+      {/* Informational cards, above the conversations so they are read while
+          the list is still coming into view. */}
+      <div className="mb-3 flex flex-col gap-2.5">
+        <ProfileVisitorsCard viewerCount={profileViewerCount} />
+        <OfficialTeamCard />
+      </div>
 
       {activeChats.length === 0 ? (
         <EmptyState
@@ -129,6 +152,14 @@ export default async function MessagesPage() {
 
       {/* Promotional slot */}
       <ContentSlot placement="messages" />
+
+      {/* Floating Game shortcut, over the conversation list.
+          `bottom-24` (96px) clears the 5rem tab bar (80px) plus 16px of
+          breathing room. This page has NO action row underneath the way
+          Discover does, so it must NOT reuse that surface's `bottom-32` — that
+          value is 48px clear of anything real here and left the button hanging
+          in the middle of the list. */}
+      <GameCenterButton bottomOffset="bottom-24" label="Game" ariaLabel="Open the game hub" />
     </PageLock>
   );
 }

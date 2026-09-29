@@ -75,6 +75,23 @@ export interface ConversationParticipantSummary {
   avatarUrl: string | null;
   verified: boolean;
   location: string | null;
+  /**
+   * Age in whole years, derived from `date_of_birth` at read time.
+   *
+   * Computed, never stored: a stored age goes stale every birthday, and two
+   * copies of it can disagree. See `ageFromDateOfBirth` in `lib/feature/types`.
+   *
+   * OPTIONAL and null when the member has not shared a date of birth. Absence
+   * of data must read as "not shared", never as a guess.
+   */
+  age?: number | null;
+  /**
+   * The member's own self-described relationship status, verbatim.
+   *
+   * OPTIONAL. Displayed as the status chip on the intro card. It is THEIR
+   * claim about themselves, so it is never interpreted, reworded or inferred.
+   */
+  relationshipStatus?: string | null;
   lifestyleTags: string[];
   photos: { id?: string; storagePath?: string; isPrimary?: boolean; publicUrl?: string | null }[];
   /**
@@ -87,6 +104,58 @@ export interface ConversationParticipantSummary {
    * populate it without any caller being forced to invent a value today.
    */
   personalitySimilarity?: number;
+}
+
+/**
+ * Whole years from a `date_of_birth` to now, or null when there is no usable
+ * date.
+ *
+ * WHY THIS EXISTS AS A FUNCTION AND NOT A COLUMN ─────────────────────────────
+ * Age is a function of time. Storing it means every member's value is wrong
+ * from their next birthday onward, and wrong differently for every copy of it
+ * in the system. Deriving it at read time means there is exactly one rule, and
+ * it is right everywhere at once.
+ *
+ * WHY IT RETURNS NULL RATHER THAN GUESSING ───────────────────────────────────
+ * A profile with no date of birth yields null, and the UI omits the age chip
+ * entirely. Substituting a default (18, 0, or a midpoint) would put a number
+ * on a real person that they never gave us — in a dating app that is the kind
+ * of detail a member is entitled to rely on, so a plausible-looking wrong age
+ * is worse than a missing one.
+ *
+ * Guards against a malformed or future date: both would otherwise render as
+ * "0" or a negative age, which is nonsense on a card a member reads about a
+ * stranger. Anything not a sane, past, ISO-ish date is treated as "not shared".
+ *
+ * @param dateOfBirth ISO date string (as stored in `profiles.date_of_birth`).
+ * @param now Injectable clock, so the calculation is testable and cannot vary
+ *   within a single render pass.
+ */
+export function ageFromDateOfBirth(
+  dateOfBirth: string | null | undefined,
+  now: Date = new Date(),
+): number | null {
+  if (!dateOfBirth) return null;
+
+  const born = new Date(dateOfBirth);
+  if (Number.isNaN(born.getTime())) return null;
+
+  // A birth date in the future is corrupt data, not a member. Reject rather
+  // than render a negative age.
+  if (born.getTime() > now.getTime()) return null;
+
+  // Compare on month/day rather than dividing elapsed days by 365.25: that
+  // division is off by a day across leap years, which flips the displayed age
+  // for anyone whose birthday falls near a leap day.
+  let age = now.getFullYear() - born.getFullYear();
+  const monthDelta = now.getMonth() - born.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getDate() < born.getDate())) {
+    age -= 1;
+  }
+
+  // Sanity floor. A computed age below 0 is already excluded above; this also
+  // catches absurd historic dates, which are corrupt rows rather than people.
+  return age >= 0 ? age : null;
 }
 
 /** A pre-seeded chat starter for newly opened conversations */

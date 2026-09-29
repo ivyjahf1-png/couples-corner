@@ -5,9 +5,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useTransition } from "react";
+import Link from "next/link";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
-import { Camera, Images, Mic, Palette, Paperclip, Send, Smile } from "lucide-react";
+import { Camera, Images, Mic, Palette, Paperclip, Phone, Send, Smile } from "lucide-react";
 
 /**
  * The attachment dock + theme picker that sits above the composer input.
@@ -163,13 +164,23 @@ const QUICK_EMOJI = ["❤️", "✨", "😂", "👍"] as const;
  * They are suggestions, not autofill: tapping one fills the composer and the
  * member can edit before sending. Autocomplete is exactly the wrong pattern
  * here, since a sent message cannot be unsent.
+ *
+ * Shown as a WINDOW of three at a time, advanced by the "Next" button, rather
+ * than all at once. Four short pills plus a Next control do not fit across a
+ * 320px phone without the row truncating, and a horizontally scrolling strip
+ * hides most of them behind a swipe nobody makes.
  */
-const ICEBREAKERS = [
-  "Hey! How's your week going?",
-  "What made you sign up here?",
-  "What's something you're really into right now?",
-  "How's your day been so far?",
+const ALL_ICEBREAKERS = [
+  "Where are you from?",
+  "How are you?",
+  "Good to meet you",
+  "What are you up to today?",
+  "What's something you love doing?",
+  "How's your week going?",
 ] as const;
+
+/** How many pills are visible before the "Next" button advances the window. */
+const ICEBREAKER_WINDOW = 3;
 
 /**
  * Chat theme customisation.
@@ -272,6 +283,14 @@ export function MessageComposer({
   const [showEmoji, setShowEmoji] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
+  // Which window of icebreakers is showing. `0` on mount: a member who has just
+  // opened a thread should see the same openers every time, not a random slice.
+  const [icebreakerStart, setIcebreakerStart] = useState(0);
+  const icebreakers = ALL_ICEBREAKERS.slice(
+    icebreakerStart,
+    icebreakerStart + ICEBREAKER_WINDOW,
+  );
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     const body = value.trim();
@@ -318,12 +337,18 @@ export function MessageComposer({
         onThemeChange={onThemeChange}
       />
       {showIcebreakers ? (
+        /* `overflow-x-auto` is retained here deliberately. Unlike the photo
+           strip on the intro card, this row is not inside the thread's vertical
+           scroll region — it is inside the composer dock, which never scrolls —
+           so a horizontal scroller adds no nested axis. It is the only way a
+           320px phone can show long openers legibly, and the pills remain
+           reachable by keyboard and screen reader. */
         <div
           className="mt-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="group"
           aria-label="Conversation starters"
         >
-          {ICEBREAKERS.map((phrase) => (
+          {icebreakers.map((phrase) => (
             <button
               key={phrase}
               type="button"
@@ -339,6 +364,34 @@ export function MessageComposer({
               {phrase}
             </button>
           ))}
+
+          {/* "Next" advances to the next window of openers.
+              HIDDEN once the final window is showing: with nothing left to
+              advance to, a button that does nothing is worse than no button.
+              The bound is an exact `start + WINDOW` check rather than a modulo
+              wrap, so the row never silently restarts at the first opener. */}
+          {icebreakerStart + ICEBREAKER_WINDOW < ALL_ICEBREAKERS.length ? (
+            <button
+              type="button"
+              onClick={() => setIcebreakerStart((s) => s + ICEBREAKER_WINDOW)}
+              aria-label="Show more conversation starters"
+              className="flex shrink-0 items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-1.5 text-xs font-semibold text-orange-200 transition hover:bg-orange-500/20 hover:text-orange-100 active:scale-95"
+            >
+              Next
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5"
+                aria-hidden
+              >
+                <path d="M9 5 L16 12 L9 19" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       ) : null}
       <form
@@ -404,6 +457,27 @@ export function MessageComposer({
         >
           <Mic className="h-5 w-5" aria-hidden />
         </button>
+        {/* Voice call. Same `h-11 w-11` square and the same ghost treatment as
+            every other secondary control, so the row keeps its one optical line.
+
+            A REAL destination, not a stub: `/call/[conversationId]/[mode]` is
+            implemented in the `(realtime)` group and drives the actual WebRTC
+            screen. It is placed last in the control run so the send button stays
+            the rightmost, most reachable control on a phone — a call is a
+            bigger, rarer action than sending the next message.
+
+            GIFT IS DELIBERATELY ABSENT. See the note on `AttachmentDock` at the
+            top of this file: gifting needs a commerce write path and a coin
+            ledger this chat does not touch, so a gift button here would open
+            nothing. It belongs in the dock the day it can actually send
+            something. */}
+        <Link
+          href={`/call/${conversationId}/audio`}
+          aria-label="Start a voice call"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-300 transition hover:bg-emerald-400/15 hover:text-emerald-300 active:scale-95"
+        >
+          <Phone className="h-5 w-5" aria-hidden />
+        </Link>
         {showEmoji ? (
           <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border border-white/10 bg-[#1E293B] p-2 shadow-xl">
             {QUICK_EMOJI.map((emoji) => (

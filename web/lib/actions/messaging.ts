@@ -20,6 +20,7 @@ import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
 import type { ConversationParticipantSummary, ChatStarter } from "@/lib/feature/types";
+import { ageFromDateOfBirth } from "@/lib/feature/types";
 
 /** Shape returned by every messaging action so clients can show inline errors. */
 export interface ActionResult {
@@ -338,6 +339,13 @@ export async function getConversationChatDataAction(
           // as "unknown", never as "verified".
           verified: false,
           location: otherProfile.location ?? null,
+          // Derived from the stored `date_of_birth`, never stored as its own
+          // column. Null when they have not shared a date of birth, and the
+          // card omits the chip rather than showing a fabricated number.
+          age: ageFromDateOfBirth(otherProfile.dateOfBirth),
+          // Their own words, passed through untouched. The card does not
+          // interpret or reword it.
+          relationshipStatus: otherProfile.relationshipStatus ?? null,
           lifestyleTags: otherProfile.interests?.slice(0, 4) ?? [],
           photos: otherProfile.photos ?? [],
   // The summary carries only what was actually read. `personalitySimilarity`
