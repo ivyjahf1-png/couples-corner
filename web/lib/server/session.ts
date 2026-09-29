@@ -27,6 +27,86 @@ export const SESSION_COOKIE_NAME = "couples_corner_session";
 export const SESSION_TTL_SECONDS = 60 * 60 * 24 * 14; // 14 days
 
 /**
+ * Shared cookie attributes for the session cookie.
+ *
+ * `secure` IS DECIDED FROM THE LIVE REQUEST, NOT `NODE_ENV`. This is the single
+ * most important detail for the Capacitor APK, and getting it wrong is silent:
+ * the user signs in successfully, the cookie is written, and it is then simply
+ * never sent back — so every app launch looks like a fresh, signed-out install.
+ *
+ * The reason: a `Secure` cookie is only stored and transmitted over HTTPS (and
+ * the `localhost` exception, which Android WebView does NOT extend to a
+ * custom scheme). A Capacitor app commonly serves its content from
+ * `capacitor://localhost` or `http://localhost`, where a `Secure` cookie is
+ * dropped by the WebView. Keying off `NODE_ENV === "production"` therefore
+ * breaks the native app in production while working fine in a browser.
+ *
+ * Reading the real request protocol means:
+ *   • https://…            → `secure: true`   (correct, and unchanged for web)
+ *   • capacitor://localhost → `secure: false` (the cookie can actually persist)
+ *   • http://localhost dev → `secure: false` (unchanged local behaviour)
+ *
+ * The trade-off is explicit: a non-HTTPS, non-localhost request would get a
+ * non-Secure cookie. `x-forwarded-proto` is included because a Vercel/proxy
+ * deployment terminates TLS upstream, and the Node-side request is then plain
+ * HTTP — without that header every production cookie would silently drop its
+ * Secure flag, which is the opposite bug.
+ */
+export async function sessionCookieOptions() {
+  const requestHeaders = await headers();
+
+  // A reverse proxy (Vercel) terminates TLS upstream, so the Node-side request
+  // is plain HTTP even though the browser used HTTPS. `x-forwarded-proto` is the
+  // only place the real scheme survives; without it every production cookie
+  // would silently lose its Secure flag, which is the opposite bug.
+  const forwardedProto = requestHeaders.get("x-forwarded-proto")?.split(",")[0]?.trim();
+  const protocol = forwardedProto || requestHeaders.get("x-forwarded-ssl") || "";
+
+  // No proxy header (direct connection, or a Capacitor WebView serving content
+  // from a custom scheme). Detect the scheme from the request itself.
+  const effective = protocol || detectRequestProtocol();
+
+  return {
+    httpOnly: true,
+    secure: effective === "https",
+    sameSite: "lax" as const,
+    maxAge: SESSION_TTL_SECONDS,
+    path: "/",
+  };
+}
+
+/**
+ * Best-effort scheme detection when no proxy header is present.
+ *
+ * Prefers an explicit app-URL env var so a Capacitor deployment can declare its
+ * own scheme. Defaults to "https" when nothing is knowable, which preserves the
+ * previous (safe) production default rather than silently downgrading a real
+ * HTTPS deployment.
+ *
+ * LIMITATION, deliberately conservative: without `x-forwarded-proto` AND without
+ * an app-url env var, a native request cannot be told apart from a browser one,
+ * so it falls back to secure. That is the SAFE direction (a cookie that is not
+ * sent is a login prompt; a cookie sent in cleartext is a session hijack), and
+ * the fix is a one-line env change, not a code change. Vercel sets the forwarded
+ * header, so the hosted app is unaffected either way.
+ */
+function detectRequestProtocol(): string {
+  const candidates = [
+    process.env.NEXT_PUBLIC_APP_URL,
+    process.env.NEXTAUTH_URL,
+    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  ].filter(Boolean) as string[];
+  for (const url of candidates) {
+    try {
+      return new URL(url).protocol.replace(":", "");
+    } catch {
+      /* unparseable env value — try the next one */
+    }
+  }
+  return "https";
+}
+
+/**
  * Exchange a Supabase access token for an httpOnly session cookie.
  * Rejects suspended/deactivated users before a cookie is ever issued.
  */
@@ -55,15 +135,11 @@ export async function createSessionFromIdToken(accessToken: string): Promise<voi
     throw new Error("Account is not active");
   }
 
-  // Set the session cookie with the access token
+  // Set the session cookie with the access token. `secure` is derived from the
+  // live request so a Capacitor WebView on a custom scheme can actually persist
+  // it — see sessionCookieOptions.
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, accessToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    maxAge: SESSION_TTL_SECONDS,
-    path: "/",
-  });
+  cookieStore.set(SESSION_COOKIE_NAME, accessToken, await sessionCookieOptions());
 }
 
 /** Clear the session cookie and sign out server-side. */
