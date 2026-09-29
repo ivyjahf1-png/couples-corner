@@ -121,6 +121,18 @@ export interface FeedPostView {
   authorName: string;
   authorKind: ProfileKind;
   authorHref?: string;
+  /**
+   * The author's user id. Optional because demo posts and the Discover-sourced
+   * timeline have no real recipient to address.
+   *
+   * It is required ONLY by the per-post "Hi" deep-link, which needs a
+   * conversation target. When it is absent the card hides the button rather
+   * than linking somewhere inert — a "Hi" that does nothing is worse than no
+   * "Hi", because it looks like the message was sent.
+   */
+  authorId?: string;
+  /** True when this post is the signed-in member's own; hides "Hi" on it. */
+  isOwn?: boolean;
   at: string;
   body: string;
   authorAvatar?: string | null;

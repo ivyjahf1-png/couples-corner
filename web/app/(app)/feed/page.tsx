@@ -42,12 +42,24 @@ import type { FeedPostView } from "@/lib/feature/types";
  * guarded like the rest of the app zone. Guests get the landing page at `/`.
  */
 
-/** Map the raw feed rows onto the card view model PostCard renders. */
+/**
+ * Map the raw feed rows onto the card view model PostCard renders.
+ *
+ * `viewerId` is threaded in only to compute `isOwn`. The public feed query is
+ * not scoped to the viewer, so its own posts come back mixed in with everyone
+ * else's — without this, a member sees a "Hi" button on their own post, which
+ * would offer to start a conversation with themselves.
+ */
 function mapFeedPosts(
-  posts: Awaited<ReturnType<typeof getPublicFeed>>["posts"]
+  posts: Awaited<ReturnType<typeof getPublicFeed>>["posts"],
+  viewerId: string
 ): FeedPostView[] {
   return posts.map((post) => ({
     id: post.id,
+    // The recipient for the per-post "Hi" deep-link. Falls back to undefined
+    // rather than "" so PostCard can treat "no id" and "empty id" the same.
+    authorId: post.authorId || undefined,
+    isOwn: Boolean(post.authorId) && post.authorId === viewerId,
     authorName: post.authorName ?? "Member",
     authorKind: "person",
     at: post.createdAt,
@@ -87,7 +99,7 @@ export default async function FeedPage({
   let posts: FeedPostView[] = demoFeedPosts;
   try {
     const feed = await getPublicFeed();
-    if (feed.posts.length > 0) posts = mapFeedPosts(feed.posts);
+    if (feed.posts.length > 0) posts = mapFeedPosts(feed.posts, user.uid);
   } catch {
     posts = demoFeedPosts;
   }
@@ -99,7 +111,9 @@ export default async function FeedPage({
   return (
     <MomentFeed
       videos={<ImmersiveFeed viewerId={user.uid} deepLinkMomentId={deepLink} />}
-      community={<CommunityFeedView posts={posts} canPost={Boolean(user)} />}
+      community={
+        <CommunityFeedView posts={posts} canPost={Boolean(user)} userId={user.uid} />
+      }
     />
   );
 }

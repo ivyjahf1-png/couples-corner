@@ -1,5 +1,9 @@
+"use client";
+
+import { useState } from "react";
 import { PostCard } from "@/components/app/PostCard";
 import { EmptyState } from "@/components/app/EmptyState";
+import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
 import { Icon } from "@/components/landing/Icon";
 import type { FeedPostView } from "@/lib/feature/types";
 
@@ -31,15 +35,94 @@ import type { FeedPostView } from "@/lib/feature/types";
  * already draws that line carefully ("flagged for review - never as an
  * automatic ban") and this banner must not overstate what the product does.
  */
+/**
+ * Timeline sort orders, applied CLIENT-side over the already-fetched set.
+ *
+ * Deliberately not server queries: this view is server-rendered with both
+ * Moment panels mounted precisely so switching tabs does not refetch (see
+ * `MomentFeed`). Re-ordering 20 posts is instant; a round trip per toggle is
+ * the stall that mount-both exists to avoid.
+ */
+const TABS = [
+  { id: "recommend", label: "Recommend" },
+  { id: "following", label: "Follow" },
+] as const;
+
+type FeedTab = (typeof TABS)[number]["id"];
+
 export function CommunityFeedView({
   posts,
   canPost,
+  userId,
 }: {
   posts: FeedPostView[];
   canPost: boolean;
+  /** The signed-in member's id, threaded to the upload modal. */
+  userId?: string;
 }) {
+  const [tab, setTab] = useState<FeedTab>("recommend");
+
+  /* Recommend = newest first, which is exactly what the server already returns.
+     Follow = the member's own posts first, then everything else by recency.
+
+     HONESTY NOTE: there is no follow-graph available to this view. The public
+     feed query is not scoped to who the member follows, and `PostCard`'s Follow
+     control is local UI state with no Server Action behind it yet. So "Follow"
+     does NOT yet mean "people you follow" — it surfaces the member's own posts,
+     the one relationship this data can honestly express.
+
+     Re-ordering rather than filtering to nothing is deliberate: an always-empty
+     tab looks broken, and silently pretending the follow graph exists would be
+     worse than not offering the tab. When the graph lands, this sort is the
+     single line that changes. */
+  const visible =
+    tab === "following"
+      ? [...posts].sort((a, b) => Number(Boolean(b.isOwn)) - Number(Boolean(a.isOwn)))
+      : posts;
+
   return (
-    <div className="flex flex-col gap-6 pb-8">
+    <div className="flex flex-col gap-4 pb-8">
+      {/* ── SORT TABS ────────────────────────────────────────────────────────
+          `sticky top-0` so the control used to re-order stays reachable once the
+          timeline scrolls — on a long feed it is otherwise thousands of pixels
+          away at the top. The OPAQUE `bg-surface` is load-bearing: content
+          scrolling underneath a translucent bar is unreadable. */}
+      <div
+        role="tablist"
+        aria-label="Feed order"
+        className="sticky top-0 z-20 -mx-1 flex gap-1 border-b border-ink-700 bg-surface px-1 pb-px pt-1"
+      >
+        {TABS.map((item) => {
+          const selected = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`community-tab-${item.id}`}
+              aria-selected={selected}
+              aria-controls="community-panel"
+              onClick={() => setTab(item.id)}
+              className={[
+                "relative flex-1 rounded-t-lg px-3 py-2.5 text-sm font-semibold transition",
+                selected ? "text-white" : "text-ink-400 hover:text-ink-200",
+              ].join(" ")}
+            >
+              {item.label}
+              {/* The active marker is a separate absolutely-positioned element
+                  rather than a border, so its width can animate without
+                  shifting the label horizontally. */}
+              <span
+                aria-hidden
+                className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-opacity ${
+                  selected ? "bg-gradient-to-r from-amber-400 to-orange-500 opacity-100" : "opacity-0"
+                }`}
+              />
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── SCAM / SAFETY WARNING ───────────────────────────────────────────
           `role="note"` rather than `role="alert"`: it is not urgent, and
           `alert` would interrupt a screen reader mid-sentence on every visit
@@ -89,21 +172,34 @@ export function CommunityFeedView({
         </div>
       ) : null}
 
-      {posts.length === 0 ? (
-        <EmptyState
-          icon="moments"
-          title="Nothing here yet"
-          body="When members share a status or a photo it will show up here. Be the first."
-        />
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {posts.map((post) => (
-            <li key={post.id}>
-              <PostCard post={post} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`}>
+        {visible.length === 0 ? (
+          <EmptyState
+            icon="moments"
+            title="Nothing here yet"
+            body="When members share a status or a photo it will show up here. Be the first."
+          />
+        ) : (
+          <ul className="flex flex-col gap-4">
+            {visible.map((post) => (
+              <li key={post.id}>
+                <PostCard post={post} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Floating "+" opening the photo/moment composer.
+
+          Gated on `canPost` deliberately. The launcher is `fixed`, and
+          `MomentFeed` keeps BOTH panels mounted (the hidden one via the `hidden`
+          attribute) so their scroll positions survive a toggle — so rendering
+          this unconditionally would put a second launcher on the video player's
+          subtree. `display:none` on the parent does suppress it, but relying on
+          that to hide a `position:fixed` control is fragile; this guard makes
+          the scoping explicit and independent of the panel's hidden state. */}
+      {canPost ? <FeedCreateLauncher userId={userId} /> : null}
     </div>
   );
 }
