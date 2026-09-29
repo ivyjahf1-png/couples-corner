@@ -18,11 +18,11 @@ import { useEffect, useState, type ReactNode } from "react";
  * served one of the two, and the other was unreachable — so a member tapping
  * "Moment" to watch videos got a blog with no explanation.
  *
- * ── WHY THE SWITCHER IS A PROP, NOT A ROUTE ────────────────────────────────
+ * ── WHY THE SWITCHER IS NOT IN HERE ─────────────────────────────────────────
  * Both views are ALREADY server-rendered, and keeping them mounted means:
- *   • switching tabs does not refetch, and
- *   • the video player's scroll position and the timeline's scroll position are
- *     each preserved by the browser, because neither unmounts.
+ *   • switching views does not refetch, and
+ *   • the player and the timeline each keep their scroll position, because
+ *     neither unmounts.
  *
  * That is the "state preserved smoothly" requirement, and routing between the
  * two would have thrown it away on every toggle. Only the ACTIVE view is
@@ -30,6 +30,9 @@ import { useEffect, useState, type ReactNode } from "react";
  * therefore its scrollTop) intact while removing it from the a11y tree and from
  * hit-testing. `display:none` alone would NOT do this — a hidden-by-attribute
  * element is still focusable and still receives scroll.
+ *
+ * The CONTROL that toggles them is the screen header's "feed-view" button, not
+ * a panel in here. See the note at the switcher's old position.
  *
  * ── WHY DEFAULT IS VIDEOS ─────────────────────────────────────────────────
  * The tab is called "Moment" and the player is the immersive, media-first
@@ -73,11 +76,6 @@ function syncViewToUrl(view: MomentViewTab) {
   window.history.replaceState(window.history.state, "", url);
 }
 
-const TABS: { id: MomentViewTab; label: string; hint: string }[] = [
-  { id: "videos", label: "Videos", hint: "Full-screen player" },
-  { id: "community", label: "Community Feed", hint: "Posts and photos" },
-];
-
 export function MomentFeed({
   videos,
   community,
@@ -99,41 +97,20 @@ export function MomentFeed({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* The sub-switcher.
-          `shrink-0` in a flex column means it cannot be squeezed away by the
-          content below it, and it sits ABOVE both views rather than floating —
-          a floating switcher over a full-bleed player would overlay the very
-          media the member came to watch. */}
-      <div className="glam-frame sticky top-0 z-30 shrink-0">
-        <div className="glam-frame__inner flex gap-1 p-1" role="tablist" aria-label="Moment view">
-          {TABS.map((item) => {
-            const selected = tab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                id={`moment-tab-${item.id}`}
-                aria-selected={selected}
-                aria-controls={`moment-panel-${item.id}`}
-                onClick={() => setTab(item.id)}
-                className={[
-                  "flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition",
-                  selected
-                    ? "bg-gradient-to-r from-amber-400/25 via-rose-400/20 to-indigo-400/25 text-white shadow-sm ring-1 ring-white/20"
-                    : "text-ink-300 hover:bg-white/[0.06] hover:text-white",
-                ].join(" ")}
-              >
-                {item.label}
-                {/* The active tab carries its own description for assistive tech;
-                    the `title` is the mouse equivalent. Neither is read by the
-                    visible label, so a screen reader announces the pair once. */}
-                <span className="sr-only"> — {item.hint}</span>
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {/* ── IN-PAGE TABS REMOVED ───────────────────────────────────────────────
+          The "Videos / Community Feed" pill container is gone. It was a bordered,
+          padded, gradient-filled box that ate roughly 56px of vertical space on
+          a full-bleed 9:16 player — the most valuable pixels on the screen — to
+          offer a two-way choice the screen's own header now makes in ONE tap.
+
+          `MobileBackHeader` renders a "feed-view" control on this route precisely
+          so the choice survives here. That trade is the whole point: the header
+          is chrome costing no vertical space over the video, and the pill box
+          was chrome that did.
+
+          The panels below stay mounted and one stays `hidden` — see the note
+          there. Both views are still server-rendered and still preserve their
+          scroll positions across a toggle; only the switcher moved. */}
 
       {/* Both panels stay MOUNTED so their scroll positions survive a toggle.
           `hidden` (not unmount, not aria-hidden) is what removes the inactive

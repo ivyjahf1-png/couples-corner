@@ -43,15 +43,15 @@ export function MobileBackHeader() {
      Read from the URL rather than from `MomentFeed`, which owns that state and
      lives below this component in the tree.
 
-     `MomentFeed` mirrors its active tab into `?view=` with `history.replaceState`,
+     `MomentFeed` mirrors its active view into `?view=` with `history.replaceState`,
      which does NOT re-render anything — so this value is correct on arrival and
      after a real navigation, and is re-read whenever the pathname changes. It
-     can therefore be momentarily stale in the one case where a member uses the
-     in-page tabs and then immediately reads the header label. That is a label,
+     can therefore be momentarily stale in the one case where a member navigates
+     between views and then immediately reads the header label. That is a label,
      not a control's destination: clicking it still navigates, and the navigation
-     re-renders both this header and the page, which re-derives the tab from the
-     URL. The alternative — lifting the tab into React state up here — would mean
-     the header and the page each owned a copy, with the two free to disagree.
+     re-renders both this header and the page, which re-derives the view from the
+     URL. The alternative — lifting the state up here — would mean the header and
+     the page each owned a copy, free to disagree.
 
      `useSearchParams` is deliberately avoided: this component is rendered from
      `AppShell`, which is on nearly every route, and it would force a Suspense
@@ -85,9 +85,39 @@ export function MobileBackHeader() {
           `px-4` and a single `border-b`, so every screen's chrome lines up. */}
       <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
         <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
-          <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
-          </button>
+          {/* ── BACK ARROW, HIDDEN ON THE MOMENT SCREEN ──────────────────────
+              Moment is a PRIMARY tab, not a page drilled into. A back arrow on a
+              top-level destination implies there is somewhere more important to
+              be, and the browser back gesture from here lands the member on
+              whatever page preceded the app — often a logged-out landing screen
+              or a share link from someone else.
+
+              It is REMOVED, not merely dimmed. A 44px invisible-but-tappable
+              square is the worst of both worlds: it eats the row's left gutter
+              and swallows taps with no visible affordance.
+
+              The empty `h-11 w-11` span is a deliberate spacer, not a leftover.
+              It reserves the arrow's width so the title sits at the same x on
+              every screen — removing the button without it would shift the title
+              56px right on this route only, which is exactly the kind of
+              one-off misalignment the shared header exists to prevent.
+
+              `aria-hidden` because the control is genuinely gone: a screen reader
+              announcing a "Go back" action that no sighted member can see or use
+              would be worse than omitting it. The bottom nav's Moment tab is the
+              real, visible way back. */}
+          {segment === "feed" ? (
+            <span aria-hidden className="h-11 w-11 shrink-0" />
+          ) : (
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Go back"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
+            </button>
+          )}
           {/* Title: `font-normal` and muted, not the `font-semibold text-white` it
               was. "Community feed" was two words competing with the content
               below it; the screen is already named "Moment" in the bottom nav,
@@ -119,12 +149,20 @@ export function MobileBackHeader() {
               one-way door. A plain <Link> is used instead of router.push: the
               panels are both mounted, and a full navigation would discard the
               scroll position of the view being left. */}
+          {/* This stays a TOGGLE, not a one-way link.
+
+              Removing the in-page pill switcher left this as the ONLY control
+              that moves between the two views, so a one-directional link to the
+              community feed would have been a dead end: arrive at the timeline and
+              there is no way back to the player except the browser back button,
+              which also discards the player's scroll position. The label flips to
+              say what tapping it will DO, so the round trip is discoverable. */}
           {segment === "feed" ? (
             <Link
               href={communityActive ? "/feed" : "/feed?view=community"}
               className="flex min-h-9 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
             >
-              {communityActive ? "Player" : "Feed-view"}
+              {communityActive ? "player-view" : "feed-view"}
             </Link>
           ) : (
             <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>

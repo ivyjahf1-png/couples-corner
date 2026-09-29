@@ -1334,7 +1334,16 @@ export function MediaFeed({
               /* `landscape-hide-chrome` — the rail is a column of `bottom-44`
                  offsets that has no room to exist in a short landscape
                  viewport, and it would sit over the video. */
-              "landscape-hide-chrome absolute bottom-44 right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-52 sm:right-4",
+              /* The rail moved up 80px with the reaction bar, so it now clears
+                 the bottom tab bar instead of sitting under it. The FAB below is
+                 in the same right-hand column and moved by the same amount —
+                 they are stacked, so moving one without the other would simply
+                 have re-collided them.
+
+                 Offsets are 13rem / 14rem (was `bottom-44 sm:bottom-52`, i.e.
+                 11rem / 13rem). The rail keeps the same gap to the FAB it always
+                 had, so that spacing is unchanged. */
+              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1428,7 +1437,14 @@ export function MediaFeed({
           // highlight now read as one colour system. The gradient's second stop
           // is a different, redder orange, which made the FAB look like it
           // belonged to a different theme than the nav beneath it.
-          className="landscape-hide-chrome absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
+          //
+          // Lifted 80px with the reaction bar and the action rail above it. All
+          // three are stacked in this right-hand column, and the previous
+          // `bottom-24` sat this 56px button under the 5rem tab bar, so the
+          // primary "share something" control was partly covered on every phone.
+          // The `env()` term is ADDED to the nav height rather than swapped in, so
+          // the clearance holds on a device with a home indicator.
+          className="landscape-hide-chrome absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-[calc(8rem+env(safe-area-inset-bottom))] sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1441,8 +1457,25 @@ export function MediaFeed({
             /* `landscape-hide-chrome` — the reaction + messaging bar is a third
                full-width row over the video; in landscape there is no room for
                it and the video is the point. */
-            "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0",
-            "px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5",
+            "landscape-hide-chrome pointer-events-none absolute inset-x-0 z-30 shrink-0",
+            /* LIFTED OFF THE BOTTOM EDGE.
+
+               The bar was `bottom-0`, which pinned it flush to the viewport and
+               put it directly UNDER the app's bottom tab bar — the reactions and
+               the message input were half-covered on every phone, and the input
+               is the one control that must always be reachable.
+
+               `bottom-[calc(5rem+env(safe-area-inset-bottom))]` clears the 5rem
+               (80px) tab bar and ADDS the home-indicator inset rather than
+               swapping it in, so the clearance holds on an iPhone where the bar
+               is taller than 5rem. The trailing `pb` shrinks to a small pad: the
+               space that used to separate the bar from the screen edge is now
+               consumed by the nav it sits above.
+
+               There is deliberately NO `sm:` variant. The bar is `md:hidden` and
+               the sidebar rail takes over at md, so a second offset would only be
+               another number to keep in step with the nav's height. */
+            "bottom-[calc(5rem+env(safe-area-inset-bottom))] px-3 pb-2 sm:px-5",
             chromeClass,
           ].join(" ")}
         >
