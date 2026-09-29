@@ -49,7 +49,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       {/* Mobile top bar — frosted navy with high-contrast white icons. */}
       <div className="shrink-0">
         <MobileHomeHeader>
-          <div className="flex items-center justify-between px-4 py-3">
+          {/* Standardised header metrics, shared with `MobileBackHeader`:
+              `min-h-16` + `px-4` + `py-2` + a single `border-b` on the bar
+              itself. The previous `px-4 py-3` with no minimum height meant this
+              header was a different height from every feature screen, so
+              switching tabs made the whole page jump. Matching the numbers is
+              what makes the chrome read as one system. */}
+          <div className="flex min-h-16 items-center justify-between px-4 py-2">
             <Link href="/dashboard" aria-label="Couples Corner home">
               <Logo as="span" />
             </Link>

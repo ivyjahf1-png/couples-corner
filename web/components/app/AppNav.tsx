@@ -262,6 +262,20 @@ export function AppMain({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const inActiveConversation = isActiveConversationPath(pathname);
 
+  /* FULL-BLEED SURFACES. The media feed is a 9:16 player that must occupy the
+     entire viewport — every pixel of gutter is dead space the video should be
+     filling. `<main>` normally carries `pt-6` and `px-4..xl:px-12` gutters for
+     prose pages, and on this route those pushed the player down and left grey
+     bands down both sides: exactly the "excessive empty space at the top" in
+     the screenshot. The conversation view already opts out for the same reason;
+     the feed now joins it.
+
+     Identified by path rather than by prop because `<main>` is a Server
+     Component's child and has no access to the feed's own state. Both routes
+     are the same player (`ImmersiveFeed`), so matching on the two paths is
+     enough and cannot drift out of sync with the feed's internals. */
+  const isFullBleedSurface = pathname === "/feed" || pathname === "/";
+
   return (
     <main
       /* `app-main` is the hook the landscape block in globals.css targets to
@@ -270,7 +284,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
          the bottom fifth of the feed off-screen. See globals.css LANDSCAPE. */
       className={[
         "app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
-        inActiveConversation
+        inActiveConversation || isFullBleedSurface
           ? "p-0"
           : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.
             // Because that bar left the flex flow, <main> spans the full viewport

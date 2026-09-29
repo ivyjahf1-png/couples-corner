@@ -213,8 +213,15 @@ export function StoreModal({
           })}
         </div>
 
-        {/* Item grid */}
-        <div className="grid flex-1 grid-cols-2 content-start gap-3 overflow-y-auto p-5 sm:grid-cols-3">
+        {/* ── ITEM GRID ─────────────────────────────────────────────────────
+           `auto-rows-fr` gives every card the same height regardless of how
+           long its name is, so a two-line title cannot stretch one row and leave
+           a ragged, uneven grid — which is most of what read as "overlapping"
+           in the screenshot.
+
+           `overflow-hidden` on the card clips the `lux-card::after` gradient
+           edge to the rounded corners. */}
+        <div className="grid flex-1 auto-rows-fr grid-cols-2 content-start gap-3 overflow-y-auto p-4 sm:grid-cols-3">
           {items.map((item) => {
             const isOwned = ownedIds.has(item.id);
             return (
@@ -223,33 +230,61 @@ export function StoreModal({
                 type="button"
                 onClick={() => buy(item)}
                 disabled={isOwned || isPending}
+                aria-label={`${item.name}, ${formatDuration(item.durationDays)}, ${item.price.toLocaleString()} tokens`}
                 className={[
-                  "lux-card group flex flex-col overflow-hidden text-left transition",
-                  isOwned ? "opacity-70" : "hover:-translate-y-0.5",
+                  /* A <button> carries a UA default background and border, which
+                     fights `lux-card`'s gradient interior. Resetting both is
+                     what stops the card reading as a grey box. */
+                  "lux-card group flex flex-col overflow-hidden border-0 bg-transparent text-left",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/80",
+                  isOwned ? "cursor-default opacity-70" : "hover:-translate-y-0.5",
                 ].join(" ")}
               >
-                <span className={`relative flex h-24 items-center justify-center bg-gradient-to-br ${item.gradient}`}>
+                {/* `z-[2]` IS LOAD-BEARING. `.lux-card::after` is the metallic
+                    gradient edge and it sits at z-index 1. The preview panel is
+                    `relative` with no z-index, so it painted UNDER that edge —
+                    the artwork was washed out and the text beside it rendered
+                    behind the frame. Lifting the panel above it is what makes
+                    the card legible; the text block below is z-10 for the same
+                    reason. */}
+                <span
+                  className={`relative z-[2] flex aspect-[4/3] w-full items-center justify-center bg-gradient-to-br ${item.gradient}`}
+                >
                   <span
                     aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_35%,rgba(255,255,255,0.4),transparent_70%)]"
+                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_45%_at_50%_35%,rgba(255,255,255,0.35),transparent_70%)]"
                   />
-                  {/* The rental term, on the artwork where it is read first. */}
+                  {/* Rental term, on the artwork where it is read first. */}
                   <span className="lux-tag absolute right-1.5 top-1.5 z-10 text-[9px]">
                     {formatDuration(item.durationDays)}
                   </span>
-                  <span aria-hidden className="relative z-10 text-4xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]">
+                  <span
+                    aria-hidden
+                    className="relative z-10 text-4xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.55)] transition-transform duration-200 group-hover:scale-105"
+                  >
                     {item.icon}
                   </span>
                   {isOwned ? (
-                    <span className="absolute inset-x-0 bottom-0 z-10 bg-slate-950/75 py-0.5 text-center text-[9px] font-bold uppercase tracking-wider text-emerald-300">
+                    <span className="absolute inset-x-0 bottom-0 z-10 bg-slate-950/80 py-1 text-center text-[9px] font-bold uppercase tracking-wider text-emerald-300">
                       Owned
                     </span>
                   ) : null}
                 </span>
-                <span className="relative z-10 block w-full p-3">
-                  <span className="block truncate text-xs font-semibold text-white">{item.name}</span>
-                  <span className="lux-metal mt-1.5 block text-sm font-extrabold tabular-nums">
-                    {item.price.toLocaleString()}
+
+                {/* `min-h-0` + `line-clamp-2` so a long product name wraps to at
+                    most two lines. Unbounded wrapping is what pushed the price
+                    tag out of one card and into the next. */}
+                <span className="relative z-10 flex min-h-0 w-full flex-1 flex-col justify-end gap-1 bg-[#0B1120]/60 p-2.5">
+                  <span className="line-clamp-2 text-[11px] font-semibold leading-tight text-white">
+                    {item.name}
+                  </span>
+                  <span className="flex items-baseline gap-1">
+                    <span className="lux-metal text-sm font-extrabold tabular-nums">
+                      {item.price.toLocaleString()}
+                    </span>
+                    <span className="text-[9px] font-bold uppercase tracking-wider text-amber-200/70">
+                      tokens
+                    </span>
                   </span>
                 </span>
               </button>

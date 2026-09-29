@@ -46,13 +46,20 @@ export function MobileBackHeader() {
 
   return (
     <>
-      {/* `fixed` + a matching spacer rather than `sticky` in normal flow.
-          A sticky header still occupies flow space, so a 100dvh AppShell
-          rendered below it would overflow the document by the header's height
-          and reintroduce window-level scrolling. Taking the header out of flow
-          and reserving the space with a sibling spacer keeps every page at
-          exactly 100dvh. */}
-      <header className="mobile-feature-header app-top-bar fixed inset-x-0 top-0 z-40 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
+      {/* `sticky`, in normal flow — matching AppShell's `MobileHomeHeader`.
+
+          THE INCONSISTENCY THIS FIXES: the dashboard header was `sticky` with
+          `px-4 py-3`, while this feature header was `fixed` plus a hand-maintained
+          `4rem` spacer. The same number in two files that must agree by hand is
+          exactly how a page ends up with a phantom gap under its header, and
+          the `fixed` variant also broke the 100dvh contract: a sticky header
+          occupies flow space, so a full-height AppShell below it would overflow
+          the document by the header's height.
+
+          Being in flow fixes that, and dropping the spacer removes the second
+          copy of the number entirely. Both headers now measure `min-h-16` with
+          `px-4` and a single `border-b`, so every screen's chrome lines up. */}
+      <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
         <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
           <button type="button" onClick={goBack} aria-label="Go back" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-400">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden="true"><path d="m12 5-7 7 7 7M5 12h14" /></svg>
@@ -61,14 +68,21 @@ export function MobileBackHeader() {
           <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>
         </nav>
       </header>
-      {/* Spacer reserving the fixed header's flow space (mobile only).
+      {/* No spacer, deliberately. The header above is `sticky` in normal flow,
+          so it already occupies its own space and the page starts directly
+          beneath it.
 
-          `app-shell-header-spacer` is a hook, not decoration: the landscape
-          block in globals.css hides the header above AND this spacer together.
-          They are a matched pair — the spacer exists only to make room for that
-          header, so hiding one without the other would either leave 4rem of dead
-          space or collapse the page by 4rem. Do not unhook one alone. */}
-      <div aria-hidden className="app-shell-header-spacer h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />
+          The previous arrangement was `fixed` + a hand-maintained `4rem` spacer
+          — the same number duplicated in two files that had to agree by hand,
+          which is how a page ends up with a phantom gap under its header. Both
+          headers are now `sticky` at the same `min-h-16` height, so there is no
+          spacer to keep in step.
+
+          `app-shell-header-spacer` is retained on a zero-height element ONLY
+          because the landscape block in globals.css targets that class and
+          hides it alongside the header. If the header is ever changed back to
+          `fixed`, the spacer must come back with it. */}
+      <div aria-hidden className="app-shell-header-spacer hidden" />
     </>
   );
 }

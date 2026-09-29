@@ -2066,6 +2066,13 @@ function MediaSurface({
     // rotated screen and is letterboxed inside it rather than cropped — which
     // is the whole point of rotating a video.
     "landscape-bleed h-full w-full object-cover transition-opacity duration-300",
+    // `object-contain` IN PORTRAIT TOO, not just landscape. This is the fix for
+    // the letterbox bars: `object-cover` on a 9:16 clip inside a taller-than-9:16
+    // box scales to fill the WIDTH, which crops the top and bottom of the video.
+    // `contain` fits the whole frame inside the box, so a portrait video is never
+    // cut off and a landscape one is pillarboxed rather than cropped. The card
+    // supplies the framing; the media supplies the fit.
+    "object-contain",
     "[@media(orientation:landscape)]:object-contain",
     ready ? "opacity-100" : "opacity-0",
   ].join(" ");

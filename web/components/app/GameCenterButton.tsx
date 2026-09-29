@@ -18,8 +18,7 @@ export function GameCenterButton() {
   return (
     /* `fixed`, not `absolute`. THE REGRESSION THIS FIXES:
        the wrapper was `absolute` inside the page's `relative` container, so it
-       was positioned against the CONTENT BOX — which scrolls. Two consequences,
-       both visible in the live screenshot:
+       was positioned against the CONTENT BOX — which scrolls. Two consequences:
          1. It scrolled away with the content instead of floating.
          2. Its `bottom-4` resolved against the container's padding box, so the
             button sat INSIDE the `pb-20` reserve — right on top of the 5-icon
@@ -28,16 +27,22 @@ export function GameCenterButton() {
        `fixed` pins it to the VIEWPORT, which is what "floats clearly above the
        action button row by the side of the screen" requires.
 
-       `bottom-24` (96px) clears the 5rem bottom tab bar (80px) plus its own
-       16px breathing room, so the cluster can never land under the nav icons
-       — the whole reason `Z.nav` exists is that nav links WIN taps in any
-       overlapping region.
+       ── WHY `bottom-32` AND NOT `bottom-24` ────────────────────────────────
+       `bottom-24` (96px) cleared the 5rem tab bar (80px) and nothing else, so
+       the 56px button still overlapped the card's own 5-icon action row — the
+       one at `bottom-0 p-5` inside DiscoverCardStack, which is ALSO a fixed
+       height above the nav. Clearing the nav is necessary but NOT sufficient:
+       the action row is the taller obstacle and sits above it.
+
+       `bottom-32` (128px) = 80px nav + 48px action row + clearance. The two
+       offsets are now in proportion to what they clear, so neither can hide
+       under the other.
 
        `z-[60]` is above `Z.nav` (50) so the touch target is genuinely
        reachable where the two overlap, and well below `Z.sheet` (200) so a
        modal still covers it. The old `z-20` was BELOW the nav, which is why
        the button sometimes could not be tapped at all. */
-    <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-end px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-32 z-[60] flex justify-end px-4">
       <a
         href="/games"
         className="nm-raised pointer-events-auto group flex h-14 w-14 flex-col items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white transition duration-150 hover:-translate-y-0.5 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:shadow-none"
