@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { requireAdminDev } from "@/lib/auth/authorization";
-import { isNavigationSignal } from "@/lib/utils/errors";
+import { isAdminGateConfigured, isAdminGateOpen } from "@/lib/auth/admin-gate";
+import { getCurrentSessionUser } from "@/lib/server/session";
+import { AdminGateCard } from "@/components/admin/AdminGateCard";
 import { AdminNav } from "@/components/admin/AdminNav";
 import { Logo } from "@/components/ui/Logo";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
@@ -8,86 +9,28 @@ import { ErrorBoundary } from "@/components/error/ErrorBoundary";
 /**
  * Admin / moderation zone shell.
  *
- * Uses requireAdminDev which grants immediate access in development to:
- *   - any authenticated user (promoted to admin), OR
- *   - a synthetic admin session when no Supabase/Session is available
+ * GATE: a single passphrase held in the environment (lib/auth/admin-gate.ts)
+ * rather than a `role = 'admin'` row in the `users` table. This is deliberately
+ * the simpler of the two mechanisms; see the gate module header for the trade-off
+ * it accepts (a shared secret, not per-person roles) and the recommendation to
+ * reinstate per-user roles later.
  *
- * In production, the real admin role in the users table is authoritative;
- * allowlisted emails (configured through the ADMIN_ALLOWLIST_EMAILS
- * environment variable) are also promoted.
- * See lib/auth/authorization.ts for the source of that logic.
+ * The previous build of this file rendered an "Admin panel is not yet available"
+ * error screen when the role check failed. That was a dead end — it explained a
+ * configuration problem but gave the operator nothing to click — so the unlock
+ * card replaces it. The surrounding shell renders IDENTICALLY in both states so
+ * unlocking is not a jarring re-layout.
  */
-export default async function AdminLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  let adminUser: Awaited<ReturnType<typeof requireAdminDev>> | null = null;
-  let supabaseUnavailable = false;
+export default async function AdminLayout({ children }: { children: ReactNode }) {
+  const unlocked = await isAdminGateOpen();
+  const configured = isAdminGateConfigured();
 
-  try {
-    adminUser = await requireAdminDev();
-  } catch (err: unknown) {
-    // Next.js navigation signals (redirect()/notFound()) must always
-    // propagate — never convert them into a placeholder screen.
-    if (isNavigationSignal(err)) throw err;
+  // A signed-in member is shown as the acting operator when there is one. The
+  // gate itself does NOT require a session — that is the point of the simpler
+  // gate — so this is commonly null and the footer falls back to a generic label.
+  const session = unlocked ? await getCurrentSessionUser().catch(() => null) : null;
+  const actorLabel = session?.email ?? "Administrator";
 
-    // Any other error (Supabase not configured, DB error, etc.) -> show placeholder.
-    supabaseUnavailable = true;
-  }
-
-  // Only show placeholder in production when Supabase is truly unavailable
-  if (supabaseUnavailable && process.env.NODE_ENV === "production") {
-    return (
-      <div className="app-canvas min-h-dvh">
-        <div className="mx-auto flex w-full max-w-7xl">
-          <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r-2 border-ink-700 bg-surface px-4 py-6 lg:flex">
-            <div className="mb-8 px-2">
-              <Logo as="span" />
-            </div>
-            <AdminNav />
-          </aside>
-          <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:px-12">
-            <section data-zone="admin" className="flex flex-1 flex-col">
-              <ErrorBoundary feature="Admin Panel">
-                <div className="mx-auto flex max-w-xl flex-col gap-6 text-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-ink-700 bg-surface-muted text-ink-400">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-7 w-7" aria-hidden="true">
-                      <rect x="3" y="11" width="18" height="11" rx="2" />
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                    </svg>
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
-                    <p className="mt-1 text-ink-300">
-                      The admin panel is not yet available.
-                    </p>
-                    <p className="mt-1 text-sm text-ink-400">
-                      This can mean Supabase is not configured, or your account doesn&apos;t have
-                      admin privileges.
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-ink-700 bg-surface p-5 text-left text-sm text-ink-300">
-                    <p className="font-medium text-white">If you&apos;re an administrator:</p>
-                    <ul className="mt-2 space-y-1.5 list-disc list-inside">
-                      <li>Make sure <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-mono text-ink-100">NEXT_PUBLIC_SUPABASE_URL</code> and <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-mono text-ink-100">SUPABASE_SERVICE_ROLE_KEY</code> are set in your environment.</li>
-                      <li>Sign in with an account that has the <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-mono text-ink-100">admin</code> role in the <code className="rounded bg-white/10 px-1.5 py-0.5 text-xs font-mono text-ink-100">users</code> table.</li>
-                      <li>Try refreshing the page after verifying both.</li>
-                    </ul>
-                  </div>
-                  <p className="text-sm text-ink-400">
-                    If you believe you should have access, contact the platform administrator.
-                  </p>
-                </div>
-              </ErrorBoundary>
-            </section>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  // Admin user — render the full admin shell.
   return (
     <div className="app-canvas min-h-dvh">
       <div className="mx-auto flex w-full max-w-7xl">
@@ -95,25 +38,28 @@ export default async function AdminLayout({
           <div className="mb-8 px-2">
             <Logo as="span" />
           </div>
-          <AdminNav />
-          <div className="mt-auto border-t border-ink-700 p-3">
-            <div className="flex items-center gap-3 rounded-xl border border-ink-700 bg-surface-muted p-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500/15 text-sm font-bold text-brand-300">
-                {adminUser ? adminUser.email.charAt(0).toUpperCase() : "A"}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-white">
-                  {adminUser ? adminUser.email : "Administrator"}
-                </p>
-                <p className="truncate text-xs text-ink-400">Administrator</p>
+          {/* The nav is hidden while locked so the unlock card is the only thing
+              on screen. Rendering the links behind the gate would advertise the
+              shape of the admin surface to anyone who can reach /admin. */}
+          {unlocked ? <AdminNav /> : null}
+          {unlocked ? (
+            <div className="mt-auto border-t border-ink-700 p-3">
+              <div className="flex items-center gap-3 rounded-xl border border-ink-700 bg-surface-muted p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-500/15 text-sm font-bold text-brand-300">
+                  {actorLabel.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">{actorLabel}</p>
+                  <p className="truncate text-xs text-ink-400">Administrator</p>
+                </div>
               </div>
             </div>
-          </div>
+          ) : null}
         </aside>
         <main className="min-w-0 flex-1 px-4 py-8 sm:px-6 lg:px-10 xl:px-12">
           <section data-zone="admin" className="flex flex-1 flex-col">
             <ErrorBoundary feature="Admin Panel">
-              {children}
+              {unlocked ? children : <AdminGateCard configured={configured} />}
             </ErrorBoundary>
           </section>
         </main>

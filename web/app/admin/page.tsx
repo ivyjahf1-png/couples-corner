@@ -1,4 +1,5 @@
 import { getDashboardMetricsAction, getRecentActivityAction } from "@/lib/actions/dashboard";
+import { requireAdminGate } from "@/lib/auth/admin-gate";
 import { PageHeader } from "@/components/app/PageHeader";
 import { Icon, type IconName } from "@/components/landing/Icon";
 
@@ -34,6 +35,10 @@ const ACTIVITY_TONE: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
+  // Re-assert the gate here rather than trusting the layout; see
+  // requireAdminGate's note on why each page checks for itself.
+  await requireAdminGate();
+
   const [metrics, activities] = await Promise.all([
     getDashboardMetricsAction(),
     getRecentActivityAction(),

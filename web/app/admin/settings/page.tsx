@@ -10,6 +10,13 @@ import { SUPPORT_EMAIL, SUPPORT_WHATSAPP_DISPLAY } from "@/lib/site/contact";
 const inputClass = "mt-1 w-full rounded-xl border border-ink-700 bg-surface px-3 py-2 text-sm font-medium text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none";
 const labelClass = "text-sm font-semibold text-white";
 
+// NOTE ON AUTHORIZATION: this page is a Client Component, so it cannot call
+// `requireAdminGate` — that helper reads an httpOnly cookie and is server-only
+// by definition. Client components are never a security boundary anyway; this
+// page is protected by the gate in `app/admin/layout.tsx`, which never renders
+// children while locked. Anything that actually MUTATES admin data still goes
+// through a server action, and those re-check authorization server-side.
+
 export default function AdminSettingsPage() {
   const [payPublic, setPayPublic] = useState("");
   const [paySecret, setPaySecret] = useState("");

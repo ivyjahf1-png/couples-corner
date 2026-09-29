@@ -1,10 +1,15 @@
 import { getContentList, getContentStatsAction } from "@/lib/actions/content";
+import { requireAdminGate } from "@/lib/auth/admin-gate";
 import { PageHeader } from "@/components/app/PageHeader";
 import { AdminContentClient } from "@/components/admin/AdminContentClient";
 import { getCurrentSessionUser } from "@/lib/server/session";
 
 export default async function AdminContentPage() {
-  // The admin layout already handles auth guard via requireAdminDev.
+  // Re-assert the gate here rather than trusting the layout; see
+  // requireAdminGate's note on why each page checks for itself.
+  await requireAdminGate();
+
+  // The admin layout already handles auth guard via requireAdminGate.
   // Child pages inherit admin access — no need to call requireAdmin() again.
   const [content, stats, user] = await Promise.all([
     getContentList({}),

@@ -2,8 +2,15 @@ import { PageHeader } from "@/components/app/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Icon } from "@/components/landing/Icon";
+import { requireAdminGate } from "@/lib/auth/admin-gate";
 
-export default function AdminCouplesPage() {
+// `async` purely so this page can re-assert the gate for itself, like every
+// other admin page. It fetches nothing today, so the layout gate would already
+// cover it — but authorization that is "only enforced on the pages that happen
+// to fetch data" is not a pattern worth keeping.
+export default async function AdminCouplesPage() {
+  await requireAdminGate();
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader

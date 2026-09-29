@@ -1,10 +1,10 @@
-import { requireAdminDev } from "@/lib/auth/authorization";
+import { requireAdminGate } from "@/lib/auth/admin-gate";
 import { getAllBroadcastsAction } from "@/lib/actions/broadcast";
 import { PageHeader } from "@/components/app/PageHeader";
 import { BroadcastClient } from "@/components/admin/BroadcastClient";
 
 export default async function AdminBroadcastPage() {
-  await requireAdminDev();
+  await requireAdminGate();
   const broadcasts = await getAllBroadcastsAction();
 
   return (
