@@ -1,11 +1,7 @@
 import { redirect } from "next/navigation";
-import { MediaFeed } from "@/components/app/MediaFeed";
-import { MediaFeedSearch } from "@/components/app/MediaFeedSearch";
-import { LocationBadge } from "@/components/app/LocationBadge";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { AppShell } from "@/components/app/AppShell";
-import { SponsoredMomentCard } from "@/components/app/SponsoredMomentCard";
-import { getNextAdRewardAtAction } from "@/lib/actions/ad-rewards";
+import { ImmersiveFeed } from "@/components/app/ImmersiveFeed";
 import { getRecentMoments } from "@/lib/server/tasks";
 import { searchMembers } from "@/lib/server/profiles";
 import { GuestLandingPage } from "@/components/landing/GuestLandingPage";
@@ -91,50 +87,17 @@ export default async function HomePage({
   // feed mark which moments this member has already reacted to.
   const moments: MomentView[] = await getRecentMoments(12, session.uid).catch(() => []);
 
-  // Cooldown state for the reward button, so a member who already claimed sees
-  // a live countdown instead of a button that silently stops working. Fail-soft
-  // to null (claimable) for the same reason as the feed above.
-  const nextAdRewardAt = await getNextAdRewardAtAction().catch(() => null);
-
-  const view = (
-    <MediaFeed
-      moments={moments}
-      viewerId={session.uid}
-      // Inside AppShell the shell owns the viewport lock, so the feed must fill
-      // the region rather than claim a full 100dvh of its own.
-      fill
-      searchSlot={<MediaFeedSearch action="/" />}
-      topRightSlot={<LocationBadge />}
-      // The sponsored card replaces the old earn-tokens button.
-      //
-      // A PLAIN ELEMENT, not a render function: this page is a Server Component
-      // and MediaFeed is a Client Component, and a function prop cannot cross
-      // that boundary (it throws "Functions cannot be passed directly to Client
-      // Components" at runtime). The card reads its own active state from
-      // FeedActiveContext inside the feed.
-      //
-      // It is no longer rendered for signed-out visitors: the acquisition
-      // surface used to be the feed itself, and with the guest landing page
-      // that job is done by the value proposition and the three CTAs instead.
-      sponsoredSlot={<SponsoredMomentCard viewerId={session.uid} nextAvailableAt={nextAdRewardAt} />}
-      // Second position: the first card stays a real moment, so a new member
-      // opens on community content rather than on an ad.
-      sponsoredPosition={1}
-      // Deep link from a post-like row (or a share link): scroll straight to that
-      // moment instead of opening the feed on whatever card happens to be first.
-      // Trimmed and length-capped because it arrives from the URL, and an
-      // unvalidated id is passed to a client component as an attribute.
-      deepLinkMomentId={moment?.trim().slice(0, 64) || null}
-      rewardSlot={null}
-      emptyTitle="No moments yet"
-      emptyBody="Members who share a photo or short video in the Task Center see it here instantly. Be the first."
-    />
+  /* The player itself lives in ImmersiveFeed, shared with /feed. Both routes
+     render the same component so the vertical snap player, its overlay chrome
+     and the sponsored card cannot drift apart between them — which is exactly
+     the regression that sent the "Moment" tab to a static blog list. */
+  return (
+    <AppShell>
+      <ImmersiveFeed
+        viewerId={session.uid}
+        deepLinkMomentId={moment?.trim().slice(0, 64) || null}
+        moments={moments}
+      />
+    </AppShell>
   );
-
-  // Signed-in members get the full app chrome (sidebar + fixed bottom nav).
-  // The invite wall is no longer mounted: it was a timed modal aimed at a
-  // signed-out visitor watching a video on this route, and the signed-out
-  // audience now gets the landing page instead, where that treatment would read
-  // as a pop-up ad.
-  return <AppShell>{view}</AppShell>;
 }
