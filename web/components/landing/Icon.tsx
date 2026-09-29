@@ -30,7 +30,8 @@ export type IconName =
   | "chevron"
   | "flame"
   | "rewind"
-  | "star";
+  | "star"
+  | "live";
 
 /*
  * Tasteful, hand-drawn 24x24 line icons rendered with `currentColor` so they
@@ -187,6 +188,16 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   chevron: <path d="M9.5 5 L16 12 L9.5 19" />,
+  /* Live broadcast: a filled dot with two broadcast arcs. Read at a glance as
+     "something is being transmitted", which a play triangle or a camera would
+     not — a play triangle says "watch", and this says "go live". */
+  live: (
+    <>
+      <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+      <path d="M7.8 16.2a6 6 0 0 1 0-8.4" />
+      <path d="M16.2 7.8a6 6 0 0 1 0 8.4" />
+    </>
+  ),
   /* --- Discover action-bar icons ----------------------------------------- */
   flame: (
     <path d="M12 21 C8 21 6 18.2 6 14.8 C6 11.6 8 9.2 10 7 C10.4 9 11.2 10 12.4 10.6 C12 8.6 12.6 6 14.6 4 C14.4 6.4 15.6 7.6 16.8 9.2 C18.2 11 18 13.4 18 14.8 C18 18.2 16 21 12 21 Z" />

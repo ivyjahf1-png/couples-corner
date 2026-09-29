@@ -43,6 +43,11 @@ export const appNavItems: AppNavItem[] = [
 
 /** Sidebar group 2 — engagement + account. On mobile these live behind "Menu". */
 export const appSecondaryNavItems: AppNavItem[] = [
+  // Go Live sits directly under Feed: both are "broadcast something to other
+  // people", so grouping them is what a member expects, and it keeps the
+  // feature one click away instead of buried in the profile or behind the "+"
+  // sheet. It was previously reachable only by typing /live.
+  { href: "/live", label: "Go Live", icon: "live" },
   { href: "/feed", label: "Feed", icon: "moments" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
@@ -54,6 +59,9 @@ export const appSecondaryNavItems: AppNavItem[] = [
 
 /** Destinations inside the mobile "Menu" drawer. */
 export const menuDrawerItems: AppNavItem[] = [
+  // Mirrors the sidebar order — Go Live first in the engagement group, and
+  // third overall so it is above the fold of the drawer.
+  { href: "/live", label: "Go Live", icon: "live" },
   { href: "/messages", label: "Messages", icon: "chat" },
   { href: "/", label: "Home", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/profile", label: "Profile", icon: "profile" },

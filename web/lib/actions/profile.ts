@@ -448,9 +448,29 @@ export interface StoryView {
   reactedByViewer: boolean;
 }
 
-/** Upload a 24-hour status. Reuses the user-media bucket and validation. */
+/**
+ * Create a 24-hour status from a file ALREADY uploaded to storage.
+ *
+ * WHY THE `File` IS GONE: this used to take the whole `File` and call
+ * `supabase.storage.upload(path, file)` itself. That makes the file this
+ * Server Action's request BODY, and Vercel rejects any function body over
+ * 4.5 MB with 413 FUNCTION_PAYLOAD_TOO_LARGE *before the action runs* — so a
+ * 10 MB story failed with "Payload too large" even though `validateMediaFile`
+ * advertises 250 MB for user media, and nothing was ever logged because the
+ * action never executed.
+ *
+ * The bytes now go browser -> Supabase Storage via `uploadFileDirect`, and this
+ * action only inserts a database row — the same two-step shape every other
+ * upload in the app already uses. See StoryTray for the client half.
+ *
+ * SECURITY: `storagePath` is caller-supplied, so it is NOT trusted blindly. It
+ * must be under this caller's own `stories/<uid>/` folder, and the object is
+ * removed from the bucket if the insert fails, so a rejected path cannot leave
+ * an orphan behind.
+ */
 export async function createStoryAction(
-  file: File,
+  storagePath: string,
+  mediaType: "image" | "video"
 ): Promise<{ ok: true; story: StoryView } | { ok: false; error: string }> {
   try {
     const user = await getCurrentSessionUser();
@@ -459,19 +479,12 @@ export async function createStoryAction(
     const supabase = getSupabaseServerClient();
     if (!supabase) return { ok: false, error: "Supabase not configured" };
 
-    const invalid = validateMediaFile(file);
-    if (invalid) return { ok: false, error: invalid };
-
-    const mediaType = file.type.startsWith("video/") ? "video" : "image";
-    const ext = (file.name.split(".").pop() || (mediaType === "image" ? "jpg" : "mp4"))
-      .replace(/[^a-zA-Z0-9]/g, "");
-    // "stories/" prefix keeps status files separable from the permanent gallery.
-    const path = `stories/${user.uid}/${Date.now()}_${crypto.randomUUID().slice(0, 8)}.${ext}`;
-
-    const { error: uploadErr } = await supabase.storage
-      .from("user-media")
-      .upload(path, file, { contentType: file.type, upsert: false });
-    if (uploadErr) return { ok: false, error: `Upload failed: ${uploadErr.message}` };
+    // Reject any path that is not this member's own story folder. Without this
+    // a caller could pass any storage path and publish someone else's object.
+    const expectedPrefix = `stories/${user.uid}/`;
+    if (!storagePath.startsWith(expectedPrefix)) {
+      return { ok: false, error: "Invalid story file." };
+    }
 
     // expires_at is set HERE, server-side, at insert. The client never sends
     // it, so a tampered payload cannot create a story that never expires.
@@ -480,7 +493,7 @@ export async function createStoryAction(
       .from("stories")
       .insert({
         user_id: user.uid,
-        storage_path: path,
+        storage_path: storagePath,
         media_type: mediaType,
         caption: null,
         expires_at: expiresAt,
@@ -490,11 +503,11 @@ export async function createStoryAction(
 
     if (insertErr || !inserted) {
       // Roll the orphaned object back so a failed insert never leaks storage.
-      await supabase.storage.from("user-media").remove([path]);
+      await supabase.storage.from("user-media").remove([storagePath]);
       return { ok: false, error: insertErr?.message ?? "Could not save your story" };
     }
 
-    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(path);
+    const { data: urlData } = supabase.storage.from("user-media").getPublicUrl(storagePath);
     revalidatePath("/messages");
     return {
       ok: true,

@@ -8,6 +8,7 @@ import {
   type StoryView,
 } from "@/lib/actions/profile";
 import { Avatar } from "@/components/app/Avatar";
+import { uploadFileDirect } from "@/lib/utils/direct-upload";
 import { StoryViewer } from "@/components/app/StoryViewer";
 
 /**
@@ -48,7 +49,29 @@ export function StoryTray({ userId, displayName }: { userId?: string; displayNam
     }
     setBusy(true);
     setError(null);
-    const result = await createStoryAction(file);
+
+    // TWO STEPS, and the order matters. The bytes go browser -> Supabase
+    // Storage FIRST; the action only inserts the database row.
+    //
+    // This used to be a single `createStoryAction(file)` call. Passing a File
+    // to a Server Action makes it the function's request body, and Vercel
+    // rejects any function body over 4.5 MB with 413 before the action runs —
+    // so a 10 MB story failed with "Payload too large" while the UI advertised
+    // a 250 MB cap, and nothing was logged because the action never ran.
+    //
+    // `pathPrefix` keeps the "stories/" folder the RLS policy and the server's
+    // path check both expect.
+    const uploaded = await uploadFileDirect(userId, file, {
+      bucket: "user-media",
+      pathPrefix: `stories/${userId}`,
+    });
+    if (!uploaded.ok) {
+      setBusy(false);
+      setError(uploaded.error);
+      return;
+    }
+
+    const result = await createStoryAction(uploaded.storagePath, uploaded.mediaType);
     setBusy(false);
     if (!result.ok) {
       setError(result.error ?? "Could not upload your story");

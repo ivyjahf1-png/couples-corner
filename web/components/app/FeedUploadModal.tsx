@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
+import { ChevronRight, Radio } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createFeedPostAction, recordUserMediaAction } from "@/lib/actions/profile";
 import { publishLinkMomentAction } from "@/lib/actions/tasks";
@@ -84,6 +86,44 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
     <div className={`${SHEET_SHELL} bg-slate-950/80 backdrop-blur-sm sm:p-4`} role="dialog" aria-modal="true" aria-label="Create a post">
       <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900 p-5 shadow-2xl sm:rounded-3xl`}>
         <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">Create a post</h2><button type="button" onClick={onClose} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close">×</button></div>
+
+        {/* GO LIVE — the third way to post, alongside upload and link.
+
+            It is a full-width row rather than a third tab because it is not a
+            mode of THIS form: it leaves the sheet and opens a completely
+            different surface (the live room, /live). Putting it in the tablist
+            would imply choosing it swaps the inputs below, which it does not.
+
+            The sheet is the highest-intent creation surface in the app — it is
+            what the floating "+" opens — so it is the natural home for a Go
+            Live entry point, and it was previously reachable only by typing the
+            URL. */}
+        <Link
+          href="/live"
+          onClick={onClose}
+          className="group mt-4 flex items-center gap-3 rounded-xl border border-rose-500/30 bg-gradient-to-r from-rose-500/15 to-orange-500/10 p-3 transition hover:border-rose-400/50 hover:from-rose-500/25"
+        >
+          <span
+            aria-hidden
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-500/25 text-rose-200 transition group-hover:bg-rose-500/35"
+          >
+            <Radio className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2 text-sm font-bold text-white">
+              Go Live
+              {/* The pulsing dot is the standard live affordance and is what
+                  makes this read as "start streaming" rather than "open a
+                  page". It is decorative; the label carries the meaning. */}
+              <span aria-hidden className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-400" />
+            </span>
+            <span className="block text-xs text-white/60">
+              Broadcast live to your followers and take gifts in real time
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-white/40 transition group-hover:translate-x-0.5 group-hover:text-white/70" />
+        </Link>
+
         {/* Two ways to add media, side by side. Tabs rather than one long form
             because the paths are mutually exclusive: a post is either an
             uploaded file or an embed, never both, and showing both inputs at
