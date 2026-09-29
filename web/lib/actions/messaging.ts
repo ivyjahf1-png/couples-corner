@@ -324,11 +324,29 @@ export async function getConversationChatDataAction(
           avatarUrl: otherProfile.photos?.find((p) => p.isPrimary)?.publicUrl ??
             otherProfile.photos?.[0]?.publicUrl ??
             null,
-          verified: true,
+          // `verified` is FALSE because nothing has verified anyone.
+          //
+          // This was a literal `true`, and `ConversationSummaryCard` rendered it
+          // as a "Real Person" badge — so every member was told every stranger
+          // had been verified, on the strength of a hardcoded constant. In a
+          // dating app that is the most damaging single lie the product could
+          // tell: it is the badge a member would rely on when deciding whether
+          // to meet someone in person.
+          //
+          // `mapProfileRow` already exposes a real verification value if the
+          // profile schema ever grows one; until then absence of data must read
+          // as "unknown", never as "verified".
+          verified: false,
           location: otherProfile.location ?? null,
           lifestyleTags: otherProfile.interests?.slice(0, 4) ?? [],
           photos: otherProfile.photos ?? [],
-          personalitySimilarity: 78,
+  // The summary carries only what was actually read. `personalitySimilarity`
+  // is deliberately ABSENT: there is no compatibility engine in the product, and
+  // the field used to be hardcoded to 78 here — which `ConversationSummaryCard`
+  // then rendered as "78% match". A fabricated score in a dating app is worse
+  // than no score: it invites a member to make a decision about a real person on
+  // a number the product invented. It stays out until something genuinely
+  // computes it.
         }
       : null;
 

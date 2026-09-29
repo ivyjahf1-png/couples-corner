@@ -3,17 +3,228 @@
 // sendMessageAction server action; no Supabase linkage changes.
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useTransition } from "react";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
-import { Camera, Mic, Paperclip, Send, Smile } from "lucide-react";
+import { Camera, Images, Mic, Palette, Paperclip, Send, Smile } from "lucide-react";
 
-/** The quick-emoji strip, matching the four reactions the app already uses. */
+/**
+ * The attachment dock + theme picker that sits above the composer input.
+ *
+ * ── WHY GIFTS AND TOKEN REWARDS ARE ABSENT ──────────────────────────────────
+ * Both were in the original spec for this dock. Neither is rendered, because
+ * neither has a real implementation behind it: gifting needs a commerce write
+ * path and token rewards need a ledger this chat does not touch. A button that
+ * opens nothing is worse than no button — it teaches a member that this dock is
+ * decorative, and once the real controls stop being trusted either. They belong
+ * here the day they can actually do something; see the commerce module.
+ *
+ * Everything present IS wired. "Gallery" and "Camera" both open the same file
+ * input on purpose: a `capture` attribute would force the camera on mobile and
+ * make Gallery unreachable, so the two labels are honest about sharing a picker
+ * rather than pretending to be separate flows.
+ */
+function AttachmentDock({
+  onPickImage,
+  theme,
+  onThemeChange,
+}: {
+  onPickImage: () => void;
+  theme?: ChatThemeId;
+  onThemeChange?: (theme: ChatThemeId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="w-full">
+      <div className="flex w-full items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <DockButton onClick={onPickImage} icon={Images} label="Gallery" />
+        <DockButton onClick={onPickImage} icon={Camera} label="Camera" />
+        {/* The picker only mounts when a change handler exists, so the control
+            cannot appear and do nothing in a caller that does not support it. */}
+        {onThemeChange ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className={[
+              "ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95",
+              open
+                ? "bg-orange-500/20 text-orange-100"
+                : "bg-white/[0.06] text-ink-200 hover:bg-white/10 hover:text-white",
+            ].join(" ")}
+          >
+            <Palette className="h-4 w-4" aria-hidden />
+            Theme
+          </button>
+        ) : null}
+      </div>
+
+      {open && onThemeChange ? (
+        <div
+          className="mt-1.5 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Chat theme"
+        >
+          {CHAT_THEMES.map((option) => {
+            const selected = theme === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => onThemeChange(option.id)}
+                aria-pressed={selected}
+                className={[
+                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
+                  selected
+                    ? "border-orange-400/70 bg-orange-500/15 text-white"
+                    : "border-white/10 bg-white/[0.04] text-ink-300 hover:border-white/25 hover:text-white",
+                ].join(" ")}
+              >
+                <span
+                  aria-hidden
+                  className="h-3 w-3 rounded-full ring-1 ring-white/25"
+                  style={{ backgroundImage: option.swatch }}
+                />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DockButton({
+  onClick,
+  icon: Icon,
+  label,
+}: {
+  onClick: () => void;
+  icon: typeof Images;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-200 transition hover:bg-white/10 hover:text-white active:scale-95"
+    >
+      <Icon className="h-4 w-4" aria-hidden />
+      {label}
+    </button>
+  );
+}
+
+/**
+ * Owns the chat theme and hands it to the thread.
+ *
+ * The theme lives in a HOOK rather than inside the composer because it has to
+ * tint the whole thread surface — background and bubbles — not just the input
+ * bar. A picker that only recoloured its own controls would be a setting with
+ * nothing to show for it. The composer takes the value and setter as props, so
+ * the picker and the background can never disagree about which theme is active.
+ *
+ * The state is seeded with `default` and corrected in an effect rather than
+ * reading `localStorage` during render: on the server there is no storage, so a
+ * lazy initialiser would produce a value the client immediately disagreed with,
+ * and React would warn about a hydration mismatch on the background.
+ */
+export function useChatTheme(): {
+  theme: ChatThemeId;
+  setTheme: (next: ChatThemeId) => void;
+} {
+  const [theme, setThemeState] = useState<ChatThemeId>("default");
+
+  useEffect(() => {
+    setThemeState(readChatTheme());
+  }, []);
+
+  return {
+    theme,
+    setTheme: (next: ChatThemeId) => {
+      setThemeState(next);
+      writeChatTheme(next);
+    },
+  };
+}
 const QUICK_EMOJI = ["❤️", "✨", "😂", "👍"] as const;
 
-interface MessageComposerProps {
-  conversationId: string;
+/**
+ * Icebreaker pills.
+ *
+ * These are OPENERS, not claims: each is a question or a greeting that invites a
+ * reply and asserts nothing about the other person. That matters because the
+ * messages this app exists to carry are read by strangers — a pill that
+ * complimented someone's appearance or assumed a shared interest would be
+ * inventing a relationship the two people do not have.
+ *
+ * They are suggestions, not autofill: tapping one fills the composer and the
+ * member can edit before sending. Autocomplete is exactly the wrong pattern
+ * here, since a sent message cannot be unsent.
+ */
+const ICEBREAKERS = [
+  "Hey! How's your week going?",
+  "What made you sign up here?",
+  "What's something you're really into right now?",
+  "How's your day been so far?",
+] as const;
+
+/**
+ * Chat theme customisation.
+ *
+ * Themes are pure presentation and are stored per-device in `localStorage`. No
+ * account row, no migration, no server call — a member can change the look of
+ * their own conversation without any of that, and nothing they pick is ever
+ * shown to the other person. That asymmetry is deliberate: this is a comfort
+ * setting for reading a conversation, not a shared signal.
+ *
+ * Every theme is expressed as a CSS class on the thread's root, never as an
+ * inline style, so the values live in one stylesheet and can be themed centrally
+ * later. The data below is only the label and the swatch used by the picker.
+ */
+
+/** The id persisted in localStorage. `default` is the app's own look. */
+export const CHAT_THEMES = [
+  { id: "default", label: "Midnight", swatch: "linear-gradient(135deg,#0F172A,#1E293B)" },
+  { id: "dusk", label: "Dusk", swatch: "linear-gradient(135deg,#2E1B3F,#4C2A5E)" },
+  { id: "ocean", label: "Ocean", swatch: "linear-gradient(135deg,#0B2B3A,#124A5E)" },
+  { id: "ember", label: "Ember", swatch: "linear-gradient(135deg,#3A1A10,#5C2A18)" },
+  { id: "rose", label: "Rose", swatch: "linear-gradient(135deg,#3B1220,#5E1A33)" },
+] as const;
+
+export type ChatThemeId = (typeof CHAT_THEMES)[number]["id"];
+
+const STORAGE_KEY = "couples_corner:chat-theme";
+
+/**
+ * Read the stored theme, tolerating a corrupt or absent value.
+ *
+ * Returns `default` rather than trusting the raw string: `localStorage` is
+ * user-writable and survives deploys, so a stale id from a removed theme must
+ * degrade to the default look rather than render an unstyled thread.
+ */
+export function readChatTheme(): ChatThemeId {
+  if (typeof window === "undefined") return "default";
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const match = CHAT_THEMES.find((theme) => theme.id === raw);
+    return match ? match.id : "default";
+  } catch {
+    // Private-mode Safari and locked-down browsers throw on access. A missing
+    // theme preference is not worth failing a conversation over.
+    return "default";
+  }
+}
+
+export function writeChatTheme(theme: ChatThemeId) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, theme);
+  } catch {
+    // Non-fatal: the theme still applies for this session.
+  }
 }
 
 /**
@@ -34,7 +245,26 @@ interface MessageComposerProps {
  * The send button now uses the same orange brand accent as the sent bubbles, so
  * "what I send" and "what I press to send" are the same colour.
  */
-export function MessageComposer({ conversationId }: MessageComposerProps) {
+export function MessageComposer({
+  conversationId,
+  showIcebreakers = false,
+  theme,
+  onThemeChange,
+}: {
+  conversationId: string;
+  /**
+   * Whether to offer the icebreaker pills.
+   *
+   * Off by default and driven by the THREAD, not the user: the pills exist to
+   * solve "what do I say first", which is only a real problem in a conversation
+   * that has not started. Showing them under an existing exchange reads as the
+   * app pushing the member to repeat an opener they have already moved past.
+   */
+  showIcebreakers?: boolean;
+  /** The active theme, owned by the thread so the whole surface stays in sync. */
+  theme?: ChatThemeId;
+  onThemeChange?: (theme: ChatThemeId) => void;
+}) {
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const [pending, startTransition] = useTransition();
@@ -62,6 +292,12 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
     });
   };
 
+  /** Apply a pill to the composer WITHOUT sending it. See ICEBREAKERS. */
+  function applyIcebreaker(phrase: string) {
+    setValue(phrase);
+    inputRef.current?.focus();
+  }
+
   return (
     // Pinned to the bottom of the page's 100dvh column: the bar itself is
     // `shrink-0` (the page wrapper enforces it) and owns the safe-area inset,
@@ -72,6 +308,39 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
     // (not hidden) at the smallest breakpoint, so +, camera, input, emoji and
     // mic all fit side by side on a 320px-wide phone.
     <div className="landscape-hide-chrome relative w-full shrink-0 border-t border-white/10 bg-slate-950/90 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3">
+      {/* Dock, theme picker and icebreakers all sit ABOVE the input row rather
+          than beside it: that row is already at its width limit on a 320px
+          phone, so a second horizontal row of actions beside the input was never
+          going to fit. Stacking keeps every existing control reachable. */}
+      <AttachmentDock
+        onPickImage={() => imageInputRef.current?.click()}
+        theme={theme}
+        onThemeChange={onThemeChange}
+      />
+      {showIcebreakers ? (
+        <div
+          className="mt-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Conversation starters"
+        >
+          {ICEBREAKERS.map((phrase) => (
+            <button
+              key={phrase}
+              type="button"
+              onClick={() => {
+                // Fills the composer; does NOT send. A sent message cannot be
+                // unsent, so an opener the member did not mean to send would be
+                // worse than no opener at all.
+                setValue(phrase);
+                inputRef.current?.focus();
+              }}
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-ink-200 transition hover:border-orange-400/50 hover:bg-orange-500/10 hover:text-white active:scale-95"
+            >
+              {phrase}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <form
         onSubmit={handleSubmit}
         className="mx-auto flex w-full max-w-2xl items-center gap-1 sm:gap-1.5 lg:gap-2"

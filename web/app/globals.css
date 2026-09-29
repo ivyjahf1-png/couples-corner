@@ -2093,3 +2093,45 @@ button,
     display: none !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Chat themes.
+
+   Applied as a class on the THREAD ROOT, not on individual controls, so a
+   theme changes the whole conversation at once — background, header and
+   composer — rather than recolouring only the parts that happened to opt in.
+
+   Written as classes rather than inline gradients so the values live here and
+   can be adjusted centrally, and so the thread switches themes by toggling one
+   attribute.
+
+   The gradients are deliberately LOW-CONTRAST. They sit behind body text, so a
+   decorative background that competes with the message bubbles makes the
+   conversation harder to read — the opposite of what a theme is for. Sent and
+   received bubbles keep their own solid fills on top for that reason.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .chat-theme-default {
+    background-image: linear-gradient(180deg, #0f172a 0%, #131c31 100%);
+  }
+  .chat-theme-dusk {
+    background-image: linear-gradient(180deg, #241634 0%, #2f1d42 100%);
+  }
+  .chat-theme-ocean {
+    background-image: linear-gradient(180deg, #08222e 0%, #0c3242 100%);
+  }
+  .chat-theme-ember {
+    background-image: linear-gradient(180deg, #2b130d 0%, #3a1a11 100%);
+  }
+  .chat-theme-rose {
+    background-image: linear-gradient(180deg, #2b0e19 0%, #3d1424 100%);
+  }
+
+  /* Header and composer follow the thread, so a theme does not leave a bright
+     neutral bar clamped to the top and bottom of a tinted conversation. Both
+     are translucent and read the gradient behind them. */
+  .chat-theme-surface {
+    background-color: rgb(8 12 22 / 0.72);
+  }
+}

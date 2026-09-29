@@ -5,6 +5,8 @@ import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
 import { StoryTray } from "@/components/app/StoryTray";
+import { MessagesInboxTabs } from "@/components/app/MessagesInboxTabs";
+import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
 import { requireUser } from "@/lib/auth/authorization";
 import { getInboxSummaries } from "@/lib/server/messaging";
 import { getBotThreadsForUser } from "@/lib/server/likes";
@@ -89,6 +91,13 @@ export default async function MessagesPage() {
 
       {/* Near me — horizontal scrollable circular avatars (location-aware). */}
       <NearMeStories />
+
+      <MessagesInboxTabs activeCount={activeChats.length} />
+
+      {/* Safety reminder. Shown above the conversation list because the inbox is
+          where unsolicited contact actually BEGINS — this is the surface a scam
+          arrives on, not the thread it lands in. */}
+      <ChatSafetyBanner />
 
       {activeChats.length === 0 ? (
         <EmptyState

@@ -77,7 +77,16 @@ export interface ConversationParticipantSummary {
   location: string | null;
   lifestyleTags: string[];
   photos: { id?: string; storagePath?: string; isPrimary?: boolean; publicUrl?: string | null }[];
-  personalitySimilarity: number;
+  /**
+   * Compatibility score, 0..100.
+   *
+   * OPTIONAL and currently never set. There is no compatibility engine in the
+   * product, and this was previously a hardcoded 78 rendered as "78% match" —
+   * a fabricated number inviting a member to judge a real person on data the
+   * product invented. It stays optional so a future, genuine implementation can
+   * populate it without any caller being forced to invent a value today.
+   */
+  personalitySimilarity?: number;
 }
 
 /** A pre-seeded chat starter for newly opened conversations */

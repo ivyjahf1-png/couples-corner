@@ -6,6 +6,22 @@ import { useState } from "react";
 import { Avatar } from "./Avatar";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
+/**
+ * Whether a real verification flow exists that can back the "Real Person" tag.
+ *
+ * FALSE today. `summary.verified` is set to a literal `true` upstream — it is
+ * not the result of checking anything — so rendering the tag on its truthiness
+ * would tell every member that every stranger had been verified. In a dating app
+ * that is the most consequential untruth this UI could tell, because it is
+ * exactly the signal a member would act on when deciding whether to meet someone.
+ *
+ * When a genuine verification system lands, set this to true AND make
+ * `summary.verified` reflect its actual result. The gate exists so enabling the
+ * tag is a deliberate, reviewed act rather than a side effect of a field someone
+ * left hardcoded.
+ */
+const HAS_REAL_VERIFICATION = false;
+
 interface ConversationSummaryCardProps {
   summary: ConversationParticipantSummary | null;
   expanded?: boolean;
@@ -39,7 +55,23 @@ export function ConversationSummaryCard({
               <h2 className="truncate font-semibold text-white">
                 {summary.name}
               </h2>
-              {summary.verified ? (
+              {/* ── HONESTY GATES ──────────────────────────────────────────
+                  BOTH badges below are hidden unless there is real data behind
+                  them, and neither currently has any.
+
+                  "Real Person" is NOT a safety guarantee. It used to render
+                  unconditionally from `summary.verified`, which is itself
+                  hardcoded `true` in `getConversationChatDataAction` — so it
+                  asserted a verification the product had never performed. In a
+                  dating app that is a serious claim: it is exactly the signal a
+                  member would rely on to decide a stranger is safe to meet. A
+                  real verification flow must set this before it may display.
+
+                  The match score is likewise hidden unless computed. Both are
+                  left in place as data-driven slots, so a genuine backend can
+                  switch them on by populating the field — not by editing this
+                  component. */}
+              {summary.verified && HAS_REAL_VERIFICATION ? (
                 <span className="flex shrink-0 items-center gap-1 rounded-full bg-success-500/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-success-200">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3" aria-hidden>
                     <path d="M9 12 L11 14 L15 10" />
@@ -47,12 +79,14 @@ export function ConversationSummaryCard({
                   Real Person
                 </span>
               ) : null}
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white shadow-inner">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-amber-200" aria-hidden>
-                  <path d="M12 2 L15 9 L22 9 L17 14 L19 22 L12 17 L5 22 L7 14 L2 9 L9 9 Z" />
-                </svg>
-                {summary.personalitySimilarity}% match
-              </span>
+              {typeof summary.personalitySimilarity === "number" ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white shadow-inner">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 text-amber-200" aria-hidden>
+                    <path d="M12 2 L15 9 L22 9 L17 14 L19 22 L12 17 L5 22 L7 14 L2 9 L9 9 Z" />
+                  </svg>
+                  {summary.personalitySimilarity}% match
+                </span>
+              ) : null}
             </div>
             {summary.location ? (
               <p className="mt-1 truncate text-xs text-ink-300">
