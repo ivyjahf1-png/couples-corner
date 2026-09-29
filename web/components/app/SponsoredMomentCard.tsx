@@ -173,7 +173,23 @@ export function SponsoredMomentCard({
   const secondsLeft = Math.max(Math.ceil(WATCH_SECONDS - elapsed), 0);
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-[#0F172A]">
+    /* `pointer-events-none` ON THE ROOT IS A SCROLL-SAFETY GUARANTEE, not a
+       styling choice. Nothing in this card is interactive: the reward is earned
+       by a timer that runs on its own, so no control inside it needs a tap.
+
+       Leaving it interactive is what let a full-card <div> sit between the
+       member's finger and the feed's snap scroller, so a vertical drag over the
+       ad was consumed by the card instead of scrolling the feed - the page
+       locked solid on the ad. Opting the whole subtree out of hit testing
+       guarantees the gesture reaches the scroller no matter what this card
+       renders later (a real campaign's click-through link will re-enable it on
+       its own element only, exactly as MediaFeed's chrome does).
+
+       `touch-pan-y` is the belt-and-braces half of the same promise: it tells
+       the compositor this element never owns a horizontal or pinch gesture, so
+       the browser keeps the vertical pan available even if a descendant later
+       opts back in. The timer below must never change that. */
+    <div className="pointer-events-none relative h-full w-full touch-pan-y overflow-hidden bg-[#0F172A]">
       {/* Body. A real campaign replaces this block with the creative; the frame,
           label and timer around it are what the feed layout depends on, so they
           do not move. */}

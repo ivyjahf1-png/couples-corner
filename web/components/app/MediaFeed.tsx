@@ -1132,7 +1132,24 @@ export function MediaFeed({
                   aria-roledescription="sponsored moment"
                   aria-label={`Sponsored moment, ${i + 1} of ${total}`}
                 >
-                  {sponsoredSlot}
+                  {/* `z-20` IS LOAD-BEARING HERE TOO - see the note on the
+                      moment card below.
+
+                      THE FEED FREEZE THIS FIXES: the cinema-view tap target is an
+                      `absolute inset-0 z-10` <button> painted BEFORE the scroller.
+                      On a moment card the media stack is lifted to `z-20`, so it
+                      sits above that button and every touch-drag lands on the
+                      scroller - which is what makes the swipe gesture work. The
+                      sponsored article had NO such lift, so the z-10 button
+                      covered the whole card. Dragging anywhere on the ad therefore
+                      fed the gesture to a <button> instead of the snap scroller:
+                      the viewport locked solid and would not scroll up or down
+                      until the member tapped elsewhere. Wrapping the slot in the
+                      same z-20 layer the moments get restores the scroller as the
+                      hit target for the ad card as well. */}
+                  <div className="relative z-20 h-full w-full">
+                    {sponsoredSlot}
+                  </div>
                 </article>
               );
             }
