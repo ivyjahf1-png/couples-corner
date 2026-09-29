@@ -1,16 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { clearVideoCache } from "@/lib/hooks/useVideoPrefetch";
 
 /**
  * Clear Cache — wipes local app caches (localStorage/sessionStorage/
  * caches API) for this device. Safe: no auth/session cookies touched.
+ *
+ * The video cache needs care here. The offline-video worker keeps its LRU
+ * metadata in IndexedDB as well as its bytes in Cache Storage, and the generic
+ * `caches.keys()` loop below deletes the bytes but NOT the metadata. Left
+ * that way, the worker's next eviction pass counts bytes for entries that no
+ * longer exist, concludes the cache is permanently over budget, and stops
+ * caching anything for the rest of the device's life.
+ *
+ * So the worker is told to clear itself FIRST — it deletes both stores in one
+ * transaction — and only then does the generic sweep run for anything else
+ * (a future Workbox cache, say). Order matters: the generic sweep runs second so
+ * that if the worker is mid-write, its own delete is the one that lands.
  */
 export function ClearCacheButton() {
   const [done, setDone] = useState(false);
 
   async function clear() {
     try {
+      await clearVideoCache();
       window.localStorage.clear();
       window.sessionStorage.clear();
       if (typeof caches !== "undefined") {

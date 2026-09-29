@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { FeedActiveProvider } from "@/components/app/FeedActiveContext";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { usePresence } from "@/lib/hooks/usePresence";
+import { PREFETCH_AHEAD, useReconnectPrefetch, useVideoPrefetch } from "@/lib/hooks/useVideoPrefetch";
 import { setFollowAction } from "@/lib/actions/follow";
 import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
@@ -317,6 +318,45 @@ export function MediaFeed({
   // suppresses them for free, without a branch at each of the ~20
   // `current.` dereferences below.
   const current = activeCard?.kind === "moment" ? activeCard.moment : null;
+
+  /* ------------------------------------------------------------ offline video
+     Pre-cache the next few clips so the feed keeps playing on a dead connection.
+
+     THE QUEUE IS DERIVED FROM `cards`, NOT `feed`. `cards` is the scroller's real
+     index space — the sponsored card is spliced into it — so slicing it keeps the
+     prefetcher in lockstep with what the scroll listener will actually snap to
+     next. Slicing `feed` instead would drift by one the moment a sponsored card
+     is present, and would cache the wrong video.
+
+     THREE FILTERS, each for a different reason:
+       1. `kind === "moment"`  — a sponsored card has no moment and no media.
+       2. `mediaType === "video"` — IMAGES ARE DELIBERATELY NOT CACHED. A phone
+          photo is already on the device or arrives as a few hundred KB; spending
+          a scarce video budget on it would evict an actual video. A "link" card
+          is a third-party embed (YouTube/TikTok) — caching another origin's
+          player is neither possible nor appropriate.
+
+     The worker re-checks the extension on the path, so a video URL that is
+     missing an extension is silently skipped rather than cached as junk.
+
+     The slice EXCLUDES the active card (`safeIndex + 1`). Caching the video
+     already playing is pure waste: it is mid-download, and the worker's fetch
+     handler deliberately does not store on sight, so a duplicate would still be
+     fetched in full. */
+  const prefetchUrls = useMemo(
+    () =>
+      cards
+        .slice(safeIndex + 1, safeIndex + 1 + PREFETCH_AHEAD)
+        .filter(
+          (card): card is Extract<FeedCard, { kind: "moment" }> =>
+            card.kind === "moment" && card.moment.mediaType === "video" && Boolean(card.moment.mediaUrl)
+        )
+        .map((card) => card.moment.mediaUrl),
+    [cards, safeIndex]
+  );
+
+  useVideoPrefetch(prefetchUrls);
+  useReconnectPrefetch();
 
   // Effective engagement for the visible card: local override if present,
   // otherwise the server-rendered values.
