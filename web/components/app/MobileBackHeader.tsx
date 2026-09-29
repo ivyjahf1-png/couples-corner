@@ -61,8 +61,14 @@ export function MobileBackHeader() {
           <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>
         </nav>
       </header>
-      {/* Spacer reserving the fixed header's flow space (mobile only). */}
-      <div aria-hidden className="h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />
+      {/* Spacer reserving the fixed header's flow space (mobile only).
+
+          `app-shell-header-spacer` is a hook, not decoration: the landscape
+          block in globals.css hides the header above AND this spacer together.
+          They are a matched pair — the spacer exists only to make room for that
+          header, so hiding one without the other would either leave 4rem of dead
+          space or collapse the page by 4rem. Do not unhook one alone. */}
+      <div aria-hidden className="app-shell-header-spacer h-[calc(4rem+env(safe-area-inset-top))] shrink-0 md:hidden" />
     </>
   );
 }

@@ -48,8 +48,9 @@ import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
  *
  * INTERACTION:
  *   - Paging is the browser's: touch flick, trackpad and the CSS snap points.
- *     Arrow keys and the on-screen pager call `goTo`, which only nudges
- *     scrollTop to the next card boundary.
+ *     Arrow keys call `goTo`, which only nudges scrollTop to the next card
+ *     boundary. (There is no on-screen pager — the vertical ^/v control was
+ *     removed as a redundant pointer affordance; see the note in the JSX.)
  *   - Videos play only while their card is the snapped-to one.
  *   - The heart and comment sheet are wired to real Server Actions backed by
  *     `moment_reactions` / `moment_comments` (migration 036). Reactions apply
@@ -218,7 +219,7 @@ export function MediaFeed({
    * disagree with what is on screen.
    *
    * A discriminated union, not a parallel array, so `total`, the index the
-   * scroll listener derives, the progress bars and the pager all count the same
+   * scroll listener derives, the progress bars and the card index all count the same
    * number of cards. Keeping the sponsored card in a separate index space was
    * the obvious alternative and is wrong: two index spaces would silently
    * desync the overlays from the visible card.
@@ -286,7 +287,7 @@ export function MediaFeed({
   // `total` counts SPONSORED CARDS AS WELL AS MOMENTS, because `index` is derived
   // from `scrollTop / clientHeight` and that counts every snapped child in the
   // scroller. Counting only moments here would make `safeIndex` cap below the
-  // real card count, so the last moment would be unreachable and the pager
+  // real card count, so the last moment would be unreachable and paging
   // would stop early.
   const total = cards.length;
   const safeIndex = total > 0 ? Math.min(Math.max(index, 0), total - 1) : 0;
@@ -402,7 +403,7 @@ export function MediaFeed({
    *
    * The target is a transparent full-surface button rather than an onClick on
    * the <article>, because a click handler on an ancestor would ALSO fire when
-   * the member taps a real control inside it (like, comment, the pager) — the
+   * the member taps a real control inside it (like, comment) — the
    * event bubbles up. React's synthetic events make this easy to get wrong:
    * the like button would register, and the chrome would then hide out from
    * under the reaction the member just made. A dedicated button that the
@@ -800,7 +801,11 @@ export function MediaFeed({
       // `overscroll-contain` on the inner scroller stops a flick at the first or
       // last card from chaining to the page behind the app shell.
       className={[
-        "relative flex w-full select-none flex-col overflow-hidden bg-slate-950",
+        // `landscape-bleed` is the hook the landscape block in globals.css
+        // targets to take the feed to the full viewport on a rotated phone —
+        // no side columns, no card border, no shell gutters. See globals.css
+        // LANDSCAPE.
+        "landscape-bleed relative flex w-full select-none flex-col overflow-hidden bg-slate-950",
         fill ? "h-full min-h-0" : "h-dvh",
       ].join(" ")}
     >
@@ -826,7 +831,7 @@ export function MediaFeed({
           <div
             aria-hidden
             className={[
-              "pointer-events-none absolute inset-x-0 top-0 z-20 h-40",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-20 h-40",
               "bg-gradient-to-b from-slate-950/85 via-slate-950/45 to-transparent",
               "sm:h-48",
               chromeClass,
@@ -835,7 +840,7 @@ export function MediaFeed({
           <div
             aria-hidden
             className={[
-              "pointer-events-none absolute inset-x-0 bottom-0 z-20 h-64",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-0 z-20 h-64",
               "bg-gradient-to-t from-slate-950/90 via-slate-950/55 to-transparent",
               "sm:h-72",
               chromeClass,
@@ -858,7 +863,12 @@ export function MediaFeed({
       {/* ---------------------------------------------------- top overlay */}
       <header
         className={[
-          "pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0",
+          /* `landscape-hide-chrome` drops the top overlay (search, creator
+             identity, options menu) on a rotated phone — see globals.css
+             LANDSCAPE. In a ~360px-tall landscape viewport this stack of
+             absolutely-positioned chrome sits directly on top of the video the
+             member rotated specifically to watch. */
+          "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0",
           chromeClass,
         ].join(" ")}
       >
@@ -1220,7 +1230,7 @@ export function MediaFeed({
               repeating it here would print the same name twice on one card. */}
           <div
             className={[
-              "pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1277,11 +1287,14 @@ export function MediaFeed({
               160px and the two overlapped by 8px on sm+. The rail now clears it
               by 24px on phones and 40px on larger screens.
 
-              `right-3 sm:right-4` keeps the rail in the outermost column, which
-              the pager (right-20 / sm:right-28) is offset clear of. */}
+              `right-3 sm:right-4` keeps the rail in the outermost column, clear
+              of the caption block's `pr-24` reservation. */}
           <div
             className={[
-              "absolute bottom-44 right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-52 sm:right-4",
+              /* `landscape-hide-chrome` — the rail is a column of `bottom-44`
+                 offsets that has no room to exist in a short landscape
+                 viewport, and it would sit over the video. */
+              "landscape-hide-chrome absolute bottom-44 right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-52 sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1375,7 +1388,7 @@ export function MediaFeed({
           // highlight now read as one colour system. The gradient's second stop
           // is a different, redder orange, which made the FAB look like it
           // belonged to a different theme than the nav beneath it.
-          className="absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
+          className="landscape-hide-chrome absolute bottom-24 right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-28 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1385,7 +1398,10 @@ export function MediaFeed({
       {current ? (
         <div
           className={[
-            "pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0",
+            /* `landscape-hide-chrome` — the reaction + messaging bar is a third
+               full-width row over the video; in landscape there is no room for
+               it and the video is the point. */
+            "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-0 z-30 shrink-0",
             "px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-5",
             chromeClass,
           ].join(" ")}
@@ -2005,7 +2021,11 @@ function MediaSurface({
    * this class is moot — the two mechanisms are complementary, not competing.
    */
   const surfaceClass = [
-    "h-full w-full object-cover transition-opacity duration-300",
+    // `landscape-bleed` lets the landscape block force this element to the full
+    // viewport. Combined with the `object-contain` below, the VIDEO fills the
+    // rotated screen and is letterboxed inside it rather than cropped — which
+    // is the whole point of rotating a video.
+    "landscape-bleed h-full w-full object-cover transition-opacity duration-300",
     "[@media(orientation:landscape)]:object-contain",
     ready ? "opacity-100" : "opacity-0",
   ].join(" ");

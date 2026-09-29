@@ -71,7 +71,7 @@ export function MessageComposer({ conversationId }: MessageComposerProps) {
     // The control row never wraps: every button is `shrink-0` and sized down
     // (not hidden) at the smallest breakpoint, so +, camera, input, emoji and
     // mic all fit side by side on a 320px-wide phone.
-    <div className="relative w-full shrink-0 border-t border-white/10 bg-slate-950/90 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3">
+    <div className="landscape-hide-chrome relative w-full shrink-0 border-t border-white/10 bg-slate-950/90 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3">
       <form
         onSubmit={handleSubmit}
         className="mx-auto flex w-full max-w-2xl items-center gap-1 sm:gap-1.5 lg:gap-2"

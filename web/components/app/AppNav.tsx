@@ -241,8 +241,12 @@ export function AppMain({ children }: { children: React.ReactNode }) {
 
   return (
     <main
+      /* `app-main` is the hook the landscape block in globals.css targets to
+         drop the gutters and the `pb-20` that compensated for the bottom
+         capsule. In a short landscape viewport that padding is what was pushing
+         the bottom fifth of the feed off-screen. See globals.css LANDSCAPE. */
       className={[
-        "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
         inActiveConversation
           ? "p-0"
           : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.

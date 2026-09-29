@@ -1978,3 +1978,94 @@ button,
   height: 0;
   display: none;
 }
+
+/* ============================================================================
+   LANDSCAPE / ROTATION — reclaim the whole viewport for the media feed.
+   ============================================================================
+
+   THE PROBLEM. On a phone held sideways the viewport is wide and very short
+   (~360px tall on a modern handset). The shell spends that height on chrome
+   BEFORE any video is drawn: a 4rem top bar, a 4rem spacer, a 5rem bottom
+   capsule and its compensating padding. What is left is a letterboxed strip of
+   video with dead side columns, which is the opposite of what rotating a video
+   is for.
+
+   WHY CSS, NOT A matchMedia HOOK. Rotation has to be correct on the SAME frame
+   as the viewport resize. A matchMedia listener can only run after React
+   re-renders with new state, so on a slow device the member sees one wrong
+   layout first, then the correct one. The engine applies these rules with the
+   resize, with no JS in the path. This is the same reasoning already used for
+   `[@media(orientation:landscape)]:object-contain` on the media surface.
+
+   THE HEIGHT GATE IS LOAD-BEARING. This is NOT bare `(orientation: landscape)`:
+   a landscape TABLET and any landscape desktop window are wide AND tall, and
+   stripping the sidebar and nav from those would be a regression. The query also
+   requires a SHORT viewport, so it only fires for the rotated-phone case this
+   is actually about.
+
+     max-width: 1024px  — a rotated phone, never a desktop window
+     max-height: 560px  — and genuinely short, so short-AND-wide is required
+
+   Everything below is scoped to those phones. Desktop and tablet are untouched.
+   --------------------------------------------------------------------------- */
+@media (orientation: landscape) and (max-width: 1024px) and (max-height: 560px) {
+  /* App shell chrome. `display:none` rather than `visibility:hidden` because a
+     hidden-but-laid-out element still consumes flex space, which is the thing
+     being reclaimed. The sidebar is `md:flex`; below md it is already gone, so
+     this only bites on a tablet-sized device rotated to a short viewport. */
+  .app-sidebar,
+  .app-top-bar,
+  .app-bottom-nav,
+  .mobile-feature-header {
+    display: none !important;
+  }
+
+  /* The spacer exists ONLY to reserve flow space for the fixed header above.
+     With that header hidden, the spacer is 4rem of dead space in a 360px-tall
+     viewport — so it is removed with it. This pairing must stay in sync: hiding
+     the header without the spacer would collapse the layout, which is the bug
+     this block exists to fix. */
+  .app-shell-header-spacer {
+    display: none !important;
+  }
+
+  /* AppMain's `pb-20` compensated for the now-hidden bottom capsule. Keeping it
+     in landscape would push the feed's last ~20% of height off-screen, which is
+     precisely the "video does not fill the screen" symptom. */
+  .app-main {
+    padding: 0 !important;
+  }
+
+  /* The width cap (`max-w-[88rem]`) and horizontal gutters are a desktop
+     reading-width constraint. On a short landscape phone they only create the
+     blank side columns around the video. */
+  .app-main > div {
+    max-width: none !important;
+  }
+
+  /* Full-bleed media stage. */
+  .landscape-bleed {
+    height: 100dvh !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    /* The only way to make the VIDEO fill, rather than sit letterboxed inside
+       a portrait-shaped box. `object-cover` in landscape crops a portrait
+       video's top and bottom, which is why the media surface already forces
+       `object-contain`; this fills the VIEWPORT and lets contain letterbox the
+       video inside it, which is the correct professional result: no dead side
+       columns, and no content cropped away. */
+    object-fit: contain;
+  }
+
+  /* Chrome overlays drawn on top of the video (caption block, action rail,
+     upload FAB, top bar, bottom composer). In a 360px-tall landscape viewport
+     these stacks of `bottom-*` offsets collide with the video and each other;
+     the controls are also reachable by tapping the frame, so hiding them is a
+     net gain rather than a loss of function. */
+  .landscape-hide-chrome {
+    display: none !important;
+  }
+}
