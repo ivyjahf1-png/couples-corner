@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { MomentFeed } from "@/components/app/MomentFeed";
+import { MomentFeed, type MomentViewTab } from "@/components/app/MomentFeed";
 import { CommunityFeedView } from "@/components/app/CommunityFeedView";
 import { ImmersiveFeed } from "@/components/app/ImmersiveFeed";
 import { requireUser } from "@/lib/auth/authorization";
@@ -83,10 +83,10 @@ function mapFeedPosts(
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams: Promise<{ moment?: string }>;
+  searchParams: Promise<{ moment?: string; view?: string }>;
 }) {
   const user = await requireUser();
-  const { moment } = await searchParams;
+  const { moment, view } = await searchParams;
 
   // Defence in depth. `requireUser()` already guarantees a session, so this is
   // unreachable in practice — but if the guard is ever dropped, this route must
@@ -108,8 +108,18 @@ export default async function FeedPage({
   // trimmed and length-capped before it crosses the boundary.
   const deepLink = moment?.trim().slice(0, 64) || null;
 
+  /* Which panel opens first. `?view=community` is what the header's "Feed-view"
+     toggle links to, and what makes a shared link land on the timeline rather
+     than the player.
+
+     Validated against the two real tab ids instead of being cast: an
+     unrecognised value must fall back to the default, not smuggle an arbitrary
+     string into client state. */
+  const initialTab: MomentViewTab = view === "community" ? "community" : "videos";
+
   return (
     <MomentFeed
+      defaultTab={initialTab}
       videos={<ImmersiveFeed viewerId={user.uid} deepLinkMomentId={deepLink} />}
       community={
         <CommunityFeedView posts={posts} canPost={Boolean(user)} userId={user.uid} />

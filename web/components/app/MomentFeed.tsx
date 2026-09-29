@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 /**
  * The Moment section's dual-view shell.
@@ -46,6 +46,33 @@ export interface MomentFeedProps {
   defaultTab?: MomentViewTab;
 }
 
+/**
+ * Mirrors a tab back into the URL as `?view=`, so the shared mobile header can
+ * offer a "Feed-view" shortcut to the timeline without owning any state.
+ *
+ * Why the URL and not a callback: `MobileBackHeader` is rendered by `AppShell`,
+ * which sits ABOVE the page in the tree, and the tab lives inside this
+ * component. There is no path from the header down to here except a URL or a
+ * lifted context. The URL was chosen because it is also correct on arrival —
+ * a shared `/feed?view=community` link opens the timeline directly, which a
+ * context-only approach could not do without a second deep-link mechanism.
+ *
+ * `replaceState` is used instead of `router.replace` on purpose: routing would
+ * re-render the server component and remount this subtree, discarding both
+ * panels' scroll positions — the exact thing mounting both panels exists to
+ * prevent. Writing the query directly keeps the address bar honest (the toggle
+ * is linkable and survives a refresh) while changing nothing about the DOM.
+ *
+ * Called from an effect only, so it never runs during render.
+ */
+function syncViewToUrl(view: MomentViewTab) {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (view === "community") url.searchParams.set("view", "community");
+  else url.searchParams.delete("view");
+  window.history.replaceState(window.history.state, "", url);
+}
+
 const TABS: { id: MomentViewTab; label: string; hint: string }[] = [
   { id: "videos", label: "Videos", hint: "Full-screen player" },
   { id: "community", label: "Community Feed", hint: "Posts and photos" },
@@ -57,6 +84,18 @@ export function MomentFeed({
   defaultTab = "videos",
 }: MomentFeedProps) {
   const [tab, setTab] = useState<MomentViewTab>(defaultTab);
+
+  /* Keep the address bar in step with the active panel, and read an incoming
+     `?view=community` so the header's "Feed-view" link and any shared link land
+     on the right panel.
+
+     The read runs on mount only, via `defaultTab` (which the page derives from
+     searchParams). Later URL changes are deliberately NOT tracked: this
+     component writes `?view=` itself, so a `useSearchParams` dependency would
+     re-run this effect on its own writes and could fight the tab switch. */
+  useEffect(() => {
+    syncViewToUrl(tab);
+  }, [tab]);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
