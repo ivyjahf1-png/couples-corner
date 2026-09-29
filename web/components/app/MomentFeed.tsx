@@ -1,6 +1,20 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import {
+  MOMENT_VIEW_COMMUNITY,
+  MOMENT_VIEW_EVENT,
+  MOMENT_VIEW_PARAM,
+  type MomentViewTab,
+} from "@/lib/momentView";
+
+/**
+ * Re-exported so `app/(app)/feed/page.tsx` can keep importing the tab type from
+ * here alongside the component. The type now lives in `@/lib/momentView` so the
+ * header can share it without importing this file, and this re-export is the
+ * bridge that stops that move from churning the page's import.
+ */
+export type { MomentViewTab };
 
 /**
  * The Moment section's dual-view shell.
@@ -32,14 +46,17 @@ import { useEffect, useState, type ReactNode } from "react";
  * element is still focusable and still receives scroll.
  *
  * The CONTROL that toggles them is the screen header's "feed-view" button, not
- * a panel in here. See the note at the switcher's old position.
+ * a panel in here. See the note at the switcher's old position, and note that
+ * with the switcher gone this component no longer holds a `tab` state at all —
+ * the active panel is derived from `defaultTab`, which the page derives from
+ * `?view=`. That is what lets the header's link actually reach this screen's
+ * other panel.
  *
  * ── WHY DEFAULT IS VIDEOS ─────────────────────────────────────────────────
  * The tab is called "Moment" and the player is the immersive, media-first
  * experience, so it is what the tab means. A member who wants the timeline is
  * one tap away; the reverse would silently change what the primary tab does.
  */
-export type MomentViewTab = "videos" | "community";
 
 export interface MomentFeedProps {
   /** The immersive player. Server-rendered by the page. */
@@ -71,9 +88,20 @@ export interface MomentFeedProps {
 function syncViewToUrl(view: MomentViewTab) {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (view === "community") url.searchParams.set("view", "community");
-  else url.searchParams.delete("view");
+  if (view === "community") url.searchParams.set(MOMENT_VIEW_PARAM, MOMENT_VIEW_COMMUNITY);
+  else url.searchParams.delete(MOMENT_VIEW_PARAM);
   window.history.replaceState(window.history.state, "", url);
+
+  /* Announce the change. `replaceState` re-renders nothing, so this is the only
+     signal the header gets that the view moved — without it the top-right
+     toggle keeps its old label and, worse, keeps its old href, so tapping it
+     twice navigates to the same place and appears to do nothing.
+
+     Dispatched after the write so a handler that reads `window.location` sees
+     the new URL. */
+  window.dispatchEvent(
+    new CustomEvent<MomentViewTab>(MOMENT_VIEW_EVENT, { detail: view }),
+  );
 }
 
 export function MomentFeed({
@@ -81,16 +109,40 @@ export function MomentFeed({
   community,
   defaultTab = "videos",
 }: MomentFeedProps) {
-  const [tab, setTab] = useState<MomentViewTab>(defaultTab);
+  /* ── WHY `tab` IS NOT STATE ───────────────────────────────────────────────
+     This is the bug the header's "feed-view" link was hitting: `tab` used to be
+     `useState(defaultTab)`, written by the in-page pill switcher. That switcher
+     was removed (the header took over the choice, freeing vertical space on the
+     full-bleed player), which left `setTab` with no remaining caller. The state
+     was therefore frozen at whatever `defaultTab` was on MOUNT and could never
+     change again.
 
-  /* Keep the address bar in step with the active panel, and read an incoming
-     `?view=community` so the header's "Feed-view" link and any shared link land
-     on the right panel.
+     `defaultTab` comes from the page, which derives it from `?view=`. Tapping
+     "feed-view" navigates to `/feed?view=community`; the server re-renders and
+     passes `defaultTab="community"`. But `useState` ignores its initial argument
+     after the first render, and Next.js reconciles this as the same component in
+     the same position rather than remounting it — so the new prop arrived and
+     was discarded. The button navigated, the address bar changed, and the video
+     player stayed on screen. The community view was unreachable.
 
-     The read runs on mount only, via `defaultTab` (which the page derives from
-     searchParams). Later URL changes are deliberately NOT tracked: this
-     component writes `?view=` itself, so a `useSearchParams` dependency would
-     re-run this effect on its own writes and could fight the tab switch. */
+     Deriving the panel from the prop instead of storing it is the fix, and it is
+     also the design the rest of this file already describes: the URL is the
+     single source of truth. Storing it in state introduced a second copy that
+     could silently disagree with the URL, and the header — which reads the URL —
+     is exactly the consumer that got the wrong answer.
+
+     Scroll positions are unaffected. Both panels stay mounted and the inactive
+     one is `hidden` rather than unmounted, so each keeps its own `scrollTop`
+     across a toggle. Only a real remount would lose them, and none happens. */
+  const tab = defaultTab;
+
+  /* Keep the address bar in step with the rendered panel, and tell the header
+     which view is showing.
+
+     The event is dispatched AFTER the `replaceState` so a subscriber reading
+     `window.location` in its handler sees the new URL. It is a no-op on the
+     server and safe to fire when the URL already matches — the handler re-reads
+     and writes the same value. */
   useEffect(() => {
     syncViewToUrl(tab);
   }, [tab]);

@@ -108,13 +108,23 @@ export default async function FeedPage({
   // trimmed and length-capped before it crosses the boundary.
   const deepLink = moment?.trim().slice(0, 64) || null;
 
-  /* Which panel opens first. `?view=community` is what the header's "Feed-view"
-     toggle links to, and what makes a shared link land on the timeline rather
-     than the player.
+  /* Which panel opens first, and it is re-read on EVERY render of this route —
+     not just on first mount.
 
-     Validated against the two real tab ids instead of being cast: an
-     unrecognised value must fall back to the default, not smuggle an arbitrary
-     string into client state. */
+     `?view=community` is what the header's "feed-view" toggle links to, and it
+     is the only way to reach the timeline now that the in-page pill switcher
+     has been removed.
+
+     Navigating /feed -> /feed?view=community changes the search params but NOT
+     the pathname, so this server component re-renders and passes a new
+     `defaultTab` to an ALREADY-MOUNTED `MomentFeed`. That only has an effect
+     because `MomentFeed` derives its panel from this prop instead of copying it
+     into `useState` — `useState` would discard the change, which is precisely
+     why the toggle used to navigate without ever changing what was on screen.
+
+     Validated against the real tab id rather than cast: an unrecognised value
+     must fall back to the default, not smuggle an arbitrary string into client
+     state. */
   const initialTab: MomentViewTab = view === "community" ? "community" : "videos";
 
   return (

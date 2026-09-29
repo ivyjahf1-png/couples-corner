@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { isActiveConversationPath } from "@/components/app/AppNav";
+import {
+  getMomentViewServerSnapshot,
+  getMomentViewSnapshot,
+  momentViewFromSearch,
+  momentViewToggleHref,
+  subscribeToMomentView,
+} from "@/lib/momentView";
 
 const titles: Record<string, string> = {
   discover: "Discover", explore: "Explore", matches: "Matches", messages: "Messages",
@@ -27,6 +34,47 @@ export function MobileBackHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const segment = pathname?.split("/").filter(Boolean)[0] ?? "";
+
+  /* Which view of the Moment screen is showing, read from the URL.
+
+     ── WHY `useSyncExternalStore` ────────────────────────────────────────────
+     `MomentFeed` — a CHILD of this header — is what renders the panels, and it
+     writes the active view into the address bar with `history.replaceState`.
+     That call re-renders nothing by design, because routing instead would
+     remount both panels and discard the scroll positions that keeping them
+     mounted exists to preserve. So this header has no render of its own to hang
+     a label update on, and it reads the same external truth the panels do: the
+     URL.
+
+     A `useState` + `useEffect` pair is wrong here twice over. Seeding state in
+     an effect is a cascading render React warns against, and — decisively —
+     child effects run BEFORE parent effects, so the child's very first
+     announcement lands before this listener could possibly be attached. The
+     label would be wrong on arrival and stay wrong until the member navigated
+     twice. `useSyncExternalStore` reads its snapshot DURING render, so it is
+     right on the first paint no matter the effect ordering, and re-renders only
+     when the query genuinely changes.
+
+     Before this, the label was frozen for the whole session: the old effect ran
+     on mount and on pathname changes, and a `?view=` change alters neither. The
+     toggle kept saying "feed-view" and kept pointing at the community view even
+     once the member was already there, so the second tap navigated to the
+     place they were standing.
+
+     `useSearchParams` is deliberately NOT used: this component is mounted on
+     essentially every route via `AppShell`, so opting into it would force a
+     Suspense boundary app-wide purely to relabel one button.
+
+     Placed ABOVE the early returns below, because a hook must run on every
+     render of the component, and those returns would otherwise skip it. */
+  const viewSearch = useSyncExternalStore(
+    subscribeToMomentView,
+    getMomentViewSnapshot,
+    getMomentViewServerSnapshot,
+  );
+  const communityActive =
+    segment === "feed" && momentViewFromSearch(viewSearch) === "community";
+
   if (!segment || pathname === "/dashboard") return null;
 
   // Inside an ACTIVE conversation the chat's own ChatHeader is the visible
@@ -38,30 +86,6 @@ export function MobileBackHeader() {
 
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
-
-  /* Whether the Moment screen is currently showing the community timeline.
-     Read from the URL rather than from `MomentFeed`, which owns that state and
-     lives below this component in the tree.
-
-     `MomentFeed` mirrors its active view into `?view=` with `history.replaceState`,
-     which does NOT re-render anything — so this value is correct on arrival and
-     after a real navigation, and is re-read whenever the pathname changes. It
-     can therefore be momentarily stale in the one case where a member navigates
-     between views and then immediately reads the header label. That is a label,
-     not a control's destination: clicking it still navigates, and the navigation
-     re-renders both this header and the page, which re-derives the view from the
-     URL. The alternative — lifting the state up here — would mean the header and
-     the page each owned a copy, free to disagree.
-
-     `useSearchParams` is deliberately avoided: this component is rendered from
-     `AppShell`, which is on nearly every route, and it would force a Suspense
-     boundary app-wide for one label. */
-  const [communityActive, setCommunityActive] = useState(false);
-  useEffect(() => {
-    setCommunityActive(
-      segment === "feed" && new URLSearchParams(window.location.search).get("view") === "community"
-    );
-  }, [pathname, segment]);
 
   function goBack() {
     if (window.history.length > 1) router.back();
@@ -137,29 +161,41 @@ export function MobileBackHeader() {
           >
             {titles[segment] ?? "Couple’s Corner"}
           </p>
-          {/* The top-right action is route-specific. Every other screen keeps
-              "Home" — a recovery link out of a deep page. The Moment screen has
-              no such need, because the bottom nav's own Moment tab is the way
-              back to it, so that slot is better spent on the switch to the other
-              view of the same screen.
+          {/* ── THE "feed-view" TOGGLE ───────────────────────────────────────────
+              Navigates to the community timeline by CHANGING THE URL to
+              `/feed?view=community`, which the feed page reads into
+              `defaultTab` and `MomentFeed` renders.
 
-              `?view=community` is read by the feed page and opens the timeline
-              directly. On the community view the link flips back to the player
-              by dropping the parameter, so it reads as a toggle rather than a
-              one-way door. A plain <Link> is used instead of router.push: the
-              panels are both mounted, and a full navigation would discard the
-              scroll position of the view being left. */}
-          {/* This stays a TOGGLE, not a one-way link.
+              THE DESTINATION: `/feed?view=community`, NOT `/community`. Both
+              exist and they are different products. `/community` is a
+              separate, mostly static Q&A forum page with its own desktop-width
+              layout and three hard-coded questions — it is not this timeline
+              and it sits outside the mobile app shell. The community FEED that
+              this control means is the chronological post timeline, which is a
+              PANEL of the Moment screen, so it is reached by switching this
+              screen's view rather than by leaving the screen.
 
-              Removing the in-page pill switcher left this as the ONLY control
-              that moves between the two views, so a one-directional link to the
-              community feed would have been a dead end: arrive at the timeline and
-              there is no way back to the player except the browser back button,
-              which also discards the player's scroll position. The label flips to
-              say what tapping it will DO, so the round trip is discoverable. */}
+              A plain <Link> is used instead of router.push: both panels stay
+              mounted, and a full navigation would discard the scroll position
+              of the view being left.
+
+              The href and label are both derived from `communityActive`, so they
+              can never disagree — and the label says what tapping will DO, which
+              is what makes the round trip discoverable now that the in-page pill
+              switcher has been removed and this is the only control between the
+              two views.
+
+              Typography is unchanged: `text-[13px] font-normal text-slate-300` —
+              quiet, unbolded and compact, so it reads as a control rather than
+              competing with the title. */}
           {segment === "feed" ? (
             <Link
-              href={communityActive ? "/feed" : "/feed?view=community"}
+              href={momentViewToggleHref(communityActive ? "community" : "videos")}
+              aria-label={
+                communityActive
+                  ? "Switch to the video player view"
+                  : "Switch to the community feed view"
+              }
               className="flex min-h-9 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
             >
               {communityActive ? "player-view" : "feed-view"}
