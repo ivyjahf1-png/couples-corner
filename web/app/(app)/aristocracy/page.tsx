@@ -1,11 +1,11 @@
-import { VipClubCenter } from "@/components/vip/VipClubCenter";
+import { AristocracyCenter } from "@/components/aristocracy/AristocracyCenter";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getUserInventory } from "@/lib/server/commerce";
 
 export const dynamic = "force-dynamic";
 
-/** The VIP Club — the coin-funded membership tier progression. */
-export default async function VipClubPage() {
+/** The Aristocracy — the token-funded six-rank membership ladder. */
+export default async function AristocracyPage() {
   const user = await getSessionUser();
   const snapshot = user
     ? await getUserInventory(user.uid).catch(() => ({
@@ -17,10 +17,11 @@ export default async function VipClubPage() {
     : { items: [], activeTier: null, activeTierExpiresAt: null, coinBalance: 0 };
 
   return (
-    <VipClubCenter
+    <AristocracyCenter
       initialCoins={snapshot.coinBalance}
       activeTier={snapshot.activeTier}
       activeTierExpiresAt={snapshot.activeTierExpiresAt}
+      signedIn={Boolean(user)}
     />
   );
 }

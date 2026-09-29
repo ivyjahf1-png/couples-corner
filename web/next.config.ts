@@ -14,11 +14,12 @@ const nextConfig: NextConfig = {
     return [
       { source: "/home", destination: "/dashboard", permanent: false },
       { source: "/main", destination: "/dashboard", permanent: false },
-      // The membership surface was renamed "Aristocracy" -> "VIP Club". Old
-      // bookmarks, shared links and any still-cached bundle pointed at
-      // /aristocracy, so the route is redirected rather than 404'd. `permanent:
-      // false` keeps it re-evaluated, matching the other legacy aliases above.
-      { source: "/aristocracy", destination: "/vip-club", permanent: false },
+      // The membership surface was briefly renamed "VIP Club" at /vip-club and
+      // has been reverted to "Aristocracy". The old /vip-club links are kept as
+      // a redirect rather than 404'd, so a bookmark, a shared link or a still-
+      // cached bundle from the short-lived alias still lands on a real page.
+      // `permanent: false` keeps it re-evaluated, matching the aliases above.
+      { source: "/vip-club", destination: "/aristocracy", permanent: false },
     ];
   },
   // Server Action request body limit.

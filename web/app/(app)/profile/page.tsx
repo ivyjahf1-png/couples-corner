@@ -34,7 +34,7 @@ const QUICK_ACTIONS: {
 }[] = [
   { label: "Rewards", href: "/task", icon: "gift", primary: true },
   { label: "Store", href: "/store", icon: "shopping-bag" },
-  { label: "VIP Club", href: "/vip-club", icon: "crown" },
+  { label: "Aristocracy", href: "/aristocracy", icon: "crown" },
 ];
 
 /**
@@ -67,7 +67,7 @@ const EARN_LINKS: {
 }[] = [
   { label: "Daily check-in", hint: "Claim your daily token drop", href: "/task", icon: "gift" },
   { label: "Tasks & achievements", hint: "Complete actions for bonus tokens", href: "/task", icon: "trending-up" },
-  { label: "Upgrade membership", hint: "Unlock the VIP Club tier progression", href: "/vip-club", icon: "crown" },
+  { label: "Upgrade membership", hint: "Unlock the Aristocracy rank progression", href: "/aristocracy", icon: "crown" },
 ];
 
 /** The boutique catalogue — cosmetics and gifts, explicitly the SPEND side. */
@@ -339,7 +339,7 @@ const recommendedGames = [
                 names the same quantity twice — now just "Token balance". A bare
                 "SVIP" code is paired with "VIP status", so a member who is not
                 yet a member sees what they are working toward rather than an
-                unexplained string. The membership tile points at /vip-club,
+                unexplained string. The membership tile points at /aristocracy,
                 which is where membership actually lives.
 
                 The two tiles drop their multi-colour gradient emoji chips for a
@@ -376,7 +376,7 @@ const recommendedGames = [
           </span>
         </Link>
         <Link
-          href="/vip-club"
+          href="/aristocracy"
           className="glam-tile glam-tile--violet flex items-center gap-3 rounded-2xl p-4"
         >
           <span
@@ -511,12 +511,11 @@ const recommendedGames = [
               <div className="flex flex-col gap-5 pb-10">
                 {/* --------------------------------- 4. Quick actions (see below) */}
       {/* ---------------------------- 5. Quick actions (coloured glass tiles)
-          LABELS: "Tasks" -> "Rewards" and "Aristocracy" -> "VIP Club".
-          "Tasks" is a build-work word; members recognise a list of things that
-          pay out as rewards. "Aristocracy" read as a game-faction rank and is
-          replaced by "VIP Club", the tier language the rest of the product uses.
-          The route moved to /vip-club to match, with /aristocracy kept as a
-          redirect in next.config so old links still land somewhere real.
+          LABELS: "Tasks" -> "Rewards". "Tasks" is a build-work word; members
+          recognise a list of things that pay out as rewards.
+          The membership surface is back to its original name, "Aristocracy",
+          at /aristocracy, so the /vip-club alias in next.config redirects here
+          for anyone still holding the old link.
 
           "Income" is gone from this row on purpose: it pointed at the same
           /subscription surface as the wallet tab, so the page showed two

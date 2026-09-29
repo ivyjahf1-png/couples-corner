@@ -1,7 +1,7 @@
 import "server-only";
 
 /**
- * Store + VIP Club commerce (SERVER ONLY).
+ * Store + Aristocracy commerce (SERVER ONLY).
  *
  * Security model
  * --------------
@@ -14,21 +14,21 @@ import "server-only";
  * - Every mutation is recorded in public.game_ledger for auditability.
  *
  * The `aristocracy_activations` TABLE NAME is legacy and deliberately frozen:
- * renaming a table is a data migration, not a rebrand. Only the TypeScript
- * identifiers below were renamed to VIP. See lib/vipTiers.ts.
+ * renaming a table is a data migration, not a rebrand. See lib/aristocracyTiers.ts.
  */
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { STORE_ITEMS, type StoreCategory } from "@/lib/storeCatalog";
 import {
-  VIP_TIERS,
+  ARISTOCRACY_TIERS,
+  TIER_DURATION_DAYS,
   TIER_PRICES,
-  isVipTier,
-  type VipTier,
-} from "@/lib/vipTiers";
+  isAristocracyTier,
+  type AristocracyTier,
+} from "@/lib/aristocracyTiers";
 
-export { VIP_TIERS, TIER_PRICES, isVipTier };
-export type { VipTier };
+export { ARISTOCRACY_TIERS, TIER_PRICES, isAristocracyTier };
+export type { AristocracyTier };
 
 async function ensureWallet(userId: string) {
   const supabase = getSupabaseServerClient();
@@ -68,7 +68,7 @@ export function resolveStoreItem(itemId: string) {
 }
 export interface StoreSnapshot {
   items: InventoryEntry[];
-  activeTier: VipTier | null;
+  activeTier: AristocracyTier | null;
   activeTierExpiresAt: string | null;
   coinBalance: number;
 }
@@ -109,7 +109,7 @@ export async function getUserInventory(userId: string): Promise<StoreSnapshot> {
   const active = activations?.[0];
   return {
     items,
-    activeTier: isVipTier(active?.tier) ? active.tier : null,
+    activeTier: isAristocracyTier(active?.tier) ? active.tier : null,
     activeTierExpiresAt: (active?.expires_at as string | undefined) ?? null,
     coinBalance: wallet?.coin_balance ?? 0,
   };
@@ -203,47 +203,152 @@ export async function equipInventoryItem(userId: string, itemId: string): Promis
 export interface ActivationResult {
   ok: boolean;
   error?: string;
+  /** Machine-readable reason, so the UI can route to the top-up screen. */
+  reason?: "insufficient" | "unknown_tier" | "conflict" | "self_gift" | "not_found";
   coinBalance?: number;
   expiresAt?: string;
+  /** Rank of the RECIPIENT, which is the person who ends up holding the tier. */
+  recipientName?: string | null;
 }
 
-/** Activate (or renew) a 30-day VIP Club tier using tokens. */
-export async function activateVipTier(userId: string, tier: string): Promise<ActivationResult> {
+/**
+ * The single debit+grant path shared by buying and gifting.
+ *
+ * WHY THIS IS EXTRACTED rather than having two near-identical functions: the
+ * security properties below are the whole reason this purchase is safe, and
+ * duplicating them into a "give as a gift" variant is how one of them silently
+ * rots. Notably the gifting branch originally wanted to skip the balance check
+ * — the recipient is not paying — and a copy/paste of the pre-check version
+ * would have let anyone grant themselves a King tier for free.
+ *
+ * THE SECURITY PROPERTIES, in order:
+ *   1. PRICE IS NEVER TAKEN FROM THE CALLER. `cost` comes from TIER_PRICES, and
+ *      the action layer only forwards a tier NAME. A tampered request cannot
+ *      name its own price.
+ *   2. THE TIER IS VALIDATED against the allowlist, so an unknown string cannot
+ *      reach the insert.
+ *   3. BALANCE IS CHECKED SERVER-SIDE against a freshly-read wallet, never a
+ *      number sent by the client.
+ *   4. THE DEBIT IS AN OPTIMISTIC LOCK. `.eq("coin_balance", wallet.coin_balance)`
+ *      means the update only lands if nobody else spent in between, so two
+ *      concurrent purchases cannot both pass the check and overdraw the wallet
+ *      to negative. This is the part a naive `read balance; write balance - cost`
+ *      gets wrong.
+ *   5. THE GRANT AND THE LEDGER ROW ARE WRITTEN AFTER THE DEBIT SUCCEEDS, and
+ *      the debit is what gates everything.
+ *
+ * `payerId` is the member whose wallet is debited; `recipientId` is who
+ * receives the rank. They differ only for gifting.
+ */
+async function debitAndGrant(
+  payerId: string,
+  recipientId: string,
+  tier: AristocracyTier,
+  recipientName: string | null
+): Promise<ActivationResult> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Supabase not configured" };
-  if (!isVipTier(tier)) return { ok: false, error: "Unknown tier" };
+
   const cost = TIER_PRICES[tier];
 
   try {
-    const wallet = await ensureWallet(userId);
-    if (wallet.coin_balance < cost) return { ok: false, error: "Not enough coins" };
+    // (3) Balance read and checked on the server, from the PAYER's wallet.
+    const wallet = await ensureWallet(payerId);
+    if (wallet.coin_balance < cost) {
+      return {
+        ok: false,
+        // The shortfall is returned so the UI can say "you need 40,000 more"
+        // rather than a bare "not enough coins", which reads as a bug.
+        error: "Not enough coins",
+        reason: "insufficient",
+        coinBalance: wallet.coin_balance,
+      };
+    }
 
+    // (4) Optimistic-lock debit: this is what makes the balance check above
+    // actually safe under concurrency.
     const { data: debited, error: debitError } = await supabase
       .from("game_wallets")
       .update({ coin_balance: wallet.coin_balance - cost, updated_at: new Date().toISOString() })
-      .eq("user_id", userId)
+      .eq("user_id", payerId)
       .eq("coin_balance", wallet.coin_balance)
       .select("coin_balance")
       .single();
-    if (debitError || !debited) return { ok: false, error: "Purchase conflict, please retry" };
+    if (debitError || !debited) {
+      return { ok: false, error: "Purchase conflict, please retry", reason: "conflict" };
+    }
 
-    const expiresAt = addDays(30);
-    const { error: activationError } = await supabase.from("aristocracy_activations").insert({
-      user_id: userId,
-      tier,
-      coins_spent: cost,
-      expires_at: expiresAt,
-    });
+    const expiresAt = addDays(TIER_DURATION_DAYS);
+    const { error: activationError } = await supabase
+      .from("aristocracy_activations")
+      .insert({
+        user_id: recipientId,
+        tier,
+        coins_spent: cost,
+        expires_at: expiresAt,
+      });
     if (activationError) return { ok: false, error: "Failed to activate tier" };
 
+    // The ledger records the PAYER, so a gifted purchase is still attributable
+    // to the wallet it was charged to. The reward_id notes the recipient so the
+    // two cases are distinguishable in an audit without parsing a second table.
     await supabase.from("game_ledger").insert({
-      user_id: userId,
+      user_id: payerId,
       kind: "purchase",
-      reward_id: `aristocracy:${tier}`,
+      reward_id: `aristocracy:${tier}${recipientId === payerId ? "" : `:gift:${recipientId}`}`,
       amount: -cost,
     });
-    return { ok: true, coinBalance: (debited as { coin_balance: number }).coin_balance, expiresAt };
+
+    return {
+      ok: true,
+      coinBalance: (debited as { coin_balance: number }).coin_balance,
+      expiresAt,
+      recipientName,
+    };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Activation failed" };
   }
+}
+
+/** Activate (or renew) a 30-day Aristocracy tier for yourself, using tokens. */
+export async function activateAristocracyTier(
+  userId: string,
+  tier: string
+): Promise<ActivationResult> {
+  if (!isAristocracyTier(tier)) {
+    return { ok: false, error: "Unknown tier", reason: "unknown_tier" };
+  }
+  return debitAndGrant(userId, userId, tier, null);
+}
+
+/**
+ * Buy a 30-day tier FOR SOMEONE ELSE ("Give away").
+ *
+ * `recipientId` is already-resolved by the caller (see resolveUserCode) — this
+ * function never accepts a raw code or a display name, so it cannot be used to
+ * guess at or enumerate members. The recipient is resolved and validated
+ * upstream, and the identity used for the grant is that resolved id.
+ *
+ * Self-gifting is refused explicitly. It is not merely pointless (a member can
+ * just use the normal activate path) — allowing it would let the client
+ * exercise the gift code path against itself, and a gift is a distinct,
+ * auditable event that should only mean "someone bought this for me".
+ */
+export async function giftAristocracyTier(
+  payerId: string,
+  recipientId: string,
+  tier: string
+): Promise<ActivationResult> {
+  if (!isAristocracyTier(tier)) {
+    return { ok: false, error: "Unknown tier", reason: "unknown_tier" };
+  }
+  if (!recipientId) return { ok: false, error: "Pick someone to gift this to", reason: "not_found" };
+  if (recipientId === payerId) {
+    return {
+      ok: false,
+      error: "You can activate this rank for yourself instead",
+      reason: "self_gift",
+    };
+  }
+  return debitAndGrant(payerId, recipientId, tier, null);
 }

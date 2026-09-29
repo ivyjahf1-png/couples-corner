@@ -1908,6 +1908,30 @@ button,
   .lux-tab:active {
     transform: scale(0.95);
   }
+
+  /* Frosted text input for the Aristocracy gift field.
+
+     It needs a REAL focus ring rather than only a colour change: the gift code
+     is the one field where a typo silently sends 500,000 tokens to the wrong
+     person, and the field is inside a translucent panel where a subtle focus
+     change is easy to miss. The ring is therefore high-contrast and thick. */
+  .lux-input {
+    border-radius: 0.9rem;
+    border: 1px solid rgb(255 255 255 / 0.12);
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02));
+    color: #fff;
+    outline: none;
+    transition:
+      border-color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+  .lux-input::placeholder {
+    color: rgb(255 255 255 / 0.28);
+  }
+  .lux-input:focus-visible {
+    border-color: rgb(253 230 138 / 0.7);
+    box-shadow: 0 0 0 3px rgb(245 158 11 / 0.35);
+  }
   .lux-tab[aria-selected="true"] {
     color: #1c1917;
     background-image: linear-gradient(180deg, #fde68a, #f59e0b);

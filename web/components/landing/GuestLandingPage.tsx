@@ -44,8 +44,8 @@ const FEATURES: { icon: IconName; title: string; body: string }[] = [
   },
   {
     icon: "crown",
-    title: "VIP Club",
-    body: "Work up through five tiers for priority matching, exclusive profile frames, an ad-free feed and a badge beside your name.",
+    title: "Aristocracy",
+    body: "Work up through six ranks for priority matching, exclusive profile frames, an ad-free feed and a badge beside your name.",
   },
   {
     icon: "live",
