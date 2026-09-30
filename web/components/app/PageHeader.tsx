@@ -6,6 +6,20 @@ interface PageHeaderProps {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  /**
+   * Render a single compact row instead of the full heading block.
+   *
+   * For height-locked pages whose content must stay above the fold — the
+   * `/discover` swipe deck is the only caller today. The full block costs
+   * roughly 150px on a phone: an eyebrow chip, a 2rem title and a wrapped
+   * subtitle, each on its own line. On a viewport-locked surface that is not
+   * "some" chrome, it is the difference between the profile card's action dock
+   * being visible and being below the fold.
+   *
+   * Opt-in rather than a breakpoint change, so no existing page silently loses
+   * its subtitle — several rely on that copy.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -53,7 +67,24 @@ export function PageLock({
 }
 
 /** Standard page heading block for authenticated-app pages. */
-export function PageHeader({ eyebrow, title, subtitle, actions }: PageHeaderProps) {
+export function PageHeader({ eyebrow, title, subtitle, actions, compact }: PageHeaderProps) {
+  if (compact) {
+    /* One row, one line, `min-w-0` + `truncate` so a long title ellipsizes
+       instead of wrapping to a second line and stealing height back. The
+       subtitle is dropped rather than shrunk: at this size a two-line subtitle
+       costs more vertical space than the deck can spare, and the same copy is
+       already on `/explore`. */
+    return (
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <h1 className="min-w-0 truncate text-lg font-semibold tracking-display text-foreground">
+          {eyebrow ? `${eyebrow}: ` : ""}
+          {title}
+        </h1>
+        {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex max-w-2xl flex-col gap-2">

@@ -270,11 +270,18 @@ export function AppMain({ children }: { children: React.ReactNode }) {
      the screenshot. The conversation view already opts out for the same reason;
      the feed now joins it.
 
+     `/discover` is here for the same reason and a different reason: the swipe
+     deck must show the card AND its action dock at once, and the gutters plus
+     `pt-6` were enough on their own to push the dock below the fold on a phone.
+     The page reserves the bottom-nav height itself, so dropping the `pb-20`
+     here does not strand anything behind the fixed bar.
+
      Identified by path rather than by prop because `<main>` is a Server
      Component's child and has no access to the feed's own state. Both routes
      are the same player (`ImmersiveFeed`), so matching on the two paths is
      enough and cannot drift out of sync with the feed's internals. */
-  const isFullBleedSurface = pathname === "/feed" || pathname === "/";
+  const isFullBleedSurface =
+    pathname === "/feed" || pathname === "/" || pathname === "/discover";
 
   return (
     <main

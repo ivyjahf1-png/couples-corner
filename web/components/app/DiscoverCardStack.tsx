@@ -168,9 +168,20 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
   const connection = liked ? "outgoing_pending" : current?.connection;
 
   return (
-    <section aria-label="Profile deck" className="mx-auto flex w-full max-w-md flex-col items-center gap-5">
+    <section
+      aria-label="Profile deck"
+      /* `min-h-0 flex-1`: the deck now FILLS whatever height the page hands it
+         instead of being sized by its own content. Without `min-h-0` this flex
+         child refuses to shrink below the card's intrinsic height and pushes
+         the action dock out of the locked column — which is exactly the
+         overflow being fixed.
+
+         `max-w-md` is kept for the card's proportions, not as a height cap: the
+         deck centres itself but may be taller than the width would imply. */
+      className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center gap-3 px-3 sm:gap-5 sm:px-4"
+    >
       {total === 0 ? (
-        <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-10 text-center shadow-card">
+        <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-6 text-center shadow-card sm:p-10">
           <Icon name="heart" className="h-10 w-10 text-orange-400" />
           <p className="text-lg font-semibold text-white">You&apos;re all caught up</p>
           <p className="text-sm text-ink-300">No more profiles right now — check back soon.</p>
@@ -178,7 +189,19 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
       ) : (
         <>
           {/* ---------------------------------------------------------------- Card */}
-          <div className="relative aspect-[3/4] w-full select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card">
+          {/* THE CARD.
+            On a phone this is `flex-1 min-h-0`: it takes all the height the
+            locked column has left after the action dock, so the dock is always
+            on screen and the card never dictates the page height.
+
+            `aspect-[3/4]` is a WIDTH-driven size. At 358px wide the card is
+            477px tall, and added to the header, the gutters and the 64px dock
+            that exceeds a phone viewport — which is what pushed the dock below
+            the fold. From `sm` up there is room to spare and the fixed
+            3:4 portrait ratio is the better look, so it is kept there. The
+            breakpoint is the small-screen ceiling (~640px), not a device
+            guess: below it the phone case applies, above it the ratio does. */}
+        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[3/4] sm:flex-none">
             {/* Photo, or a designed fallback when there is none.
                 The old fallback dropped a plain avatar onto the bare card
                 gradient, leaving a large flat expanse of near-black with a
@@ -234,11 +257,15 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               {safeIndex + 1} / {total}
             </span>
 
-            {/* Profile summary */}
-            <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 p-5">
+            {/* Profile summary.
+                `p-5` is 20px around the name, bio and interest chips. Now that the
+                card is height-driven on a phone, that padding comes straight out
+                of the photo area and starts crowding the text, so it drops to
+                14px below `sm` and returns to 20px where there is room. */}
+            <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1.5 p-3.5 sm:gap-2 sm:p-5">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-2xl font-bold text-white">{name}</h2>
+                  <h2 className="truncate text-xl font-bold text-white sm:text-2xl">{name}</h2>
                   <p className="truncate text-sm text-ink-300">
                     {/* Age and location are independent, so a member with no
                         location used to render the bare literal "Location not

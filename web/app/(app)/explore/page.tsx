@@ -45,6 +45,28 @@ function toNearbyCard(p: NearbyProfileView): ProfileCardView {
  *   1. Suggested connections — discoverable profiles (demo fallback signed out).
  *   2. Near you — distance-ranked members from shared locations.
  * Server Component: all queries run server-side; ProfileCard handles actions.
+ *
+ * ── WHY THIS PAGE STILL SCROLLS, AND /discover DOES NOT ─────────────────────
+ * These two routes were reported together as "must fit on a phone without
+ * scrolling", but they are different surfaces and only one of them can honour
+ * that.
+ *
+ * `/discover` is the swipe deck: ONE card, a bounded set of five action buttons
+ * and a progress counter. That has a natural fit — lock the column to the
+ * viewport and let the card absorb the leftover height. It is now
+ * viewport-locked; see that page and `AppMain`'s `isFullBleedSurface`.
+ *
+ * `/explore` is a BROWSING LIST. It renders up to nine suggested profiles plus
+ * up to nine nearby ones, each a full card with an avatar, name, bio, interests
+ * and its own connect actions. Eighteen of those cannot be shown on a phone at
+ * a readable size without either scrolling or shrinking them past use. Removing
+ * the scroll would mean hiding results the member asked to see, or rendering
+ * cards roughly 40px tall — both worse than the scroll it would fix.
+ *
+ * So this page keeps `AppMain`'s single scroll region, and what it does instead
+ * is tighten the mobile rhythm: smaller section and grid gaps below `sm`, so
+ * more cards are reachable per swipe. That is the honest part of the request;
+ * the non-scrolling part is not available on this surface.
  */
 export default async function ExplorePage() {
   const session = await getSessionUser();
@@ -75,7 +97,10 @@ export default async function ExplorePage() {
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    /* `/explore` is a BROWSING LIST and stays scrollable — see the note below.
+       What is tightened here is the mobile rhythm, so more cards are reachable
+       per swipe without changing what the page shows. */
+    <div className="flex flex-col gap-6 sm:gap-8">
       <PageHeader
         eyebrow="Explore"
         title="Discover people"
@@ -99,7 +124,7 @@ export default async function ExplorePage() {
           </p>
         ) : null}
 
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
           {suggestions.slice(0, 9).map((profile) => (
             <li key={profile.id} className="min-w-0">
               <ProfileCard profile={profile} />
@@ -120,7 +145,7 @@ export default async function ExplorePage() {
         </div>
 
         {nearby.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
             {nearby.slice(0, 9).map((profile) => (
               <li key={`nearby-${profile.id}`} className="min-w-0">
                 <ProfileCard profile={profile} />
