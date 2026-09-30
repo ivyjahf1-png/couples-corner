@@ -108,9 +108,13 @@ export function CommunityFeedView({
       </aside>
 
       {canPost ? (
-        <div className="rounded-2xl border border-ink-700 bg-surface p-4">
-          <h2 className="text-sm font-semibold text-white">Share with the community</h2>
-          <p className="mt-1 text-xs leading-5 text-ink-300">
+        /* Light card. `border-ink-700 bg-surface` and `text-ink-300` are
+           dark-theme tokens — on the community panel's near-white canvas the
+           body copy rendered at roughly 2:1 and read as blank. Converted to the
+           same slate pair as the rest of this view. */
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Share with the community</h2>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
             Post a status or a photo and it appears here for everyone. For short
             videos, switch to the Moment reels with the control at the top.
           </p>
