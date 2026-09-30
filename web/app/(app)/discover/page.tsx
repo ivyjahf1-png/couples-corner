@@ -46,20 +46,29 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
   }
 
   return (
-    /* VIEWPORT-LOCKED, not a scrolling page.
+    /* ── WHY THIS IS NOT `h-[100dvh]` ─────────────────────────────────────────
+     * A "strict viewport lock" for this screen already exists, and it starts one
+     * level UP, in `AppShell`:
      *
-     * `h-full` rather than `h-[100dvh]`: `AppMain` is already a `flex-1 min-h-0`
-     * region inside the shell, with the sticky mobile back header subtracted
-     * above it. Declaring another 100dvh here would measure the viewport a
-     * second time and push the bottom of this column — the action dock — below
-     * the fold by exactly the header's height. `h-full` fills what is actually
-     * available, which is the number that matters.
+     *   AppShell   h-[100dvh] flex-col overflow-hidden   <- the viewport is sized here
+     *   └ AppMain  flex-1 min-h-0                        <- subtracts the chrome
+     *     └ this div  h-full min-h-0 overflow-hidden     <- fills what is left
      *
-     * `overflow-hidden` is load-bearing: without it the column is allowed to
-     * exceed its box and the body picks up a scroll, which is the symptom being
-     * fixed. The dock is visible and the page does not move.
+     * Adding another `h-[100dvh]` HERE would measure the viewport a SECOND time.
+     * This column is already shorter than the viewport by the mobile back header
+     * above it and the fixed tab bar below it, so a fresh 100dvh here would
+     * overflow that box by the height of both — pushing the action dock below the
+     * fold and reintroducing exactly the "scroll up and down to reach the buttons"
+     * symptom this layout was built to remove. `h-full` is the correct value
+     * because it fills the space actually available.
      *
-     * The bottom tab bar is `fixed` (see BottomNavRegion), so it overlays this
+     * `overflow-hidden` is load-bearing: without it the column may exceed its box
+     * and `AppMain` picks up a scroll, which is the symptom being fixed. It is
+     * now ALSO `overflow-hidden` at the `AppMain` level for this route (see
+     * `isFullBleedSurface` there), so an overflow fails inside the child that
+     * caused it rather than sliding the whole page.
+     *
+     * The bottom tab bar is `fixed` (see `BottomNavRegion`), so it overlays this
      * column. The inner region reserves its height with `pb-[calc(5rem+…)]`,
      * which is where `AppMain`'s `pb-20` went when this route joined
      * `isFullBleedSurface`. The two must agree — see the note in AppNav. */

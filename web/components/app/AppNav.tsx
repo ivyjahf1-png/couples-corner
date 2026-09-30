@@ -290,7 +290,31 @@ export function AppMain({ children }: { children: React.ReactNode }) {
          capsule. In a short landscape viewport that padding is what was pushing
          the bottom fifth of the feed off-screen. See globals.css LANDSCAPE. */
       className={[
-        "app-main min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "app-main min-h-0 min-w-0 flex-1",
+        /* ── PAGE-LEVEL SCROLL IS FORBIDDEN ON LOCKED SURFACES ──────────────────
+           These routes are self-contained viewport-locked screens: each owns its
+           own single inner scroll region (the community panel's `overflow-y-auto`,
+           the media feed's snap scroller, the discover deck's card region), and
+           each already reserves the fixed tab bar's height itself.
+
+           So a scrollbar HERE is never intended scrolling — it means a child
+           overflowed its box, and the member's only symptom is the whole screen
+           sliding under the header and nav. That is the "messy scrolling" this
+           locks down: `overflow-hidden` makes containment STRUCTURAL rather than
+           incidental, so a future overflow bug fails visibly inside the child that
+           caused it instead of silently scrolling the page.
+
+           Everywhere else this region keeps `overflow-y-auto`, because ordinary
+           pages genuinely scroll here. `/messages` is deliberately NOT in this
+           list — it renders through `PageLock`, whose body is its own
+           `flex-1 min-h-0 overflow-y-auto`.
+
+           `overflow-x-hidden` is retained unconditionally: nothing in this app
+           scrolls horizontally, and a stray wide child must never produce a
+           sideways page scroll. */
+        inActiveConversation || isFullBleedSurface
+          ? "overflow-hidden"
+          : "overflow-y-auto overflow-x-hidden",
         inActiveConversation || isFullBleedSurface
           ? "p-0"
           : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.

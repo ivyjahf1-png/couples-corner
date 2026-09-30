@@ -32,6 +32,28 @@ import type { ReactNode } from "react";
  * `100%` height at this element and collapse the player to zero height, so the
  * column is reproduced and `children` fills the remaining space.
  *
+ * ── VIEWPORT LOCK: WHY NOT `h-[100dvh]` ──────────────────────────────────────
+ * The Moment screen is already viewport-locked, one level up:
+ *
+ *   AppShell   h-[100dvh] flex-col overflow-hidden   <- viewport sized here, once
+ *   └ AppMain  flex-1 min-h-0 overflow-hidden       <- locked surfaces never scroll
+ *     └ this div  flex h-full min-h-0 flex-col      <- fills what is left
+ *
+ * Adding `h-[100dvh]` here would measure the viewport a SECOND time. This column
+ * is already shorter than the viewport by the mobile back header above it and the
+ * fixed tab bar below it, so a fresh 100dvh overflows the box by the height of
+ * both and pushes the player's bottom controls under the nav. `h-full` is the
+ * correct value because it fills the space actually available.
+ *
+ * The three regions, and which one scrolls:
+ *   - top    - the "Moment / feed-view" header, owned by the root layout, in flow
+ *   - middle - `MomentFeed`, which owns exactly ONE scroll region per panel: the
+ *              reels use the media feed's own snap scroller, the community panel is
+ *              `min-h-0 flex-1 overflow-y-auto`. Both carry `min-h-0`, without
+ *              which a panel refuses to shrink and pushes content past the nav.
+ *   - bottom - the fixed tab bar, overlaying rather than in flow, so the column
+ *              reserves its height rather than being pushed by it.
+ *
  * With the header gone this is a pure pass-through that preserves the flex
  * chain — no chrome of its own, which is exactly the "one clean header at the top"
  * the screen needs, owned by the single owner at the root.
