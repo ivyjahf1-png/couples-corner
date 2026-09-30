@@ -261,7 +261,32 @@ export function MessageComposer({
        The icebreaker row below is retained on its own line. Those are CONTENT
        (suggested openers), not chrome, and they only render on an empty thread,
        so they never compete with the input for width the way controls did. */
-    <div className="landscape-hide-chrome relative w-full shrink-0 border-t px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3 [background-color:var(--chat-surface)] [border-color:var(--chat-border)]">
+    /* ── FLOATING DOCK, NOT AN EDGE-TO-EDGE BAND ────────────────────────────────
+       This wrapper was a full-bleed surface: `w-full` + `px-2` + `border-t` + the
+       chat surface colour, so the composer touched BOTH screen edges and its top
+       rule ran the entire width. That is the "toolbar bolted to the screen" look,
+       and the brief asks for a standalone floating pill instead.
+
+       Now the wrapper only supplies INSETS — `px-3` at the sides, a bottom `pb`
+       that clears both the pill and the home indicator — and carries no surface of
+       its own. The pill inside owns its background, border and shadow, so the two
+       never double up into a band.
+
+       `px-3` (12px) rather than `px-4`: this dock carries an icon cluster, an
+       input and a send button, and on a 320px phone every pixel of horizontal
+       reserve is worth more here than on a full-width list.
+
+       `pb-[calc(0.75rem+env(safe-area-inset-bottom))]` is a FLOOR of 12px plus the
+       safe area, rather than the old `max(0.75rem, …)`. The inset is additive
+       because the pill must sit ABOVE the home indicator, not be pushed
+       off-screen by it; taking the max would collapse the gap to zero on exactly
+       the devices that need it most.
+
+       A line comment rather than a JSX one: it explains the whole subtree, so it
+       belongs above the return. A JSX comment placed directly inside the
+       parenthesised return is a second expression beside the element and does not
+       parse. */
+      <div className="landscape-hide-chrome relative w-full shrink-0 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-4">
       {showIcebreakers ? (
         /* `overflow-x-auto` is retained here deliberately. Unlike the photo
            strip on the intro card, this row is not inside the thread's vertical
@@ -364,6 +389,16 @@ export function MessageComposer({
           })}
         </div>
       ) : null}
+      {/* THE FLOATING PILL: exactly the three controls the brief specifies — an
+          attachment icon on the left, the text field centred, and the send button
+          on the right. The theme picker and the icebreakers sit ABOVE it, not
+          inside, so nothing can crowd the field.
+
+          `rounded-full` with its own border, background and shadow is what
+          separates this from the full-bleed band it replaces. The outer wrapper
+          supplies the side and bottom insets, so no part of this reaches a
+          screen edge. */}
+      <div className="mx-auto w-full max-w-2xl rounded-full border shadow-lg [background-color:var(--chat-surface)] [border-color:var(--chat-border)]">
       <form
         onSubmit={handleSubmit}
         className="mx-auto flex w-full max-w-2xl items-center gap-2"
@@ -523,6 +558,8 @@ export function MessageComposer({
           </p>
         ) : null}
       </form>
+      {/* Closes the floating pill; the one below closes the inset wrapper. */}
+      </div>
     </div>
   );
 }

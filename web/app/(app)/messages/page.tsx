@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { PageLock } from "@/components/app/PageHeader";
 import { EmptyState } from "@/components/app/EmptyState";
-import { Avatar, PresenceDot } from "@/components/app/Avatar";
+
 import { ContentSlot } from "@/components/content/ContentSlot";
 import { NearMeStories } from "@/components/app/NearMeStories";
 import { StoryTray } from "@/components/app/StoryTray";
 import { MessagesInboxTabs } from "@/components/app/MessagesInboxTabs";
+import { MessagesInboxList } from "@/components/app/MessagesInboxList";
 import { OfficialTeamCard, ProfileVisitorsCard } from "@/components/app/MessagesInboxCards";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
@@ -113,7 +114,7 @@ export default async function MessagesPage() {
        nav, so those concerns stay where they were rather than being rebuilt. */
     <PageLock
       className="mx-auto w-full max-w-3xl bg-[#0F0A1C] text-white"
-      bodyClassName="pb-28 md:pb-8"
+      bodyClassName="px-4 pb-28 sm:px-6 md:pb-8"
       head={
         /* The shared `PageHeader` is NOT used. It renders the dark-theme
            eyebrow/title/subtitle stack, and its dark text on a light canvas was
@@ -191,36 +192,34 @@ export default async function MessagesPage() {
         <ProfileVisitorsCard viewerCount={profileViewerCount} />
       </div>
 
-      {activeChats.length === 0 ? (
-        <EmptyState
-          icon="chat"
-          title="No messages yet"
-          body="Once you connect with someone, you can start a private chat from their profile."
-          action={
-            <Link href="/discover" className="text-sm font-semibold text-brand-300 hover:underline">
-              Discover people
-            </Link>
-          }
-        />
-      ) : (
-        <section aria-labelledby="chats-heading" className="flex flex-col gap-3">
-          <h2 id="chats-heading" className="text-xs font-semibold uppercase tracking-wide text-ink-300">
-            Active chats <span className="text-ink-400">({activeChats.length})</span>
-          </h2>
+      {/* The search field and the conversation rows are ONE client component.
 
-          {/* Dark raised cards on the midnight canvas, one per row, with a hairline
-              border and rounded corners. `bg-surface` against #0F0A1C gives each
-              conversation the same discrete-edge separation the white cards gave
-              against the old light canvas. */}
-          <ul className="flex flex-col gap-2">
-            {activeChats.filter((c) => c?.key).map((chat) => (
-              <li key={chat.key}>
-                <ChatRow chat={chat} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          They must be: the search filters the rows, so both halves have to be on
+          the client. Splitting them would leave a server-rendered list the search
+          cannot narrow — a field that accepts typing and changes nothing, which is
+          worse than no field. `MessagesPage` stays a Server Component so the
+          session and conversation queries are not pulled into the browser bundle;
+          only the serialisable rows cross the boundary.
+
+          It filters NAME and preview text over exactly what is on screen. There
+          is no server-side message search in this product, and faking one with a
+          hardcoded result set would be the same fabricated-control problem as the
+          admin notices, so this stays an honest local filter. */}
+      <MessagesInboxList
+        chats={activeChats.filter((c) => c?.key)}
+        emptyState={
+          <EmptyState
+            icon="chat"
+            title="No messages yet"
+            body="Once you connect with someone, you can start a private chat from their profile."
+            action={
+              <Link href="/discover" className="text-sm font-semibold text-brand-300 hover:underline">
+                Discover people
+              </Link>
+            }
+          />
+        }
+      />
 
       {/* Promotional slot */}
       <ContentSlot placement="messages" />
@@ -235,103 +234,3 @@ export default async function MessagesPage() {
     </PageLock>
   );
 }
-
-type ActiveChatRow = {
-  key: string;
-  href: string;
-  name: string;
-  kind: "person" | "couple";
-  avatarUrl: string | null;
-  preview: string;
-  lastMessageAt: string | null;
-  unread: number;
-  isOnline: boolean;
-  isBot?: boolean;
-};
-function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefined }) {
-  if (!conversation) return null;
-  const name = conversation.name?.trim() || "Chat";
-  const unread = Math.max(conversation.unread ?? 0, 0);
-  const at = conversation.lastMessageAt ? formatChatTime(conversation.lastMessageAt) : null;
-
-  return (
-    /* One white CARD per conversation, not a borderless row on the canvas.
-       `active:scale-[0.99]` gives the press feedback a tap target needs on
-       touch, where there is no hover cursor to rely on. */
-    <Link
-      href={conversation.href as never}
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3 transition active:scale-[0.99] hover:border-white/20 hover:bg-white/[0.04] sm:gap-4"
-    >
-      <div className="relative shrink-0">
-        {conversation.avatarUrl ? (
-          <img
-            src={conversation.avatarUrl}
-            alt={name}
-            className="h-12 w-12 rounded-full object-cover"
-          />
-        ) : (
-          /* Initials fallback. The dark `bg-brand-500/15 text-brand-300` tint was
-             near-invisible on white, so this is a solid warm fill with dark text
-             that reads as an avatar rather than as empty space. */
-          <Avatar name={name} kind={conversation.kind} size="md" className="bg-brand-500/15 text-brand-300" />
-        )}
-        {/* Bots have no real presence, so they get no dot; humans always get one
-            so an offline member reads as offline rather than ambiguous. */}
-        {conversation.isBot ? null : (
-          <PresenceDot online={conversation.isOnline} size="md" />
-        )}
-        {unread > 0 ? (
-          <span
-            aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
-            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] px-1 text-[10px] font-bold text-white"
-          >
-            {unread > 99 ? "99+" : unread}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        {/* Always `font-semibold`: the reference gives every name equal weight and
-            lets the preview and the unread badge carry the emphasis instead.
-            Weighting the name by unread state made half the list look disabled. */}
-        <p className="truncate text-sm font-semibold text-white">{name}</p>
-        {/* `text-ink-300`, not the dark `text-ink-400`/`text-ink-200` tokens
-            used before. On `#FAFAFA` those resolved to roughly 2:1 contrast and
-            the previews looked like empty space. 500 is the lightest shade that
-            still clears WCAG AA at this size on this background. */}
-        <p className="truncate text-xs text-ink-300">
-          {conversation.preview?.trim() || "No messages yet"}
-        </p>
-      </div>
-
-      {at ? (
-        <span
-          className={[
-            "shrink-0 text-[11px]",
-            unread > 0 ? "font-semibold text-brand-300" : "text-ink-400",
-          ].join(" ")}
-        >
-          {at}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-/** Compact relative/absolute chat timestamp. */
-function formatChatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
-
-
