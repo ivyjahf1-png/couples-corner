@@ -6,6 +6,8 @@ import { buildMessageInsert } from "@/lib/utils/message-payload";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
 import { getPresenceForUsers } from "@/lib/server/presence";
+import type { ProfilePhoto } from "@/lib/models/user";
+import { ageFromDateOfBirth, type ConversationParticipantSummary } from "@/lib/feature/types";
 
 /**
  * Couples Corner — server-side messaging service.
@@ -105,6 +107,103 @@ export async function countUnreadMessages(userId: string): Promise<number> {
   } catch {
     return 0;
   }
+}
+
+/**
+ * The other participant of a conversation, for surfaces that only need identity
+ * — chiefly the call screen, which shows a name and an avatar and never reads a
+ * single message.
+ *
+ * WHY THIS EXISTS RATHER THAN THE CHAT ACTION. The call route used to resolve its
+ * data with `getConversationChatDataAction`, which lives in a `"use server"`
+ * module. That is a Server Action, and calling one from a Server Component
+ * RENDER is not a supported call site: it goes through the action dispatcher
+ * rather than a plain function call, so the call route rendered its error
+ * boundary instead of the call screen whenever the dispatcher refused the
+ * render-time invocation.
+ *
+ * This is an ordinary `server-only` function, called directly. It is also the
+ * right amount of work for a call: no message history, no icebreaker starter,
+ * no read-marking.
+ *
+ * Returns `null` when the conversation does not exist, is not one the viewer
+ * belongs to, or has no other participant. It does not throw, so a bad
+ * conversation id cannot take down the call route — the page turns that `null`
+ * into a notFound().
+ */
+export async function getCallPeerSummary(
+  conversationId: string,
+  viewerId: string
+): Promise<ConversationParticipantSummary | null> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase || !conversationId || !viewerId) return null;
+
+  const { data: conversation, error: convError } = await supabase
+    .from("conversations")
+    .select("id, participant_user_ids")
+    .eq("id", conversationId)
+    .limit(1)
+    .maybeSingle();
+
+  if (convError || !conversation) return null;
+
+  // Membership is checked HERE, not just assumed from the URL. The route is
+  // reachable by typing any id, so without this a member could open a call
+  // screen for a conversation they are not part of.
+  const participants = (conversation.participant_user_ids as string[]) ?? [];
+  if (!participants.includes(viewerId)) return null;
+
+  const others = participants.filter((id) => id !== viewerId);
+  if (others.length === 0) return null;
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(profileSelectList())
+    .in("user_id", others)
+    .limit(1)
+    .maybeSingle();
+
+  if (profileError) {
+    console.error("[messaging] call peer profile lookup failed", {
+      conversationId,
+      ...supabaseErrorDetail(profileError),
+    });
+    // A peer whose profile failed to read is not a reason to deny the call.
+    // `CallScreen` renders a name-only fallback for a null summary.
+    return null;
+  }
+  if (!profile) return null;
+
+  /* The generated client types `.maybeSingle()` as a union that includes a
+     `GenericStringError` string branch, so the row is not statically a
+     `Record<string, unknown>` even though every non-error branch is an object.
+     Narrowing on `typeof profile === "object"` removes the string case and is
+     the honest guard: anything that is not an object cannot carry a profile. */
+  if (typeof profile !== "object" || profile === null) return null;
+
+  return mapCallPeer(profile as unknown as Record<string, unknown>, others[0]);
+}
+
+/** Project a `profiles` row down to the fields the call screen needs. */
+function mapCallPeer(
+  row: Record<string, unknown>,
+  peerId: string
+): ConversationParticipantSummary {
+  const photos = (row.photos as ProfilePhoto[] | null) ?? [];
+  return {
+    id: peerId,
+    name: (row.display_name as string | null)?.trim() || "Member",
+    kind: ((row.profile_type as string | null) === "coupled" ? "couple" : "person") as
+      | "person"
+      | "couple",
+    avatarUrl: photos.find((p) => p.isPrimary)?.publicUrl ?? photos[0]?.publicUrl ?? null,
+    verified: false,
+    location: (row.location as string | null) ?? null,
+    age: ageFromDateOfBirth((row.date_of_birth as string | null) ?? undefined),
+    relationshipStatus: (row.relationship_status as string | null) ?? null,
+    lifestyleTags: ((row.interests as string[] | null) ?? []).slice(0, 4),
+    photos,
+  };
 }
 
 /** Fetch messages for a conversation, ordered oldest first. */

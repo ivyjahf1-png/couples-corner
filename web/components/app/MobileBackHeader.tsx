@@ -84,6 +84,17 @@ export function MobileBackHeader() {
   // plus 4rem spacer would push that 100dvh column past the viewport.
   if (isActiveConversationPath(pathname)) return null;
 
+  // `/messages` (the INBOX) builds its own header too: a title, a search icon
+  // and a three-dot menu, all inside the inbox's own `PageLock` head, with the
+  // conversation list as the single scroll region beneath it.
+  //
+  // This global bar used to render above that as well, giving the screen two
+  // headers stacked on top of each other — the outer one reading "Messages ·
+  // Home" and the inner one reading "Messages". Two bars, one of them repeating
+  // the other's title, is pure chrome: the member gains nothing from the second
+  // back arrow and loses the height that separates the two.
+  if (pathname === "/messages") return null;
+
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
 

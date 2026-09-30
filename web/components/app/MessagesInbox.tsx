@@ -27,7 +27,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageLock } from "@/components/app/PageHeader";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
@@ -179,37 +179,23 @@ export function MessagesInbox({
         </QuickAction>
       </div>
 
-      {/* ── PINNED SYSTEM NOTICES ───────────────────────────────────────────
-          Pinned to the TOP of the list. They sit ABOVE the `chats.length === 0`
-          branch on purpose, so a brand-new member still sees the scam warning —
-          a safety notice that only appears once you already have a conversation
-          is a notice the people who most need it never see.
+      {/* ── PINNED SYSTEM NOTICES, AS A CAROUSEL ────────────────────────────
+          ONE card position, cycling through the notices. They sat stacked
+          before, which put two full cards between the header and the first
+          real conversation — on a phone that is the whole first screen, and
+          the member has to scroll past two warnings to read a single "hi".
 
-          They are rows in the same visual system as the conversations rather
-          than a separate block of chrome, and they sit OUTSIDE the search
-          filter, because a warning a member can type a query to hide is a
-          warning nobody reads.
+          The carousel holds the section to exactly one card's height no matter
+          how many notices there are, so the conversation list always starts in
+          the same place. Add a third notice and the screen does not grow.
 
-          STATIC COPY, DELIBERATELY. Neither card makes a claim about any member
-          and neither carries a number that could be wrong about a real person —
-          they are pointers to the team's own surfaces. Wiring them to an "admin
-          backend control" would mean inventing an announcements table and an
-          admin write path; until that exists these are honest static product
-          copy rather than a control that looks live and does nothing. */}
-      <ul className="mb-3 flex flex-col gap-2">
-        <PinnedNotice
-          icon={<Icon name="shield" className="h-5 w-5" />}
-          title="Scam Warning"
-          body="Never send money, gift cards or codes to anyone. We will never ask you for them."
-          tone="amber"
-        />
-        <PinnedNotice
-          icon={<Icon name="crown" className="h-5 w-5" />}
-          title="Official Team"
-          body="Real messages from the team carry this badge. Report anyone claiming to be staff without it."
-          tone="orange"
-        />
-      </ul>
+          STATIC COPY, DELIBERATELY. Neither notice makes a claim about any
+          member and neither carries a number that could be wrong about a real
+          person — they are pointers to the team's own surfaces. Wiring them to
+          an "admin backend control" would mean inventing an announcements table
+          and an admin write path; until that exists these are honest static
+          product copy rather than a control that looks live and does nothing. */}
+      <NoticeCarousel />
 
       {chats.length === 0 ? (
         emptyState
@@ -424,6 +410,147 @@ function QuickAction({
 
 }
 
+/** The pinned notices, in cycle order. */
+const NOTICES = [
+  {
+    id: "scam",
+    icon: "shield" as const,
+    title: "Scam Warning",
+    body: "Never send money, gift cards or codes to anyone. We will never ask you for them.",
+    tone: "amber" as const,
+  },
+  {
+    id: "team",
+    icon: "crown" as const,
+    title: "Official Team",
+    body: "Real messages from the team carry this badge. Report anyone claiming to be staff without it.",
+    tone: "orange" as const,
+  },
+];
+
+/** How long each notice is held before the carousel advances. */
+const NOTICE_INTERVAL = 5200;
+
+/**
+ * One card position, auto-advancing through the pinned notices.
+ *
+ * WHY A CAROUSEL AND NOT A STACK. Stacked, the two notices occupied the entire
+ * first screen on a phone and the member had to scroll past both to read a
+ * single "hi". One position holds the section to a fixed height however many
+ * notices exist, so the conversation list always begins in the same place.
+ *
+ * WHY THE ADVANCE IS PAUSABLE. A ticker that keeps moving while you are reading
+ * it is worse than a static card: the text leaves while the eye is on it. The
+ * timer resets on any pointer or keyboard interaction and while the document is
+ * hidden, so a notice stays put exactly when it is being read and only advances
+ * when it is being ignored.
+ *
+ * The dots are real buttons, not decoration. They are the only way to reach a
+ * specific notice on demand, and they are what makes an auto-advancing region
+ * usable with a keyboard or a screen reader rather than something to sit and
+ * wait out.
+ *
+ * `aria-live="polite"` announces the new notice without interrupting: a member
+ * using a screen reader hears the change when they are between utterances,
+ * rather than the ticker cutting across whatever they were reading.
+ */
+function NoticeCarousel() {
+  const count = NOTICES.length;
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const go = useCallback(
+    (next: number) => {
+      setIndex(((next % count) + count) % count);
+    },
+    [count]
+  );
+
+  /* Reset the countdown on every interaction. `paused` is a dependency so that
+     releasing the pointer restarts a full interval rather than resuming a
+     nearly-expired one and snapping away immediately. */
+  useEffect(() => {
+    if (paused || count < 2) return;
+    const timer = window.setTimeout(() => go(index + 1), NOTICE_INTERVAL);
+    return () => window.clearTimeout(timer);
+  }, [index, paused, count, go]);
+
+  /* A backgrounded tab is not being read, but the timer still runs and the
+     member returns to a notice they never saw the start of. */
+  useEffect(() => {
+    const onVisibility = () => setPaused(document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
+  if (count === 0) return null;
+
+  return (
+    <div
+      className="mb-3"
+      onPointerEnter={() => setPaused(true)}
+      onPointerLeave={() => setPaused(false)}
+      onFocusCapture={() => setPaused(true)}
+      onBlurCapture={() => setPaused(false)}
+    >
+      {/* ONE height for every slide.
+
+          All slides occupy the SAME grid cell and the container is sized by the
+          tallest of them, so the section never changes height as it advances and
+          the conversation list below never moves under the member's thumb. Add
+          a third notice and the screen does not grow.
+
+          `aria-live="polite"` sits on the container so the change is announced
+          without interrupting. */}
+      <div className="grid [&>*]:col-start-1 [&>*]:row-start-1" aria-live="polite">
+        {NOTICES.map((notice, i) => (
+          /* The hidden slides stay in the DOM, laid out in the same cell, so
+             the opacity transition has something to cross-fade between. They
+             are `aria-hidden` and `pointer-events-none`, so they are neither
+             announced nor tappable while hidden. `invisible` is deliberately
+             NOT used: it would remove them from the layout box as well and
+             make the container collapse to the visible slide's height, which
+             is the reflow this is built to avoid. */
+          <div
+            key={notice.id}
+            className={[
+              "transition-opacity duration-500 motion-reduce:transition-none",
+              i === index ? "opacity-100" : "pointer-events-none opacity-0",
+            ].join(" ")}
+            aria-hidden={i !== index}
+          >
+            <PinnedNotice
+              icon={<Icon name={notice.icon} className="h-5 w-5" />}
+              title={notice.title}
+              body={notice.body}
+              tone={notice.tone}
+            />
+          </div>
+        ))}
+      </div>
+
+      {count > 1 ? (
+        <div className="mt-1.5 flex justify-center gap-1.5" role="tablist" aria-label="Pinned notices">
+          {NOTICES.map((notice, i) => (
+            <button
+              key={notice.id}
+              type="button"
+              role="tab"
+              aria-selected={i === index}
+              aria-label={`Show notice: ${notice.title}`}
+              onClick={() => go(i)}
+              className={[
+                "h-1.5 rounded-full transition-all duration-300",
+                i === index ? "w-5 bg-orange-400/80" : "w-1.5 bg-white/25 hover:bg-white/40",
+              ].join(" ")}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function PinnedNotice({
   icon,
   title,
@@ -436,41 +563,41 @@ function PinnedNotice({
   tone: "amber" | "orange";
 }) {
   return (
-    <li>
-      <section
-        aria-label={title}
+    /* A `<section>`, not an `<li>`: the carousel stacks these in a grid cell
+       inside a plain `<div>`, and an `<li>` with no list parent is invalid
+       markup that assistive tech announces as an orphan. */
+    <section
+      aria-label={title}
+      className={[
+        "flex items-start gap-3 rounded-2xl border p-3.5",
+        tone === "amber"
+          ? "border-amber-400/30 bg-amber-500/10"
+          : "border-orange-400/30 bg-orange-500/10",
+      ].join(" ")}
+    >
+      <span
+        aria-hidden
         className={[
-          "flex items-start gap-3 rounded-2xl border p-3.5",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
           tone === "amber"
-            ? "border-amber-400/30 bg-amber-500/10"
-            : "border-orange-400/30 bg-orange-500/10",
+            ? "bg-amber-500/20 text-amber-300"
+            : "bg-orange-500/20 text-orange-300",
         ].join(" ")}
       >
-        <span
-          aria-hidden
-          className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-            tone === "amber"
-              ? "bg-amber-500/20 text-amber-300"
-              : "bg-orange-500/20 text-orange-300",
-          ].join(" ")}
-        >
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          {/* `line-clamp-2` on the body so a long warning cannot push the real
-              conversations further down the phone than necessary. */}
-          <p className="flex items-center gap-2 text-sm font-semibold text-white">
-            {title}
-            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-200">
-              Pinned
-            </span>
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-200">{body}</p>
-        </div>
-      </section>
-    </li>
-
+        {icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        {/* `line-clamp-2` on the body so a long warning cannot push the real
+            conversations further down the phone than necessary. */}
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+          {title}
+          <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-200">
+            Pinned
+          </span>
+        </p>
+        <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-200">{body}</p>
+      </div>
+    </section>
   );
 }
 

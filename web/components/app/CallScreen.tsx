@@ -30,7 +30,13 @@ interface CallScreenProps {
   summary: ConversationParticipantSummary | null;
   conversationId: string;
   currentUserId: string;
-  onClose: () => void;
+  /**
+   * Optional. `hangUp` already calls `router.back()` after `call.stop()`, so a
+   * host that omits this still exits correctly — this is only for a host that
+   * needs to do extra cleanup of its own (closing a modal it owns, say) before
+   * the route changes.
+   */
+  onClose?: () => void;
 }
 
 /** Human-readable copy for each connection state. */
@@ -105,7 +111,7 @@ export function CallScreen({
    */
   const hangUp = () => {
     call.stop();
-    onClose();
+    onClose?.();
     router.back();
   };
 
