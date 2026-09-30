@@ -21,25 +21,34 @@ import { Icon } from "@/components/landing/Icon";
  */
 export function OfficialTeamCard() {
   return (
+    /* Light card: white surface, hairline border, DARK text.
+
+       Every colour below was a dark-theme token (`text-white`, `text-ink-300`,
+       `border-brand-500/25` over a navy canvas). On the `#FAFAFA` list canvas the
+       white heading rendered at roughly 1.1:1 — effectively invisible — so the card
+       read as an unexplained orange icon floating above the conversations. The
+       saturated gradient is KEPT on the crown badge: it is the one element that
+       must read as "official" at a glance, and a solid brand fill does that better
+       than a muted outline would. */
     <section
       aria-label="Official team"
-      className="flex items-start gap-3 rounded-2xl border border-brand-500/25 bg-gradient-to-br from-brand-500/[0.12] to-brand-500/[0.04] p-3.5"
+      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3.5"
     >
       <span
         aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-lg shadow-orange-950/30"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-sm"
       >
         <Icon name="crown" className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-white">Official Team</p>
-        <p className="mt-0.5 text-xs leading-4 text-ink-300">
+        <p className="text-sm font-semibold text-slate-900">Official Team</p>
+        <p className="mt-0.5 text-xs leading-4 text-slate-500">
           Messages from the team arrive with this badge. Anyone claiming to be
           staff without it is not — report them and we&apos;ll take it down.
         </p>
         <Link
           href="/feedback"
-          className="mt-1.5 inline-block text-xs font-semibold text-orange-300 transition hover:text-orange-200"
+          className="mt-1.5 inline-block text-xs font-semibold text-orange-600 transition hover:text-orange-700"
         >
           Contact the team
         </Link>
@@ -75,28 +84,32 @@ export function ProfileVisitorsCard({ viewerCount }: { viewerCount: number | nul
   const people = `${viewerCount} ${viewerCount === 1 ? "person has" : "people have"}`;
 
   return (
+    /* Same light treatment as `OfficialTeamCard`. The purple tint is kept only on
+       the eye badge; the card body is white so the two informational cards and the
+       conversation rows read as one system rather than as three different designs
+       stacked above the list. */
     <section
       aria-label="Profile visitors"
-      className="flex items-center gap-3 rounded-2xl border border-purple-400/25 bg-gradient-to-br from-purple-500/[0.14] to-purple-500/[0.04] p-3.5"
+      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5"
     >
       <span
         aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-lg shadow-purple-950/30"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-sm"
       >
         <Icon name="eye" className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-white">
+        <p className="text-sm font-semibold text-slate-900">
           {people} <span className="font-normal">seen me</span>
         </p>
-        <p className="mt-0.5 text-xs leading-4 text-ink-300">
+        <p className="mt-0.5 text-xs leading-4 text-slate-500">
           People who visited your profile can start a conversation with you.
         </p>
       </div>
       <Link
         href="/profile"
         aria-label="See who has seen me"
-        className="shrink-0 rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1.5 text-xs font-semibold text-purple-200 transition hover:bg-purple-400/20"
+        className="shrink-0 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
       >
         View
       </Link>
