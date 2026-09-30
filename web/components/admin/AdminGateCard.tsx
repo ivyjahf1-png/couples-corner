@@ -80,10 +80,17 @@ export function AdminGateCard({ configured }: { configured: boolean }) {
         ) : null}
 
         {!configured ? (
+          /* The two most common causes are (a) the variable was never added and
+             (b) it was added to the Preview environment while the operator is
+             looking at Production, or vice versa. Naming both turns a dead end
+             into a checklist. The server also logs this once per process with
+             NODE_ENV/VERCEL_ENV, so the same diagnosis is available in the
+             function logs without opening the page. */
           <p className="rounded-xl border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
             This deployment has no <code className="font-mono">ADMIN_PANEL_PASSWORD</code>{" "}
-            set, so the panel cannot be unlocked. Add it to the environment and
-            redeploy.
+            set, so the panel cannot be unlocked. Add it in the Vercel project
+            under the same environment this deployment uses — Preview and
+            Production are configured separately — then redeploy.
           </p>
         ) : null}
 

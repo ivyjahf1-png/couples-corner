@@ -7,6 +7,29 @@ import { Logo } from "@/components/ui/Logo";
 import { ErrorBoundary } from "@/components/error/ErrorBoundary";
 
 /**
+ * FORCE RENDER PER REQUEST.
+ *
+ * `/admin` was relying on Next.js inferring dynamic rendering because the layout
+ * happens to call `cookies()` (via `isAdminGateOpen`). That inference is a
+ * side effect of an unrelated call, not a statement about this route's intent —
+ * and it is exactly the kind of coupling that breaks silently: refactor the gate
+ * so the cookie check is conditional, or add a static path, and the layout
+ * becomes statically prerendered.
+ *
+ * The consequence of that is the reported symptom. A statically prerendered
+ * layout evaluates `isAdminGateConfigured()` during `next build`, when the
+ * environment may not carry `ADMIN_PANEL_PASSWORD` yet, and bakes the resulting
+ * `false` into the HTML forever. Adding the variable afterwards and redeploying
+ * changes nothing, because the cached page still says "not configured" — the
+ * panel is stuck on the locked screen and nothing in the UI explains why.
+ *
+ * Declaring it explicitly removes the possibility rather than hoping the inference
+ * holds. There is no cost: this route is a protected admin surface hit a handful
+ * of times a day, and it must never be cached regardless of who is asking.
+ */
+export const dynamic = "force-dynamic";
+
+/**
  * Admin / moderation zone shell.
  *
  * GATE: a single passphrase held in the environment (lib/auth/admin-gate.ts)

@@ -67,15 +67,58 @@ async function resolveClientKey(): Promise<string> {
 }
 
 /**
+ * Whether the "not configured" warning has already been emitted in this process.
+ *
+ * The gate is evaluated on every admin request, so an unconfigured deployment
+ * would otherwise write the same warning to the function log on every single
+ * hit — which is how a genuine configuration problem gets buried under noise
+ * and nobody reads it. Once per process is enough: the operator needs to know it
+ * is broken, not how many people noticed.
+ */
+let hasWarnedUnconfigured = false;
+
+/**
  * The configured passphrase, or null when unset.
  *
  * Null is treated as DENY, never as "allow". A deployment that forgot the
  * variable must fail closed; defaulting open would turn a missing env var into
  * a public admin panel.
+ *
+ * ── WHY THERE IS NO FALLBACK VALUE, DELIBERATELY ─────────────────────────────
+ * A "secure fallback" was requested for the case where the variable is missing at
+ * build time. There isn't one, and there must not be: any value compiled into
+ * this bundle is readable by anyone who downloads it, so a fallback passphrase is
+ * not a fallback, it is a published admin password. A generated-per-deploy
+ * secret is no better — nobody could type it, so the panel stays locked forever,
+ * which is the exact symptom we are trying to remove.
+ *
+ * The correct behaviour when the variable is missing is the one already here:
+ * fail closed, and SAY SO LOUDLY. The operator gets a build/runtime log naming
+ * the variable instead of a silently locked screen.
+ *
+ * The read is `process.env.X` evaluated at CALL time, never captured at module
+ * load. Capturing it in a module-level `const` would freeze whatever was present
+ * when the bundle was initialised — which, for a value baked in during a build
+ * that ran before the variable was added, is `undefined` forever.
  */
 function configuredPassword(): string | null {
   const value = process.env.ADMIN_PANEL_PASSWORD?.trim();
-  return value ? value : null;
+  if (!value) {
+    if (!hasWarnedUnconfigured) {
+      hasWarnedUnconfigured = true;
+      // `process.env` is not dumped wholesale: it contains every secret in the
+      // deployment. Only the names this gate consulted are named, and no values.
+      console.error(
+        "[admin-gate] ADMIN_PANEL_PASSWORD is not set — /admin is DENIED and will stay locked. " +
+          "Add it in the Vercel project under the SAME environment this deployment uses " +
+          "(Preview vs Production are configured separately) and redeploy. " +
+          `Checked: ADMIN_PANEL_PASSWORD. NODE_ENV=${process.env.NODE_ENV ?? "unknown"}. ` +
+          `VERCEL_ENV=${process.env.VERCEL_ENV ?? "unknown"}.`,
+      );
+    }
+    return null;
+  }
+  return value;
 }
 
 /** Signing key. Falls back to the passphrase so one variable is enough. */
