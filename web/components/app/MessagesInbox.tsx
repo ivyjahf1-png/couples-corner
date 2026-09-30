@@ -1,6 +1,6 @@
-﻿// MessagesInbox.tsx â€” the whole /messages surface below the shell chrome.
+// MessagesInbox.tsx — the whole /messages surface below the shell chrome.
 //
-// â”€â”€ WHY ONE CLIENT COMPONENT AND NOT FOUR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── WHY ONE CLIENT COMPONENT AND NOT FOUR ────────────────────────────────────
 // The header's filter pills, the search field and the conversation list are three
 // pieces of ONE control surface: picking "Chats" narrows the list, and typing in
 // the field narrows it again. Splitting them across components would mean lifting
@@ -10,15 +10,15 @@
 // The data crossing the boundary is plain and serialisable (ids, names, preview
 // strings, counts, timestamps, booleans), so this forces no query to run twice.
 //
-// â”€â”€ WHY THE SEARCH IS CLIENT-SIDE AND HONEST ABOUT IT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── WHY THE SEARCH IS CLIENT-SIDE AND HONEST ABOUT IT ────────────────────────
 // Every conversation is fetched up front, so filtering locally is instant and
 // costs no round trip. There is no server-side message search in this product,
 // and faking one with a hardcoded result set would be a control that looks live
 // and does nothing. This filters exactly what is on screen.
 //
-// â”€â”€ WHY THE TABS ARE All / Chats / CALLS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// There are no group conversations in this product â€” the `conversations` table
-// holds only `direct` and `couple` rows â€” so a "Groups" tab would be a tab that
+// ── WHY THE TABS ARE All / Chats / CALLS ─────────────────────────────────────
+// There are no group conversations in this product — the `conversations` table
+// holds only `direct` and `couple` rows — so a "Groups" tab would be a tab that
 // can never select anything. It is deliberately absent rather than disabled.
 //
 // "Calls" filters to the people who are ONLINE right now, because a call can only
@@ -71,7 +71,7 @@ export function MessagesInbox({
   const needle = query.trim().toLowerCase();
 
   const visible = useMemo(() => {
-    /* Tab first, then the free-text needle â€” both are filters over the same
+    /* Tab first, then the free-text needle — both are filters over the same
        array, and ANDing them is what a member expects from two controls. */
     const byTab = tab === "calls" ? chats.filter((c) => c.isOnline) : chats;
 
@@ -92,7 +92,7 @@ export function MessagesInbox({
 
   /* The most recent conversation that can actually be dialled. The quick-action
      call buttons need a peer to call, and the newest thread is the one a member
-     starting a call almost always means. Null when there is none â€” the buttons
+     starting a call almost always means. Null when there is none — the buttons
      then render inert rather than linking to a call with no participant. */
   const callable = useMemo(
     () => chats.find((c) => c.callHrefBase && !c.isBot) ?? null,
@@ -115,7 +115,7 @@ export function MessagesInbox({
         setMenuOpen={setMenuOpen}
       />}
     >
-      {/* â”€â”€ SEARCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      {/* ── SEARCH ──────────────────────────────────────────────────────────
           `appearance-none` strips the platform search affordances (the clear
           button on some engines, the inner shadow on iOS) so this reads as the
           app's own field rather than a raw browser control. */}
@@ -139,16 +139,16 @@ export function MessagesInbox({
         </span>
       </div>
 
-      {/* â”€â”€ QUICK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      {/* ── QUICK ACTIONS ──────────────────────────────────────────────────
           Four equal tiles, icon over caption. The caption is the visible label
-          AND, via the link text, the accessible name â€” so each tile reads
+          AND, via the link text, the accessible name — so each tile reads
           without hovering.
 
           Every tile is a REAL destination. There is no "Create Group" tile: the
           product has no group conversations, so such a button could only ever
           lead nowhere. The fourth tile is the Game Center, which exists.
 
-          The two call tiles render INERT â€” not as dead links â€” when there is no
+          The two call tiles render INERT — not as dead links — when there is no
           conversation to call, because `/call/<id>/<mode>` requires a real
           conversation id and inventing one produces a 404 on tap. */}
       <div className="mb-4 grid grid-cols-4 gap-2">
@@ -179,9 +179,9 @@ export function MessagesInbox({
         </QuickAction>
       </div>
 
-      {/* â”€â”€ PINNED SYSTEM NOTICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      {/* ── PINNED SYSTEM NOTICES ───────────────────────────────────────────
           Pinned to the TOP of the list. They sit ABOVE the `chats.length === 0`
-          branch on purpose, so a brand-new member still sees the scam warning â€”
+          branch on purpose, so a brand-new member still sees the scam warning —
           a safety notice that only appears once you already have a conversation
           is a notice the people who most need it never see.
 
@@ -191,7 +191,7 @@ export function MessagesInbox({
           warning nobody reads.
 
           STATIC COPY, DELIBERATELY. Neither card makes a claim about any member
-          and neither carries a number that could be wrong about a real person â€”
+          and neither carries a number that could be wrong about a real person —
           they are pointers to the team's own surfaces. Wiring them to an "admin
           backend control" would mean inventing an announcements table and an
           admin write path; until that exists these are honest static product
@@ -215,10 +215,10 @@ export function MessagesInbox({
         emptyState
       ) : visible.length === 0 ? (
         /* A search with no hits gets its OWN message, distinct from "you have no
-           conversations" â€” conflating the two makes a working inbox look broken. */
+           conversations" — conflating the two makes a working inbox look broken. */
         <p className="rounded-2xl border border-white/10 bg-surface px-4 py-6 text-center text-sm text-ink-300">
           {needle
-            ? `No conversations match â€œ${query.trim()}â€.`
+            ? `No conversations match “${query.trim()}”.`
             : "Nobody is online right now. Start a chat to reach someone."}
         </p>
       ) : (
@@ -326,7 +326,7 @@ function InboxHeader({
         Stay connected with your matches. Your chats are private.
       </p>
 
-      {/* Filter pills. A full-width segmented track is NOT used here â€” the brief
+      {/* Filter pills. A full-width segmented track is NOT used here — the brief
           specifies discrete pills, and three short pills read as three
           destinations rather than as one control with three settings. */}
       <div role="tablist" aria-label="Filter messages" className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -387,7 +387,7 @@ function QuickAction({
   disabled?: boolean;
   label: string;
   tone: keyof typeof TONES;
-  /** Why the tile is inert â€” surfaced as a tooltip, not silently dimmed. */
+  /** Why the tile is inert — surfaced as a tooltip, not silently dimmed. */
   disabledTitle?: string;
   children: React.ReactNode;
 }) {
@@ -494,7 +494,7 @@ function ChatRow({ chat }: { chat: InboxChat }) {
         ) : (
           <Avatar name={name} kind={chat.kind} size="md" className="bg-brand-500/15 text-brand-300" />
         )}
-        {/* Bots are never "online" â€” they have no presence row, so a dot on them
+        {/* Bots are never "online" — they have no presence row, so a dot on them
             would be a status the product cannot actually resolve. */}
         {chat.isBot ? null : <PresenceDot online={chat.isOnline} size="md" />}
         {unread > 0 ? (
