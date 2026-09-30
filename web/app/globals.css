@@ -2168,39 +2168,56 @@ button,
      `default` on an unknown id, so renaming would have forced everyone onto it
      anyway while breaking the saved value. */
   .chat-theme-default {
-    --chat-canvas: #241634;
-    --chat-surface: rgb(18 10 27 / 0.78);
-    --chat-border: rgb(255 255 255 / 0.1);
-    --chat-text: #f8fafc;
-    --chat-muted: #a78bba;
-    --chat-icon: #a78bba;
+    /* THE ACTUAL LIGHT THEME. This block was `#241634` — a dark purple — while
+       `CHAT_THEMES` in MessageComposer.tsx has always labelled this id "Daylight"
+       and given it a `linear-gradient(135deg,#F7F7F8,#FFFFFF)` swatch. So the
+       picker advertised a clean white chat and delivered a dark one: the label,
+       the swatch and the CSS all disagreed, and "Daylight" was the default every
+       member landed on. The values below make the CSS match the promise the
+       picker was already making.
 
-    --chat-in-bg: rgb(255 255 255 / 0.07);
-    --chat-in-text: #f8fafc;
-    --chat-in-border: rgb(255 255 255 / 0.1);
-    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+       Re-colouring this block is preferable to adding a sixth light theme: a new
+       id would leave the broken "Daylight" entry in the list, still showing a
+       white swatch next to a dark purple chat. The other four dark themes (dusk,
+       ocean, ember, rose) are untouched and still selectable.
+
+       Canvas is #F7F7F8, not pure white: incoming bubbles are #FFFFFF, and a
+       white bubble on a white canvas has no edge. The 1% difference is what
+       separates them. */
+    --chat-canvas: #f7f7f8;
+    --chat-surface: rgb(255 255 255 / 0.92);
+    --chat-border: rgb(26 18 36 / 0.1);
+    --chat-text: #1a1224;
+    --chat-muted: #6b5a7d;
+    --chat-icon: #6b5a7d;
+
+    --chat-in-bg: #ffffff;
+    --chat-in-text: #1a1224;
+    --chat-in-border: rgb(26 18 36 / 0.08);
+    /* A light-mode shadow, so bubbles sit ON the canvas instead of glowing. */
+    --chat-in-shadow: 0 4px 16px rgb(26 18 36 / 0.08);
 
     --chat-out-from: #ff8a3d;
     --chat-out-to: #f2700f;
     --chat-out-text: #ffffff;
 
-    /* Orange, not yellow — the brand accent, sitting beside the orange sent
-       bubbles without competing. Same hue, one step darker, so the bubbles stay
-       the brightest thing in the dock. */
-    --chat-pill-bg: #ff8a3d;
+    /* YELLOW suggestion pills, per the reference. This is not a departure: the
+       ocean and ember themes already ship `#ffe4a3`, and on a light canvas a
+       saturated orange pill would compete with the orange sent bubbles directly
+       beside it. Yellow separates "suggestion" from "message". */
+    --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #2a1204;
-    --chat-pill-border: rgb(255 138 61 / 0.35);
+    --chat-pill-border: rgb(245 179 66 / 0.45);
 
-    /* "Next" is DARKER than the pills beside it so advancing reads as a
-       different action from choosing a suggestion. Inverted from the old scheme,
-       where both were light and the distinction was invisible. */
-    --chat-next-bg: #0f0a1c;
-    --chat-next-text: #ff8a3d;
+    /* "Next" is DARK against the light canvas and the yellow pills, so advancing
+       reads as a different action from choosing a suggestion. */
+    --chat-next-bg: #1a1224;
+    --chat-next-text: #ffe4a3;
 
-    --chat-input-bg: rgb(255 255 255 / 0.07);
-    --chat-input-border: rgb(255 255 255 / 0.14);
-    --chat-menu-bg: #1e293b;
-    --chat-menu-border: rgb(255 255 255 / 0.1);
+    --chat-input-bg: #ffffff;
+    --chat-input-border: rgb(26 18 36 / 0.12);
+    --chat-menu-bg: #ffffff;
+    --chat-menu-border: rgb(26 18 36 / 0.1);
   }
 
   /* The remaining four keep their original hues, now expressed through the same
