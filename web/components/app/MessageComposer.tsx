@@ -52,7 +52,7 @@ function AttachmentDock({
               "ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95",
               open
                 ? "bg-orange-500/20 text-orange-100"
-                : "bg-white/[0.06] text-ink-200 hover:bg-white/10 hover:text-white",
+                : "bg-[var(--chat-in-bg)] text-[var(--chat-text)] hover:bg-black/5",
             ].join(" ")}
           >
             <Palette className="h-4 w-4" aria-hidden />
@@ -78,8 +78,8 @@ function AttachmentDock({
                 className={[
                   "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
                   selected
-                    ? "border-orange-400/70 bg-orange-500/15 text-white"
-                    : "border-white/10 bg-white/[0.04] text-ink-300 hover:border-white/25 hover:text-white",
+                    ? "border-orange-400/70 bg-orange-500/15 text-[var(--chat-text)]"
+                    : "border-[var(--chat-border)] text-[var(--chat-muted)] hover:border-orange-400/50 hover:text-[var(--chat-text)]",
                 ].join(" ")}
               >
                 <span
@@ -110,7 +110,7 @@ function DockButton({
     <button
       type="button"
       onClick={onClick}
-      className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-ink-200 transition hover:bg-white/10 hover:text-white active:scale-95"
+      className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95 [background-color:var(--chat-in-bg)] [border-color:var(--chat-border)] [color:var(--chat-text)] hover:bg-black/5"
     >
       <Icon className="h-4 w-4" aria-hidden />
       {label}
@@ -198,7 +198,7 @@ const ICEBREAKER_WINDOW = 3;
 
 /** The id persisted in localStorage. `default` is the app's own look. */
 export const CHAT_THEMES = [
-  { id: "default", label: "Midnight", swatch: "linear-gradient(135deg,#0F172A,#1E293B)" },
+  { id: "default", label: "Daylight", swatch: "linear-gradient(135deg,#F7F7F8,#FFFFFF)" },
   { id: "dusk", label: "Dusk", swatch: "linear-gradient(135deg,#2E1B3F,#4C2A5E)" },
   { id: "ocean", label: "Ocean", swatch: "linear-gradient(135deg,#0B2B3A,#124A5E)" },
   { id: "ember", label: "Ember", swatch: "linear-gradient(135deg,#3A1A10,#5C2A18)" },
@@ -326,7 +326,7 @@ export function MessageComposer({
     // The control row never wraps: every button is `shrink-0` and sized down
     // (not hidden) at the smallest breakpoint, so +, camera, input, emoji and
     // mic all fit side by side on a 320px-wide phone.
-    <div className="landscape-hide-chrome relative w-full shrink-0 border-t border-white/10 bg-slate-950/90 px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3">
+    <div className="landscape-hide-chrome relative w-full shrink-0 border-t px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3 [background-color:var(--chat-surface)] [border-color:var(--chat-border)]">
       {/* Dock, theme picker and icebreakers all sit ABOVE the input row rather
           than beside it: that row is already at its width limit on a 320px
           phone, so a second horizontal row of actions beside the input was never
@@ -359,7 +359,7 @@ export function MessageComposer({
                 setValue(phrase);
                 inputRef.current?.focus();
               }}
-              className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-3 py-1.5 text-xs text-ink-200 transition hover:border-orange-400/50 hover:bg-orange-500/10 hover:text-white active:scale-95"
+              className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95 [background-color:var(--chat-pill-bg)] [border-color:var(--chat-pill-border)] [color:var(--chat-pill-text)] hover:brightness-[1.03]"
             >
               {phrase}
             </button>
@@ -375,7 +375,7 @@ export function MessageComposer({
               type="button"
               onClick={() => setIcebreakerStart((s) => s + ICEBREAKER_WINDOW)}
               aria-label="Show more conversation starters"
-              className="flex shrink-0 items-center gap-1 rounded-full border border-orange-400/30 bg-orange-500/10 px-2.5 py-1.5 text-xs font-semibold text-orange-200 transition hover:bg-orange-500/20 hover:text-orange-100 active:scale-95"
+              className="flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 [background-color:var(--chat-next-bg)] [border-color:var(--chat-next-bg)] [color:var(--chat-next-text)] hover:opacity-90"
             >
               Next
               <svg
@@ -404,7 +404,7 @@ export function MessageComposer({
         <button
           type="button"
           aria-label="More actions"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-300 transition hover:bg-white/10 hover:text-white active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
         >
           <Paperclip className="h-5 w-5" aria-hidden />
         </button>
@@ -423,7 +423,7 @@ export function MessageComposer({
           aria-label="Write a message"
           // `h-11` matches the controls, and the focus ring uses the same orange
           // accent as the send button so focus and action read as one system.
-          className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/[0.06] px-4 text-sm text-white placeholder:text-ink-400 outline-none transition-colors focus:border-orange-400/60 focus:bg-white/[0.09] disabled:opacity-60"
+          className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm outline-none transition-colors focus:border-orange-400/60 disabled:opacity-60 [background-color:var(--chat-input-bg)] [border-color:var(--chat-input-border)] [color:var(--chat-text)] placeholder:[color:var(--chat-muted)]"
           disabled={pending}
         />
         <input ref={imageInputRef} type="file" accept="image/*" className="hidden" aria-label="Choose an image" />
@@ -434,7 +434,7 @@ export function MessageComposer({
           type="button"
           onClick={() => imageInputRef.current?.click()}
           aria-label="Choose image"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-300 transition hover:bg-white/10 hover:text-white active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
         >
           <Camera className="h-5 w-5" aria-hidden />
         </button>
@@ -445,7 +445,7 @@ export function MessageComposer({
           aria-expanded={showEmoji}
           className={[
             "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-            showEmoji ? "bg-white/15 text-white" : "text-ink-300 hover:bg-white/10 hover:text-white",
+            showEmoji ? "bg-black/10 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]",
           ].join(" ")}
         >
           <Smile className="h-5 w-5" aria-hidden />
@@ -453,7 +453,7 @@ export function MessageComposer({
         <button
           type="button"
           aria-label="Record voice note"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-300 transition hover:bg-white/10 hover:text-white active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
         >
           <Mic className="h-5 w-5" aria-hidden />
         </button>
@@ -474,12 +474,12 @@ export function MessageComposer({
         <Link
           href={`/call/${conversationId}/audio`}
           aria-label="Start a voice call"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-300 transition hover:bg-emerald-400/15 hover:text-emerald-300 active:scale-95"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-emerald-500/15 hover:text-emerald-600"
         >
           <Phone className="h-5 w-5" aria-hidden />
         </Link>
         {showEmoji ? (
-          <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border border-white/10 bg-[#1E293B] p-2 shadow-xl">
+          <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border p-2 shadow-xl [background-color:var(--chat-menu-bg)] [border-color:var(--chat-menu-border)]">
             {QUICK_EMOJI.map((emoji) => (
               <button
                 key={emoji}
@@ -489,7 +489,7 @@ export function MessageComposer({
                   setShowEmoji(false);
                   inputRef.current?.focus();
                 }}
-                className="rounded-lg p-1 text-xl hover:bg-white/10"
+                className="rounded-lg p-1 text-xl hover:bg-black/5"
                 aria-label={`Insert ${emoji}`}
               >
                 {emoji}
@@ -508,7 +508,7 @@ export function MessageComposer({
           <Send className="h-5 w-5" aria-hidden />
         </button>
         {error ? (
-          <p role="alert" className="absolute -top-7 left-0 rounded bg-slate-900 px-2 py-1 text-xs text-red-400">
+          <p role="alert" className="absolute -top-7 left-0 rounded px-2 py-1 text-xs text-red-600 [background-color:var(--chat-menu-bg)]">
             {error}
           </p>
         ) : null}

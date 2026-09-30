@@ -55,8 +55,8 @@ export function ChatSafetyBanner({
         className={[
           "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition",
           loud
-            ? "border-rose-400/25 bg-rose-500/[0.06] text-rose-200/80 hover:bg-rose-500/10"
-            : "mx-4 mt-3 w-[calc(100%-2rem)] border-amber-400/25 bg-amber-500/[0.06] text-amber-200/80 hover:bg-amber-500/10",
+            ? "border-rose-300/60 bg-rose-500/[0.08] text-rose-800 hover:bg-rose-500/[0.14]"
+            : "mx-4 mt-3 w-[calc(100%-2rem)] border-amber-300/70 bg-amber-500/[0.08] text-amber-800 hover:bg-amber-500/[0.14]",
         ].join(" ")}
       >
         <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
@@ -75,23 +75,27 @@ export function ChatSafetyBanner({
             // system, but the rose palette is what a member has learned to
             // associate with "this is a fraud warning", and the all-caps lead
             // line is what makes it scannable in a fast-scrolling list.
-            "border-rose-400/30 border-l-[3px] border-l-rose-400 bg-gradient-to-r from-rose-500/[0.14] to-rose-500/[0.05]"
-          : "mx-4 mt-3 border-amber-400/25 border-l-[3px] border-l-amber-400 bg-amber-500/[0.06]",
+            //
+            // The `-600`/`-700` text shades below assume a LIGHT surface, which
+            // is now the default chat canvas. The previous `text-rose-100` and
+            // `text-amber-100` were near-white and disappeared against it.
+            "border-rose-300/60 border-l-[3px] border-l-rose-500 bg-gradient-to-r from-rose-500/[0.10] to-rose-500/[0.04]"
+          : "mx-4 mt-3 border-amber-300/70 border-l-[3px] border-l-amber-500 bg-amber-500/[0.08]",
       ].join(" ")}
     >
       <span
         aria-hidden
-        className={`mt-0.5 shrink-0 ${loud ? "text-rose-300" : "text-amber-300"}`}
+        className={`mt-0.5 shrink-0 ${loud ? "text-rose-600" : "text-amber-600"}`}
       >
         <Icon name="shield" className={loud ? "h-4.5 w-4.5" : "h-4 w-4"} />
       </span>
       <div className="min-w-0 flex-1">
         {loud ? (
           <>
-            <p className="text-[12px] font-extrabold uppercase tracking-wide text-rose-100">
+            <p className="text-[12px] font-extrabold uppercase tracking-wide text-rose-700">
               Scam warning!! Don&apos;t fall for fake coin offers
             </p>
-            <p className="mt-0.5 text-[11px] leading-4 text-rose-100/80">
+            <p className="mt-0.5 text-[11px] leading-4 text-rose-800/80">
               Nobody here will ever ask you to send money, gift cards or codes in
               exchange for coins. If a message offers you coins for payment, it
               is a scam — block and report it.
@@ -99,8 +103,11 @@ export function ChatSafetyBanner({
           </>
         ) : (
           <>
-            <p className="text-[11px] font-semibold text-amber-100">Stay safe</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-amber-100/75">
+            {/* Thread variant. The `-50`/dark text shades are for the LIGHT
+                canvas; the previous `text-amber-100` was near-white and
+                effectively invisible on it. */}
+            <p className="text-[11px] font-semibold text-amber-800">Stay safe</p>
+            <p className="mt-0.5 text-[11px] leading-4 text-amber-900/70">
               Never send money, gift cards or codes to someone you haven&apos;t
               met in person. If someone pressures you to act quickly, that
               pressure is the warning sign.
@@ -111,7 +118,7 @@ export function ChatSafetyBanner({
           href="/safety"
           className={[
             "mt-1 inline-block text-[11px] font-semibold underline underline-offset-2",
-            loud ? "text-rose-200 hover:text-rose-100" : "text-amber-200 hover:text-amber-100",
+            loud ? "text-rose-700 hover:text-rose-900" : "text-amber-800 hover:text-amber-900",
           ].join(" ")}
         >
           Safety centre

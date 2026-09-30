@@ -2112,26 +2112,178 @@ button,
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
+  /* ═══════════════════════════════════════════════════════════════════════════
+     CHAT SURFACE TOKENS
+
+     Every colour the conversation chrome, bubbles, pills and menus use is
+     declared ONCE here as a custom property, and every component reads it with
+     `var(--chat-*)`. Components therefore contain no literal dark-mode colours at
+     all, which is what makes a LIGHT theme possible: previously the bubbles,
+     header and composer each hardcoded `text-white` and `bg-white/[0.06]`, so
+     changing the canvas alone would have left white text on a white page.
+
+     Each theme below sets the same set of tokens. Adding a theme means copying
+     one block and changing the values — no component edits.
+
+     Naming: `--chat-in-*` is a RECEIVED bubble, `--chat-out-*` is one the signed-in
+     member sent. "in"/"out" rather than "them"/"me" because it is a direction,
+     not a person, and it stays unambiguous if the two are ever mirrored.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* DEFAULT — the light theme.
+     A near-white canvas (#F7F7F8) with white cards and an orange accent, so
+     received bubbles read as raised paper rather than dissolving into the page.
+     Sent bubbles are the only saturated element in the thread, which is what
+     makes the left/right split legible at a glance. */
   .chat-theme-default {
-    background-image: linear-gradient(180deg, #0f172a 0%, #131c31 100%);
-  }
+    --chat-canvas: #f7f7f8;
+    --chat-surface: rgb(255 255 255 / 0.92);
+    --chat-border: rgb(15 23 42 / 0.1);
+    --chat-text: #111827;
+    --chat-muted: #6b7280;
+    --chat-icon: #6b7280;
+
+    --chat-in-bg: #ffffff;
+    --chat-in-text: #111827;
+    --chat-in-border: rgb(15 23 42 / 0.08);
+    --chat-in-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+
+    --chat-out-from: #ff8a3d;
+    --chat-out-to: #f2700f;
+    --chat-out-text: #ffffff;
+
+    /* Icebreaker pills are yellow in every theme: they are the one thing on the
+       dock that is an INVITATION rather than a control, and the warm yellow is
+       what separates "here are things you could say" from "here are buttons". */
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(180 130 20 / 0.28);
+
+    /* The "Next" control beside them is DARK, so advancing is unmistakably a
+       different action from choosing a pill. Same pill, inverted. */
+    --chat-next-bg: #1f2937;
+    --chat-next-text: #ffffff;
+
+    --chat-input-bg: #ffffff;
+    --chat-input-border: rgb(15 23 42 / 0.12);
+  /* The remaining four keep their original hues, now expressed through the same
+     tokens so their bubbles and chrome stayed consistent. Previously a theme
+     changed the canvas only, leaving hardcoded white text and translucent white
+     fills that were tuned for one background and wrong for the rest. */
   .chat-theme-dusk {
-    background-image: linear-gradient(180deg, #241634 0%, #2f1d42 100%);
-  }
-  .chat-theme-ocean {
-    background-image: linear-gradient(180deg, #08222e 0%, #0c3242 100%);
-  }
-  .chat-theme-ember {
-    background-image: linear-gradient(180deg, #2b130d 0%, #3a1a11 100%);
-  }
-  .chat-theme-rose {
-    background-image: linear-gradient(180deg, #2b0e19 0%, #3d1424 100%);
+    --chat-canvas: #241634;
+    --chat-surface: rgb(18 10 27 / 0.78);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #f8fafc;
+    --chat-muted: #a78bba;
+    --chat-icon: #a78bba;
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #f8fafc;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+    --chat-out-from: #ff8a3d;
+    --chat-out-to: #f2700f;
+    --chat-out-text: #ffffff;
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(255 228 163 / 0.28);
+    --chat-next-bg: #111827;
+    --chat-next-text: #ffffff;
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #1e293b;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
   }
 
-  /* Header and composer follow the thread, so a theme does not leave a bright
-     neutral bar clamped to the top and bottom of a tinted conversation. Both
-     are translucent and read the gradient behind them. */
+  .chat-theme-ocean {
+    --chat-canvas: #08222e;
+    --chat-surface: rgb(4 18 24 / 0.78);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #f0f9ff;
+    --chat-muted: #7fb6cd;
+    --chat-icon: #7fb6cd;
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #f0f9ff;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+    --chat-out-from: #ff8a3d;
+    --chat-out-to: #f2700f;
+    --chat-out-text: #ffffff;
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(255 228 163 / 0.28);
+    --chat-next-bg: #111827;
+    --chat-next-text: #ffffff;
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #0f2f3d;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
+  }
+
+  .chat-theme-ember {
+    --chat-canvas: #2b130d;
+    --chat-surface: rgb(24 10 6 / 0.78);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #fff7ed;
+    --chat-muted: #c9a08a;
+    --chat-icon: #c9a08a;
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #fff7ed;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+    --chat-out-from: #ff8a3d;
+    --chat-out-to: #f2700f;
+    --chat-out-text: #ffffff;
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(255 228 163 / 0.28);
+    --chat-next-bg: #111827;
+    --chat-next-text: #ffffff;
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #3a1a11;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
+  }
+
+  .chat-theme-rose {
+    --chat-canvas: #2b0e19;
+    --chat-surface: rgb(22 7 13 / 0.78);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #fff1f2;
+    --chat-muted: #c99aa6;
+    --chat-icon: #c99aa6;
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #fff1f2;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
+    --chat-out-from: #ff8a3d;
+    --chat-out-to: #f2700f;
+    --chat-out-text: #ffffff;
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(255 228 163 / 0.28);
+    --chat-next-bg: #111827;
+    --chat-next-text: #ffffff;
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #3d1424;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
+  }
+
+  /* Paints the thread canvas from the theme's own token, so the value here and
+     the tokens above can never drift apart. */
+  .chat-theme-default,
+  .chat-theme-dusk,
+  .chat-theme-ocean,
+  .chat-theme-ember,
+  .chat-theme-rose {
+    background-color: var(--chat-canvas);
+  }
+
+  /* Header and composer follow the thread, so a theme does not leave a bar
+     clamped to the top and bottom in a colour that belongs to no one. Both are
+     translucent and read the canvas behind them. */
   .chat-theme-surface {
-    background-color: rgb(8 12 22 / 0.72);
+    background-color: var(--chat-surface);
   }
 }

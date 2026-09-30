@@ -197,7 +197,7 @@ export function MessageActionsMenu({
           role="menu"
           aria-label="Message options"
           style={{ top: position.top, left: position.left }}
-          className="fixed z-[200] w-44 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl shadow-black/60"
+          className="fixed z-[200] w-44 overflow-hidden rounded-2xl border py-1.5 shadow-2xl [background-color:var(--chat-menu-bg)] [border-color:var(--chat-menu-border)]"
         >
           {actions.map((action) => (
             <button
@@ -209,8 +209,13 @@ export function MessageActionsMenu({
                 onAction(action, messageId);
               }}
               className={[
-                "block w-full px-4 py-2.5 text-left text-sm transition hover:bg-white/10",
-                action.tone === "danger" ? "text-red-300" : "text-white",
+                // Reads the theme tokens even though this panel is `position:
+                // fixed`. Fixed positioning changes which element a box is
+                // positioned against, NOT which styles inherit: custom
+                // properties still cascade from the chat root, so the menu
+                // themes with the thread without any extra plumbing.
+                "block w-full px-4 py-2.5 text-left text-sm transition hover:bg-black/5",
+                action.tone === "danger" ? "text-red-600" : "text-[var(--chat-text)]",
               ].join(" ")}
             >
               {action.label}

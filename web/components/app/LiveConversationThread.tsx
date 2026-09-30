@@ -282,10 +282,10 @@ export function LiveConversationThread({
   if (messages.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 py-16 text-center">
-        <p className="text-lg font-semibold text-white">No messages yet</p>
-        <p className="text-sm text-ink-400">Send the first message to start the chat.</p>
+        <p className="text-lg font-semibold text-[var(--chat-text)]">No messages yet</p>
+        <p className="text-sm text-[var(--chat-muted)]">Send the first message to start the chat.</p>
         {!isConnected && (
-          <p className="text-xs text-ink-400">Connecting to realtime…</p>
+          <p className="text-xs text-[var(--chat-muted)]">Connecting to realtime…</p>
         )}
       </div>
     );
@@ -314,7 +314,7 @@ export function LiveConversationThread({
             <li key={message.id} className="flex flex-col">
               {showDayPill ? (
                 <div className="mb-2 mt-1 flex justify-center">
-                  <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-medium text-ink-300">
+                  <span className="rounded-full border border-[var(--chat-border)] bg-[var(--chat-surface)] px-3 py-1 text-[11px] font-medium text-[var(--chat-muted)]">
                     {day}
                   </span>
                 </div>
@@ -346,8 +346,14 @@ export function LiveConversationThread({
                   {editingId === message.id ? (
                     /* Inline editor: the bubble becomes a textarea with
                        Save/Cancel, so the edit happens in place rather than in a
-                       modal that loses the thread's scroll position. */
-                    <div className="w-[min(80%,32rem)] rounded-2xl rounded-br-md border border-white/15 bg-gradient-to-br from-violet-600 to-purple-600 p-2 shadow-lg shadow-purple-950/40">
+                       modal that loses the thread's scroll position.
+
+                       Takes the same tokens as the sent bubble it replaces, so
+                       the editor reads as "this bubble, now editable" rather
+                       than a foreign violet panel appearing mid-thread — the old
+                       purple ramp matched nothing else on the page, and on the
+                       light canvas it was the single darkest thing in view. */
+                    <div className="w-[min(80%,32rem)] rounded-2xl rounded-br-md border border-[var(--chat-border)] p-2 [background-image:linear-gradient(135deg,var(--chat-out-from),var(--chat-out-to))] shadow-md">
                       <textarea
                         ref={editInputRef}
                         value={draft}
@@ -371,13 +377,13 @@ export function LiveConversationThread({
                         // the textarea is a separate focusable element with its own
                         // gesture handling, so it needs the suppression too or a press
                         // inside the editor raises the OS callout instead of the menu.
-                        className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 text-white outline-none placeholder:text-white/60 select-none [-webkit-touch-callout:none]"
+                        className="w-full resize-none bg-transparent px-2 py-1 text-sm leading-6 text-[var(--chat-out-text)] outline-none placeholder:text-[var(--chat-out-text)]/70 select-none [-webkit-touch-callout:none]"
                       />
                       <div className="flex items-center justify-end gap-2 px-1 pb-0.5 pt-1">
                         <button
                           type="button"
                           onClick={cancelEdit}
-                          className="rounded-full px-3 py-1 text-xs font-medium text-white/80 transition hover:bg-white/10"
+                          className="rounded-full px-3 py-1 text-xs font-medium text-[var(--chat-out-text)]/90 transition hover:bg-black/10"
                         >
                           Cancel
                         </button>
@@ -385,7 +391,7 @@ export function LiveConversationThread({
                           type="button"
                           onClick={() => void saveEdit(message.id)}
                           disabled={busy || !draft.trim()}
-                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-purple-700 transition hover:bg-white/90 disabled:opacity-50"
+                          className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#7c2d12] transition hover:bg-white/90 disabled:opacity-50"
                         >
                           {busy ? "Saving…" : "Save"}
                         </button>
@@ -397,25 +403,19 @@ export function LiveConversationThread({
                         "max-w-[80%] px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
                         // SENT vs RECEIVED — the core hierarchy of the thread.
                         //
-                        // The two used to be a purple gradient and a solid
-                        // slate card. Purple read as a brand accent on BOTH
-                        // sides of the conversation, because the received card
-                        // was dark enough to blend into the page background
-                        // and the two styles only differed in hue. Alignment
-                        // alone (right vs left) was doing all the work.
+                        // Both sides now read from the theme's tokens rather than
+                        // hardcoded colours. That indirection is what makes the
+                        // light theme possible at all: a literal `text-white`
+                        // received bubble is invisible on a #F7F7F8 canvas, and
+                        // `bg-white/[0.06]` is too faint to read as a card.
                         //
-                        // Sent is now the app's actual accent — an orange
-                        // brand tint with a warm border, matching the Midnight
-                        // Slate & Orange theme used across the profile and feed
-                        // rather than a second, competing purple ramp. Received
-                        // is a translucent slate that visibly sits ON the canvas
-                        // instead of dissolving into it. Colour and luminance
-                        // now reinforce the alignment cue rather than duplicate
-                        // it, so the thread reads correctly at a glance and to
+                        // Sent stays the app's orange accent and received stays a
+                        // raised neutral card, so colour and alignment BOTH carry
+                        // the left/right split — the thread is still readable for
                         // anyone who cannot rely on position alone.
                         isMine
-                          ? "rounded-2xl rounded-br-md border border-orange-400/25 bg-gradient-to-br from-orange-500/85 to-orange-600/80 text-white shadow-lg shadow-orange-950/30"
-                          : "rounded-2xl rounded-bl-md border border-white/10 bg-white/[0.06] text-white shadow-md shadow-black/25 backdrop-blur-sm",
+                          ? "rounded-2xl rounded-br-md text-[var(--chat-out-text)] [background-image:linear-gradient(135deg,var(--chat-out-from),var(--chat-out-to))] shadow-md"
+                          : "rounded-2xl rounded-bl-md border text-[var(--chat-in-text)] [background-color:var(--chat-in-bg)] [border-color:var(--chat-in-border)] [box-shadow:var(--chat-in-shadow)]",
                       ].join(" ")}
                     >
                       {message.body}
@@ -423,13 +423,12 @@ export function LiveConversationThread({
                         aria-hidden
                         className={[
                           "mt-1 flex items-center justify-end gap-1.5 text-[11px]",
-                          // The old pair (white/70 vs ink-400) was tuned for a
-                          // violet bubble and a near-black card. The sent bubble
-                          // is now a lighter orange, which needs a touch more
-                          // contrast for the meta line, while the received
-                          // bubble is lighter than the old #1E293B, so its
-                          // timestamp moves up a step to stay readable.
-                          isMine ? "text-white/80" : "text-ink-300",
+                          // Muted in both directions, but derived from the token
+                          // so it stays legible on a white card as well as on
+                          // orange. A fixed `text-ink-300` was tuned for the dark
+                          // canvas and vanished against the light one.
+                          "text-[var(--chat-muted)]",
+                          isMine ? "opacity-80" : "",
                         ].join(" ")}
                       >
                         {copiedId === message.id ? (
@@ -449,7 +448,7 @@ export function LiveConversationThread({
       {actionError ? (
         <p
           role="alert"
-          className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200"
+          className="mt-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-[var(--chat-text)]"
         >
           {actionError}
         </p>
