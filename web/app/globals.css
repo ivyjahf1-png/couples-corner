@@ -2060,6 +2060,26 @@ button,
     padding: 0 !important;
   }
 
+  /* The per-screen dock reserve. Discover adds
+     `pb-[calc(5rem+env(safe-area-inset-bottom))]` to hold content clear of the
+     fixed bottom bar, and drops it with `md:pb-0` — which keys off WIDTH.
+
+     That leaves a gap this rule closes: a small phone in landscape is SHORT but
+     not WIDE. An iPhone SE is 667px across and 375px tall — below the 768px `md`
+     threshold, so `md:pb-0` does not fire, yet below the 560px height threshold,
+     so the bar it was reserving space for is hidden. The result is 80px of dead
+     padding at the foot of a 375px viewport: a fifth of the screen reserved for
+     a nav that is not rendered, which reads to a member as "I have to scroll to
+     reach the buttons".
+
+     Released HERE rather than by loosening the media query, deliberately: this
+     block already tests `max-height`, which is the axis the reserve actually
+     depends on. Widening the block to any short viewport would start hiding the
+     header on devices that still have the vertical room for it. */
+  .app-dock-reserve {
+    padding-bottom: 0 !important;
+  }
+
   /* The width cap (`max-w-[88rem]`) and horizontal gutters are a desktop
      reading-width constraint. On a short landscape phone they only create the
      blank side columns around the video. */

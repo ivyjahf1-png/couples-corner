@@ -200,8 +200,24 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             the fold. From `sm` up there is room to spare and the fixed
             3:4 portrait ratio is the better look, so it is kept there. The
             breakpoint is the small-screen ceiling (~640px), not a device
-            guess: below it the phone case applies, above it the ratio does. */}
-        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[3/4] sm:flex-none">
+            guess: below it the phone case applies, above it the ratio does.
+
+            `sm:max-h-full` is the correction, and without it that ratio is an
+            overflow bug. `sm:flex-none` takes the card out of flex sizing
+            entirely, so `aspect-[3/4]` sizes it from its WIDTH and nothing
+            constrains the resulting height. Fine on a tall screen — but `sm` is a
+            WIDTH test, and a phone in landscape is wide. An iPhone SE rotated is
+            667px across, comfortably over the 640px threshold, so the ratio
+            applied at ~448px of card width and demanded ~597px of height inside a
+            375px viewport. The card overflowed its region by ~220px, which is
+            what made the action dock unreachable and the page appear to scroll.
+
+            `max-h-full` caps the box at the height its flex parent actually has.
+            The photo underneath is `object-cover`, so when the cap binds the card
+            is slightly wider than 3:4 rather than running off the screen — the
+            correct trade, since a cropped photo is recoverable and an unreachable
+            button is not. */}
+        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[3/4] sm:max-h-full sm:flex-none">
             {/* Photo, or a designed fallback when there is none.
                 The old fallback dropped a plain avatar onto the bare card
                 gradient, leaving a large flat expanse of near-black with a

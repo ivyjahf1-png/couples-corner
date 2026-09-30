@@ -90,7 +90,24 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
           `pb-[calc(5rem+env(safe-area-inset-bottom))]` keeps the deck clear of
           the fixed tab bar; `md:pb-0` drops it where that bar is `md:hidden`
           and the sidebar rail takes over. */}
-      <div className="flex min-h-0 flex-1 flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+      {/* `app-dock-reserve` is released by the LANDSCAPE block in globals.css.
+
+          This element reserves 5rem of bottom padding for the fixed tab bar.
+          `md:pb-0` already drops that reserve on wide viewports, but it keys off
+          WIDTH, and there is a gap between the two conditions that matter:
+
+            iPhone SE / older in landscape: 667px wide, 375px tall
+              -> below md, so `md:pb-0` does NOT apply, and the reserve stays
+              -> but the landscape block HIDES the bottom bar (`max-height: 560`)
+
+          Result: 80px of dead padding at the foot of a 375px-tall viewport — over
+          a fifth of the screen reserved for a nav that is not rendered. That is
+          precisely the "scroll up and down to reach the buttons" symptom, and it
+          is the one case the width-based `md:pb-0` could never cover.
+
+          The class exists so the landscape block can drop the reserve by HEIGHT,
+          which is the axis the block already tests. */}
+      <div className="app-dock-reserve flex min-h-0 flex-1 flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
         {profiles.length === 0 ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
             <EmptyState
