@@ -63,7 +63,7 @@ function WeatherChip({ weather }: { weather: WeatherSummary | null }) {
     <span
       // `title` carries the place name so the icon is never the only signal.
       title={weather.place}
-      className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#3B2A05]/12 px-2.5 py-1 text-[11px] font-bold text-[#3B2A05]"
+      className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/[0.07] px-2.5 py-1 text-[11px] font-bold text-white/85"
     >
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5" aria-hidden>
         <circle cx="12" cy="12" r="4" />
@@ -139,8 +139,32 @@ export function ConversationSummaryCard({
   // disagree. See HAS_REAL_VERIFICATION.
   const showVerified = summary.verified && HAS_REAL_VERIFICATION;
 
+// ── THE PALETTE SWAP, AND WHY IT IS TWO VALUES ──────────────────────────
+// This card was bright yellow (#FFC93C) with near-black ink (#3B2A05), because
+// it was built as a highlighter for the old LIGHT thread.
+//
+// On the midnight-purple thread it fought everything: a saturated yellow slab
+// at the head of a dark conversation, carrying dark-brown text that reads as
+// muddy. It is now a NAVY-PURPLE panel with orange accents, from two values:
+//
+//   surface : #241634  (the chat canvas, so the card belongs to the thread)
+//   ink     : #f8fafc  (near-white, the thread's --chat-text)
+//
+// Every chip below replaced an ink-on-yellow fill with bg-white/[0.07] and
+// dark-brown text with text-white/85 — the same translucent-white chip idiom
+// the rest of the dark UI uses, so the card matches the conversation chrome
+// instead of inventing a second surface language.
+//
+// Orange enters as ACCENT only (the VIP badge), never as a large fill, so the
+// card stays a container for information rather than competing with the orange
+// sent bubbles.
+//
+// A LINE comment rather than a JSX one: this explains the whole subtree, so it
+// belongs above the return. A JSX comment placed directly inside the
+// parenthesised return is a second expression beside the element and will not
+// parse.
   return (
-    <div className="rounded-t-2xl border-x border-b border-amber-300/40 bg-[#FFC93C] text-[#3B2A05] shadow-[0_8px_28px_-12px_rgba(255,201,60,0.55)]">
+      <div className="rounded-t-2xl border-x border-b border-white/10 bg-[#241634] text-[#f8fafc] shadow-[0_8px_28px_-12px_rgba(0,0,0,0.6)]">
       <div className="flex min-w-0 flex-col gap-3 p-4 sm:p-5">
         <div className="flex items-start gap-3">
           <Avatar
@@ -148,11 +172,11 @@ export function ConversationSummaryCard({
             name={summary.name}
             kind={summary.kind}
             size="lg"
-            className="shrink-0 ring-2 ring-[#3B2A05]/15"
+            className="shrink-0 ring-2 ring-white/15"
           />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-1.5">
-              <h2 className="truncate font-semibold text-[#3B2A05]">
+              <h2 className="truncate font-semibold text-white/85">
                 {summary.name}
               </h2>
 
@@ -161,14 +185,14 @@ export function ConversationSummaryCard({
                   never gave us, and in a dating app that is exactly the kind of
                   detail a member is entitled to rely on. */}
               {typeof summary.age === "number" ? (
-                <span className="inline-flex shrink-0 items-center rounded-full bg-[#3B2A05]/12 px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#3B2A05]">
+                <span className="inline-flex shrink-0 items-center rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-bold tabular-nums text-white/85">
                   {summary.age}
                 </span>
               ) : null}
 
               {/* Location badge. */}
               {summary.location ? (
-                <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-[#3B2A05]/12 px-2 py-0.5 text-[11px] font-semibold text-[#3B2A05]">
+                <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-semibold text-white/85">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 shrink-0" aria-hidden>
                     <path d="M12 2 C8 2 4 5 4 9 C4 13 8 16 12 16 C16 16 20 13 20 9 C20 5 16 2 12 2 Z" />
                     <circle cx="12" cy="9" r="2.5" />
@@ -180,7 +204,7 @@ export function ConversationSummaryCard({
               {/* Their own relationship status, verbatim. Shown only when they
                   have actually set one, and never reworded or interpreted. */}
               {summary.relationshipStatus ? (
-                <span className="shrink-0 rounded-full bg-[#3B2A05]/12 px-2 py-0.5 text-[11px] font-semibold capitalize text-[#3B2A05]">
+                <span className="shrink-0 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-semibold capitalize text-white/85">
                   {summary.relationshipStatus}
                 </span>
               ) : null}
@@ -213,7 +237,7 @@ export function ConversationSummaryCard({
               </span>
             ) : null}
             {typeof summary.personalitySimilarity === "number" ? (
-              <span className="mt-1.5 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#3B2A05] px-2.5 py-1 text-[11px] font-bold text-[#FFC93C] shadow-inner">
+              <span className="mt-1.5 inline-flex shrink-0 items-center gap-1.5 rounded-full bg-[#ff8a3d] px-2.5 py-1 text-[11px] font-bold text-[#2a1204] shadow-inner">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5" aria-hidden>
                   <path d="M12 2 L15 9 L22 9 L17 14 L19 22 L12 17 L5 22 L7 14 L2 9 L9 9 Z" />
                 </svg>
@@ -231,7 +255,7 @@ export function ConversationSummaryCard({
                 type="button"
                 aria-label={expanded ? "Collapse profile summary" : "Expand profile summary"}
                 aria-expanded={expanded}
-                className="rounded-full p-1.5 text-[#3B2A05]/60 transition hover:bg-[#3B2A05]/10 hover:text-[#3B2A05]"
+                className="rounded-full p-1.5 text-white/60 transition hover:bg-white/10 hover:text-white"
                 onClick={onToggleExpand}
               >
                 <svg
@@ -261,7 +285,7 @@ export function ConversationSummaryCard({
                  key makes React reuse the wrong node on reorder. */
               <div className="flex flex-wrap gap-1.5">
                 {summary.lifestyleTags.map((tag, i) => (
-                  <span key={`${tag}-${i}`} className="inline-flex items-center gap-1.5 rounded-full bg-[#3B2A05]/12 px-2.5 py-1 text-xs font-semibold text-[#3B2A05]">
+                  <span key={`${tag}-${i}`} className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-2.5 py-1 text-xs font-semibold text-white/85">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-3.5 w-3.5 shrink-0" aria-hidden>
                       <path d="M12 3 L12 21 M3 12 L21 12 M7 7 L17 17 M7 17 L17 7" />
                       <circle cx="12" cy="12" r="1.4" />
@@ -271,7 +295,7 @@ export function ConversationSummaryCard({
                 ))}
               </div>
             ) : (
-              <p className="text-xs font-medium text-[#3B2A05]/65">No interests shared yet</p>
+              <p className="text-xs font-medium text-white/50">No interests shared yet</p>
             )}
 
             {photoUrls.length > 0 ? (
@@ -290,10 +314,10 @@ export function ConversationSummaryCard({
                     aria-label={`View ${summary.name}'s photo ${i + 1}`}
                     aria-pressed={i === selected}
                     className={[
-                      "h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 bg-[#3B2A05]/10 transition",
+                      "h-11 w-11 shrink-0 overflow-hidden rounded-xl border-2 bg-white/[0.06] transition",
                       i === selected
-                        ? "border-[#3B2A05] ring-2 ring-[#3B2A05]/25"
-                        : "border-[#3B2A05]/20 hover:border-[#3B2A05]/50",
+                        ? "border-white/40 ring-2 ring-white/20"
+                        : "border-white/20 hover:border-white/50",
                     ].join(" ")}
                   >
                     <img
@@ -307,7 +331,7 @@ export function ConversationSummaryCard({
                 {overflow > 0 ? (
                   <span
                     aria-label={`${overflow} more ${overflow === 1 ? "photo" : "photos"} not shown`}
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-[#3B2A05]/20 bg-[#3B2A05]/10 text-xs font-bold tabular-nums text-[#3B2A05]"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-white/20 bg-white/[0.06] text-xs font-bold tabular-nums text-white/85"
                   >
                     +{overflow}
                   </span>

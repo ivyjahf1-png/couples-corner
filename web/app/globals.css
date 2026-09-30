@@ -2130,44 +2130,57 @@ button,
      not a person, and it stays unambiguous if the two are ever mirrored.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* DEFAULT — the light theme.
-     A near-white canvas (#F7F7F8) with white cards and an orange accent, so
-     received bubbles read as raised paper rather than dissolving into the page.
-     Sent bubbles are the only saturated element in the thread, which is what
-     makes the left/right split legible at a glance. */
-  .chat-theme-default {
-    --chat-canvas: #f7f7f8;
-    --chat-surface: rgb(255 255 255 / 0.92);
-    --chat-border: rgb(15 23 42 / 0.1);
-    --chat-text: #111827;
-    --chat-muted: #6b7280;
-    --chat-icon: #6b7280;
+  /* DEFAULT — MIDNIGHT SLATE / NAVY-PURPLE with vibrant orange accents.
+     This was a near-white "Daylight" canvas (#F7F7F8) with white cards. That was
+     the odd one out: every other surface in the app is a dark navy/purple, so a
+     white chat thread read as an unstyled page dropped inside the product.
 
-    --chat-in-bg: #ffffff;
-    --chat-in-text: #111827;
-    --chat-in-border: rgb(15 23 42 / 0.08);
-    --chat-in-shadow: 0 1px 2px rgb(15 23 42 / 0.06);
+     It now uses the same midnight purple as the `dusk` theme (#241634), paired
+     with the orange outgoing-bubble ramp. The token NAMES are unchanged, so
+     nothing downstream needed rewriting — only the values moved.
+
+     The yellow accents this carried (pill bg #FFE4A3, and the #FFC93C intro card
+     in ConversationSummaryCard) are now orange. Yellow on navy reads as a warning
+     label; orange on navy reads as the brand, which is what it is.
+
+     The `default` id is retained rather than renamed so a stored preference from a
+     previous deploy still resolves — `readChatTheme` already falls back to
+     `default` on an unknown id, so renaming would have forced everyone onto it
+     anyway while breaking the saved value. */
+  .chat-theme-default {
+    --chat-canvas: #241634;
+    --chat-surface: rgb(18 10 27 / 0.78);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #f8fafc;
+    --chat-muted: #a78bba;
+    --chat-icon: #a78bba;
+
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #f8fafc;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
 
     --chat-out-from: #ff8a3d;
     --chat-out-to: #f2700f;
     --chat-out-text: #ffffff;
 
-    /* Icebreaker pills are yellow in every theme: they are the one thing on the
-       dock that is an INVITATION rather than a control, and the warm yellow is
-       what separates "here are things you could say" from "here are buttons". */
-    --chat-pill-bg: #ffe4a3;
-    --chat-pill-text: #4a3405;
-    --chat-pill-border: rgb(180 130 20 / 0.28);
+    /* Orange, not yellow — the brand accent, sitting beside the orange sent
+       bubbles without competing. Same hue, one step darker, so the bubbles stay
+       the brightest thing in the dock. */
+    --chat-pill-bg: #ff8a3d;
+    --chat-pill-text: #2a1204;
+    --chat-pill-border: rgb(255 138 61 / 0.35);
 
-    /* The "Next" control beside them is DARK, so advancing is unmistakably a
-       different action from choosing a pill. Same pill, inverted. */
-    --chat-next-bg: #1f2937;
-    --chat-next-text: #ffffff;
+    /* "Next" is DARKER than the pills beside it so advancing reads as a
+       different action from choosing a suggestion. Inverted from the old scheme,
+       where both were light and the distinction was invisible. */
+    --chat-next-bg: #0f0a1c;
+    --chat-next-text: #ff8a3d;
 
-    --chat-input-bg: #ffffff;
-    --chat-input-border: rgb(15 23 42 / 0.12);
-    --chat-menu-bg: #ffffff;
-    --chat-menu-border: rgb(15 23 42 / 0.1);
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #1e293b;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
   }
 
   /* The remaining four keep their original hues, now expressed through the same

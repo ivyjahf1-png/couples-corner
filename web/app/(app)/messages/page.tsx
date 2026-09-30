@@ -18,22 +18,22 @@ export const dynamic = "force-dynamic";
 /**
  * Messages — the private inbox.
  *
- * ── THE LIGHT CANVAS ─────────────────────────────────────────────────────────
- * This screen renders on a near-white `#FAFAFA` canvas with dark text, matching
- * the chat room so the two are one continuous light surface: tapping into a
- * conversation no longer flashes the member from a white list onto a dark thread.
+ * ── THE DARK CANVAS ──────────────────────────────────────────────────────────
+ * This screen renders on the app's midnight navy-purple (#0F0A1C) with the
+ * brand orange on the interactive elements, matching the chat room and every
+ * other surface in the product. It was briefly a near-white `#FAFAFA` list with
+ * dark text; that made the messages screen the only light surface in the app and
+ * flashed the member from a white list onto a dark thread on every tap-through.
  *
- * Every colour below is a literal slate/zinc shade. The dark tokens that used to
- * be inherited from the app shell's navy canvas — `text-ink-300`,
- * `bg-surface`, `border-ink-700` — are GONE from this file rather than overridden,
- * because those tokens are dark-theme by definition and leaving any of them here
- * produced near-invisible text once the background went light. `text-ink-400` on
- * `#FAFAFA` is roughly 2:1 contrast, which is why the previews and timestamps
- * read as blank rather than merely faint.
+ * Colours here are the app's dark tokens (`bg-surface`, `border-white/10`,
+ * `text-ink-300`) rather than the literal slate values used in the previous
+ * light version. The conversation rows are dark raised cards on the canvas —
+ * `bg-surface` against #0F0A1C gives the separation that the white cards gave
+ * against #FAFAFA, so each conversation still reads as a discrete tappable row
+ * rather than one undifferentiated block.
  *
- * The chat room's own tokens (`--chat-*`) are untouched: it is already light, and
- * those are themeable per conversation. This file is a fixed light surface, so
- * literals are correct here and would be wrong in a themed view.
+ * The chat room's own `--chat-*` tokens are separate: those are per-conversation
+ * themes, and the default one is now this same midnight purple.
  *
  * • Top: "Chat / Call" switch, then the horizontal "Near me" stories row.
  * • Prominent scam warning directly below the header.
@@ -103,7 +103,7 @@ export default async function MessagesPage() {
   });
 
   return (
-    /* `bg-[#FAFAFA]` + `text-slate-900` on the ROOT, not just on a wrapper.
+    /* `bg-[#FAFAFA]` + `text-white` on the ROOT, not just on a wrapper.
        The canvas is a near-white off-grey rather than pure `#fff` so the white
        cards sitting on it have a visible edge — on pure white a white card with a
        hairline border is the only thing separating a row from the background,
@@ -112,7 +112,7 @@ export default async function MessagesPage() {
        `PageLock` supplies the scroll region and the `pb` for the fixed bottom
        nav, so those concerns stay where they were rather than being rebuilt. */
     <PageLock
-      className="mx-auto w-full max-w-3xl bg-[#FAFAFA] text-slate-900"
+      className="mx-auto w-full max-w-3xl bg-[#0F0A1C] text-white"
       bodyClassName="pb-28 md:pb-8"
       head={
         /* The shared `PageHeader` is NOT used. It renders the dark-theme
@@ -125,8 +125,8 @@ export default async function MessagesPage() {
            privacy claim it made is still true and is stated once, in the safety
            banner below, where it does useful work next to the reporting advice. */
         <header className="mb-4 shrink-0">
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">Messages</h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <h1 className="text-2xl font-bold tracking-tight text-white">Messages</h1>
+          <p className="mt-0.5 text-sm text-ink-300">
             {activeChats.length > 0
               ? `${activeChats.length} active ${activeChats.length === 1 ? "conversation" : "conversations"}`
               : "Your private inbox"}
@@ -171,15 +171,15 @@ export default async function MessagesPage() {
           title="No messages yet"
           body="Once you connect with someone, you can start a private chat from their profile."
           action={
-            <Link href="/discover" className="text-sm font-semibold text-orange-600 hover:underline">
+            <Link href="/discover" className="text-sm font-semibold text-brand-300 hover:underline">
               Discover people
             </Link>
           }
         />
       ) : (
         <section aria-labelledby="chats-heading" className="flex flex-col gap-3">
-          <h2 id="chats-heading" className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Active chats <span className="text-slate-400">({activeChats.length})</span>
+          <h2 id="chats-heading" className="text-xs font-semibold uppercase tracking-wide text-ink-300">
+            Active chats <span className="text-ink-400">({activeChats.length})</span>
           </h2>
 
           {/* WHITE CARDS on the off-white canvas, one per row, with a hairline
@@ -238,7 +238,7 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
        touch, where there is no hover cursor to rely on. */
     <Link
       href={conversation.href as never}
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 transition active:scale-[0.99] hover:border-slate-300 hover:bg-slate-50 sm:gap-4"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3 transition active:scale-[0.99] hover:border-white/20 hover:bg-white/[0.04] sm:gap-4"
     >
       <div className="relative shrink-0">
         {conversation.avatarUrl ? (
@@ -251,7 +251,7 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
           /* Initials fallback. The dark `bg-brand-500/15 text-brand-300` tint was
              near-invisible on white, so this is a solid warm fill with dark text
              that reads as an avatar rather than as empty space. */
-          <Avatar name={name} kind={conversation.kind} size="md" className="bg-orange-100 text-orange-700" />
+          <Avatar name={name} kind={conversation.kind} size="md" className="bg-brand-500/15 text-brand-300" />
         )}
         {/* Bots have no real presence, so they get no dot; humans always get one
             so an offline member reads as offline rather than ambiguous. */}
@@ -261,7 +261,7 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
         {unread > 0 ? (
           <span
             aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
-            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white"
+            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] px-1 text-[10px] font-bold text-white"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -272,12 +272,12 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
         {/* Always `font-semibold`: the reference gives every name equal weight and
             lets the preview and the unread badge carry the emphasis instead.
             Weighting the name by unread state made half the list look disabled. */}
-        <p className="truncate text-sm font-semibold text-slate-900">{name}</p>
-        {/* `text-slate-500`, not the dark `text-ink-400`/`text-ink-200` tokens
+        <p className="truncate text-sm font-semibold text-white">{name}</p>
+        {/* `text-ink-300`, not the dark `text-ink-400`/`text-ink-200` tokens
             used before. On `#FAFAFA` those resolved to roughly 2:1 contrast and
             the previews looked like empty space. 500 is the lightest shade that
             still clears WCAG AA at this size on this background. */}
-        <p className="truncate text-xs text-slate-500">
+        <p className="truncate text-xs text-ink-300">
           {conversation.preview?.trim() || "No messages yet"}
         </p>
       </div>
@@ -286,7 +286,7 @@ function ChatRow({ chat: conversation }: { chat: ActiveChatRow | null | undefine
         <span
           className={[
             "shrink-0 text-[11px]",
-            unread > 0 ? "font-semibold text-orange-600" : "text-slate-400",
+            unread > 0 ? "font-semibold text-brand-300" : "text-ink-400",
           ].join(" ")}
         >
           {at}

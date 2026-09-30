@@ -32,7 +32,7 @@ export function OfficialTeamCard() {
        than a muted outline would. */
     <section
       aria-label="Official team"
-      className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-3.5"
+      className="flex items-start gap-3 rounded-2xl border border-white/10 bg-surface p-3.5"
     >
       <span
         aria-hidden
@@ -41,14 +41,14 @@ export function OfficialTeamCard() {
         <Icon name="crown" className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900">Official Team</p>
-        <p className="mt-0.5 text-xs leading-4 text-slate-500">
+        <p className="text-sm font-semibold text-white">Official Team</p>
+        <p className="mt-0.5 text-xs leading-4 text-ink-300">
           Messages from the team arrive with this badge. Anyone claiming to be
           staff without it is not — report them and we&apos;ll take it down.
         </p>
         <Link
           href="/feedback"
-          className="mt-1.5 inline-block text-xs font-semibold text-orange-600 transition hover:text-orange-700"
+          className="mt-1.5 inline-block text-xs font-semibold text-orange-300 transition hover:text-orange-200"
         >
           Contact the team
         </Link>
@@ -90,7 +90,7 @@ export function ProfileVisitorsCard({ viewerCount }: { viewerCount: number | nul
        stacked above the list. */
     <section
       aria-label="Profile visitors"
-      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3.5"
     >
       <span
         aria-hidden
@@ -99,17 +99,17 @@ export function ProfileVisitorsCard({ viewerCount }: { viewerCount: number | nul
         <Icon name="eye" className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900">
+        <p className="text-sm font-semibold text-white">
           {people} <span className="font-normal">seen me</span>
         </p>
-        <p className="mt-0.5 text-xs leading-4 text-slate-500">
+        <p className="mt-0.5 text-xs leading-4 text-ink-300">
           People who visited your profile can start a conversation with you.
         </p>
       </div>
       <Link
         href="/profile"
         aria-label="See who has seen me"
-        className="shrink-0 rounded-full border border-purple-200 bg-purple-50 px-3 py-1.5 text-xs font-semibold text-purple-700 transition hover:bg-purple-100"
+        className="shrink-0 rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1.5 text-xs font-semibold text-purple-200 transition hover:bg-purple-400/20"
       >
         View
       </Link>
