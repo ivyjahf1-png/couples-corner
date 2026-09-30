@@ -16,10 +16,9 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useTransition } from "react";
-import Link from "next/link";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
-import { Images, Mic, Palette, Phone, Send, Smile } from "lucide-react";
+import { Mic, Palette, Paperclip, Send, Smile } from "lucide-react";
 
 /**
  * Owns the chat theme and hands it to the thread.
@@ -434,15 +433,29 @@ export function MessageComposer({
           <div
             className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full border px-1.5 [background-color:var(--chat-input-bg)] [border-color:var(--chat-input-border)] focus-within:border-orange-400/60"
           >
-          {/* GALLERY, from the old AttachmentDock. Icon-only now; it keeps the
-              same `aria-label`, so the accessible name is unchanged. */}
+          {/*
+            ATTACHMENT, as a PAPERCLIP.
+
+            This was a gallery/photo-stack glyph (`Images`), which reads as
+            "send a picture you already took" and is why the label had to be
+            "Choose an image from your library". A paperclip is the general
+            attachment affordance every messenger uses, and it is the honest one
+            for a control whose file input still only accepts `image/*` — the
+            glyph sets the expectation, the accept attribute keeps the promise
+            honest. Widening the accept list is a separate decision; this only
+            stops the icon from over-claiming.
+
+            The `aria-label` still names the real behaviour, so the accessible
+            name is unchanged and does not become "attach" for something that
+            only opens images. */}
           <button
             type="button"
             onClick={() => imageInputRef.current?.click()}
-            aria-label="Choose an image from your library"
+            aria-label="Attach a file"
+            title="Attach"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
           >
-            <Images className="h-5 w-5" aria-hidden />
+            <Paperclip className="h-5 w-5" aria-hidden />
           </button>
           <input
             ref={inputRef}
@@ -455,7 +468,7 @@ export function MessageComposer({
                 handleSubmit();
               }
             }}
-            placeholder="Write a message…"
+            placeholder="Type here..."
             aria-label="Write a message"
             // No border and no background of its own: the wrapper above owns both,
             // which is what makes this read as one field rather than a box nested
@@ -502,27 +515,23 @@ export function MessageComposer({
             <Mic className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        {/* Voice call. Same `h-11 w-11` square and the same ghost treatment as
-            every other secondary control, so the row keeps its one optical line.
+        {/* NO VOICE-CALL LINK IN THE DOCK — DELIBERATE.
 
-            A REAL destination, not a stub: `/call/[conversationId]/[mode]` is
-            implemented in the `(realtime)` group and drives the actual WebRTC
-            screen. It is placed last in the control run so the send button stays
-            the rightmost, most reachable control on a phone — a call is a
-            bigger, rarer action than sending the next message.
+            This row used to carry a `Phone` link to `/call/<id>/audio` sitting
+            between the input cluster and the send button, duplicating the audio
+            AND video call buttons the header already shows 400px above. Two
+            identical call affordances on one screen, on the same conversation,
+            is the redundancy that makes a dock feel assembled: the member has to
+            work out which one is current.
 
-            GIFT IS DELIBERATELY ABSENT. See the note on `AttachmentDock` at the
-            top of this file: gifting needs a commerce write path and a coin
-            ledger this chat does not touch, so a gift button here would open
-            nothing. It belongs in the dock the day it can actually send
-            something. */}
-        <Link
-          href={`/call/${conversationId}/audio`}
-          aria-label="Start a voice call"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-emerald-500/15 hover:text-emerald-600"
-        >
-          <Phone className="h-5 w-5" aria-hidden />
-        </Link>
+            The header is the right home for both. It is where the other person
+            is identified, which is what a call is an action ON, and it is
+            reachable with the thumb while the dock is competing for it.
+
+            GIFT AND TOKEN REWARDS REMAIN ABSENT. Gifting needs a commerce write
+            path and a coin ledger this chat does not touch, so a gift button
+            here would open nothing. They belong in the dock the day they can
+            actually do something. */}
         {showEmoji ? (
           <div className="absolute bottom-16 left-20 z-10 flex gap-1 rounded-xl border p-2 shadow-xl [background-color:var(--chat-menu-bg)] [border-color:var(--chat-menu-border)]">
             {QUICK_EMOJI.map((emoji) => (

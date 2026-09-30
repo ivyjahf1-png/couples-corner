@@ -1,14 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { ChatHeader } from "@/components/app/ChatHeader";
-import { ChatSafetyBanner } from "@/components/app/ChatSafetyBanner";
 import { markConversationReadAction } from "@/lib/actions/messaging";
-import { ConversationSummaryCard } from "@/components/app/ConversationSummaryCard";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MessageComposer, useChatTheme } from "@/components/app/MessageComposer";
 import { usePresence } from "@/lib/hooks/usePresence";
-import type { ChatStarter, ConversationParticipantSummary } from "@/lib/feature/types";
+import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
 /**
  * Client wrapper for the conversation surface.
@@ -25,23 +23,45 @@ import type { ChatStarter, ConversationParticipantSummary } from "@/lib/feature/
  * crosses the boundary as plain props either way — the difference is only WHERE
  * the elements are created.
  *
- * The layout contract from the server page is preserved exactly: header
- * `shrink-0`, ONE scroll region (`data-chat-scroll`), composer `shrink-0`. Two
- * nested `overflow-y-auto` containers is what previously caused the erratic
- * scroll chaining on this page.
+ * ── LAYOUT CONTRACT (three fixed bands, one scroller) ──────────────────────────
+ *
+ *   root        h-[100dvh] flex-col overflow-hidden      viewport is locked
+ *     header    shrink-0                                 fixed at the top
+ *     thread    flex-1 overflow-y-auto                  the ONLY scroller
+ *     composer  shrink-0                                 fixed at the bottom
+ *
+ * The page never scrolls; only the thread does. This is also why the app shell
+ * drops its `<main>` padding on this route (see `AppMain`) and why
+ * `BottomNavRegion` hides the tab bar here — otherwise the composer would sit
+ * under a nav the thread's column never reserved room for.
+ *
+ * `LiveConversationThread`'s `<ul>` must stay non-scrolling (overflow-x-hidden
+ * only). Two nested `overflow-y-auto` containers cause scroll chaining and the
+ * erratic bouncing this page used to have.
+ *
+ * ── WHAT THE INTRO CARD COST ──────────────────────────────────────────────────
+ * This used to render a full `ConversationSummaryCard` between the header and
+ * the first message: an avatar, identity chips, badges, a photo strip, an
+ * interests grid and a disclosure toggle, opening EXPANDED. It is gone.
+ *
+ * It was a second profile banner directly beneath the header, restating the
+ * name and avatar the header 4px above it already showed. On a 320px phone it
+ * left almost no room for the messages it was describing, and the member had to
+ * scroll past a stranger's photo grid to read "hi". The header carries the
+ * identity now; the thread carries the conversation. That is the whole job of
+ * each band, and having the header and a banner both answer "who am I talking
+ * to" is what made the screen feel assembled rather than designed.
  */
 export default function ConversationClient({
   conversationId,
   currentUserId,
   summary,
-  starter,
   initialMessages,
   initialOnline = false,
 }: {
   conversationId: string;
   currentUserId: string;
   summary: ConversationParticipantSummary | null;
-  starter: ChatStarter | null;
   /**
    * Inferred from `LiveConversationThread` rather than re-declared: the `Message`
    * interface is local to that file, and copying its shape here would be a
@@ -53,14 +73,6 @@ export default function ConversationClient({
   initialOnline: boolean;
 }) {
   const { theme, setTheme } = useChatTheme();
-
-  // The intro card opens EXPANDED here, so the interest tags and photo
-  // previews — the parts that tell a member whether this person is worth
-  // replying to — are visible without a tap. It is the one surface a member
-  // reads before deciding whether to continue, so burying the substance behind
-  // a disclosure arrow hid exactly what the card is for. The member can still
-  // collapse it to get the messages back.
-  const [summaryExpanded, setSummaryExpanded] = useState(true);
 
   /* Mark the thread read, ONCE, after the view has mounted.
 
@@ -88,8 +100,7 @@ export default function ConversationClient({
 
   // Icebreakers only make sense on a thread that has not started. Derived from
   // the message list rather than a server flag, so it stays correct as messages
-  // arrive live. The server-rendered `starter` is available as one more opener
-  // when present — it is real content chosen for this conversation.
+  // arrive live.
   const showIcebreakers = initialMessages.length === 0;
 
   // Live presence, seeded by the server so the first frame is already correct.
@@ -118,36 +129,25 @@ export default function ConversationClient({
           />
         </header>
 
-        {showIcebreakers ? <ChatSafetyBanner /> : null}
+        {/* ── THE ONE SCROLL REGION ─────────────────────────────────────────
+            `min-h-0` is load-bearing, not decorative: without it this flex
+            child refuses to shrink below its content and the locked column
+            overflows, which is what pushes the composer below the fold.
 
-        {/* The ONLY vertical scroll region on this page. */}
-        <div data-chat-scroll className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
-          {/* The bright-yellow intro card opens the conversation, directly above
-              the thread. It is INSIDE the scroll region rather than pinned
-              beneath the header on purpose: it is tall (avatar, identity chips,
-              badges, photos), and a fixed card of that height on a 320px phone
-              leaves almost no room for the messages it is describing. Pinned,
-              it would also stop the member scrolling back to re-read who they
-              are talking to — which is the single most useful thing on it.
-
-              It carries its own bottom padding and keeps a softened top edge, so
-              it reads as the head of the thread rather than a card floating in a
-              gap above the first message. The rounded top is only visible when
-              the thread is scrolled to the very top, which is exactly when the
-              member is reading it. */}
-          <ConversationSummaryCard
-            summary={summary}
-            expanded={summaryExpanded}
-            onToggleExpand={() => setSummaryExpanded((v) => !v)}
+            The `px-4` is the thread's side padding and the `pb-4` clears the
+            last bubble from the composer pill. Both live here rather than on
+            the `<ul>` so the vertical rhythm of the thread is owned in one
+            place. */}
+        <div
+          data-chat-scroll
+          className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3"
+        >
+          <LiveConversationThread
+            conversationId={conversationId}
+            currentUserId={currentUserId}
+            initialMessages={initialMessages}
+            participant={summary}
           />
-
-          <div className="p-4">
-            <LiveConversationThread
-              conversationId={conversationId}
-              currentUserId={currentUserId}
-              initialMessages={initialMessages}
-            />
-          </div>
         </div>
       </div>
 

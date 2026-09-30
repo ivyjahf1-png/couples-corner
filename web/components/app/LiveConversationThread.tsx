@@ -9,6 +9,8 @@ import {
   type MessageAction,
 } from "@/components/app/MessageActionsMenu";
 import { deleteMessageAction, editMessageAction } from "@/lib/actions/messaging";
+import { Avatar } from "@/components/app/Avatar";
+import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
 interface Message {
   id: string;
@@ -35,6 +37,12 @@ interface LiveConversationThreadProps {
   conversationId: string;
   currentUserId: string;
   initialMessages?: Message[];
+  /**
+   * The other participant, used only to draw the avatar beside each incoming
+   * bubble. Optional so the thread still renders (avatars simply drop out) if a
+   * caller has no summary — a missing avatar must never break the thread.
+   */
+  participant?: ConversationParticipantSummary | null;
 }
 
 function formatTime(iso: string): string {
@@ -75,6 +83,7 @@ export function LiveConversationThread({
   conversationId,
   currentUserId,
   initialMessages = [],
+  participant = null,
 }: LiveConversationThreadProps) {
   const { messages: realtimeMessages, isConnected } = useRealtimeMessages({
     conversationId,
@@ -319,7 +328,32 @@ export function LiveConversationThread({
                   </span>
                 </div>
               ) : null}
-              <div className={isMine ? "flex justify-end" : "flex justify-start"}>
+              <div
+                className={[
+                  "flex items-end gap-2",
+                  isMine ? "justify-end" : "justify-start",
+                ].join(" ")}
+              >
+                {/* Incoming avatar, in the gutter LEFT of the bubble.
+                    Rendered only on received messages: a member never needs
+                    their own face beside their own words, and mirroring it would
+                    put a circle in the far corner where the timestamps sit.
+
+                    The `items-end` on the row keeps it bottom-aligned with the
+                    bubble rather than floating to the top of a tall message, so
+                    a one-word "ok" and a four-line paragraph both read as one
+                    exchange. It is a fixed 8px disc (2rem) to stay visually
+                    subordinate to the 20px+ bubble. */}
+                {isMine ? null : (
+                  <span className="w-8 shrink-0">
+                    <Avatar
+                      src={participant?.avatarUrl ?? null}
+                      name={participant?.name ?? "Chat"}
+                      kind={participant?.kind}
+                      className="h-8 w-8 text-[11px]"
+                    />
+                  </span>
+                )}
                 {/*
                   Permission model: the menu is offered on EVERY bubble, but the
                   action set depends on who sent it.
@@ -398,41 +432,49 @@ export function LiveConversationThread({
                       </div>
                     </div>
                   ) : (
-                    <div
-                      className={[
-                        "max-w-[80%] px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
-                        // SENT vs RECEIVED — the core hierarchy of the thread.
-                        //
-                        // Both sides now read from the theme's tokens rather than
-                        // hardcoded colours. That indirection is what makes the
-                        // light theme possible at all: a literal `text-white`
-                        // received bubble is invisible on a #F7F7F8 canvas, and
-                        // `bg-white/[0.06]` is too faint to read as a card.
-                        //
-                        // Sent stays the app's orange accent and received stays a
-                        // raised neutral card, so colour and alignment BOTH carry
-                        // the left/right split — the thread is still readable for
-                        // anyone who cannot rely on position alone.
-                        isMine
-                          ? "rounded-2xl rounded-br-md text-[var(--chat-out-text)] [background-image:linear-gradient(135deg,var(--chat-out-from),var(--chat-out-to))] shadow-md"
-                          : "rounded-2xl rounded-bl-md border text-[var(--chat-in-text)] [background-color:var(--chat-in-bg)] [border-color:var(--chat-in-border)] [box-shadow:var(--chat-in-shadow)]",
-                      ].join(" ")}
-                    >
-                      {message.body}
-                      <span
-                        aria-hidden
+                    /* The timestamp lives BESIDE the bubble, not inside it.
+
+                       Inside, it forced every bubble to carry its own bottom
+                       padding for a 11px line, and it made a short "ok" and a
+                       four-line paragraph two different visual weights for the
+                       same content. Tucked beneath and aligned to the bubble's
+                       own edge, the bubble holds only the message — which is
+                       what a bubble is for — and the time is still attached to
+                       it. */
+                    <div className="max-w-[80%] sm:max-w-[70%]">
+                      <div
                         className={[
-                          "mt-1 flex items-center justify-end gap-1.5 text-[11px]",
-                          // Muted in both directions, but derived from the token
-                          // so it stays legible on a white card as well as on
-                          // orange. A fixed `text-ink-300` was tuned for the dark
-                          // canvas and vanished against the light one.
-                          "text-[var(--chat-muted)]",
-                          isMine ? "opacity-80" : "",
+                          "px-4 py-2.5 text-sm leading-6",
+                          // SENT vs RECEIVED — the core hierarchy of the thread.
+                          //
+                          // Both sides read from the theme's tokens rather than
+                          // hardcoded colours. That indirection is what makes the
+                          // light theme possible at all: a literal `text-white`
+                          // received bubble is invisible on a #F7F7F8 canvas.
+                          //
+                          // Sent stays the app's orange accent and received stays
+                          // a raised neutral slate card, so colour and alignment
+                          // BOTH carry the left/right split — the thread is still
+                          // readable for anyone who cannot rely on position alone.
+                          isMine
+                            ? "rounded-2xl rounded-br-md text-[var(--chat-out-text)] [background-image:linear-gradient(135deg,var(--chat-out-from),var(--chat-out-to))] shadow-md"
+                            : "rounded-2xl rounded-bl-md border text-[var(--chat-in-text)] [background-color:var(--chat-in-bg)] [border-color:var(--chat-in-border)] [box-shadow:var(--chat-in-shadow)]",
+                        ].join(" ")}
+                      >
+                        {message.body}
+                      </div>
+                      <span
+                        className={[
+                          "mt-1 flex items-center gap-1.5 px-1 text-[11px]",
+                          // Aligned to the bubble's own edge, so the time reads as
+                          // belonging to THAT bubble rather than floating in the
+                          // middle of the thread's width.
+                          isMine ? "justify-end" : "justify-start",
+                          isMine ? "text-[var(--chat-out-text)]/70" : "text-[var(--chat-muted)]",
                         ].join(" ")}
                       >
                         {copiedId === message.id ? (
-                          <span className="font-medium text-emerald-200">Copied</span>
+                          <span className="font-medium text-emerald-500">Copied</span>
                         ) : null}
                         {formatTime(message.created_at)}
                       </span>

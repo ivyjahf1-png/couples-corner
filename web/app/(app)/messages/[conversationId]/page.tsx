@@ -43,7 +43,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
     notFound();
   }
 
-  const { summary, initialMessages, starter } = chatData;
+  const { summary, initialMessages } = chatData;
   // Seed the header's presence so it paints the right state on the first frame
   // instead of flashing "Offline" until the client's first poll resolves.
   const otherId = summary?.id ?? null;
@@ -68,7 +68,6 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       conversationId={conversationId}
       currentUserId={user.uid}
       summary={summary}
-      starter={starter ?? null}
       initialMessages={initialMessages ?? []}
       initialOnline={otherOnline}
     />
