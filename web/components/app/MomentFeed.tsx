@@ -168,20 +168,27 @@ export function MomentFeed({
           `hidden` (not unmount, not aria-hidden) is what removes the inactive
           one from the a11y tree and from hit-testing while its DOM — and thus
           its scrollTop — is retained. `min-h-0` lets the active panel take the
-          remaining flex height and scroll inside its own region. */}
+          remaining flex height and scroll inside its own region.
+
+          `aria-label` rather than `aria-labelledby`: the panels used to be
+          labelled by `moment-tab-videos` / `moment-tab-community`, ids on the
+          in-page pill switcher that was removed when the header took over. Those
+          references were left dangling — pointing at elements that no longer
+          exist, which is worse than no label because a screen reader announces a
+          broken relationship. Each panel now names itself. */}
       <div
-        role="tabpanel"
+        role="region"
+        aria-label="Moment reels"
         id="moment-panel-videos"
-        aria-labelledby="moment-tab-videos"
         hidden={tab !== "videos"}
         className="min-h-0 flex-1"
       >
         {videos}
       </div>
       <div
-        role="tabpanel"
+        role="region"
+        aria-label="Community feed"
         id="moment-panel-community"
-        aria-labelledby="moment-tab-community"
         hidden={tab !== "community"}
         className="min-h-0 flex-1 overflow-y-auto"
       >

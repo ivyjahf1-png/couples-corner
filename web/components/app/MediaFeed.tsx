@@ -993,8 +993,24 @@ export function MediaFeed({
             with the secondary controls tucked to its right. From `sm` up they
             share one row, because there is finally room for both. The search is
             ordered first in the DOM so it takes the leftover width, not the
-            location badge. */}
-        <div className="pointer-events-auto flex flex-wrap items-center gap-2 px-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:flex-nowrap sm:gap-3 sm:px-5 sm:pt-4">
+            location badge.
+
+            ── THE SAFE-AREA INSET IS DELIBERATELY ABSENT HERE ────────────────────
+            This used to be `pt-[calc(0.75rem+env(safe-area-inset-top))]`. Now that
+            the screen header above (`MobileBackHeader`) is the element at the top
+            of this route, and it already applies `pt-[env(safe-area-inset-top)]`,
+            repeating it here inset this overlay a SECOND time by the height of the
+            status bar.
+
+            That is what produced the "two bars" appearance on the reels view: the
+            header bar, then a band of dead space, then the search row — reading as
+            a separate stacked header that the video was sliding under. The inset
+            belongs to the ONE element that touches the physical top edge of the
+            screen, and that is the header.
+
+            So the top padding here is a plain, even `0.75rem`: this overlay sits
+            below the header and just needs breathing room. */}
+        <div className="pointer-events-auto flex flex-wrap items-center gap-2 px-3 pt-3 sm:flex-nowrap sm:gap-3 sm:px-5 sm:pt-4">
           {searchSlot ? <div className="order-1 min-w-0 flex-1 basis-full sm:basis-auto">{searchSlot}</div> : null}
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
             {topRightSlot ? <div className="flex shrink-0 items-center gap-2">{topRightSlot}</div> : null}

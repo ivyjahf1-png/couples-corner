@@ -107,17 +107,33 @@ export function MobileBackHeader() {
           Being in flow fixes that, and dropping the spacer removes the second
           copy of the number entirely. Both headers now measure `min-h-16` with
           `px-4` and a single `border-b`, so every screen's chrome lines up. */}
-      {/* `z-50` so the bar paints above the media feed's own overlays. The feed
-          stacks a `z-30` tap target and a `z-20` engagement bar inside a
-          `100dvh` column; at the previous `z-40` the bar still won, but only
-          because nothing in the feed exceeded it — the two numbers were
-          unrelated and any future overlay above `z-40` would silently start
-          eating taps meant for the header. `z-50` states the intent (chrome over
-          content) instead of relying on the feed never growing.
+      {/* ── THE ONE HEADER, LOCKED TO THE TOP ─────────────────────────────────────
+          `sticky top-0` + `z-50`, which is what "locks to the screen and never
+          scrolls away" actually requires. Two things make it hold:
 
-          `shrink-0` keeps the bar from being compressed when the player is tall,
-          which would crop the tap targets rather than let the content scroll. */}
-      <header className="mobile-feature-header app-top-bar sticky top-0 z-50 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
+          1. `relative` establishes this element as a stacking context, so `z-50`
+             is resolved against the header rather than against whatever ancestor
+             happens to create a context. Without it the bar competes in the
+             root context, where a sibling with a large z-index elsewhere in the
+             tree can paint over it — which is exactly the "header slides under
+             the video" failure.
+
+          2. `shrink-0` + the in-flow column in `feed/layout.tsx` mean the header
+             occupies real flow space above the panels. `sticky` positions within
+             the nearest scrolling ancestor, and the community panel scrolls
+             INSIDE itself (`overflow-y-auto`) rather than scrolling the page, so
+             the header is never even a candidate for movement — it is a fixed
+             sibling of the scroll region, and `sticky` is the belt-and-braces
+             that keeps it pinned if that ever changes.
+
+          `relative` costs nothing here: the bar has no absolutely-positioned
+          children that need to escape it.
+
+          `pt-[env(safe-area-inset-top)]` is retained and is the ONE place the
+          status-bar inset is applied on this route. The feed overlay beneath it
+          previously repeated the inset, which is what produced the stacked
+          double-bar look; see the note on MediaFeed's top overlay. */}
+      <header className="mobile-feature-header app-top-bar sticky top-0 z-50 relative shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
         {/* `touch-manipulation` on the bar: without it a mobile browser may wait
             to see whether the tap becomes a double-tap zoom before firing, which
             is exactly the "I had to tap it again" feel. `manipulation` removes

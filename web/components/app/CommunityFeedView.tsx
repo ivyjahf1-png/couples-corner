@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { PostCard } from "@/components/app/PostCard";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
@@ -35,21 +34,23 @@ import type { FeedPostView } from "@/lib/feature/types";
  * already draws that line carefully ("flagged for review - never as an
  * automatic ban") and this banner must not overstate what the product does.
  */
-/**
- * Timeline sort orders, applied CLIENT-side over the already-fetched set.
+/*
+ * ── WHY THE "RECOMMEND / FOLLOW" SORT ROW IS GONE ──────────────────────────
+ * That row has been removed. It was a second, `sticky top-0` bar sitting
+ * directly beneath the screen header, so opening the community view showed TWO
+ * stacked bars before any content — and because both were pinned to `top-0`,
+ * feed content scrolled underneath the sort row while the header above it stayed
+ * put, so the two visibly disagreed about where "the top" was.
  *
- * Deliberately not server queries: this view is server-rendered with both
- * Moment panels mounted precisely so switching tabs does not refetch (see
- * `MomentFeed`). Re-ordering 20 posts is instant; a round trip per toggle is
- * the stall that mount-both exists to avoid.
+ * It was also carrying a control the data cannot honour. "Follow" did NOT mean
+ * "people you follow": there is no follow graph available to this view (the
+ * public feed query is not scoped to who the member follows), so it silently
+ * re-ordered the member's OWN posts under a label promising something else.
+ * Removing the control beats keeping a filter that misrepresents what it does.
+ *
+ * The screen header's single "Moment / feed-view" switch is now the only
+ * navigation on this screen, which is the point of the shared header.
  */
-const TABS = [
-  { id: "recommend", label: "Recommend" },
-  { id: "following", label: "Follow" },
-] as const;
-
-type FeedTab = (typeof TABS)[number]["id"];
-
 export function CommunityFeedView({
   posts,
   canPost,
@@ -60,69 +61,13 @@ export function CommunityFeedView({
   /** The signed-in member's id, threaded to the upload modal. */
   userId?: string;
 }) {
-  const [tab, setTab] = useState<FeedTab>("recommend");
-
-  /* Recommend = newest first, which is exactly what the server already returns.
-     Follow = the member's own posts first, then everything else by recency.
-
-     HONESTY NOTE: there is no follow-graph available to this view. The public
-     feed query is not scoped to who the member follows, and `PostCard`'s Follow
-     control is local UI state with no Server Action behind it yet. So "Follow"
-     does NOT yet mean "people you follow" — it surfaces the member's own posts,
-     the one relationship this data can honestly express.
-
-     Re-ordering rather than filtering to nothing is deliberate: an always-empty
-     tab looks broken, and silently pretending the follow graph exists would be
-     worse than not offering the tab. When the graph lands, this sort is the
-     single line that changes. */
-  const visible =
-    tab === "following"
-      ? [...posts].sort((a, b) => Number(Boolean(b.isOwn)) - Number(Boolean(a.isOwn)))
-      : posts;
+  /* Newest first, which is exactly what the server already returns. The previous
+     client-side "Follow" re-order is gone with the tab row that offered it — see
+     the note above on why that control overstated what it could do. */
+  const visible = posts;
 
   return (
     <div className="flex flex-col gap-4 pb-8">
-      {/* ── SORT TABS ────────────────────────────────────────────────────────
-          `sticky top-0` so the control used to re-order stays reachable once the
-          timeline scrolls — on a long feed it is otherwise thousands of pixels
-          away at the top. The OPAQUE `bg-surface` is load-bearing: content
-          scrolling underneath a translucent bar is unreadable. */}
-      <div
-        role="tablist"
-        aria-label="Feed order"
-        className="sticky top-0 z-20 -mx-1 flex gap-1 border-b border-ink-700 bg-surface px-1 pb-px pt-1"
-      >
-        {TABS.map((item) => {
-          const selected = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              id={`community-tab-${item.id}`}
-              aria-selected={selected}
-              aria-controls="community-panel"
-              onClick={() => setTab(item.id)}
-              className={[
-                "relative flex-1 rounded-t-lg px-3 py-2.5 text-sm font-semibold transition",
-                selected ? "text-white" : "text-ink-400 hover:text-ink-200",
-              ].join(" ")}
-            >
-              {item.label}
-              {/* The active marker is a separate absolutely-positioned element
-                  rather than a border, so its width can animate without
-                  shifting the label horizontally. */}
-              <span
-                aria-hidden
-                className={`absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-opacity ${
-                  selected ? "bg-gradient-to-r from-amber-400 to-orange-500 opacity-100" : "opacity-0"
-                }`}
-              />
-            </button>
-          );
-        })}
-      </div>
-
       {/* ── SCAM / SAFETY WARNING ───────────────────────────────────────────
           `role="note"` rather than `role="alert"`: it is not urgent, and
           `alert` would interrupt a screen reader mid-sentence on every visit
@@ -167,12 +112,17 @@ export function CommunityFeedView({
           <h2 className="text-sm font-semibold text-white">Share with the community</h2>
           <p className="mt-1 text-xs leading-5 text-ink-300">
             Post a status or a photo and it appears here for everyone. For short
-            videos, use the Videos tab.
+            videos, switch to the Moment reels with the control at the top.
           </p>
         </div>
       ) : null}
 
-      <div id="community-panel" role="tabpanel" aria-labelledby={`community-tab-${tab}`}>
+      {/* `aria-labelledby` pointed at `community-tab-${tab}`, an id that lived on the
+          sort row that has been removed — leaving it would have been a dangling
+          reference to a non-existent element. It now labels itself, which is
+          accurate: the screen header above is the only navigation, and this panel
+          is the community timeline it switches to. */}
+      <div id="community-panel" role="region" aria-label="Community feed posts">
         {visible.length === 0 ? (
           <EmptyState
             icon="moments"
