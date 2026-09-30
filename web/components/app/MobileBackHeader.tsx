@@ -107,8 +107,25 @@ export function MobileBackHeader() {
           Being in flow fixes that, and dropping the spacer removes the second
           copy of the number entirely. Both headers now measure `min-h-16` with
           `px-4` and a single `border-b`, so every screen's chrome lines up. */}
-      <header className="mobile-feature-header app-top-bar sticky top-0 z-40 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
-        <nav aria-label="Page navigation" className="flex min-h-16 items-center gap-3 px-4 py-2">
+      {/* `z-50` so the bar paints above the media feed's own overlays. The feed
+          stacks a `z-30` tap target and a `z-20` engagement bar inside a
+          `100dvh` column; at the previous `z-40` the bar still won, but only
+          because nothing in the feed exceeded it — the two numbers were
+          unrelated and any future overlay above `z-40` would silently start
+          eating taps meant for the header. `z-50` states the intent (chrome over
+          content) instead of relying on the feed never growing.
+
+          `shrink-0` keeps the bar from being compressed when the player is tall,
+          which would crop the tap targets rather than let the content scroll. */}
+      <header className="mobile-feature-header app-top-bar sticky top-0 z-50 shrink-0 border-b border-white/5 pt-[env(safe-area-inset-top)] md:hidden">
+        {/* `touch-manipulation` on the bar: without it a mobile browser may wait
+            to see whether the tap becomes a double-tap zoom before firing, which
+            is exactly the "I had to tap it again" feel. `manipulation` removes
+            the 300ms double-tap-zoom delay while leaving pinch-zoom intact. */}
+        <nav
+          aria-label="Page navigation"
+          className="flex min-h-16 touch-manipulation items-center gap-3 px-4 py-2"
+        >
           {/* ── BACK ARROW, HIDDEN ON THE MOMENT SCREEN ──────────────────────
               Moment is a PRIMARY tab, not a page drilled into. A back arrow on a
               top-level destination implies there is somewhere more important to
@@ -154,13 +171,50 @@ export function MobileBackHeader() {
               this change does not shrink titles on unrelated screens. `truncate`
               plus `min-w-0` is kept: a long localised title must ellipsize
               rather than push the action off the bar. */}
-          <p
-            className={`min-w-0 flex-1 truncate ${
-              segment === "feed" ? "text-[15px] font-normal text-slate-300" : "text-base font-semibold text-white"
-            }`}
-          >
-            {titles[segment] ?? "Couple’s Corner"}
-          </p>
+          {/* Title, and on the Moment screen an ACTIVE CONTROL.
+
+              ── WHY THE TITLE IS A LINK HERE ─────────────────────────────────────
+              This was a bare `<p>`, so "Moment" was a label with no behaviour at
+              all: tapping it did nothing, ever. That is half of what made the
+              switcher feel broken — a member aiming at the screen's name got no
+              response, so the only word on the bar that looked like it might
+              respond was the terse "feed-view" fragment.
+
+              Making it a link gives the pair a symmetric meaning that matches how
+              they read: "Moment" returns to the reel/player view, "feed-view"
+              goes to the community timeline. Either word is now a destination,
+              so the round trip works in both directions and is discoverable from
+              either state.
+
+              It renders as a link ONLY on the Moment screen. Elsewhere the title
+              is the label of the page you are already on, so linking it would
+              point at the current route — a control that navigates nowhere is
+              worse than no control. `feed` is a real destination from every other
+              screen, but that is what the bottom nav's Moment tab is for.
+
+              `min-h-11` on the hit area rather than on the text: the glyphs are
+              15px, and a target sized to the text is a ~20px-tall tap target,
+              which is below the 44px minimum and the reason a control this
+              obvious still gets missed on a phone. The padding is negative-margin
+              free — the flex `gap-3` absorbs it, so nothing shifts.
+
+              The remaining typography is unchanged: `text-[15px] font-normal
+              text-slate-300` on this route, `text-base font-semibold text-white`
+              elsewhere. */}
+          {segment === "feed" ? (
+            <Link
+              href="/feed"
+              aria-label="Moment — show the video reels"
+              aria-current={communityActive ? undefined : "page"}
+              className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-1 text-[15px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+            >
+              <span className="truncate">{titles[segment] ?? "Couple’s Corner"}</span>
+            </Link>
+          ) : (
+            <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">
+              {titles[segment] ?? "Couple’s Corner"}
+            </p>
+          )}
           {/* ── THE "feed-view" TOGGLE ───────────────────────────────────────────
               Navigates to the community timeline by CHANGING THE URL to
               `/feed?view=community`, which the feed page reads into
@@ -187,7 +241,22 @@ export function MobileBackHeader() {
 
               Typography is unchanged: `text-[13px] font-normal text-slate-300` —
               quiet, unbolded and compact, so it reads as a control rather than
-              competing with the title. */}
+              competing with the title.
+
+              ── WHY THE TAP TARGET IS `min-h-11`, NOT `min-h-9` ─────────────────────
+              It was `min-h-9` (36px), sized to the 13px text rather than to a
+              finger. 36px is under the 44px minimum, and it is right beside the
+              screen's largest — and tappest — control, so a slightly low or fast
+              tap lands on nothing. `min-h-11` makes the hit area match the back
+              arrow and the title, so all three targets on the bar are the same
+              size and the whole row is usable rather than just its centre.
+
+              The flex `gap-3` absorbs the extra height, so the bar's own `min-h-16`
+              and every other screen's layout are untouched.
+
+              `aria-current="page"` when this toggle points AWAY from the view
+              showing — i.e. it is a control, not a link to here — so the state is
+              exposed rather than only implied by the label's wording. */}
           {segment === "feed" ? (
             <Link
               href={momentViewToggleHref(communityActive ? "community" : "videos")}
@@ -196,7 +265,8 @@ export function MobileBackHeader() {
                   ? "Switch to the video player view"
                   : "Switch to the community feed view"
               }
-              className="flex min-h-9 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+              aria-current={communityActive ? undefined : "page"}
+              className="flex min-h-11 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
             >
               {communityActive ? "player-view" : "feed-view"}
             </Link>
