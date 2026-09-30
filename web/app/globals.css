@@ -2166,6 +2166,10 @@ button,
 
     --chat-input-bg: #ffffff;
     --chat-input-border: rgb(15 23 42 / 0.12);
+    --chat-menu-bg: #ffffff;
+    --chat-menu-border: rgb(15 23 42 / 0.1);
+  }
+
   /* The remaining four keep their original hues, now expressed through the same
      tokens so their bubbles and chrome stayed consistent. Previously a theme
      changed the canvas only, leaving hardcoded white text and translucent white
