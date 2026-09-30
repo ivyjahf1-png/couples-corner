@@ -1,6 +1,6 @@
-// MessagesInbox.tsx — the whole /messages surface below the shell chrome.
+﻿// MessagesInbox.tsx â€” the whole /messages surface below the shell chrome.
 //
-// ── WHY ONE CLIENT COMPONENT AND NOT FOUR ────────────────────────────────────
+// â”€â”€ WHY ONE CLIENT COMPONENT AND NOT FOUR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // The header's filter pills, the search field and the conversation list are three
 // pieces of ONE control surface: picking "Chats" narrows the list, and typing in
 // the field narrows it again. Splitting them across components would mean lifting
@@ -10,15 +10,15 @@
 // The data crossing the boundary is plain and serialisable (ids, names, preview
 // strings, counts, timestamps, booleans), so this forces no query to run twice.
 //
-// ── WHY THE SEARCH IS CLIENT-SIDE AND HONEST ABOUT IT ────────────────────────
+// â”€â”€ WHY THE SEARCH IS CLIENT-SIDE AND HONEST ABOUT IT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Every conversation is fetched up front, so filtering locally is instant and
 // costs no round trip. There is no server-side message search in this product,
 // and faking one with a hardcoded result set would be a control that looks live
 // and does nothing. This filters exactly what is on screen.
 //
-// ── WHY THE TABS ARE All / Chats / CALLS ─────────────────────────────────────
-// There are no group conversations in this product — the `conversations` table
-// holds only `direct` and `couple` rows — so a "Groups" tab would be a tab that
+// â”€â”€ WHY THE TABS ARE All / Chats / CALLS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// There are no group conversations in this product â€” the `conversations` table
+// holds only `direct` and `couple` rows â€” so a "Groups" tab would be a tab that
 // can never select anything. It is deliberately absent rather than disabled.
 //
 // "Calls" filters to the people who are ONLINE right now, because a call can only
@@ -71,7 +71,7 @@ export function MessagesInbox({
   const needle = query.trim().toLowerCase();
 
   const visible = useMemo(() => {
-    /* Tab first, then the free-text needle — both are filters over the same
+    /* Tab first, then the free-text needle â€” both are filters over the same
        array, and ANDing them is what a member expects from two controls. */
     const byTab = tab === "calls" ? chats.filter((c) => c.isOnline) : chats;
 
@@ -92,7 +92,7 @@ export function MessagesInbox({
 
   /* The most recent conversation that can actually be dialled. The quick-action
      call buttons need a peer to call, and the newest thread is the one a member
-     starting a call almost always means. Null when there is none — the buttons
+     starting a call almost always means. Null when there is none â€” the buttons
      then render inert rather than linking to a call with no participant. */
   const callable = useMemo(
     () => chats.find((c) => c.callHrefBase && !c.isBot) ?? null,
@@ -115,7 +115,7 @@ export function MessagesInbox({
         setMenuOpen={setMenuOpen}
       />}
     >
-      {/* ── SEARCH ──────────────────────────────────────────────────────────
+      {/* â”€â”€ SEARCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           `appearance-none` strips the platform search affordances (the clear
           button on some engines, the inner shadow on iOS) so this reads as the
           app's own field rather than a raw browser control. */}
@@ -139,16 +139,16 @@ export function MessagesInbox({
         </span>
       </div>
 
-      {/* ── QUICK ACTIONS ──────────────────────────────────────────────────
+      {/* â”€â”€ QUICK ACTIONS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Four equal tiles, icon over caption. The caption is the visible label
-          AND, via the link text, the accessible name — so each tile reads
+          AND, via the link text, the accessible name â€” so each tile reads
           without hovering.
 
           Every tile is a REAL destination. There is no "Create Group" tile: the
           product has no group conversations, so such a button could only ever
           lead nowhere. The fourth tile is the Game Center, which exists.
 
-          The two call tiles render INERT — not as dead links — when there is no
+          The two call tiles render INERT â€” not as dead links â€” when there is no
           conversation to call, because `/call/<id>/<mode>` requires a real
           conversation id and inventing one produces a 404 on tap. */}
       <div className="mb-4 grid grid-cols-4 gap-2">
@@ -179,9 +179,9 @@ export function MessagesInbox({
         </QuickAction>
       </div>
 
-      {/* ── PINNED SYSTEM NOTICES ───────────────────────────────────────────
+      {/* â”€â”€ PINNED SYSTEM NOTICES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           Pinned to the TOP of the list. They sit ABOVE the `chats.length === 0`
-          branch on purpose, so a brand-new member still sees the scam warning —
+          branch on purpose, so a brand-new member still sees the scam warning â€”
           a safety notice that only appears once you already have a conversation
           is a notice the people who most need it never see.
 
@@ -191,7 +191,7 @@ export function MessagesInbox({
           warning nobody reads.
 
           STATIC COPY, DELIBERATELY. Neither card makes a claim about any member
-          and neither carries a number that could be wrong about a real person —
+          and neither carries a number that could be wrong about a real person â€”
           they are pointers to the team's own surfaces. Wiring them to an "admin
           backend control" would mean inventing an announcements table and an
           admin write path; until that exists these are honest static product
@@ -215,10 +215,10 @@ export function MessagesInbox({
         emptyState
       ) : visible.length === 0 ? (
         /* A search with no hits gets its OWN message, distinct from "you have no
-           conversations" — conflating the two makes a working inbox look broken. */
+           conversations" â€” conflating the two makes a working inbox look broken. */
         <p className="rounded-2xl border border-white/10 bg-surface px-4 py-6 text-center text-sm text-ink-300">
           {needle
-            ? `No conversations match “${query.trim()}”.`
+            ? `No conversations match â€œ${query.trim()}â€.`
             : "Nobody is online right now. Start a chat to reach someone."}
         </p>
       ) : (
@@ -233,7 +233,6 @@ export function MessagesInbox({
     </PageLock>
   );
 }
-
 
 function InboxHeader({
   tab,
@@ -269,178 +268,6 @@ function InboxHeader({
         >
           <Icon name="search" className="h-5 w-5" />
 
-const TONES = {
-  orange: "bg-orange-500/15 text-orange-300 border-orange-400/30",
-  sky: "bg-sky-500/15 text-sky-300 border-sky-400/30",
-  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
-  violet: "bg-violet-500/15 text-violet-300 border-violet-400/30",
-} as const;
-
-function QuickAction({
-  href,
-  disabled,
-  label,
-  tone,
-  disabledTitle,
-  children,
-}: {
-  href?: string;
-  disabled?: boolean;
-  label: string;
-  tone: keyof typeof TONES;
-  /** Why the tile is inert — surfaced as a tooltip, not silently dimmed. */
-  disabledTitle?: string;
-  children: React.ReactNode;
-}) {
-  const shell = [
-    "flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 transition",
-    disabled
-      ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-ink-500"
-      : `${TONES[tone]} hover:brightness-125 active:scale-[0.97]`,
-  ].join(" ");
-
-  const caption = [
-    "w-full truncate text-center text-[11px] font-semibold",
-    disabled ? "text-ink-500" : "text-ink-200",
-  ].join(" ");
-
-  if (disabled || !href) {
-    return (
-      /* `aria-disabled` on a span rather than `disabled` on a <button>: a
-         genuinely disabled control is skipped by assistive tech with no
-         explanation. This stays in the tree and announces why it is inert. */
-      <span role="button" aria-disabled="true" title={disabledTitle} className={shell}>
-        {children}
-        <span className={caption}>{label}</span>
-      </span>
-    );
-  }
-
-  return (
-    <Link href={href} className={shell} title={label}>
-      {children}
-      <span className={caption}>{label}</span>
-    </Link>
-  );
-}
-
-function PinnedNotice({
-  icon,
-  title,
-  body,
-  tone,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  tone: "amber" | "orange";
-}) {
-  return (
-    <li>
-      <section
-        aria-label={title}
-        className={[
-          "flex items-start gap-3 rounded-2xl border p-3.5",
-          tone === "amber"
-            ? "border-amber-400/30 bg-amber-500/10"
-            : "border-orange-400/30 bg-orange-500/10",
-        ].join(" ")}
-      >
-        <span
-          aria-hidden
-          className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-            tone === "amber"
-              ? "bg-amber-500/20 text-amber-300"
-              : "bg-orange-500/20 text-orange-300",
-          ].join(" ")}
-        >
-          {icon}
-        </span>
-        <div className="min-w-0 flex-1">
-          {/* `line-clamp-2` on the body so a long warning cannot push the real
-              conversations further down the phone than necessary. */}
-          <p className="flex items-center gap-2 text-sm font-semibold text-white">
-            {title}
-            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-200">
-              Pinned
-            </span>
-          </p>
-          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-200">{body}</p>
-        </div>
-      </section>
-    </li>
-  );
-}
-
-function ChatRow({ chat }: { chat: InboxChat }) {
-  const name = chat.name?.trim() || "Chat";
-  const unread = Math.max(chat.unread ?? 0, 0);
-  const at = chat.lastMessageAt ? formatChatTime(chat.lastMessageAt) : null;
-
-  return (
-    /* A raised card inset from the screen edge by the page's own `px-4`, so no
-       row touches the bezel. `active:scale-[0.99]` gives a tap real feedback on
-       touch, where there is no hover cursor to rely on. */
-    <Link
-      href={chat.href as never}
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3 transition active:scale-[0.99] hover:border-white/20 sm:gap-4"
-    >
-      <div className="relative shrink-0">
-        {chat.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={chat.avatarUrl} alt={name} className="h-12 w-12 rounded-full object-cover" />
-        ) : (
-          <Avatar name={name} kind={chat.kind} size="md" className="bg-brand-500/15 text-brand-300" />
-        )}
-        {/* Bots are never "online" — they have no presence row, so a dot on them
-            would be a status the product cannot actually resolve. */}
-        {chat.isBot ? null : <PresenceDot online={chat.isOnline} size="md" />}
-        {unread > 0 ? (
-          <span
-            aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
-            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] px-1 text-[10px] font-bold text-white"
-          >
-            {unread > 99 ? "99+" : unread}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">{name}</p>
-        <p className="truncate text-xs text-ink-300">{chat.preview?.trim() || "No messages yet"}</p>
-      </div>
-
-      {/* Timestamp hard right, OUTSIDE the truncating middle column, so it never
-          gets ellipsized by a long preview. */}
-      {at ? (
-        <span
-          className={[
-            "shrink-0 text-[11px]",
-            unread > 0 ? "font-semibold text-brand-300" : "text-ink-400",
-          ].join(" ")}
-        >
-          {at}
-        </span>
-      ) : null}
-    </Link>
-  );
-}
-
-/** Compact relative/absolute chat timestamp. */
-function formatChatTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-}
 
         </Link>
 
@@ -499,7 +326,7 @@ function formatChatTime(iso: string): string {
         Stay connected with your matches. Your chats are private.
       </p>
 
-      {/* Filter pills. A full-width segmented track is NOT used here — the brief
+      {/* Filter pills. A full-width segmented track is NOT used here â€” the brief
           specifies discrete pills, and three short pills read as three
           destinations rather than as one control with three settings. */}
       <div role="tablist" aria-label="Filter messages" className="mt-3 flex gap-2 overflow-x-auto pb-1">
@@ -539,8 +366,184 @@ function formatChatTime(iso: string): string {
       </div>
     </header>
   );
+
+}
+const TONES = {
+  orange: "bg-orange-500/15 text-orange-300 border-orange-400/30",
+  sky: "bg-sky-500/15 text-sky-300 border-sky-400/30",
+  emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
+  violet: "bg-violet-500/15 text-violet-300 border-violet-400/30",
+} as const;
+
+function QuickAction({
+  href,
+  disabled,
+  label,
+  tone,
+  disabledTitle,
+  children,
+}: {
+  href?: string;
+  disabled?: boolean;
+  label: string;
+  tone: keyof typeof TONES;
+  /** Why the tile is inert â€” surfaced as a tooltip, not silently dimmed. */
+  disabledTitle?: string;
+  children: React.ReactNode;
+}) {
+  const shell = [
+    "flex min-w-0 flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 transition",
+    disabled
+      ? "cursor-not-allowed border-white/5 bg-white/[0.02] text-ink-500"
+      : `${TONES[tone]} hover:brightness-125 active:scale-[0.97]`,
+  ].join(" ");
+
+  const caption = [
+    "w-full truncate text-center text-[11px] font-semibold",
+    disabled ? "text-ink-500" : "text-ink-200",
+  ].join(" ");
+
+  if (disabled || !href) {
+    return (
+      /* `aria-disabled` on a span rather than `disabled` on a <button>: a
+         genuinely disabled control is skipped by assistive tech with no
+         explanation. This stays in the tree and announces why it is inert. */
+      <span role="button" aria-disabled="true" title={disabledTitle} className={shell}>
+        {children}
+        <span className={caption}>{label}</span>
+      </span>
+    );
+  }
+
+  return (
+    <Link href={href} className={shell} title={label}>
+      {children}
+      <span className={caption}>{label}</span>
+    </Link>
+  );
+
 }
 
+function PinnedNotice({
+  icon,
+  title,
+  body,
+  tone,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  tone: "amber" | "orange";
+}) {
+  return (
+    <li>
+      <section
+        aria-label={title}
+        className={[
+          "flex items-start gap-3 rounded-2xl border p-3.5",
+          tone === "amber"
+            ? "border-amber-400/30 bg-amber-500/10"
+            : "border-orange-400/30 bg-orange-500/10",
+        ].join(" ")}
+      >
+        <span
+          aria-hidden
+          className={[
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+            tone === "amber"
+              ? "bg-amber-500/20 text-amber-300"
+              : "bg-orange-500/20 text-orange-300",
+          ].join(" ")}
+        >
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          {/* `line-clamp-2` on the body so a long warning cannot push the real
+              conversations further down the phone than necessary. */}
+          <p className="flex items-center gap-2 text-sm font-semibold text-white">
+            {title}
+            <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-200">
+              Pinned
+            </span>
+          </p>
+          <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-200">{body}</p>
+        </div>
+      </section>
+    </li>
+
+  );
+}
+
+function ChatRow({ chat }: { chat: InboxChat }) {
+  const name = chat.name?.trim() || "Chat";
+  const unread = Math.max(chat.unread ?? 0, 0);
+  const at = chat.lastMessageAt ? formatChatTime(chat.lastMessageAt) : null;
+
+  return (
+    /* A raised card inset from the screen edge by the page's own `px-4`, so no
+       row touches the bezel. `active:scale-[0.99]` gives a tap real feedback on
+       touch, where there is no hover cursor to rely on. */
+    <Link
+      href={chat.href as never}
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3 transition active:scale-[0.99] hover:border-white/20 sm:gap-4"
+    >
+      <div className="relative shrink-0">
+        {chat.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={chat.avatarUrl} alt={name} className="h-12 w-12 rounded-full object-cover" />
+        ) : (
+          <Avatar name={name} kind={chat.kind} size="md" className="bg-brand-500/15 text-brand-300" />
+        )}
+        {/* Bots are never "online" â€” they have no presence row, so a dot on them
+            would be a status the product cannot actually resolve. */}
+        {chat.isBot ? null : <PresenceDot online={chat.isOnline} size="md" />}
+        {unread > 0 ? (
+          <span
+            aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
+            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] px-1 text-[10px] font-bold text-white"
+          >
+            {unread > 99 ? "99+" : unread}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-white">{name}</p>
+        <p className="truncate text-xs text-ink-300">{chat.preview?.trim() || "No messages yet"}</p>
+      </div>
+
+      {/* Timestamp hard right, OUTSIDE the truncating middle column, so it never
+          gets ellipsized by a long preview. */}
+      {at ? (
+        <span
+          className={[
+            "shrink-0 text-[11px]",
+            unread > 0 ? "font-semibold text-brand-300" : "text-ink-400",
+          ].join(" ")}
+        >
+          {at}
+        </span>
+      ) : null}
+    </Link>
+
+  );
+}
+
+/** Compact relative/absolute chat timestamp. */
+function formatChatTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const diffMs = Date.now() - date.getTime();
+  const minutes = Math.floor(diffMs / 60_000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 function MenuLink({
   href,
   onPick,
@@ -559,9 +562,5 @@ function MenuLink({
     >
       {children}
     </Link>
-  );
-}
-
-    </PageLock>
   );
 }
