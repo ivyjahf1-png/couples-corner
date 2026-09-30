@@ -21,34 +21,33 @@ import { Icon } from "@/components/landing/Icon";
  */
 export function OfficialTeamCard() {
   return (
-    /* Light card: white surface, hairline border, DARK text.
-
-       Every colour below was a dark-theme token (`text-white`, `text-ink-300`,
-       `border-brand-500/25` over a navy canvas). On the `#FAFAFA` list canvas the
-       white heading rendered at roughly 1.1:1 — effectively invisible — so the card
-       read as an unexplained orange icon floating above the conversations. The
-       saturated gradient is KEPT on the crown badge: it is the one element that
-       must read as "official" at a glance, and a solid brand fill does that better
-       than a muted outline would. */
+    /* Light-to-dark card: a raised surface with a hairline border on the midnight
+       canvas. `h-full` + column so it fills its grid cell beside the scam banner
+       without either card forcing the row taller than the other.
+       Same treatment as `OfficialTeamCard`'s sibling, the ProfileVisitorsCard. */
     <section
       aria-label="Official team"
-      className="flex items-start gap-3 rounded-2xl border border-white/10 bg-surface p-3.5"
+      className="flex h-full flex-col gap-2 overflow-hidden rounded-2xl border border-white/10 bg-surface p-3"
     >
-      <span
-        aria-hidden
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-sm"
-      >
-        <Icon name="crown" className="h-5 w-5" />
-      </span>
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-600 text-white shadow-sm"
+        >
+          <Icon name="crown" className="h-4 w-4" />
+        </span>
+        <p className="truncate text-sm font-semibold text-white">Official Team</p>
+      </div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-white">Official Team</p>
-        <p className="mt-0.5 text-xs leading-4 text-ink-300">
+        {/* `line-clamp` so a long explanation cannot push this card taller than
+            the scam banner it sits beside. */}
+        <p className="line-clamp-4 text-[11px] leading-4 text-ink-300">
           Messages from the team arrive with this badge. Anyone claiming to be
           staff without it is not — report them and we&apos;ll take it down.
         </p>
         <Link
           href="/feedback"
-          className="mt-1.5 inline-block text-xs font-semibold text-orange-300 transition hover:text-orange-200"
+          className="mt-1.5 inline-block text-[11px] font-semibold text-orange-300 transition hover:text-orange-200"
         >
           Contact the team
         </Link>

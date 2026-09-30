@@ -138,31 +138,57 @@ export default async function MessagesPage() {
           way the reference lays it out. */}
       <MessagesInboxTabs activeCount={activeChats.length} />
 
-      {/* Scam warning. LOUD variant: this is the surface unsolicited contact
-          actually arrives on, and the specific pattern — coins offered in
-          exchange for money or codes — is named rather than a generic "be
-          careful", so a member can recognise it in a message.
+      {/* ── ONE NOTICE CARD, NOT FOUR SCATTERED BOXES ────────────────────────
+          This header used to stack up to FOUR separate boxes before any
+          conversation: the scam banner, the profile-visitor card, the Official
+          Team card, and the story tray — each with its own border, icon and
+          padding. On a phone that is more chrome than content above the fold,
+          and the member had to scroll past all of it to reach the actual
+          messages.
 
-          It sits directly under the header, above everything else, because a
-          warning that scrolls away is a warning nobody reads. */}
-      <div className="mb-4">
+          It is now a single consolidated notice strip directly under the header
+          holding both messages side by side, so the safety warning and the
+          official-team note read as one "before you read anything" block rather
+          than as two competing alerts.
+
+          The scam text is unchanged and still names the specific pattern — coins
+          offered in exchange for money or codes — rather than a generic "be
+          careful", because that is the part a member can actually recognise in a
+          message. It stays near the top because a warning that scrolls away is a
+          warning nobody reads.
+
+          NOT WIRED TO ADMIN. The brief asked for these notices to be "wired
+          dynamically to admin backend controls". There is no such read path in
+          this product — no announcements table, no admin write action, no
+          read model — so there is nothing honest to wire them to. Hardcoding an
+          admin-controlled string here would produce a control that looks live and
+          silently does nothing. The content stays static copy until a real
+          announcements source exists. */}
+      <div className="mb-4 grid grid-cols-2 gap-2.5">
         <ChatSafetyBanner variant="inbox" />
+        <OfficialTeamCard />
       </div>
 
-      {/* Status tray sits directly under the header; only the chat list
-          below it scrolls. */}
+      {/* ── THE MATCH REEL ───────────────────────────────────────────────────
+          Status tray and Near Me are a horizontal reel of circular avatars
+          pinned above the vertical message list. They are the "who is around me"
+          entry point, which is a browsing action, so a horizontal strip reads
+          correctly; a vertical list of the same people above the conversations
+          would be indistinguishable from the messages themselves.
+
+          The reel scrolls horizontally and the list vertically, so the two axes
+          never fight each other. */}
       <div className="shrink-0">
         <StoryTray userId={user.uid} displayName={user.email?.split("@")[0] ?? "You"} />
       </div>
-
-      {/* Near me — horizontal scrollable circular avatars (location-aware). */}
       <NearMeStories />
 
-      {/* Informational cards, above the conversations so they are read while
-          the list is still coming into view. */}
-      <div className="mb-3 flex flex-col gap-2.5">
+      {/* The visitor count is a single quiet line rather than a card of its own —
+          it is a teaser, not a destination, and it was the third box competing for
+          the space above the fold. It renders nothing until there is a real
+          visitor log to count; see `ProfileVisitorsCard`. */}
+      <div className="mb-3">
         <ProfileVisitorsCard viewerCount={profileViewerCount} />
-        <OfficialTeamCard />
       </div>
 
       {activeChats.length === 0 ? (
@@ -182,14 +208,10 @@ export default async function MessagesPage() {
             Active chats <span className="text-ink-400">({activeChats.length})</span>
           </h2>
 
-          {/* WHITE CARDS on the off-white canvas, one per row, with a hairline
-              border and rounded corners.
-
-              These were previously a flat borderless list sitting directly on
-              the dark canvas. On `#FAFAFA` a borderless white row is
-              indistinguishable from the background, so the list read as one
-              undifferentiated block — the border and radius are what make each
-              conversation a discrete, tappable target. */}
+          {/* Dark raised cards on the midnight canvas, one per row, with a hairline
+              border and rounded corners. `bg-surface` against #0F0A1C gives each
+              conversation the same discrete-edge separation the white cards gave
+              against the old light canvas. */}
           <ul className="flex flex-col gap-2">
             {activeChats.filter((c) => c?.key).map((chat) => (
               <li key={chat.key}>

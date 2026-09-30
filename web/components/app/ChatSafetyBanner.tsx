@@ -1,7 +1,6 @@
 // ChatSafetyBanner.tsx — the anti-scam reminder shown above a conversation.
 "use client";
 
-import { useState } from "react";
 import { Icon } from "@/components/landing/Icon";
 
 /**
@@ -23,7 +22,6 @@ import { Icon } from "@/components/landing/Icon";
  * product does.
  */
 export function ChatSafetyBanner({
-  onDismiss,
   /**
    * `inbox` renders the loud, all-caps version for the conversation LIST.
    * `thread` keeps the softer advisory used inside a live conversation.
@@ -41,79 +39,78 @@ export function ChatSafetyBanner({
    */
   variant = "thread",
 }: {
-  onDismiss?: () => void;
   variant?: "thread" | "inbox";
 }) {
-  const [open, setOpen] = useState(true);
   const loud = variant === "inbox";
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={[
-          "flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition",
-          loud
-            ? "border-rose-400/40 bg-rose-500/[0.08] text-rose-200 hover:bg-rose-500/[0.14]"
-            : "mx-4 mt-3 w-[calc(100%-2rem)] border-amber-400/40 bg-amber-500/[0.08] text-amber-200 hover:bg-amber-500/[0.14]",
-        ].join(" ")}
-      >
-        <Icon name="shield" className="h-3.5 w-3.5 shrink-0" />
-        {loud ? "Scam warning" : "Safety reminder"}
-      </button>
-    );
-  }
+  /* ── THE BANNER IS NO LONGER DISMISSIBLE ────────────────────────────────────
+     It used to carry an "x" that collapsed it to a small "Scam warning" chip.
+     That chip has been removed too, so the banner is now unconditionally shown.
 
+     Removing the collapse is deliberate, not a side effect. This is the surface
+     an unsolicited scam actually arrives on, and the original design note was
+     explicit: a dismissible warning on a scrolling surface is a warning that
+     gets dismissed once and never seen again — which is worse than none, because
+     it leaves the member believing they were told something. In a half-width
+     grid cell the banner now sits directly beside the Official Team card, and a
+     collapse toggle there was both easy to hit by accident and inconsistent with
+     the "read this before you read anything" role the notice strip now has.
+
+     `onDismiss` went with it. No caller passed one, so it was dead API surface;
+     the only remaining use was the button that no longer exists. */
   return (
     <aside
       role="note"
       className={[
-        "flex gap-2.5 rounded-xl border px-3 py-2.5",
+        /* `h-full` + column so the card fills its grid cell; `line-clamp` on the
+           body (below) keeps a long warning from forcing the row taller than
+           the Official Team card beside it.
+           The `mx-4 mt-3` that used to be on the thread variant is GONE: those
+           margins were there because this banner used to sit in the thread's
+           scroll region. It is now also used in a `grid` cell on the inbox, where
+           they indented it out of its own card. */
+        "flex h-full flex-col gap-2 overflow-hidden rounded-2xl border px-3 py-3",
         loud
           ? // `border-l-[3px]` echoes the amber variant so the two read as one
             // system, but the rose palette is what a member has learned to
             // associate with "this is a fraud warning", and the all-caps lead
             // line is what makes it scannable in a fast-scrolling list.
             //
-            // The text shades are the LIGHT end of each ramp (`-200`/`-300`) because this
-            // banner renders on the dark navy-purple canvas. When this file was
-            // briefly a light surface the shades went dark (`-700`/`-800`), which
-            // on a dark background put near-black text on a dark panel. The
-            // borders use `-400/40` for the same reason: a `-300` border at full
-            // opacity read as a hard outline on the dark canvas.
-            "border-rose-400/40 border-l-[3px] border-l-rose-500 bg-gradient-to-r from-rose-500/[0.14] to-rose-500/[0.06]"
-          : "mx-4 mt-3 border-amber-400/40 border-l-[3px] border-l-amber-500 bg-amber-500/[0.08]",
+            // The `-200`/`-300` text shades assume the DARK canvas: on dark, a
+            // `-700`/`-800` shade is near-black text on a dark panel. When this
+            // file was briefly a light surface the shades went the other way.
+            "border-rose-400/40 border-l-[3px] border-l-rose-500 bg-gradient-to-br from-rose-500/[0.14] to-rose-500/[0.05]"
+          : "border-amber-400/40 border-l-[3px] border-l-amber-500 bg-amber-500/[0.08]",
       ].join(" ")}
     >
       <span
         aria-hidden
-        className={`mt-0.5 shrink-0 ${loud ? "text-rose-600" : "text-amber-600"}`}
+        className={`shrink-0 ${loud ? "text-rose-300" : "text-amber-300"}`}
       >
-        <Icon name="shield" className={loud ? "h-4.5 w-4.5" : "h-4 w-4"} />
+        <Icon name="shield" className="h-4 w-4" />
       </span>
       <div className="min-w-0 flex-1">
         {loud ? (
           <>
-            <p className="text-[12px] font-extrabold uppercase tracking-wide text-rose-300">
-              Scam warning!! Don&apos;t fall for fake coin offers
+            {/* Shorter headline. "Scam warning!! Don&apos;t fall for fake coin
+                offers" was two claims and two exclamation marks; in a half-width
+                grid cell that wrapped to three lines and pushed the body copy out
+                of the card. The pattern is still named in the body, which is the
+                part a member can actually recognise in a message. */}
+            <p className="text-[11px] font-extrabold uppercase tracking-wide text-rose-200">
+              Scam warning
             </p>
-            <p className="mt-0.5 text-[11px] leading-4 text-rose-200/80">
-              Nobody here will ever ask you to send money, gift cards or codes in
-              exchange for coins. If a message offers you coins for payment, it
-              is a scam — block and report it.
+            <p className="mt-0.5 line-clamp-5 text-[11px] leading-4 text-rose-100/80">
+              Never send money, gift cards or codes in exchange for coins. If a
+              message offers coins for payment, it is a scam — block and report.
             </p>
           </>
         ) : (
           <>
-            {/* Thread variant. The `-50`/dark text shades are for the LIGHT
-                canvas; the previous `text-amber-100` was near-white and
-                effectively invisible on it. */}
             <p className="text-[11px] font-semibold text-amber-200">Stay safe</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-amber-200/70">
-              Never send money, gift cards or codes to someone you haven&apos;t
-              met in person. If someone pressures you to act quickly, that
-              pressure is the warning sign.
+            <p className="mt-0.5 line-clamp-5 text-[11px] leading-4 text-amber-100/70">
+              Never send money or codes to someone you haven&apos;t met in person.
+              Pressure to act fast is the warning sign.
             </p>
           </>
         )}
@@ -121,30 +118,12 @@ export function ChatSafetyBanner({
           href="/safety"
           className={[
             "mt-1 inline-block text-[11px] font-semibold underline underline-offset-2",
-            loud ? "text-rose-300 hover:text-rose-900" : "text-amber-200 hover:text-amber-900",
+            loud ? "text-rose-200 hover:text-rose-100" : "text-amber-200 hover:text-amber-100",
           ].join(" ")}
         >
           Safety centre
         </a>
       </div>
-      <button
-        type="button"
-        onClick={() => {
-          setOpen(false);
-          onDismiss?.();
-        }}
-        aria-label="Hide scam warning"
-        className={[
-          "h-6 w-6 shrink-0 rounded-lg transition",
-          loud
-            ? "text-rose-300/60 hover:bg-rose-400/10 hover:text-rose-100"
-            : "text-amber-300/60 hover:bg-amber-400/10 hover:text-amber-100",
-        ].join(" ")}
-      >
-        <span aria-hidden className="text-sm leading-none">
-          ×
-        </span>
-      </button>
     </aside>
   );
 }

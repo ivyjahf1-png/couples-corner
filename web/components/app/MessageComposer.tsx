@@ -1,6 +1,17 @@
-// MessageComposer.tsx — messenger-style bottom bar: plus button, dark pill
-// input ("Write a message"), circular send button. Sends via the existing
-// sendMessageAction server action; no Supabase linkage changes.
+// MessageComposer.tsx — the single docking bar at the bottom of a conversation:
+// one bordered field holding the attachment icon, the text input, and the
+// emoji/theme/mic icons, with the send button outside it on the right.
+//
+// It was previously TWO stacked rows — an AttachmentDock of labelled pills
+// (Gallery / Camera / Theme) above a separate control row — which duplicated the
+// attachment controls in both places and squeezed the input to "Wri..." on a
+// 320px phone. Everything from the deleted dock now lives in the one field.
+//
+// GIFTS AND TOKEN REWARDS ARE DELIBERATELY ABSENT. Both were in the original spec.
+// Neither renders, because neither has a real implementation: gifting needs a
+// commerce write path and token rewards need a ledger this chat does not touch. A
+// button that opens nothing teaches a member the dock is decorative. They belong
+// here the day they can actually do something.
 "use client";
 
 import { useEffect, useState, useRef } from "react";
@@ -8,115 +19,7 @@ import { useTransition } from "react";
 import Link from "next/link";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
-import { Camera, Images, Mic, Palette, Paperclip, Phone, Send, Smile } from "lucide-react";
-
-/**
- * The attachment dock + theme picker that sits above the composer input.
- *
- * ── WHY GIFTS AND TOKEN REWARDS ARE ABSENT ──────────────────────────────────
- * Both were in the original spec for this dock. Neither is rendered, because
- * neither has a real implementation behind it: gifting needs a commerce write
- * path and token rewards need a ledger this chat does not touch. A button that
- * opens nothing is worse than no button — it teaches a member that this dock is
- * decorative, and once the real controls stop being trusted either. They belong
- * here the day they can actually do something; see the commerce module.
- *
- * Everything present IS wired. "Gallery" and "Camera" both open the same file
- * input on purpose: a `capture` attribute would force the camera on mobile and
- * make Gallery unreachable, so the two labels are honest about sharing a picker
- * rather than pretending to be separate flows.
- */
-function AttachmentDock({
-  onPickImage,
-  theme,
-  onThemeChange,
-}: {
-  onPickImage: () => void;
-  theme?: ChatThemeId;
-  onThemeChange?: (theme: ChatThemeId) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="w-full">
-      <div className="flex w-full items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <DockButton onClick={onPickImage} icon={Images} label="Gallery" />
-        <DockButton onClick={onPickImage} icon={Camera} label="Camera" />
-        {/* The picker only mounts when a change handler exists, so the control
-            cannot appear and do nothing in a caller that does not support it. */}
-        {onThemeChange ? (
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            aria-expanded={open}
-            className={[
-              "ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition active:scale-95",
-              open
-                ? "bg-orange-500/20 text-orange-100"
-                : "bg-[var(--chat-in-bg)] text-[var(--chat-text)] hover:bg-black/5",
-            ].join(" ")}
-          >
-            <Palette className="h-4 w-4" aria-hidden />
-            Theme
-          </button>
-        ) : null}
-      </div>
-
-      {open && onThemeChange ? (
-        <div
-          className="mt-1.5 flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="group"
-          aria-label="Chat theme"
-        >
-          {CHAT_THEMES.map((option) => {
-            const selected = theme === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => onThemeChange(option.id)}
-                aria-pressed={selected}
-                className={[
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
-                  selected
-                    ? "border-orange-400/70 bg-orange-500/15 text-[var(--chat-text)]"
-                    : "border-[var(--chat-border)] text-[var(--chat-muted)] hover:border-orange-400/50 hover:text-[var(--chat-text)]",
-                ].join(" ")}
-              >
-                <span
-                  aria-hidden
-                  className="h-3 w-3 rounded-full ring-1 ring-white/25"
-                  style={{ backgroundImage: option.swatch }}
-                />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function DockButton({
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  onClick: () => void;
-  icon: typeof Images;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition active:scale-95 [background-color:var(--chat-in-bg)] [border-color:var(--chat-border)] [color:var(--chat-text)] hover:bg-black/5"
-    >
-      <Icon className="h-4 w-4" aria-hidden />
-      {label}
-    </button>
-  );
-}
+import { Images, Mic, Palette, Phone, Send, Smile } from "lucide-react";
 
 /**
  * Owns the chat theme and hands it to the thread.
@@ -281,6 +184,10 @@ export function MessageComposer({
   const [pending, startTransition] = useTransition();
   const [error, reportError] = useActionError();
   const [showEmoji, setShowEmoji] = useState(false);
+  /* Theme picker disclosure. This state used to live inside `AttachmentDock`,
+     which was deleted; the picker itself moved into the single dock bar as a
+     palette icon, so the flag moved here with it. */
+  const [themeOpen, setThemeOpen] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Which window of icebreakers is showing. `0` on mount: a member who has just
@@ -326,16 +233,35 @@ export function MessageComposer({
     // The control row never wraps: every button is `shrink-0` and sized down
     // (not hidden) at the smallest breakpoint, so +, camera, input, emoji and
     // mic all fit side by side on a 320px-wide phone.
+    /* ── ONE DOCKING BAR ──────────────────────────────────────────────────────
+       This dock used to stack TWO control rows above the input:
+
+         row 1: AttachmentDock -> Gallery, Camera, Theme  (text pills)
+         row 2: the form -> Paperclip, input, Camera, Emoji, Mic, Call, Send
+
+       Two consequences, both reported:
+
+         • "Gallery" / "Camera" / "Theme" clashed with the form's own attachment
+           icons. Gallery and Camera were each rendered TWICE — once as a labelled
+           pill up here, once as a bare icon down there — and Camera appears in
+           both rows. The same control in two places at once reads as two
+           different controls.
+         • The input was squeezed to "Wri...". Six `h-11` controls plus a pill row
+           inside a `max-w-2xl` flex leaves the `flex-1` input whatever is left,
+           which on a 320px phone is four characters.
+
+       So AttachmentDock is GONE as a separate row. Everything it uniquely offered
+       is folded into the single form row below as ICON-ONLY buttons: Gallery
+       (Images) and Theme (Palette). Camera was already there.
+
+       Icon-only rather than labelled pills: labels are what made the first row
+       wide enough to force the truncation. Each control keeps an `aria-label`, so
+       the accessible name is unchanged — only the visual density drops.
+
+       The icebreaker row below is retained on its own line. Those are CONTENT
+       (suggested openers), not chrome, and they only render on an empty thread,
+       so they never compete with the input for width the way controls did. */
     <div className="landscape-hide-chrome relative w-full shrink-0 border-t px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl sm:px-3 [background-color:var(--chat-surface)] [border-color:var(--chat-border)]">
-      {/* Dock, theme picker and icebreakers all sit ABOVE the input row rather
-          than beside it: that row is already at its width limit on a 320px
-          phone, so a second horizontal row of actions beside the input was never
-          going to fit. Stacking keeps every existing control reachable. */}
-      <AttachmentDock
-        onPickImage={() => imageInputRef.current?.click()}
-        theme={theme}
-        onThemeChange={onThemeChange}
-      />
       {showIcebreakers ? (
         /* `overflow-x-auto` is retained here deliberately. Unlike the photo
            strip on the intro card, this row is not inside the thread's vertical
@@ -394,69 +320,153 @@ export function MessageComposer({
           ) : null}
         </div>
       ) : null}
+      {themeOpen && onThemeChange ? (
+        /* The theme picker, moved from the deleted AttachmentDock. Same
+           horizontal scroller of swatches, now anchored above the single dock bar
+           so it floats over the thread instead of occupying a row of its own.
+
+           It now CLOSES on selection. The old picker left itself open after a
+           choice, so a row of swatches sat above the input on every subsequent
+           message until the member thought to dismiss it. */
+        <div
+          className="mx-auto mb-2 flex w-full max-w-2xl items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
+          aria-label="Chat theme"
+        >
+          {CHAT_THEMES.map((option) => {
+            const selected = theme === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={selected}
+                aria-label={option.label}
+                onClick={() => {
+                  onThemeChange(option.id);
+                  setThemeOpen(false);
+                }}
+                className={[
+                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
+                  "[background-color:var(--chat-in-bg)] [border-color:var(--chat-border)]",
+                  selected
+                    ? "border-orange-400/60 text-[var(--chat-text)]"
+                    : "text-[var(--chat-muted)]",
+                ].join(" ")}
+              >
+                <span
+                  aria-hidden
+                  className="h-3 w-3 rounded-full ring-1 ring-white/25"
+                  style={{ background: option.swatch }}
+                />
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       <form
         onSubmit={handleSubmit}
-        className="mx-auto flex w-full max-w-2xl items-center gap-1 sm:gap-1.5 lg:gap-2"
+        className="mx-auto flex w-full max-w-2xl items-center gap-2"
         aria-label="Send a message"
       >
-        {/* Shared treatment for every secondary control. One class string for
-            all four so they cannot drift apart again. */}
-        <button
-          type="button"
-          aria-label="More actions"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
-        >
-          <Paperclip className="h-5 w-5" aria-hidden />
-        </button>
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSubmit();
-            }
-          }}
-          placeholder="Write a message"
-          aria-label="Write a message"
-          // `h-11` matches the controls, and the focus ring uses the same orange
-          // accent as the send button so focus and action read as one system.
-          className="h-11 min-w-0 flex-1 rounded-full border px-4 text-sm outline-none transition-colors focus:border-orange-400/60 disabled:opacity-60 [background-color:var(--chat-input-bg)] [border-color:var(--chat-input-border)] [color:var(--chat-text)] placeholder:[color:var(--chat-muted)]"
-          disabled={pending}
-        />
-        <input ref={imageInputRef} type="file" accept="image/*" className="hidden" aria-label="Choose an image" />
-        {/* Camera/attach. Visible at every breakpoint: with the tab bar hidden
-            inside a chat there is room for all five controls on a phone, and
-            `shrink-0` guarantees they never compress or wrap. */}
-        <button
-          type="button"
-          onClick={() => imageInputRef.current?.click()}
-          aria-label="Choose image"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
-        >
-          <Camera className="h-5 w-5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowEmoji((current) => !current)}
-          aria-label="Select emoji"
-          aria-expanded={showEmoji}
-          className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-            showEmoji ? "bg-black/10 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]",
-          ].join(" ")}
-        >
-          <Smile className="h-5 w-5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          aria-label="Record voice note"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
-        >
-          <Mic className="h-5 w-5" aria-hidden />
-        </button>
+        {/* ONE CONTROL CLUSTER, ICON ONLY.
+
+            Every secondary control shares a single class string so they cannot
+            drift apart again, and none of them carries a text label — labels are
+            what made the old two-row dock wide enough to truncate the input.
+
+            A single bordered "field" wraps the icon cluster and the input so they
+            read as ONE control rather than as loose buttons floating beside a
+            text box. That is the standard messenger affordance and it is what
+            removes the "assembled rather than designed" look.
+
+            The send button sits OUTSIDE that field, on the right, because it is a
+            different kind of action (commit, not compose) and giving it its own
+            solid orange fill is what makes it instantly findable. */}
+        {/* The hidden file input. KEPT in the DOM and out of the layout rather
+              than removed: it is the target of the Gallery button, and this is a
+              plain click-driven picker inside a chat (not the iOS sheet picker in
+              FeedUploadModal), so a programmatic click from a real user gesture
+              is fine here. `hidden` is safe because the button is a real on-screen
+              control that was definitely painted. */}
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            aria-label="Choose an image"
+          />
+          <div
+            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full border px-1.5 [background-color:var(--chat-input-bg)] [border-color:var(--chat-input-border)] focus-within:border-orange-400/60"
+          >
+          {/* GALLERY, from the old AttachmentDock. Icon-only now; it keeps the
+              same `aria-label`, so the accessible name is unchanged. */}
+          <button
+            type="button"
+            onClick={() => imageInputRef.current?.click()}
+            aria-label="Choose an image from your library"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
+          >
+            <Images className="h-5 w-5" aria-hidden />
+          </button>
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSubmit();
+              }
+            }}
+            placeholder="Write a message…"
+            aria-label="Write a message"
+            // No border and no background of its own: the wrapper above owns both,
+            // which is what makes this read as one field rather than a box nested
+            // inside a box. `min-w-0 flex-1` is load-bearing — without it the input
+            // refuses to shrink below its intrinsic size and pushes the icons out
+            // of the row, which is how the placeholder ended up clipped to "Wri...".
+            className="h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [color:var(--chat-text)] placeholder:[color:var(--chat-muted)] disabled:opacity-60"
+            disabled={pending}
+          />
+          {/* THEME, from the old AttachmentDock. A palette icon rather than a
+              labelled pill; `aria-expanded` is retained so the disclosure state is
+              still announced. */}
+          {onThemeChange ? (
+            <button
+              type="button"
+              onClick={() => setThemeOpen((v) => !v)}
+              aria-expanded={themeOpen}
+              aria-label="Change chat theme"
+              className={[
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
+                themeOpen ? "bg-orange-500/20" : "[color:var(--chat-icon)] hover:bg-black/5",
+              ].join(" ")}
+            >
+              <Palette className="h-5 w-5" aria-hidden />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => setShowEmoji((current) => !current)}
+            aria-label="Select emoji"
+            aria-expanded={showEmoji}
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
+              showEmoji ? "bg-black/10 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-black/5",
+            ].join(" ")}
+          >
+            <Smile className="h-5 w-5" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Record voice note"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5"
+          >
+            <Mic className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
         {/* Voice call. Same `h-11 w-11` square and the same ghost treatment as
             every other secondary control, so the row keeps its one optical line.
 
