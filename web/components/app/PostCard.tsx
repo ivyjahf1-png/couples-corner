@@ -200,8 +200,22 @@ export function PostCard({ post }: { post: FeedPostView }) {
     });
   }
 
+  /* Dark card on the feed's midnight canvas. `bg-slate-900/70` was a literal
+     value; `bg-surface` is the app's own token (#1E293B) and the same value the
+     Messages list rows use, so the two timelines read as one system instead of
+     two near-identical greys chosen independently.
+
+     The hairline is `border-white/10`, not a hardcoded border colour, so it sits
+     correctly on the surface whatever the canvas behind it is.
+
+     A line comment rather than a JSX one: this explains the whole article, so it
+     belongs above the return. A JSX comment placed directly inside the
+     parenthesised return is a second expression beside the element and does not
+     parse. Note the earlier version of this comment spelled out the JSX comment
+     delimiters inline, and that literal sequence terminated the block comment
+     early and broke the file. */
   return (
-    <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-slate-900/70 shadow-card backdrop-blur-sm transition-colors hover:border-white/[0.14]">
+    <article className="overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-card transition-colors hover:border-white/20">
       {/* ── HEADER ───────────────────────────────────────────────────────────
           Avatar, name, verified tick and timestamp on one baseline, exactly as
           the reference card reads. `items-center` (was `items-start`) so the

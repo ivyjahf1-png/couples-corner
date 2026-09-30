@@ -2253,19 +2253,31 @@ function MediaSurface({
    * this class is moot — the two mechanisms are complementary, not competing.
    */
   const surfaceClass = [
-    // `landscape-bleed` lets the landscape block force this element to the full
-    // viewport. Combined with the `object-contain` below, the VIDEO fills the
-    // rotated screen and is letterboxed inside it rather than cropped — which
+    // `landscape-bleed` lets the landscape block in globals.css force this element
+    // to the full viewport. Combined with `object-contain` below, the VIDEO fills
+    // the rotated screen and is letterboxed inside it rather than cropped — which
     // is the whole point of rotating a video.
-    "landscape-bleed h-full w-full object-cover transition-opacity duration-300",
-    // `object-contain` IN PORTRAIT TOO, not just landscape. This is the fix for
-    // the letterbox bars: `object-cover` on a 9:16 clip inside a taller-than-9:16
-    // box scales to fill the WIDTH, which crops the top and bottom of the video.
-    // `contain` fits the whole frame inside the box, so a portrait video is never
-    // cut off and a landscape one is pillarboxed rather than cropped. The card
-    // supplies the framing; the media supplies the fit.
-    "object-contain",
-    "[@media(orientation:landscape)]:object-contain",
+    //
+    // ── `object-cover` USED TO ALSO BE ON THIS ELEMENT ──────────────────────────
+    // Both `object-cover` and `object-contain` were listed here. They are mutually
+    // exclusive, and which one actually applied was decided by the order Tailwind
+    // happens to emit the two rules in the stylesheet — NOT by the order they
+    // appear in this array. Two identical-specificity utilities on one element
+    // means the winner is an accident of the build.
+    //
+    // When the loser was `object-cover`, a portrait video of a person standing was
+    // scaled to fill the width and had its top and bottom cropped away — which on a
+    // full-body shot cuts off exactly the legs. That is the reported "over-zoomed,
+    // legs cut off" symptom, and it was intermittent across builds, which is the
+    // signature of a CSS-order race rather than a fixed layout choice.
+    //
+    // Only `object-contain` remains. The CARD supplies the framing; the MEDIA
+    // supplies the fit. A portrait clip is letterboxed, a landscape one is
+    // pillarboxed, and neither is ever cropped.
+    "landscape-bleed h-full w-full object-contain transition-opacity duration-300",
+    // The explicit landscape variant is redundant now that `object-contain` is
+    // unconditional, and it was one more place for the two utilities to disagree.
+    // Removed rather than kept "just in case".
     ready ? "opacity-100" : "opacity-0",
   ].join(" ");
 

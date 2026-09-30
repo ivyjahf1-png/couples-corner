@@ -107,14 +107,15 @@ export function CommunityFeedView({
         </div>
       </aside>
 
+      {/* Dark card. `border-slate-200 bg-white` were literal light-theme values
+          left over from the short-lived white-canvas version of this view; on the
+          dark timeline they render as a white block, with the same near-invisible
+          text problem. Converted to the app's tokens, matching the conversation
+          rows and the informational cards above. */}
       {canPost ? (
-        /* Light card. `border-ink-700 bg-surface` and `text-ink-300` are
-           dark-theme tokens — on the community panel's near-white canvas the
-           body copy rendered at roughly 2:1 and read as blank. Converted to the
-           same slate pair as the rest of this view. */
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Share with the community</h2>
-          <p className="mt-1 text-xs leading-5 text-slate-500">
+        <div className="rounded-2xl border border-white/10 bg-surface p-4">
+          <h2 className="text-sm font-semibold text-white">Share with the community</h2>
+          <p className="mt-1 text-xs leading-5 text-ink-300">
             Post a status or a photo and it appears here for everyone. For short
             videos, switch to the Moment reels with the control at the top.
           </p>
