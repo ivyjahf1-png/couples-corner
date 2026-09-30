@@ -165,7 +165,13 @@ export async function recordUserMediaAction(params: {
   userId: string;
   storagePath: string;
   mediaType: "image" | "video";
-  caption?: string;
+  /**
+   * Optional caption. `null` is explicitly allowed, not just omitted: the gallery
+   * column is nullable, so an absent caption and an empty one are different
+   * states in storage. A caller that trims user input gets `""` for "no caption
+   * typed" and would otherwise have to special-case converting it to `undefined`.
+   */
+  caption?: string | null;
 }): Promise<MediaUploadResult> {
   try {
     await requireSessionUid(params.userId);
@@ -634,6 +640,96 @@ export async function createFeedPostAction(
 }
 
 
+/**
+ * Toggle the viewer's like on a feed post.
+ *
+ * ── WHY THE UID COMES FROM THE SESSION, NOT THE ARGUMENTS ─────────────────────
+ * A caller that passed its own `userId` would let anyone like as anyone else. The
+ * RLS policy scopes the write to `auth.uid()` regardless, but failing at the
+ * policy layer surfaces as an opaque database error rather than a clear one.
+ *
+ * ── WHY IT IS A TOGGLE AND NOT AN INCREMENT ────────────────────────────────────
+ * The client is optimistic, so it has to be able to predict the outcome to know
+ * whether to add or subtract. Returning the resulting `{ liked, likeCount }` means
+ * the client reconciles against the truth instead of assuming its guess was right
+ * — which is what stops the count oscillating when a double-tap races the round
+ * trip.
+ *
+ * The `likeCount` re-query is scoped to the one post rather than recomputing the
+ * whole feed, and it runs through the same client, so it observes the row this
+ * transaction just wrote.
+ */
+export async function togglePostLikeAction(
+  postId: string
+): Promise<{ ok: true; liked: boolean; likeCount: number } | { ok: false; error: string }> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to like posts" };
+    // Trimmed and length-capped: this crosses the server/client boundary as an
+    // argument, so it must never be passed through unvalidated.
+    const id = postId.trim().slice(0, 64);
+    if (!id) return { ok: false, error: "Missing post" };
+
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    const { data: existing } = await supabase
+      .from("post_likes")
+      .select("post_id")
+      .eq("post_id", id)
+      .eq("user_id", user.uid)
+      .maybeSingle();
+
+    if (existing) {
+      const { error } = await supabase
+        .from("post_likes")
+        .delete()
+        .eq("post_id", id)
+        .eq("user_id", user.uid);
+      if (error) return { ok: false, error: "Could not remove your like" };
+      const liked = false;
+      const likeCount = await countPostLikes(supabase, id);
+      revalidatePath("/feed");
+      return { ok: true, liked, likeCount };
+    }
+
+    const { error } = await supabase
+      .from("post_likes")
+      .insert({ post_id: id, user_id: user.uid });
+    // 23505 is the PK violation from a double-tap that raced itself. The row the
+    // member wanted now exists, so this is SUCCESS, not a failure — reporting it
+    // as an error is what made a rapid double-tap appear to do nothing.
+    if (error && (error as { code?: string }).code !== "23505") {
+      return { ok: false, error: "Could not save your like" };
+    }
+    const likeCount = await countPostLikes(supabase, id);
+    revalidatePath("/feed");
+    return { ok: true, liked: true, likeCount };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not update like" };
+  }
+}
+
+/**
+ * Total likes on one post.
+ *
+ * `count: "exact", head: true` asks for the number without shipping the rows —
+ * the feed needs the number, never the identities, so this keeps the response
+ * constant in size regardless of how popular a post is.
+ */
+async function countPostLikes(
+  supabase: NonNullable<ReturnType<typeof getSupabaseServerClient>>,
+  postId: string
+): Promise<number> {
+  const { count } = await supabase
+    .from("post_likes")
+    .select("post_id", { count: "exact", head: true })
+    .eq("post_id", postId);
+  return count ?? 0;
+}
+
+
 export async function completeOnboardingAction(
   uid: string,
   input: Pick<ProfileUpdateInput, "displayName" | "gender" | "dateOfBirth">
@@ -663,6 +759,8 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
     content: string;
     mediaUrls: string[];
     createdAt: string;
+    likeCount: number;
+    likedByMe: boolean;
   }>;
   nextCursor: string | null;
 }> {
@@ -689,16 +787,53 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
   const { data, error } = await query;
   if (error || !data) return { posts: [], nextCursor: null };
 
-  const posts = (data as unknown as Array<Record<string, unknown>>).map((row) => {
+  const rows = data as unknown as Array<Record<string, unknown>>;
+  const ids = rows.map((row) => String(row.id));
+
+  /* REAL like counts and the viewer's own like, in TWO queries total rather than
+     one per post.
+
+     The previous version hardcoded `likeCount: 0, likedByMe: false` with a comment
+     explaining that "the public feed payload does not return engagement counts".
+     That was honest but it shipped a like button that could only ever read zero,
+     so the count was cosmetic and a like could never survive a refresh.
+
+     Grouping is done in JS from two flat reads rather than per-post sub-queries:
+     a sub-select per post is N round trips inside one query, which does not help
+     on a slow link. `in` on a uuid column is an index lookup, and the result sets
+     are bounded by the page size, so this is bounded work.
+
+     Fail-soft: a likes-read failure degrades to "no likes anywhere" rather than
+     failing the whole feed, which is the same posture the rest of this function
+     takes. */
+  const likeTotals = new Map<string, number>();
+  const myLiked = new Set<string>();
+  const viewer = await getCurrentSessionUser().catch(() => null);
+  if (ids.length > 0) {
+    const { data: likeRows } = await supabase
+      .from("post_likes")
+      .select("post_id, user_id")
+      .in("post_id", ids);
+    for (const row of (likeRows ?? []) as Array<{ post_id?: string; user_id?: string }>) {
+      if (!row.post_id) continue;
+      likeTotals.set(row.post_id, (likeTotals.get(row.post_id) ?? 0) + 1);
+      if (viewer && row.user_id === viewer.uid) myLiked.add(row.post_id);
+    }
+  }
+
+  const posts = rows.map((row) => {
     const author = (row.author as Record<string, unknown> | null) ?? {};
+    const id = String(row.id);
     return {
-      id: String(row.id),
+      id,
       authorId: String(row.author_id ?? ""),
       authorName: (author.display_name as string) ?? null,
       authorAvatar: (author.avatar_url as string) ?? null,
       content: String(row.content ?? ""),
       mediaUrls: Array.isArray(row.media_urls) ? row.media_urls.filter(Boolean) : [],
       createdAt: String(row.created_at),
+      likeCount: likeTotals.get(id) ?? 0,
+      likedByMe: myLiked.has(id),
     };
   });
 

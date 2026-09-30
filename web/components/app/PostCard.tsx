@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/app/Avatar";
 import { ReportDialog } from "@/components/app/ReportDialog";
@@ -8,6 +8,7 @@ import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
 import { GlassActionButton } from "@/components/app/GlassActions";
 import { Icon } from "@/components/landing/Icon";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
+import { togglePostLikeAction } from "@/lib/actions/profile";
 import type { FeedPostView } from "@/lib/feature/types";
 
 /**
@@ -75,6 +76,63 @@ function HiButton({ recipientId, authorName }: { recipientId: string; authorName
 }
 
 /**
+ * Relative timestamp for a feed card: "now", "12m", "3h", "2d", then a date.
+ *
+ * WHY THIS IS NOT `toLocaleDateString`: the raw value is an ISO string straight
+ * from Postgres, so the card was printing "2026-09-29T18:04:11.204Z" under every
+ * post's name — machine output in the one place the card is meant to feel human.
+ *
+ * Dated feeds are read by recency, and "3h" is the information a reader actually
+ * uses; the exact instant is still on the element's `title`.
+ *
+ * The thresholds are the ones people expect: minutes up to an hour, hours up to a
+ * day, days up to a week, then an absolute date because "3mo" stops being useful
+ * for judging whether a post is still relevant.
+ *
+ * Deliberately NOT locale-formatted and NOT `Intl.RelativeTimeFormat`: both
+ * hydrate differently on the server and the client, which React reports as a
+ * hydration mismatch on every card in the feed. `Date.now()` has the same problem,
+ * so this is only ever called after mount — see the `mounted` gate below.
+ *
+ * An unparseable input returns it unchanged: a visibly odd row is better than a
+ * blank timestamp that looks like a rendering bug.
+ */
+function formatRelativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return iso;
+  // Seconds are not worth showing at this granularity, and a sub-second age would
+  // render as "now" flickering to "1m" on its own.
+  const seconds = Math.floor((Date.now() - then) / 1000);
+  if (seconds < 60) return "now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+  const then2 = new Date(then);
+  const month = then2.toLocaleString("en", { month: "short", timeZone: "UTC" });
+  return `${month} ${then2.getUTCDate()}`;
+}
+
+/* Hydration-safe "am I on the client yet", WITHOUT a mount effect.
+
+   `useEffect(() => setMounted(true), [])` is the obvious way to stop the server
+   and the client's first render disagreeing, and it is what this file did first —
+   but React's own `set-state-in-effect` rule rejects it: it is a cascading render
+   purely to work around a value that was never wrong.
+
+   `useSyncExternalStore` is the sanctioned answer. `subscribe` returns an
+   unsubscribe that does nothing, so React never re-reads the store after mount;
+   it simply asks `getSnapshot` during render. The server gets `() => false` and
+   the client gets `() => true` — which IS a mismatch, and React handles it by
+   re-rendering the client, which is precisely the behaviour we want and does so
+   without a wasted state update. */
+const emptySubscribe = () => () => {};
+const neverTrue = () => false;
+const alwaysTrue = () => true;
+
+/**
  * Feed post card: author header, body, optional media placeholder grid,
  * like/comment actions, and an authorization-aware post menu (delete only
  * when canDelete; report always available). Mutations arrive with Firebase —
@@ -82,34 +140,104 @@ function HiButton({ recipientId, authorName }: { recipientId: string; authorName
  */
 export function PostCard({ post }: { post: FeedPostView }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  // Seeded from the server payload, which now reads real `post_likes` rows (see
+  // `getPublicFeed`). This used to be local-only state with a `TODO(Firebase)`, so
+  // a like vanished on refresh and the count could only ever read zero.
   const [liked, setLiked] = useState(post.likedByMe);
   const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [likeError, setLikeError] = useState<string | null>(null);
+  const [likePending, setLikePending] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [following, setFollowing] = useState(false);
+  const [, startLikeTransition] = useTransition();
 
+  /**
+   * Gate for the relative timestamp.
+   *
+   * `formatRelativeTime` reads `Date.now()`, which differs between the server
+   * render and the client's first render — a guaranteed hydration mismatch on
+   * every card. The first client render therefore prints the raw timestamp
+   * (identical to the server's output) and only afterwards swaps in the relative
+   * form. See the `emptySubscribe` helpers above for why this is not a
+   * `useEffect`.
+   */
+  const mounted = useSyncExternalStore(emptySubscribe, alwaysTrue, neverTrue);
+
+  /**
+   * Like / unlike, persisting to `post_likes`.
+   *
+   * Optimistic first, then reconciled against the server's authoritative count —
+   * the same shape the moment reactions use, so a like cannot "snap back" to the
+   * old value on a slow round trip.
+   *
+   * The `likePending` guard is what makes a double-tap harmless: the second tap
+   * arrives while the first is still in flight, and without it both would flip
+   * from the same stale `liked` and the last writer would win, which is how a
+   * fast double-tap used to leave the heart on with the count at zero. Ignoring
+   * the tap is the correct reading — the member's intent is already in flight.
+   */
   function toggleLike() {
-    // TODO(Firebase): optimistic write to posts/{id}/likes/{uid}.
-    setLiked((v) => !v);
-    setLikeCount((c) => c + (liked ? -1 : 1));
+    if (likePending) return;
+    const nextLiked = !liked;
+    const previous = { liked, likeCount };
+    setLiked(nextLiked);
+    setLikeCount((c) => Math.max(0, c + (nextLiked ? 1 : -1)));
+    setLikeError(null);
+    setLikePending(true);
+    startLikeTransition(async () => {
+      const result = await togglePostLikeAction(post.id);
+      setLikePending(false);
+      if (!result.ok) {
+        // Roll back rather than leaving the UI claiming a like that did not save.
+        setLiked(previous.liked);
+        setLikeCount(previous.likeCount);
+        setLikeError(result.error ?? "Couldn't save your like");
+        return;
+      }
+      setLiked(result.liked);
+      setLikeCount(result.likeCount);
+    });
   }
 
   return (
-    <article className="rounded-2xl border border-ink-700 bg-surface shadow-card">
-      {/* Header */}
-      <div className="flex items-start gap-3 p-5 pb-3">
+    <article className="overflow-hidden rounded-2xl border border-white/[0.08] bg-slate-900/70 shadow-card backdrop-blur-sm transition-colors hover:border-white/[0.14]">
+      {/* ── HEADER ───────────────────────────────────────────────────────────
+          Avatar, name, verified tick and timestamp on one baseline, exactly as
+          the reference card reads. `items-center` (was `items-start`) so the
+          avatar, name, badge and time share a centre line — with `items-start`
+          the timestamp sat under the name while the 44px avatar ran past both,
+          which is what made the block look misaligned rather than designed.
+
+          The whole header is a single flex row with the menu pinned right, so
+          the name truncates rather than pushing the overflow control off the
+          card on a long display name. */}
+      <div className="flex items-center gap-3 px-4 pb-3 pt-4">
         {/* `src` was never passed, so every member's photo was fetched by the
             feed query and then thrown away in favour of initials. The query
             selects `authorAvatar` specifically for this. */}
         <Avatar name={post.authorName} kind={post.authorKind} src={post.authorAvatar} />
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 items-center gap-1.5">
-            <a href={post.authorHref ?? "#"} className="truncate font-semibold text-white hover:text-brand-300">{post.authorName}</a>
-            {post.verified ? <span title="Verified creator" className="text-xs text-sky-300">✓</span> : null}
-            {post.vip ? <span className="rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">VIP</span> : null}
+            <a href={post.authorHref ?? "#"} className="truncate text-sm font-semibold text-white hover:text-brand-300">{post.authorName}</a>
+            {post.verified ? <span title="Verified creator" className="shrink-0 text-xs text-sky-300">✓</span> : null}
+            {post.vip ? <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">VIP</span> : null}
           </div>
-          <p className="text-xs text-ink-400">{post.at}</p>
-          <a href={post.authorHref ?? "#"} className="mt-1 text-[11px] font-medium text-brand-300 hover:text-brand-200">View creator profile →</a>
+          {/* `post.at` is a raw ISO string from the database, so it was printing
+              as "2026-09-29T18:04:11.204Z" under the name — machine output in the
+              one place the card is meant to feel human. `formatRelativeTime`
+              turns it into "2h"; the full timestamp stays in `title` so the
+              exact time is still available on hover/long-press.
+
+              Falls back to the raw value if the string is unparseable, which
+              keeps a bad row visible rather than rendering a blank. */}
+          <time
+            dateTime={post.at}
+            title={post.at}
+            className="mt-0.5 block text-xs text-slate-400"
+          >
+            {mounted ? formatRelativeTime(post.at) : post.at}
+          </time>
         </div>
 
         {/* Post menu */}
@@ -156,8 +284,8 @@ export function PostCard({ post }: { post: FeedPostView }) {
       </div>
 
       {/* Body */}
-      <div className="px-5 pb-3">
-        <p className="whitespace-pre-line text-sm leading-6 text-ink-100">{post.body}</p>
+      <div className="px-4 pb-3">
+        <p className="whitespace-pre-line text-sm leading-6 text-slate-100">{post.body}</p>
         {post.mediaUrls?.length ? (
           /* Rounded, clipped media box with a FIXED aspect ratio on every tile.
 
@@ -192,8 +320,19 @@ export function PostCard({ post }: { post: FeedPostView }) {
         ) : null}
       </div>
 
-      {/* Actions — professional glass controls with clear active states. */}
-      <div className="flex items-center gap-2 border-t border-ink-700 px-3 py-2.5">
+      {/* ── ACTION BAR ────────────────────────────────────────────────────────────
+          Like, comment and Follow on the left, "Hi" in the corner — the
+          arrangement the reference card uses, with a hairline above so the row
+          reads as a distinct toolbar rather than trailing off the media.
+
+          `min-h-11` on the row's children is what makes this usable on a phone:
+          the previous controls were sized to their labels (~32px), which is under
+          the 44px minimum and is why an "active bottom action bar" kept getting
+          missed on the first tap.
+
+          The like error is rendered here rather than silently dropped: a like
+          that fails to save must not leave a filled heart claiming otherwise. */}
+      <div className="flex items-center gap-1 border-t border-white/[0.08] px-2 py-1">
         <GlassActionButton
           icon="heart"
           label={likeCount === 1 ? "like" : "likes"}
@@ -214,9 +353,21 @@ export function PostCard({ post }: { post: FeedPostView }) {
           onClick={() => setCommentsOpen((v) => !v)}
           ariaLabel={commentsOpen ? "Hide comments" : "Show comments"}
         />
-        <button type="button" onClick={() => setFollowing((v) => !v)} className={`ml-auto rounded-full px-3 py-1.5 text-xs font-semibold transition ${following ? "bg-emerald-500/15 text-emerald-300" : "bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"}`}>
+        <button
+          type="button"
+          onClick={() => setFollowing((v) => !v)}
+          aria-pressed={following}
+          className={`min-h-11 rounded-full px-3 text-xs font-semibold transition ${following ? "bg-emerald-500/15 text-emerald-300" : "bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"}`}
+        >
           {following ? "Following" : "Follow"}
         </button>
+
+        {/* A failed like is announced in place, where the member is looking, and
+            is not a modal — a transient warning about a reaction must not
+            interrupt reading the timeline. */}
+        {likeError ? (
+          <span role="alert" className="ml-1 truncate text-[11px] text-rose-300">{likeError}</span>
+        ) : null}
 
         {/* ── "Hi" — the direct-chat shortcut ─────────────────────────────────
             Bright yellow and pushed to the far right, immediately after
@@ -235,7 +386,13 @@ export function PostCard({ post }: { post: FeedPostView }) {
             when nothing was. The server rejects self-sends regardless, but
             hiding the control is clearer than letting it be tapped. */}
         {post.authorId && !post.isOwn ? (
-          <HiButton recipientId={post.authorId} authorName={post.authorName} />
+          // `ml-auto` pins this to the far right now that Follow no longer carries
+          // it — the reference layout puts the primary conversation action alone
+          // in the corner, so it must push past the whole left group rather than
+          // sitting immediately after Follow.
+          <div className="ml-auto">
+            <HiButton recipientId={post.authorId} authorName={post.authorName} />
+          </div>
         ) : null}
       </div>
 

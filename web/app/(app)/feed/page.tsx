@@ -71,11 +71,19 @@ function mapFeedPosts(
     vip: false,
     mediaUrls: post.mediaUrls,
     mediaCount: post.mediaUrls.length > 0 ? post.mediaUrls.length : undefined,
-    // Engagement counts are not in the public feed payload. Rendered as 0
-    // rather than omitted, so a card never claims a count it did not read.
-    likeCount: 0,
+    // Engagement is now READ, not invented. `getPublicFeed` returns the real like
+    // count and whether this viewer liked the post (see the post_likes read there).
+    // The previous `likeCount: 0, likedByMe: false` was a deliberate stand-in while
+    // likes were local-only UI state; that comment claimed the payload "did not
+    // return engagement counts", which is no longer true, and keeping the stand-in
+    // would overwrite a real count with zero on every render.
+    likeCount: post.likeCount,
+    likedByMe: post.likedByMe,
+    // Comment counts ARE still 0, and unlike the like count this is not a stand-in
+    // for missing data: there is no post-comment backend at all yet (see
+    // `CommentSection`'s own TODO). Inventing a total the app cannot honour when
+    // the button is tapped would be worse than showing none.
     commentCount: 0,
-    likedByMe: false,
     canDelete: false,
   }));
 }

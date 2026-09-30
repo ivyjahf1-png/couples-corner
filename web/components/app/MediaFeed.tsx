@@ -6,7 +6,6 @@ import Link from "next/link";
 import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Loader2, Trash2, type LucideIcon } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
-  toggleMomentReactionAction,
   setMomentReactionAction,
   addMomentCommentAction,
   getMomentCommentsAction,
@@ -247,7 +246,41 @@ export function MediaFeed({
   const [social, setSocial] = useState<
     Record<
       string,
-      { count: number; reacted: boolean; comments: number; kinds: ReactionTally }
+      {
+        count: number;
+        reacted: boolean;
+        comments: number;
+        kinds: ReactionTally;
+        /**
+         * WHICH kind the viewer used, per moment.
+         *
+         * ── WHY THIS IS PER MOMENT, NOT ONE PIECE OF COMPONENT STATE ────────────
+         * This used to be a single `reactionKind` useState that was reset to null
+         * on every card change. That was the source of the "it increments, then
+         * snaps back down" report, and it produced two distinct bugs:
+         *
+         * 1. SCROLL AWAY AND BACK LOSES THE HIGHLIGHT. `reacted` lives in `social`
+         *    and so survived paging, but the highlight is `reacted && reactionKind
+         *    === kind`. With `reactionKind` nulled on the card change, a member who
+         *    had tapped FIRE came back to a chip that still showed the incremented
+         *    count but no longer looked selected — the count said yes and the
+         *    highlight said no.
+         *
+         * 2. TAPPING THE SAME CHIP TWICE DOUBLE-COUNTS. The toggle test was
+         *    `reactionKind === kind && base.reacted`. After a page round trip
+         *    `reactionKind` was null while `social[id].reacted` was still true, so
+         *    tapping the same chip again computed `nextReacted = true` and
+         *    incremented. The server, seeing the same kind again, correctly DELETED
+         *    the row — so the count went up on tap and then snapped back down when
+         *    the authoritative result landed. That is precisely the reported
+         *    symptom, and it is why the fix has to key the kind to the moment
+         *    rather than merely reseed it.
+         *
+         * Storing it beside the rest of the per-moment engagement state makes the
+         *    two impossible to disagree: they are written in the same update.
+         */
+        kind: ReactionKind | null;
+      }
     >
   >({});
   const [draft, setDraft] = useState("");
@@ -279,8 +312,6 @@ export function MediaFeed({
     Record<string, { following: boolean; followerCount: number }>
   >({});
   const [followBusy, setFollowBusy] = useState(false);
-  // Which emoji the viewer currently used, so the row can highlight it.
-  const [reactionKind, setReactionKind] = useState<ReactionKind | null>(null);
   const [isPending, startTransition] = useTransition();
 
   // Never index out of range when the feed shrinks underneath us.
@@ -376,6 +407,12 @@ export function MediaFeed({
   const reacted = current
     ? (social[current.id]?.reacted ?? current.reactedByMe ?? false)
     : false;
+  // Which kind the VIEWER used on this moment, for the chip highlight. Falls back
+  // to the server's `myReactionKind` so a card that was already liked before this
+  // component mounted highlights correctly on first paint.
+  const myReactionKind = current
+    ? (social[current.id]?.kind ?? current.myReactionKind ?? null)
+    : null;
   // Follow state for the ACTIVE card's author, with any local override applied.
   const amFollowingAuthor = current
     ? (followOverrides[current.userId]?.following ?? current.amFollowingAuthor ?? false)
@@ -613,7 +650,11 @@ export function MediaFeed({
     setSendError(null);
     setMenuOpen(false);
     setCommentsOpen(false);
-    setReactionKind(null);
+    // The viewer's chosen reaction kind is NOT reset here. It lives in `social`,
+    // keyed by moment id, precisely so it survives paging — nulling it was what
+    // made a liked card lose its highlight and made a re-tap double-count. The
+    // rest of this reset is genuine per-card UI (drafts, sheets, menus); a
+    // reaction is durable per-moment state that already belongs to the server.
     // A new moment always starts with its chrome showing. Carrying the previous
     // card's hidden state forward would drop the viewer into a bare frame with
     // no obvious way back, because the tap target that reveals the chrome is
@@ -645,7 +686,39 @@ export function MediaFeed({
     return () => window.removeEventListener("keydown", onKey);
   }, [goTo, safeIndex, commentsOpen]);
 
-  function toggleReact() {
+  /**
+   * React to the ACTIVE moment with `kind`.
+   *
+   * ── ONE CODE PATH FOR EVERY REACTION CONTROL ─────────────────────────────────
+   * This deliberately replaces separate `toggleReact` (the rail heart) and
+   * `reactWith` (the chip row) handlers. They disagreed in a way that produced the
+   * reported bug:
+   *
+   *   • The rail heart wrote kind `"like"` and set the highlight to `"like"`,
+   *     while the heart CHIP in the reaction row is kind `"love"`. So tapping the
+   *     heart in one place produced a chip that lit up somewhere else, and the
+   *     rail heart could not clear a `"love"` reaction the chips had set — it
+   *     would write a second `"like"` row against the (moment_id, user_id) unique
+   *     constraint, fail, and leave the count apparently stuck.
+   *
+   *   • Only `reactWith` tracked `reactionKind`, and it tracked it in a single
+   *     component-scoped slot that was nulled on every page change — which is what
+   *     made a re-tap of the same chip increment and then snap back (see the
+   *     `social.kind` note above).
+   *
+   * Now every control routes through here, so one tap means one row in
+   * `moment_reactions` and one consistent optimistic update.
+   *
+   * TOGGLE SEMANTICS, which is the "only decrement if they explicitly un-react"
+   * rule:
+   *   • same kind  -> remove the reaction (an explicit un-tap)
+   *   • other kind -> swap to the new kind (one row, count unchanged)
+   *   • no row     -> insert
+   * This mirrors `setMomentReaction` on the server exactly. Note the swap case:
+   * the COMBINED count must not move, but both per-kind tallies must, or the two
+   * chips would disagree with each other and with the total.
+   */
+  function reactWith(kind: ReactionKind) {
     if (!current || !viewerId) return;
     const momentId = current.id;
     const base = social[momentId] ?? {
@@ -653,30 +726,64 @@ export function MediaFeed({
       reacted: current.reactedByMe ?? false,
       comments: current.commentCount ?? 0,
       kinds: current.reactionKinds ?? {},
+      // Seed from the server payload, NOT from a component-scoped slot. The
+      // server already tells us which kind this viewer used (`myReactionKind`),
+      // so the highlight is correct on the very first render of a card that was
+      // already liked — with no effect and no window where it is wrong.
+      kind: current.myReactionKind ?? null,
     };
-    // Optimistic flip, then reconcile with the server's authoritative count.
+
+    const isSameKind = base.reacted && base.kind === kind;
+    const nextReacted = !isSameKind;
+    const nextCount = base.count + (isSameKind ? -1 : base.reacted ? 0 : 1);
+
+    // Move the per-kind tallies optimistically so the chip the member just tapped
+    // visibly increments immediately. On a SWAP the old kind loses one and the new
+    // gains one, which is what keeps the two chips summing to the total.
+    const optimisticKinds = { ...base.kinds };
+    if (isSameKind) {
+      optimisticKinds[kind] = Math.max(0, (optimisticKinds[kind] ?? 0) - 1);
+    } else {
+      if (base.reacted && base.kind) {
+        optimisticKinds[base.kind] = Math.max(0, (optimisticKinds[base.kind] ?? 0) - 1);
+      }
+      optimisticKinds[kind] = (optimisticKinds[kind] ?? 0) + 1;
+    }
+
     setSocial((prev) => ({
       ...prev,
-      [momentId]: { ...base, reacted: !base.reacted, count: Math.max(0, base.count + (base.reacted ? -1 : 1)) },
+      [momentId]: {
+        ...base,
+        reacted: nextReacted,
+        kind: nextReacted ? kind : null,
+        count: Math.max(0, nextCount),
+        kinds: optimisticKinds,
+      },
     }));
+
     startTransition(async () => {
-      const result = await toggleMomentReactionAction({ momentId });
+      const result = await setMomentReactionAction({ momentId, kind });
       if (!result.ok) {
-        // Roll back to the pre-toggle state on failure.
+        // Roll all the way back to the last known-good state, including the kind,
+        // so a failed tap cannot leave a chip highlighted that the server rejected.
         setSocial((prev) => ({ ...prev, [momentId]: base }));
         setSendError(result.error ?? "Could not save your reaction");
         return;
       }
-      // `kinds` comes straight from the server so the per-button numbers
-      // reconcile independently rather than all snapping to one total.
+      // The server is authoritative for the total and the split. `result.reacted`
+      // is false only when the server took this as an un-tap; `result.kinds` then
+      // no longer contains `kind`, so the highlight is cleared to match rather
+      // than being inferred from the request we happened to send.
       setSocial((prev) => ({
         ...prev,
-        [momentId]: { ...base, reacted: result.reacted, count: result.count, kinds: result.kinds },
+        [momentId]: {
+          ...base,
+          reacted: result.reacted,
+          kind: result.reacted ? kind : null,
+          count: result.count,
+          kinds: result.kinds,
+        },
       }));
-      // The tally does not say which kind the VIEWER picked, so the highlight
-      // follows the local state we already track: this button only ever writes
-      // "like", so a fresh toggle is always the like chip.
-      setReactionKind(result.reacted ? "like" : null);
       setSendError(null);
     });
   }
@@ -697,54 +804,11 @@ export function MediaFeed({
     return () => cancelAnimationFrame(frame);
   }, [commentList, commentsOpen]);
 
-  function reactWith(kind: ReactionKind) {
-    if (!current || !viewerId) return;
-    const momentId = current.id;
-    const base = social[momentId] ?? {
-      count: current.reactionCount ?? 0,
-      reacted: current.reactedByMe ?? false,
-      comments: current.commentCount ?? 0,
-      kinds: current.reactionKinds ?? {},
-    };
-    // Optimistic: the row swaps immediately, then the server confirms.
-    const nextReacted = !(reactionKind === kind && base.reacted);
-    setReactionKind(nextReacted ? kind : null);
-    // Move this ONE kind's number optimistically, so the chip the member just
-    // tapped visibly increments instead of waiting on the round trip. The other
-    // chips are untouched, which is the point of a per-kind counter.
-    const optimisticKinds = { ...base.kinds };
-    if (nextReacted) optimisticKinds[kind] = (optimisticKinds[kind] ?? 0) + 1;
-    else optimisticKinds[kind] = Math.max(0, (optimisticKinds[kind] ?? 0) - 1);
-    setSocial((prev) => ({
-      ...prev,
-      [momentId]: {
-        ...base,
-        reacted: nextReacted,
-        count: Math.max(0, base.count + (nextReacted ? 1 : -1)),
-        kinds: optimisticKinds,
-      },
-    }));
-    startTransition(async () => {
-      const result = await setMomentReactionAction({ momentId, kind });
-      if (!result.ok) {
-        setSocial((prev) => ({ ...prev, [momentId]: base }));
-        setReactionKind(base.reacted ? kind : null);
-        setSendError(result.error ?? "Could not save your reaction");
-        return;
-      }
-      // Server is authoritative for both the total and the split.
-      setSocial((prev) => ({
-        ...prev,
-        [momentId]: {
-          ...base,
-          reacted: result.reacted,
-          count: result.count,
-          kinds: result.kinds,
-        },
-      }));
-      setSendError(null);
-    });
-  }
+  /* The second `reactWith` that used to live here has been deleted. It ran AFTER
+     the card change effect below nulled `reactionKind`, it re-derived `base`
+     without the per-moment `kind`, and it incremented unconditionally on a re-tap
+     — the exact snap-back path. All reaction writes now go through the single
+     `reactWith` defined above. */
 
   /**
    * Delete the active moment, after an explicit confirmation.
@@ -790,10 +854,23 @@ export function MediaFeed({
   function postComment() {
     if (!current || !commentDraft.trim()) return;
     const momentId = current.id;
+    /* The fallback object must carry the FULL per-moment shape. It previously
+       omitted `kinds` and `kind`, so a member who had never reacted and then
+       posted their first comment got a `social[momentId]` entry with no tally —
+       and because `social[id].kinds` takes precedence over the server payload
+       everywhere it is read, every reaction chip on that card dropped to zero and
+       lost its highlight. The comment count incremented correctly, which is why
+       it looked like the reactions had been "reset by" commenting on the post.
+
+       Seeding `kind` from `myReactionKind` for the same reason: a card that was
+       already liked but had no local override yet must not lose that highlight
+       the moment an unrelated field is written. */
     const base = social[momentId] ?? {
       count: current.reactionCount ?? 0,
       reacted: current.reactedByMe ?? false,
       comments: current.commentCount ?? 0,
+      kinds: current.reactionKinds ?? {},
+      kind: current.myReactionKind ?? null,
     };
     startTransition(async () => {
       const result = await addMomentCommentAction({ momentId, body: commentDraft });
@@ -1267,10 +1344,27 @@ export function MediaFeed({
 
           {/* Caption only. The author identity (avatar, handle, timestamp) now
               lives in the top bar above, per the reel/stories standard, so
-              repeating it here would print the same name twice on one card. */}
+              repeating it here would print the same name twice on one card.
+
+              ── LIFTED ABOVE THE ENGAGEMENT BAR ────────────────────────────────
+              This block was left at `bottom-24 sm:bottom-28` when the reaction
+              bar was lifted 80px in d71bc44, and that left it INSIDE the bar's
+              new range. The bar's bottom edge is the 5rem nav offset (80px) and
+              its content runs ~90px tall above that — reactions row, its `mb-2`,
+              and the message input — so the bar now occupies roughly 80–172px.
+              A caption anchored at 96px therefore printed straight through the
+              quick reactions: the one screen the bar was lifted to save.
+
+              `bottom-[calc(11.5rem+...)]` (184px) clears that range with ~12px of
+              breathing room. The safe-area term is ADDED to the offset, matching
+              every other control here, so the clearance survives a home indicator.
+
+              No `sm:` variant on purpose: the bar is `md:hidden` with no wider
+              breakpoint of its own, and the caption's height is capped at three
+              lines, so it does not need a different offset at larger sizes. */}
           <div
             className={[
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-24 z-20 px-4 pr-24 sm:bottom-28 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-20 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1348,11 +1442,21 @@ export function MediaFeed({
             ].join(" ")}
           >
             <RailItem count={reactions}>
+              {/* The rail heart is the SAME control as the "love" chip in the
+                  reaction row — same kind, same handler, same state. It used to be
+                  wired to a separate `toggleReact` that wrote kind `"like"`, which
+                  made the two disagree: tapping the rail heart lit up the THUMBS-UP
+                  chip, and it could not clear a "love" the chips had set (it tried
+                  to insert a second row and lost the unique constraint). One
+                  reaction, one path, so the two can never contradict.
+
+                  The count shown is the COMBINED total, matching the rail's other
+                  items; the chips break it down per kind beneath. */}
               <ActionButton
                 label={reacted ? "Remove like" : "Like this moment"}
                 active={reacted}
                 disabled={!viewerId}
-                onClick={toggleReact}
+                onClick={() => reactWith("love")}
               >
                 <Heart className="h-6 w-6" fill={reacted ? "currentColor" : "none"} />
               </ActionButton>
@@ -1493,7 +1597,7 @@ export function MediaFeed({
               trigger below is `max-w-xl`, so the two share a left edge. */}
           <div className="pointer-events-auto mb-2 flex max-w-xl items-center gap-1.5">
             {QUICK_REACTIONS.map((option) => {
-              const active = reacted && reactionKind === option.kind;
+              const active = reacted && myReactionKind === option.kind;
               // Each chip carries its OWN number rather than every chip
               // repeating the combined total, so tapping one visibly moves one
               // counter instead of all of them at once.
@@ -1874,14 +1978,53 @@ function MediaSurface({
       else exit();
     };
 
-    screen.orientation?.addEventListener?.("change", sync);
-    window.addEventListener("orientationchange", sync);
-    window.addEventListener("resize", sync);
+    /* ── DEBOUNCE, AND WHY IT IS NOT OPTIONAL ────────────────────────────────
+       `sync` is now throttled to one run per ~250ms.
+
+       A phone rotation fires a BURST of events: `orientationchange`, several
+       `resize` firings as the browser animates the viewport between the two
+       sizes, and `screen.orientation`'s `change`. Unthrottled, `sync` ran 3-5
+       times per rotation, and `enter()` calls `requestFullscreen()` EVERY time.
+       That is not merely wasteful: calling it repeatedly while a fullscreen
+       transition is still in flight makes the browser reject the later calls
+       (their promises reject, which the `.catch` swallows), so the member
+       rotated the phone, saw the feed sit there unfullscreened, and rotated
+       again. That "I rotated and nothing happened" is this listener firing too
+       often to win.
+
+       Trailing-edge, not leading-edge: the LAST event in the burst carries the
+       settled dimensions, and fullscreen should be requested against those, not
+       against the half-rotated viewport. A leading-edge run would fire
+       `enter()` mid-animation at the old orientation and then have to correct.
+
+       `fullscreenchange` is ALSO listened for, for the reverse direction. The
+       member can leave fullscreen with the platform back-swipe or the F11/
+       Escape key without the device rotating at all, and without this the
+       effect's idea of the state would drift from reality. */
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const schedule = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(sync, 250);
+    };
+
+    screen.orientation?.addEventListener?.("change", schedule);
+    window.addEventListener("orientationchange", schedule);
+    window.addEventListener("resize", schedule);
+    document.addEventListener("fullscreenchange", schedule);
+
+    /* On ARRIVAL in landscape, enter immediately rather than waiting for the
+       burst to settle. Waiting 250ms before the first fullscreen request is
+       visible as a delay between rotating and the video filling the screen.
+       `enter` is idempotent enough for this single call because nothing else can
+       have entered fullscreen within one tick of mount. */
+    if (isLandscape()) enter();
 
     return () => {
-      screen.orientation?.removeEventListener?.("change", sync);
-      window.removeEventListener("orientationchange", sync);
-      window.removeEventListener("resize", sync);
+      if (timer) clearTimeout(timer);
+      screen.orientation?.removeEventListener?.("change", schedule);
+      window.removeEventListener("orientationchange", schedule);
+      window.removeEventListener("resize", schedule);
+      document.removeEventListener("fullscreenchange", schedule);
     };
   }, [active, retryKey]);
 

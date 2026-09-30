@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, Radio } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,8 +13,25 @@ import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 
 type Mode = "upload" | "link";
 
+/**
+ * Human file size for the picker label.
+ *
+ * The server caps uploads and reports a megabyte limit as a rejection, so showing
+ * the size BEFORE publishing lets a member see they picked a 40MB video and skip
+ * the round trip. Binary units, because that is what phone cameras and every
+ * other file manager report.
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function FeedUploadModal({ onClose, userId }: { onClose: () => void; userId?: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  // `useId` rather than a literal: the `<label htmlFor>` and the input's `id` must
+  // match, and two modals must never collide on one id in the DOM.
+  const inputId = useId();
   const [mode, setMode] = useState<Mode>("upload");
   const [file, setFile] = useState<File | null>(null);
   const [linkUrl, setLinkUrl] = useState("");
@@ -41,7 +58,20 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
         return;
       }
 
-      if (!file || !caption.trim()) return;
+      /* A caption is OPTIONAL for an uploaded photo, and that is what "upload a photo
+         directly into the feed" has to mean in practice.
+
+         Both gates below used to require `caption.trim()`, and the server
+         (`createFeedPostAction`) explicitly allows an empty body when media is
+         present — "Add a caption or media before publishing". So the form was
+         rejecting with its own disabled button a post the server would happily
+         accept: a member could pick a photo, see a live Publish button that could
+         never be pressed, and have no idea why. Typing a caption became a
+         pointless gatekeeping step on the one action they wanted.
+
+         Link mode still REQUIRES a caption, because a bare URL is not a post — the
+         link is metadata about the content and needs words to introduce it. */
+      if (!file) return;
       // Two steps: the bytes go straight to storage, then two tiny actions write
       // the gallery row and the post. This used to be a single Server Action
       // carrying the whole File, which Vercel rejects above 4.5 MB before the
@@ -54,11 +84,14 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       if (!uploaded.ok) { setError(uploaded.error); return; }
 
       // Links the file to the profile gallery permanently, as well as to the post.
+      // The caption passed here is nullable in the gallery row's schema, so an
+      // empty string is sent as null rather than as "" — an empty gallery caption
+      // and a missing one are different states.
       const recorded = await recordUserMediaAction({
         userId: uid,
         storagePath: uploaded.storagePath,
         mediaType: uploaded.mediaType,
-        caption: caption.trim(),
+        caption: caption.trim() || null,
       });
       if (!recorded.ok || !recorded.data) {
         setError(recorded.error ?? "Could not save your media.");
@@ -77,10 +110,11 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
 
   // Publish is gated per-mode. In link mode the link must actually parse, so a
   // member cannot publish a moment that is guaranteed to be rejected server-side.
+  // In upload mode ONLY a file is required — see the note on the caption above.
   const canPublish =
     mode === "link"
       ? Boolean(linkUrl.trim() && caption.trim()) && linkCheck?.ok === true && !publishing
-      : Boolean(file && caption.trim() && !publishing);
+      : Boolean(file && !publishing);
 
   return (
     <div className={`${SHEET_SHELL} bg-slate-950/80 backdrop-blur-sm sm:p-4`} role="dialog" aria-modal="true" aria-label="Create a post">
@@ -137,8 +171,63 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
 
         {mode === "upload" ? (
           <>
-            <input ref={inputRef} type="file" accept="image/*,video/*" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-            <button type="button" onClick={() => inputRef.current?.click()} className="mt-3 flex w-full items-center justify-center rounded-xl border border-dashed border-white/20 py-5 text-sm text-white/65 hover:border-amber-300/60 hover:text-amber-200">{file ? file.name : "+ Add photo or short video"}</button>
+            {/* ── THE FILE INPUT ────────────────────────────────────────────────
+                It must be in the DOM, focusable and tappable by the LABEL.
+
+                It was `className="hidden"`, which is `display:none`, and that is
+                why photo selection was unreliable on iOS: Safari will not open
+                the picker for a file input that is `display:none` and has never
+                been rendered, and iOS in particular is strict about it. The
+                button beside it called `inputRef.current?.click()`, which on iOS
+                only opens the picker if the input was activated by a real user
+                gesture on an on-screen control — a synthetic `.click()` from a
+                detached, never-painted element is dropped.
+
+                So the input is now `sr-only` (clipped, but present and focusable)
+                and the visible control is its `<label>`. A label click is a real
+                gesture and is the mechanism iOS actually honours, which makes the
+                OS photo library / camera sheet open on the first tap.
+
+                `capture` is deliberately ABSENT. Adding it forces the camera and
+                removes the photo library, so a member who wants to post an
+                existing photo could no longer reach one. Photos and videos are
+                both offered, matching the "post a photo" ask.
+
+                `accept="image/*,video/*"` is kept as-is: it is what makes iOS
+                offer both the library and the video recorder. */}
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*,video/*"
+              className="sr-only"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setError(null);
+                // Clear the native input so re-picking the SAME file fires
+                // `change` again. Without this, choosing a photo, removing it and
+                // choosing it again silently does nothing — the value never
+                // changed, so the browser suppressed the event.
+                e.target.value = "";
+              }}
+            />
+            <label
+              htmlFor={inputId}
+              className="mt-3 flex min-h-[5rem] cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/20 px-4 py-5 text-center text-sm text-white/65 transition hover:border-amber-300/60 hover:text-amber-200 focus-within:border-amber-300/60"
+            >
+              {file ? (
+                <span className="flex min-w-0 flex-col items-center gap-1">
+                  <span className="max-w-full truncate font-semibold text-amber-200">{file.name}</span>
+                  <span className="text-xs text-white/50">
+                    {formatBytes(file.size)} · tap to choose a different file
+                  </span>
+                </span>
+              ) : (
+                <span className="flex flex-col items-center gap-1">
+                  <span className="text-base font-semibold text-white">+ Add photo or short video</span>
+                  <span className="text-xs text-white/50">Choose from your library on iPhone or Android</span>
+                </span>
+              )}
+            </label>
           </>
         ) : (
           <div className="mt-3">
