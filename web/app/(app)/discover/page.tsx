@@ -71,9 +71,29 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
      * The bottom tab bar is `fixed` (see `BottomNavRegion`), so it overlays this
      * column. The inner region reserves its height with `pb-[calc(5rem+…)]`,
      * which is where `AppMain`'s `pb-20` went when this route joined
-     * `isFullBleedSurface`. The two must agree — see the note in AppNav. */
+     * `isFullBleedSurface`. The two must agree — see the note in AppNav.
+     *
+     * WHAT THE FIX WAS ON MOBILE. The viewport lock above was already correct,
+     * but three pieces of chrome inside it were not, and together they ate the
+     * height the deck needed:
+     *
+     *   1. `pt-[max(0.75rem,env(safe-area-inset-top))]` on this header. The
+     *      safe-area inset belongs to the EDGE OF THE SCREEN, and it is already
+     *      consumed there — `MobileBackHeader` above applies it with
+     *      `pt-[env(safe-area-inset-top)]`. Applying it a second time, halfway
+     *      down the page, added a second notch-sized (up to 47px on an iPhone in
+     *      standalone PWA mode) gap in the middle of the column. That is ~10% of
+     *      a small phone's viewport handed to blank space, and it pushed the
+     *      action dock toward the fold. The header now takes a flat `pt-1.5`.
+     *   2. `pb-2` plus the header row's own line-height — trimmed to `pb-1`.
+     *   3. `h-full min-h-0 overflow-hidden` is load-bearing on EVERY breakpoint,
+     *      and the deck inside it is `flex-1 min-h-0`, so the card absorbs the
+     *      leftover height rather than setting it. Nothing on this route is
+     *      allowed to contribute intrinsic height. */
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <div className="shrink-0 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:pt-3">
+      {/* No `env(safe-area-inset-top)` here — see note 1 above. The inset is a
+          screen-edge concern and `MobileBackHeader` already owns it. */}
+      <div className="shrink-0 px-4 pb-1 pt-1.5 sm:px-6 sm:pt-2.5">
         <PageHeader
           compact
           eyebrow="Discover"

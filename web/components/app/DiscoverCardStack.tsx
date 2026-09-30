@@ -177,8 +177,17 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
          overflow being fixed.
 
          `max-w-md` is kept for the card's proportions, not as a height cap: the
-         deck centres itself but may be taller than the width would imply. */
-      className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center gap-3 px-3 sm:gap-5 sm:px-4"
+         deck centres itself but may be taller than the width would imply.
+
+         The gutters and the gap below `sm` are the mobile-fit values (see the
+         COMPACT-ON-MOBILE note on the summary block): every pixel here is taken
+         from the card, because on a phone the card is already sharing the locked
+         column with the action dock and the 5rem nav reserve. `gap-2` / `px-2`
+         rather than `gap-3` / `px-3` returns ~14px of height to the photo on a
+         667px-tall screen, where that is the difference between the deck feeling
+         generous and the dock hugging the fold. `sm` restores the roomier rhythm
+         because from there up there is height to spare. */
+      className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col items-center gap-2 px-2 sm:gap-5 sm:px-4"
     >
       {total === 0 ? (
         <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-6 text-center shadow-card sm:p-10">
@@ -273,16 +282,35 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               {safeIndex + 1} / {total}
             </span>
 
-            {/* Profile summary.
-                `p-5` is 20px around the name, bio and interest chips. Now that the
-                card is height-driven on a phone, that padding comes straight out
-                of the photo area and starts crowding the text, so it drops to
-                14px below `sm` and returns to 20px where there is room. */}
-            <div className="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1.5 p-3.5 sm:gap-2 sm:p-5">
+            {/* Profile summary — COMPACT ON MOBILE.
+
+                This block is `absolute … bottom-0` INSIDE the card, so it never
+                pushes the page taller: whatever height it needs comes straight out
+                of the photo. That makes it the safe place to trim, and on a phone
+                it has to be trimmed — on a 667px-tall screen the card is only
+                ~350px tall, and a 20px-padded block carrying a 2rem name, a
+                two-line bio at `leading-6`, four chips and a link was taller than
+                the card itself, so the scrim covered most of the photo and the
+                link crowded the deck counter.
+
+                Below `sm` this drops to `p-3` / `gap-1`, an `lg` name, `text-xs`
+                meta and bio at `leading-5`, and THREE interest chips (the fourth
+                is `max-sm:hidden`) instead of four. Every shrunken value is
+                restored by its `sm:` counterpart, so tablet and desktop are
+                pixel-identical to before.
+
+                `max-h-[80%]` + `overflow-y-auto` is the last-resort guard, not the
+                primary mechanism. Without it, a long bio plus four wide chips on a
+                very short screen would paint the summary past the top of the card.
+                It scrolls internally instead — so the CARD and the PAGE both still
+                fit, and the overflow is contained by the one element that caused
+                it rather than sliding the whole screen. `sm:max-h-none
+                sm:overflow-visible` restores the desktop behaviour. */}
+            <div className="absolute inset-x-0 bottom-0 z-20 flex max-h-[80%] flex-col gap-1 overflow-y-auto p-3 scrollbar-none sm:max-h-none sm:gap-2 sm:overflow-visible sm:p-5">
               <div className="flex items-end justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate text-xl font-bold text-white sm:text-2xl">{name}</h2>
-                  <p className="truncate text-sm text-ink-300">
+                  <h2 className="truncate text-lg font-bold text-white sm:text-2xl">{name}</h2>
+                  <p className="truncate text-xs text-ink-300 sm:text-sm">
                     {/* Age and location are independent, so a member with no
                         location used to render the bare literal "Location not
                         shared" — which reads as an error string rather than a
@@ -306,18 +334,24 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   </Chip>
                 ) : null}
               </div>
-              {current?.bio?.trim() ? <p className="line-clamp-2 text-sm leading-6 text-ink-200">{current.bio.trim()}</p> : null}
+              {/* `text-xs` / `leading-5` below `sm`: at `text-sm leading-6` two
+                  clamped lines cost 48px, which on a phone is more than the whole
+                  summary block's budget. Still two lines, still legible. */}
+              {current?.bio?.trim() ? <p className="line-clamp-2 text-xs leading-5 text-ink-200 sm:text-sm sm:leading-6">{current.bio.trim()}</p> : null}
               {current?.interests?.length ? (
                 <ul className="flex flex-wrap gap-1.5" aria-label="Interests">
-                  {current.interests.slice(0, 4).map((interest) => (
-                    <li key={interest}><Chip tone="neutral">{interest}</Chip></li>
+                  {/* Three chips on a phone, four from `sm` up. The fourth is
+                      hidden rather than removed from the array so the desktop
+                      render is untouched. */}
+                  {current.interests.slice(0, 4).map((interest, index) => (
+                    <li key={interest} className={index === 3 ? "max-sm:hidden" : undefined}><Chip tone="neutral">{interest}</Chip></li>
                   ))}
                 </ul>
               ) : null}
               <button
                 type="button"
                 onClick={() => setDetailOpen(true)}
-                className="text-left text-sm font-semibold text-orange-300 hover:underline"
+                className="text-left text-xs font-semibold text-orange-300 hover:underline sm:text-sm"
               >
                 View full profile
               </button>
@@ -335,8 +369,14 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
           {/* 5-icon action bar. `relative z-20` keeps every button above the
               card's own overlay and tap zones on touch devices, so taps always
-              land on the control rather than the card beneath it. */}
-          <nav aria-label="Profile actions" className="relative z-20 flex w-full shrink-0 items-center justify-center gap-3">
+              land on the control rather than the card beneath it.
+
+              `gap-2` below `sm`: the row is `shrink-0` and therefore never
+              compressed, so its gaps are pure height tax on the card. No
+              individual button shrinks — the smallest stays `h-12` (48px), above
+              the 44px touch-target minimum — so this trims spacing only and
+              costs nothing in tappability. */}
+          <nav aria-label="Profile actions" className="relative z-20 flex w-full shrink-0 items-center justify-center gap-2 sm:gap-3">
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"
               className="deck-btn deck-btn--rewind h-12 w-12">
