@@ -81,6 +81,41 @@ function dayLabel(iso: string): string {
 }
 
 /**
+ * Centred "Today" / "Yesterday" / "23 Sept" separator between day groups.
+ *
+ * Extracted because it was written out TWICE — once in the call branch, once in
+ * the message branch — and the two had already begun to drift. A separator that
+ * sits above a missed call must look identical to one above a message, or the
+ * thread reads as two different feeds stitched together.
+ *
+ * THE WARM ACCENT. The separator was a neutral grey pill on every theme, which
+ * is the plainest thing in the frame and sat between two warm surfaces like a
+ * seam. It now carries the brand orange as a low-alpha ring and tint, so the
+ * thread reads Midnight Slate & Orange end to end.
+ *
+ * The ring is `color-mix` against the accent rather than a fixed alpha on white,
+ * because the pill sits on five different canvases and a constant alpha looks
+ * correct on exactly one of them. `color-mix` needs a plain colour as its second
+ * operand; `var(--chat-out-from)` resolves to a hex here, which is why this is
+ * not wrapped in `rgb(var(...))` like the other tokens.
+ *
+ * TEXT STAYS `--chat-muted` (#94a3b8), deliberately. At 11px this is small text
+ * and owes 4.5:1. The accent is carried by the ring and tint, where it is
+ * decorative and owes nothing, so the contrast budget is not spent on the part
+ * a member actually has to read. Accenting the label itself would have looked
+ * livelier and been a worse trade.
+ */
+function DayDivider({ label }: { label: string }) {
+  return (
+    <div className="my-3 flex justify-center" role="separator" aria-label={label}>
+      <span className="rounded-full border border-[color-mix(in_srgb,var(--chat-out-from)_28%,transparent)] bg-[color-mix(in_srgb,var(--chat-out-from)_10%,var(--chat-surface))] px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--chat-muted)] backdrop-blur-sm">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/**
  * Live chat thread with Supabase Realtime subscription.
  *
  * Merges initial (server-fetched) messages with realtime INSERT/UPDATE
@@ -368,13 +403,7 @@ export function LiveConversationThread({
           if (item.kind === "call") {
             return (
               <li key={`call-${item.call.id}`} className="flex flex-col">
-                {showDayPill ? (
-                  <div className="mb-2 mt-1 flex justify-center">
-                    <span className="rounded-full border border-[var(--chat-border)] bg-[var(--chat-surface)] px-3 py-1 text-[11px] font-medium text-[var(--chat-muted)]">
-                      {day}
-                    </span>
-                  </div>
-                ) : null}
+                {showDayPill ? <DayDivider label={day} /> : null}
                 <div className="flex justify-center py-1">
                   <MissedCallCard entry={item.call} viewerId={currentUserId} />
                 </div>
@@ -386,13 +415,7 @@ export function LiveConversationThread({
           const isMine = message.sender_id === currentUserId;
           return (
             <li key={message.id} className="flex flex-col">
-              {showDayPill ? (
-                <div className="mb-2 mt-1 flex justify-center">
-                  <span className="rounded-full border border-[var(--chat-border)] bg-[var(--chat-surface)] px-3 py-1 text-[11px] font-medium text-[var(--chat-muted)]">
-                    {day}
-                  </span>
-                </div>
-              ) : null}
+              {showDayPill ? <DayDivider label={day} /> : null}
               <div
                 className={[
                   "flex items-end gap-2",
