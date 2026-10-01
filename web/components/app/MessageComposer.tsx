@@ -1,6 +1,12 @@
 // MessageComposer.tsx — the single docking bar at the bottom of a conversation:
-// one bordered field holding the attachment icon, the text input, and the
-// emoji/theme/mic icons, with the send button outside it on the right.
+// one bordered pill holding the attachment icon, the text input, the emoji and
+// mic icons, with the send button outside it on the right.
+//
+// THE PALETTE ICON WAS REMOVED from this bar. It opened a chat-theme swatch tray
+// sitting between the text field and the mic — four decorative colours on the one
+// control a member uses most, which made the dock read as a settings panel rather
+// than an input. Themes are still fully available via `ChatSettingsSheet` (header
+// 3-dot menu → "Chat settings"); this removed a control, not a capability.
 //
 // It was previously TWO stacked rows — an AttachmentDock of labelled pills
 // (Gallery / Camera / Theme) above a separate control row — which duplicated the
@@ -18,7 +24,7 @@ import { useEffect, useState, useRef } from "react";
 import { useTransition } from "react";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
-import { Mic, Palette, Paperclip, Send, Smile } from "lucide-react";
+import { Mic, Paperclip, Send, Smile } from "lucide-react";
 
 /**
  * Owns the chat theme and hands it to the thread.
@@ -195,10 +201,12 @@ export function MessageComposer({
   const [pending, startTransition] = useTransition();
   const [error, reportError] = useActionError();
   const [showEmoji, setShowEmoji] = useState(false);
-  /* Theme picker disclosure. This state used to live inside `AttachmentDock`,
-     which was deleted; the picker itself moved into the single dock bar as a
-     palette icon, so the flag moved here with it. */
-  const [themeOpen, setThemeOpen] = useState(false);
+  /* NO THEME-PICKER STATE ANY MORE. The palette icon and its swatch tray were both
+     removed from this dock; `ChatSettingsSheet` owns the swatches now. `theme` and
+     `onThemeChange` remain on the props (still passed by `ConversationClient`,
+     which needs them for that sheet) and are deliberately left accepted-but-unused
+     here rather than deleted, so the call site does not have to change with the UI.
+     Deleting them would have been a wider refactor for no behavioural gain. */
   const imageInputRef = useRef<HTMLInputElement>(null);
 
   // Which window of icebreakers is showing. `0` on mount: a member who has just
@@ -356,50 +364,16 @@ export function MessageComposer({
           ) : null}
         </div>
       ) : null}
-      {themeOpen && onThemeChange ? (
-        /* The theme picker, moved from the deleted AttachmentDock. Same
-           horizontal scroller of swatches, now anchored above the single dock bar
-           so it floats over the thread instead of occupying a row of its own.
+      {/* THE THEME PICKER IS GONE FROM THIS DOCK, ALONG WITH ITS TOGGLE.
+          Only the trigger above it was removed in the same pass; leaving this
+          markup would have left a `themeOpen` flag with no way to set it true, so
+          the swatch tray would have become permanently unreachable dead JSX that
+          still cost a render branch on every keystroke.
 
-           It now CLOSES on selection. The old picker left itself open after a
-           choice, so a row of swatches sat above the input on every subsequent
-           message until the member thought to dismiss it. */
-        <div
-          className="mx-auto mb-2 flex w-full max-w-2xl items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="group"
-          aria-label="Chat theme"
-        >
-          {CHAT_THEMES.map((option) => {
-            const selected = theme === option.id;
-            return (
-              <button
-                key={option.id}
-                type="button"
-                aria-pressed={selected}
-                aria-label={option.label}
-                onClick={() => {
-                  onThemeChange(option.id);
-                  setThemeOpen(false);
-                }}
-                className={[
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition",
-                  "[background-color:var(--chat-in-bg)] [border-color:var(--chat-border)]",
-                  selected
-                    ? "border-orange-400/60 text-[var(--chat-text)]"
-                    : "text-[var(--chat-muted)]",
-                ].join(" ")}
-              >
-                <span
-                  aria-hidden
-                  className="h-3 w-3 rounded-full ring-1 ring-white/25"
-                  style={{ background: option.swatch }}
-                />
-                {option.label}
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
+          Themes remain fully available — `ChatSettingsSheet` (header 3-dot menu →
+          "Chat settings") owns the swatches, and it is a surface where a theme
+          picker belongs. This dock is for composing a message, not for changing
+          how the conversation looks. */}
       {/* THE FLOATING PILL: exactly the three controls the brief specifies — an
           attachment icon on the left, the text field centred, and the send button
           on the right. The theme picker and the icebreakers sit ABOVE it, not
@@ -515,23 +489,18 @@ export function MessageComposer({
             className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [color:var(--chat-text)] placeholder:[color:var(--chat-muted)] disabled:opacity-60"
             disabled={pending}
           />
-          {/* THEME, from the old AttachmentDock. A palette icon rather than a
-              labelled pill; `aria-expanded` is retained so the disclosure state is
-              still announced. */}
-          {onThemeChange ? (
-            <button
-              type="button"
-              onClick={() => setThemeOpen((v) => !v)}
-              aria-expanded={themeOpen}
-              aria-label="Change chat theme"
-              className={[
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-                themeOpen ? "bg-orange-500/20" : "[color:var(--chat-icon)] hover:bg-white/10",
-              ].join(" ")}
-            >
-              <Palette className="h-5 w-5" aria-hidden />
-            </button>
-          ) : null}
+          {/* THE PALETTE ICON IS GONE, AND SO IS ITS PICKER.
+              It was a theme swatch tray opened from this bar — four decorative
+              colours sitting between the text field and the mic, on the control a
+              member uses most. It made the dock read as a settings panel rather
+              than an input, and it was the single widest thing in the row.
+
+              The THEME still has a home: `ChatSettingsSheet`, reached from the
+              header's three-dot menu ("Chat settings"), which is a real settings
+              surface with room for swatches to mean something. Moving the picker
+              there removed a control, not a capability — which is why
+              `onThemeChange` stays on this component's props (see the note on the
+              prop) rather than being deleted along with the button. */}
           <button
             type="button"
             onClick={() => setShowEmoji((current) => !current)}

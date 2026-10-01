@@ -421,22 +421,28 @@ export function LiveConversationThread({
               {showDayPill ? <DayDivider label={day} /> : null}
               <div
                 className={[
-                  "flex items-end gap-2",
-                  /* `ml-auto` is added alongside `justify-end` deliberately,
-                     not instead of it.
+                  "flex w-full items-end gap-2",
+                  /* BOTH clusters keep their own auto margin, and the row is now
+                     `w-full`.
 
-                     `justify-end` distributes leftover space in the row, but the
-                     bubble is not a DIRECT child of this row — `MessageActionsMenu`
-                     renders an unstyled wrapper `<div>` between them, and that
-                     wrapper is what actually gets pushed. Whether the edge is
-                     truly pinned therefore depends on how that wrapper resolves
-                     its own width, which is exactly the kind of indirection that
-                     lets a sent bubble drift into the middle of a wide screen.
+                     This is the fix for sent bubbles floating in the middle of the
+                     screen. The row was a shrink-to-fit flex item of a `flex-col`
+                     `<li>`, so it only ever spanned as wide as its own content and
+                     `justify-end` had no leftover space to distribute — the
+                     alignment of a short bubble was decided by where the
+                     `MessageActionsMenu` wrapper chose to sit, not by the row.
 
-                     `ml-auto` on the row's first child removes the dependency:
-                     margin-left:auto absorbs the free space, so the bubble ends
-                     flush right no matter what the wrapper does. Cheap, and it
-                     makes the intent explicit rather than emergent. */
+                     `w-full` gives the row the full column width. Now the free
+                     space actually exists, and `ml-auto` / `mr-auto` on the row
+                     absorb it deterministically: the incoming cluster (avatar +
+                     bubble) is pinned hard left, the sent bubble is pinned hard
+                     right, and neither depends on the wrapper's own sizing.
+
+                     `ml-auto` is kept alongside `justify-end` rather than instead
+                     of it, because the bubble is still not a DIRECT child — the
+                     wrapper sits between. Margin and justify are two independent
+                     mechanisms; using only one leaves the result dependent on how
+                     that wrapper resolves its width. */
                   isMine ? "ml-auto justify-end" : "mr-auto justify-start",
                 ].join(" ")}
               >
@@ -451,7 +457,7 @@ export function LiveConversationThread({
                     exchange. It is a fixed 8px disc (2rem) to stay visually
                     subordinate to the 20px+ bubble. */}
                 {isMine ? null : (
-                  <span className="w-8 shrink-0">
+                  <span className="w-8 shrink-0 self-end">
                     <Avatar
                       src={participant?.avatarUrl ?? null}
                       name={participant?.name ?? "Chat"}
@@ -482,6 +488,29 @@ export function LiveConversationThread({
                   actions={isMine ? MESSAGE_ACTIONS : COPY_ONLY_ACTIONS}
                   onAction={handleMessageAction}
                   disabled={busy}
+                  /* `w-full min-w-0 max-w-[75%]` ON THE WRAPPER, not just on the
+                     bubble inside it.
+
+                     This is the whole fix for oversized sent messages. The bubble
+                     caps itself with `max-w-[75%]`, but a percentage resolves
+                     against the containing block — and until now the containing
+                     block was this auto-width wrapper, so the cap had nothing
+                     meaningful to resolve against and long messages expanded to
+                     their full intrinsic width instead of wrapping at the intended
+                     measure.
+
+                     On a sent bubble the wrapper is `ml-auto`, which pins it flush
+                     right. On an incoming one it takes the remaining width after
+                     the avatar, and `min-w-0` lets it actually shrink rather than
+                     forcing the row wider than the column.
+
+                     Both sides carry `w-full` + the same cap so the two sides stay
+                     visually comparable — an asymmetry here is what makes a thread
+                     look assembled rather than designed. */
+                  className={[
+                    "w-full min-w-0 max-w-[75%] sm:max-w-[70%]",
+                    isMine ? "ml-auto" : "",
+                  ].join(" ")}
                 >
                   {editingId === message.id ? (
                     /* Inline editor: the bubble becomes a textarea with
@@ -547,26 +576,15 @@ export function LiveConversationThread({
                        own edge, the bubble holds only the message — which is
                        what a bubble is for — and the time is still attached to
                        it. */
-                    <div className="min-w-0 max-w-[75%] sm:max-w-[70%]">
+                    <div className="min-w-0 max-w-full">
                       <div
                         className={[
-                          // `break-words` is the fix for long unbroken content.
-                          //
-                          // `max-w-[80%` caps the box but does NOT stop the text
-                          // overflowing it: a flex item's default `min-width:
-                          // auto` means a single unbreakable token — a URL, a
-                          // handle, a 60-character string of no spaces — resolves
-                          // to its intrinsic width and pushes straight through
-                          // the cap. `min-w-0` on the wrapper lets the flex item
-                          // actually shrink, and `break-words` (overflow-wrap:
-                          // break-word) breaks that token at the box edge
-                          // instead. Both are needed: either alone still
-                          // overflows.
-                          //
-                          // Everything else is intrinsic sizing already — no fixed
-                          // width anywhere, so a one-word "ok" hugs and a
-                          // paragraph wraps. That part was correct.
-                          "break-words px-4 py-2.5 text-sm leading-6",
+                          // `w-fit`: the bubble hugs its content, so a one-word "ok"
+                          // stays a one-word "ok". Without it the bubble would fill
+                          // the wrapper and every short message would render as a
+                          // slab spanning most of the column — the "oversized block"
+                          // symptom. `max-w-full` keeps it inside the wrapper's cap.
+                          "w-fit max-w-full break-words px-3.5 py-2 text-sm leading-6",
                           // SENT vs RECEIVED — the core hierarchy of the thread.
                           //
                           // Both sides read from the theme's tokens rather than

@@ -65,12 +65,28 @@ export function MessageActionsMenu({
   actions = MESSAGE_ACTIONS,
   onAction,
   disabled = false,
+  className,
   children,
 }: {
   messageId: string;
   actions?: MessageAction[];
   onAction: (action: MessageAction, messageId: string) => void;
   disabled?: boolean;
+  /**
+   * Extra classes for the press-target wrapper.
+   *
+   * This wrapper sits between the thread's row and the bubble, and it is a
+   * shrink-to-fit flex item — so its width is its CONTENT's width. That matters
+   * because the bubble caps itself with a PERCENTAGE `max-w-[75%]`: a percentage
+   * resolves against the containing block, which here is this auto-width wrapper,
+   * not the thread column. The cap therefore never applied, and long messages grew
+   * into oversized blocks instead of wrapping at the intended measure.
+   *
+   * Passing the constraint down to the wrapper puts the bubble's cap in a box with
+   * a real width, which is the only place it can be resolved correctly. Optional so
+   * a caller with no width constraint of its own is unaffected.
+   */
+  className?: string;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -186,7 +202,10 @@ export function MessageActionsMenu({
         // is recognised as long. `select-none` prevents the same gesture from
         // selecting the message text. Without both, the two menus fight and the
         // member sees the wrong one on iPhone.
-        className="touch-pan-y select-none [-webkit-touch-callout:none]"
+        className={[
+          "touch-pan-y select-none [-webkit-touch-callout:none]",
+          className ?? "",
+        ].join(" ")}
       >
         {children}
       </div>

@@ -1,11 +1,18 @@
 // ChatHeader.tsx — slim messenger header: back button, name + presence status,
 // audio/video call buttons, the member's avatar, and a 3-dot options menu.
 //
-// ORDER: back → name → call → video → avatar → menu. The avatar sits LAST, on
-// the right, and the call buttons sit immediately before it. That pairing is
-// deliberate: `/call/<conversationId>/<mode>` is linked from nowhere else in a
-// conversation, so the two buttons have to stay on this bar even though the
-// avatar moved. See the note beside them.
+// ORDER: the row is TWO clusters, not five flat siblings.
+//   left  -> back arrow, avatar, name + status
+//   right -> audio call, video call, 3-dot options
+//
+// The avatar is in the LEFT cluster, immediately before the name, because that is
+// where the face belongs: it identifies the name sitting next to it. It previously
+// sat at the far right, AFTER both call buttons, which split the identity across
+// the bar and left a member looking left for the name and right for the face.
+//
+// The call buttons stay on the right because `/call/<conversationId>/<mode>` is
+// linked from nowhere else in a conversation — moving them would have taken
+// calling out of the chat entirely. Only the avatar changed sides.
 //
 // Pure UI; no data mutations of its own.
 "use client";
@@ -100,6 +107,12 @@ export function ChatHeader({
     // the inset itself. `shrink-0` on every child guarantees the row never
     // compresses or wraps.
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--chat-border)] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 backdrop-blur-md sm:gap-3 [background-color:var(--chat-surface)]">
+      {/* TWO CLUSTERS, NOT FIVE FLAT SIBLINGS.
+          The left cluster is back arrow + avatar + identity; the right cluster is
+          the two call buttons + the options menu. Nesting them makes the grouping
+          explicit in the DOM rather than emergent from a `flex-1` in the middle,
+          and `justify-between` then pushes the two groups to opposite edges. */}
+      <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
       {/* Back */}
       <Link
         href="/messages"
@@ -111,18 +124,35 @@ export function ChatHeader({
         </svg>
       </Link>
 
-      {/* THE HERO AVATAR.
+      {/* THE AVATAR, ON THE LEFT AND IMMEDIATELY BEFORE THE NAME.
+          This is the correction to the previous layout, which moved it to the far
+          right AFTER the call buttons "to match the reference layout". But the
+          reference puts the face BESIDE the name it identifies: split across the
+          bar, a member looked left for the name and right for the face, which is
+          precisely the disorientation a chat header exists to remove.
 
-          `h-16` (4rem) rather than the 2.75rem it was, wrapped in a brand ring:
-          the person is the subject of this screen, and on a dating surface the
-          face is the thing a member is deciding about. A small circle reads as
-          a list row; a large one reads as a profile.
+          `h-10 w-10` (was `h-12`) because it now shares the row with the back
+          arrow. A 48px circle left too little for the name on a 320-375px phone
+          and forced hard truncation; at 40px the identity still reads at a glance
+          and the name keeps its space.
 
-          The `overflow-hidden` wrapper is what lets the photo fill the ring
-          exactly — `Avatar` renders `h-full w-full object-cover`, so the ring
-          crops rather than the image overflowing it. The ring colour is
-          `--chat-in-border` rather than a literal, so it follows the active
-          theme instead of sitting on every canvas as the same grey. */}
+          The `overflow-hidden` wrapper lets the photo fill the ring exactly —
+          `Avatar` renders `h-full w-full object-cover`, so the ring crops rather
+          than the image overflowing it. The ring colour is `--chat-in-border`
+          rather than a literal, so it follows the active theme instead of sitting
+          on every canvas as the same grey. */}
+      <span className="relative shrink-0">
+        <span className="block h-10 w-10 overflow-hidden rounded-full shadow-[0_0_0_2px_var(--chat-out-from)] ring-2 ring-[var(--chat-in-border)]">
+          <Avatar
+            src={avatarSrc}
+            name={name}
+            kind={summary?.kind}
+            className="h-full w-full text-sm"
+          />
+        </span>
+        <PresenceDot online={isOnline} size="md" />
+      </span>
+
       {/* Name + status.
 
           THE ONLINE COLOUR WAS A HARD-CODED LITERAL. `text-emerald-600` is a
@@ -177,7 +207,16 @@ export function ChatHeader({
           {status}
         </span>
       </span>
+      </div>
 
+      {/* ── RIGHT CLUSTER: calls + options ───────────────────────────────────
+          Closed into its own group so `justify-between` on the outer row can push
+          it hard against the right edge, however long the name grows.
+
+          The two call buttons stay here because `/call/<id>` is linked from nowhere
+          else in a conversation — moving them would take calling out of the chat
+          entirely. Only the AVATAR moved left; the calls did not go anywhere. */}
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
       {/* Quick call actions */}
       <Link
         href={`/call/${conversationId}/audio`} aria-label={`Audio call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-400 transition hover:bg-emerald-400/20">
@@ -187,30 +226,6 @@ export function ChatHeader({
         href={`/call/${conversationId}/video`} aria-label={`Video call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-400 transition hover:bg-orange-400/20">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="m15 10 4.55-2.28A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.9L15 14M5 6h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" /></svg>
       </Link>
-      {/* ── THE AVATAR, NOW ON THE RIGHT ──────────────────────────────────
-          Moved here from the far left to match the reference layout.
-
-          Sized down from `h-16` to `h-12` deliberately: the right cluster is
-          now four fixed-width controls (call, video, avatar, menu), which on a
-          375px phone leaves the name roughly half the bar. At 64px the avatar
-          ate the name's space and forced long names to truncate hard; at 48px
-          both stay legible.
-
-          It sits AFTER the two call buttons rather than replacing them, because
-          `/call/<id>` is reachable from nowhere else in a conversation —
-          removing these would have taken calling out of the chat entirely. */}
-      <span className="relative shrink-0">
-        <span className="block h-12 w-12 overflow-hidden rounded-full shadow-[0_0_0_2px_var(--chat-out-from)] ring-2 ring-[var(--chat-in-border)]">
-          <Avatar
-            src={avatarSrc}
-            name={name}
-            kind={summary?.kind}
-            className="h-full w-full text-base"
-          />
-        </span>
-        <PresenceDot online={isOnline} size="md" />
-      </span>
-
       {/* Options menu */}
       <div ref={menuRef} className="relative shrink-0">
         <button
@@ -288,7 +303,7 @@ export function ChatHeader({
           </div>
         ) : null}
       </div>
-
+      </div>
     </div>
   );
 }
