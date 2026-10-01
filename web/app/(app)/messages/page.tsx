@@ -67,6 +67,9 @@ export default async function MessagesPage() {
         lastMessageAt: c.lastMessageAt,
         unread: c.unread,
         isOnline: c.isOnline,
+        /* Migration 050. Carried through to the client so the inbox can render
+           a pinned section above the recency-ordered list. */
+        isPinned: c.isPinned ?? false,
         /* Real conversation, so it is genuinely callable. */
         callHrefBase: `/call/${c.id}`,
       })),

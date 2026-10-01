@@ -27,6 +27,7 @@ export type IconName =
   | "menu"
   | "close"
   | "crown"
+  | "pin"
   | "chevron"
   | "flame"
   | "rewind"
@@ -188,6 +189,14 @@ const paths: Record<IconName, ReactNode> = {
     </>
   ),
   chevron: <path d="M9.5 5 L16 12 L9.5 19" />,
+  /* Push pin for the inbox's pinned section (migration 050). Drawn on a 24×24
+     grid to match its neighbours, head at the top and needle pointing down-left
+     the way a pin actually sits in a board. Solid rather than outlined, so it
+     holds up at the `h-3.5` the section heading renders it at — an outline at
+     that size collapses into a smudge. */
+  pin: (
+    <path d="M14.5 3.5 L20.5 3.5 L20.5 9.5 L17.6 12.4 L17.6 16.4 L14.9 16.4 L12.6 13 L6.5 19 L5 17.5 L11.2 11.6 L7.6 9.3 L7.6 6.6 L11.6 6.6 Z" />
+  ),
   /* Live broadcast: a filled dot with two broadcast arcs. Read at a glance as
      "something is being transmitted", which a play triangle or a camera would
      not — a play triangle says "watch", and this says "go live". */

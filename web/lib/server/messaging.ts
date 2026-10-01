@@ -24,6 +24,16 @@ export interface ConversationRow {
   last_message_at: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Pinned to the top of the inbox. Added by migration 050.
+   *
+   * OPTIONAL (`?`) rather than required on purpose: `listConversations` selects
+   * `*` and casts to this type, so a database that has not yet run 050 simply
+   * omits the key. A required field here would turn "migration not applied yet"
+   * into a wall of type errors across every caller, which is the wrong signal —
+   * the right one is "this column does not exist yet".
+   */
+  is_pinned?: boolean | null;
 }
 
 export interface MessageRow {
@@ -476,6 +486,17 @@ export interface InboxSummaryRow {
   lastMessageAt: string | null;
   unread: number;
   /**
+   * Pinned to the top of the inbox (migration 050).
+   *
+   * `Boolean()` rather than a bare pass-through: the column is optional on
+   * `ConversationRow` precisely so an un-migrated database yields `undefined`,
+   * and that has to collapse to a plain `false` here. An `undefined` reaching the
+   * `chat.isPinned ? ... : ...` branch renders as falsy anyway, but a filter
+   * written `chats.filter(c => c.isPinned)` would silently return an empty
+   * pinned section instead of showing the honest "nothing pinned" empty state.
+   */
+  isPinned: boolean;
+  /**
    * True when the other participant was active inside the presence online
    * window. Resolved from `user_presence` (migration 039) rather than the old
    * `user_sessions.last_seen_at` heuristic, so the inbox dots, the chat header
@@ -597,6 +618,10 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           // gate here any more: a member who has the app open is online, and
           // hiding that was what made the dots look broken rather than private.
           isOnline: Boolean(otherId && presenceMap[otherId]?.online),
+          /* Migration 050. `Boolean` collapses the "column not applied yet"
+             undefined to false, so an un-migrated database shows an honest empty
+             pinned section instead of a filter that silently returns nothing. */
+          isPinned: Boolean(c.is_pinned),
         };
       })
       .filter((row) => Boolean(row.id));

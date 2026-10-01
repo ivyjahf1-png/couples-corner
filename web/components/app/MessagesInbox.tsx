@@ -46,6 +46,12 @@ export interface InboxChat {
   lastMessageAt: string | null;
   unread: number;
   isOnline: boolean;
+  /**
+   * Pinned to the top of the inbox (migration 050). Bot personas cannot be
+   * pinned — there is no `conversations` row behind one — so they are always
+   * false and the pinned section simply never lists them.
+   */
+  isPinned?: boolean;
   isBot?: boolean;
 }
 
@@ -86,6 +92,22 @@ export function MessagesInbox({
         (c.preview ?? "").toLowerCase().includes(needle)
     );
   }, [chats, needle, tab]);
+
+  /* Pinned threads, split OUT of the recency list rather than reordered within
+     it. Two reasons this is derived from `visible` and not from `chats`:
+
+       • It has to obey the same search and tab filters as the list below it.
+         Typing "scarlett" must not leave her pinned thread stranded above a
+         result set that no longer mentions her.
+       • Reordering inside one list would fight the recency sort the page already
+         does, and pinned rows would shuffle as new messages arrive. A separate
+         section keeps the pin visibly deliberate.
+
+     `visible` is already sorted newest-first, so `pinned` inherits that order
+     and a member who pins three threads sees them in the order they last spoke,
+     not in an arbitrary stored order. */
+  const pinned = visible.filter((c) => c.isPinned);
+  const unpinned = visible.filter((c) => !c.isPinned);
 
   const totalUnread = chats.reduce((sum, c) => sum + Math.max(c.unread ?? 0, 0), 0);
   const onlineCount = chats.filter((c) => c.isOnline).length;
@@ -197,6 +219,31 @@ export function MessagesInbox({
           product copy rather than a control that looks live and does nothing. */}
       <NoticeCarousel />
 
+      {/* ── PINNED THREADS (migration 050) ────────────────────────────────────
+          Distinct from the system-notice carousel above: those are product
+          copy the team owns, these are real member threads the viewer pinned.
+          The pin glyph is decorative — the section's heading and its
+          aria-label already carry the meaning, so a screen reader is not told
+          "pin" twice per row. */}
+      {pinned.length > 0 ? (
+        <section aria-labelledby="inbox-pinned-heading" className="mb-1">
+          <h2
+            id="inbox-pinned-heading"
+            className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-400"
+          >
+            <Icon name="pin" className="h-3.5 w-3.5" aria-hidden />
+            Pinned
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {pinned.map((chat) => (
+              <li key={chat.key}>
+                <ChatRow chat={chat} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       {chats.length === 0 ? (
         emptyState
       ) : visible.length === 0 ? (
@@ -209,7 +256,7 @@ export function MessagesInbox({
         </p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {visible.map((chat) => (
+          {unpinned.map((chat) => (
             <li key={chat.key}>
               <ChatRow chat={chat} />
             </li>
