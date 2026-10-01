@@ -1,5 +1,12 @@
-// ChatHeader.tsx — slim messenger header: back button, avatar with live
-// presence dot, name + Online/Offline status, 3-dot options menu.
+// ChatHeader.tsx — slim messenger header: back button, name + presence status,
+// audio/video call buttons, the member's avatar, and a 3-dot options menu.
+//
+// ORDER: back → name → call → video → avatar → menu. The avatar sits LAST, on
+// the right, and the call buttons sit immediately before it. That pairing is
+// deliberate: `/call/<conversationId>/<mode>` is linked from nowhere else in a
+// conversation, so the two buttons have to stay on this bar even though the
+// avatar moved. See the note beside them.
+//
 // Pure UI; no data mutations of its own.
 "use client";
 
@@ -108,18 +115,6 @@ export function ChatHeader({
           crops rather than the image overflowing it. The ring colour is
           `--chat-in-border` rather than a literal, so it follows the active
           theme instead of sitting on every canvas as the same grey. */}
-      <span className="relative shrink-0">
-        <span className="block h-16 w-16 overflow-hidden rounded-full shadow-[0_0_0_3px_var(--chat-out-from)] ring-2 ring-[var(--chat-in-border)]">
-          <Avatar
-            src={avatarSrc}
-            name={name}
-            kind={summary?.kind}
-            className="h-full w-full text-lg"
-          />
-        </span>
-        <PresenceDot online={isOnline} size="lg" />
-      </span>
-
       {/* Name + status.
 
           THE ONLINE COLOUR WAS A HARD-CODED LITERAL. `text-emerald-600` is a
@@ -134,9 +129,30 @@ export function ChatHeader({
           dark canvas in the palette, and it is paired with a small filled dot so
           the state does not rely on colour alone. "Offline" keeps `--chat-muted`,
           which is already per-theme and contrast-checked. */}
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold text-[var(--chat-text)]">
-          {name}
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-1.5">
+          <span className="truncate text-[15px] font-semibold text-[var(--chat-text)]">
+            {name}
+          </span>
+          {/* Verification badge.
+
+              GATED ON A FIELD THAT IS CURRENTLY ALWAYS FALSE. `verified` is
+              hardcoded to `false` in lib/server/messaging.ts and no migration
+              adds a `verified` column to public.profiles, so this never renders
+              today. It is wired rather than stubbed because the type already
+              carries the field and the moment a verification column lands the
+              badge appears with no further change here — but it is NOT a live
+              signal, and no part of the product should assume a member is
+              verified because this markup exists. */}
+          {summary?.verified ? (
+            <span className="inline-flex shrink-0 items-center">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-brand-400" aria-hidden>
+                <path d="M12 2.6l2.5 1.8 3.1-.2.9 3 2.5 1.8-1.2 2.8 1.2 2.8-2.5 1.8-.9 3-3.1-.2L12 21.4l-2.5-1.8-3.1.2-.9-3L3 14.8l1.2-2.8L3 9.2l2.5-1.8.9-3 3.1.2z" />
+                <path d="M10.7 15.3l-2.9-2.9 1.3-1.3 1.6 1.6 4-4 1.3 1.3z" fill="var(--chat-canvas)" />
+              </svg>
+              <span className="sr-only">Verified member</span>
+            </span>
+          ) : null}
         </span>
         <span
           className={[
@@ -163,6 +179,30 @@ export function ChatHeader({
         href={`/call/${conversationId}/video`} aria-label={`Video call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-400 transition hover:bg-orange-400/20">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="m15 10 4.55-2.28A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.9L15 14M5 6h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" /></svg>
       </Link>
+      {/* ── THE AVATAR, NOW ON THE RIGHT ──────────────────────────────────
+          Moved here from the far left to match the reference layout.
+
+          Sized down from `h-16` to `h-12` deliberately: the right cluster is
+          now four fixed-width controls (call, video, avatar, menu), which on a
+          375px phone leaves the name roughly half the bar. At 64px the avatar
+          ate the name's space and forced long names to truncate hard; at 48px
+          both stay legible.
+
+          It sits AFTER the two call buttons rather than replacing them, because
+          `/call/<id>` is reachable from nowhere else in a conversation —
+          removing these would have taken calling out of the chat entirely. */}
+      <span className="relative shrink-0">
+        <span className="block h-12 w-12 overflow-hidden rounded-full shadow-[0_0_0_2px_var(--chat-out-from)] ring-2 ring-[var(--chat-in-border)]">
+          <Avatar
+            src={avatarSrc}
+            name={name}
+            kind={summary?.kind}
+            className="h-full w-full text-base"
+          />
+        </span>
+        <PresenceDot online={isOnline} size="md" />
+      </span>
+
       {/* Options menu */}
       <div ref={menuRef} className="relative shrink-0">
         <button
