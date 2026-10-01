@@ -88,27 +88,30 @@ function dayLabel(iso: string): string {
  * sits above a missed call must look identical to one above a message, or the
  * thread reads as two different feeds stitched together.
  *
- * THE WARM ACCENT. The separator was a neutral grey pill on every theme, which
- * is the plainest thing in the frame and sat between two warm surfaces like a
- * seam. It now carries the brand orange as a low-alpha ring and tint, so the
- * thread reads Midnight Slate & Orange end to end.
+ * ── ORANGE WAS HERE, AND IT WAS WRONG ────────────────────────────────────────
+ * This pill briefly carried the brand orange as a low-alpha `color-mix` ring and
+ * tint, on the argument that Midnight Slate & Orange should read "end to end".
+ * That was the wrong call, and it was mine.
  *
- * The ring is `color-mix` against the accent rather than a fixed alpha on white,
- * because the pill sits on five different canvases and a constant alpha looks
- * correct on exactly one of them. `color-mix` needs a plain colour as its second
- * operand; `var(--chat-out-from)` resolves to a hex here, which is why this is
- * not wrapped in `rgb(var(...))` like the other tokens.
+ * Orange in this app means two specific things: YOU, and DO THIS. It is on
+ * outgoing bubbles because those are the member's own words, and on primary
+ * actions because those are the things to press. A date separator is neither —
+ * it is furniture. Accenting it spent a colour that carries meaning, on
+ * something that does not, so a passive divider competed with the one thing in
+ * the frame that is genuinely actionable.
  *
- * TEXT STAYS `--chat-muted` (#94a3b8), deliberately. At 11px this is small text
- * and owes 4.5:1. The accent is carried by the ring and tint, where it is
- * decorative and owes nothing, so the contrast budget is not spent on the part
- * a member actually has to read. Accenting the label itself would have looked
- * livelier and been a worse trade.
+ * Muted slate now. `bg-slate-800` sits one step off the canvas, which is exactly
+ * how far a divider should recede, and `text-slate-400` reads clearly at 11px
+ * without asking for attention.
+ *
+ * Deliberately literal slate rather than `--chat-*` tokens: this is now a fixed
+ * Midnight Slate element by design, and pulling it from a token would let the
+ * Daylight theme wash it out again — which is the failure this change is fixing.
  */
 function DayDivider({ label }: { label: string }) {
   return (
     <div className="my-3 flex justify-center" role="separator" aria-label={label}>
-      <span className="rounded-full border border-[color-mix(in_srgb,var(--chat-out-from)_28%,transparent)] bg-[color-mix(in_srgb,var(--chat-out-from)_10%,var(--chat-surface))] px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-[var(--chat-muted)] backdrop-blur-sm">
+      <span className="rounded-full bg-slate-800 px-3.5 py-1 text-[11px] font-medium uppercase tracking-[0.06em] text-slate-400">
         {label}
       </span>
     </div>
@@ -529,10 +532,26 @@ export function LiveConversationThread({
                        own edge, the bubble holds only the message — which is
                        what a bubble is for — and the time is still attached to
                        it. */
-                    <div className="max-w-[80%] sm:max-w-[70%]">
+                    <div className="min-w-0 max-w-[80%] sm:max-w-[70%]">
                       <div
                         className={[
-                          "px-4 py-2.5 text-sm leading-6",
+                          // `break-words` is the fix for long unbroken content.
+                          //
+                          // `max-w-[80%` caps the box but does NOT stop the text
+                          // overflowing it: a flex item's default `min-width:
+                          // auto` means a single unbreakable token — a URL, a
+                          // handle, a 60-character string of no spaces — resolves
+                          // to its intrinsic width and pushes straight through
+                          // the cap. `min-w-0` on the wrapper lets the flex item
+                          // actually shrink, and `break-words` (overflow-wrap:
+                          // break-word) breaks that token at the box edge
+                          // instead. Both are needed: either alone still
+                          // overflows.
+                          //
+                          // Everything else is intrinsic sizing already — no fixed
+                          // width anywhere, so a one-word "ok" hugs and a
+                          // paragraph wraps. That part was correct.
+                          "break-words px-4 py-2.5 text-sm leading-6",
                           // SENT vs RECEIVED — the core hierarchy of the thread.
                           //
                           // Both sides read from the theme's tokens rather than
