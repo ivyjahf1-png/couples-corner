@@ -443,7 +443,30 @@ export function MessageComposer({
             aria-label="Choose an image"
           />
           <div
-            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full border px-1.5 [background-color:var(--chat-input-bg)] [border-color:var(--chat-input-border)] focus-within:border-orange-400/60"
+            /* NO PERSISTENT BORDER. The field used to carry
+               `border border-[var(--chat-input-border)]` plus a
+               `focus-within:border-orange-400/60`, which drew a hard-edged box
+               around the whole cluster and read as a form control dropped into a
+               messenger. On a dark canvas that 1px ring is the loudest thing in
+               the dock and it fought the send button for attention.
+
+               The surface now comes from the fill alone — `bg-slate-900/80`,
+               which is what a pill reads as. The border token is deliberately
+               UNUSED here now rather than set to a lighter value: a
+               near-transparent border is still a border, and on some themes it
+               resolves to a visible seam.
+
+               FOCUS IS NOT REMOVED, only the always-on box. Keyboard users still
+               get `focus-within:ring-1`, which draws nothing until the cluster is
+               actually focused. Dropping focus indication entirely would fail
+               WCAG 2.4.7, and a keyboard user tabbing into the composer would
+               have no idea where they were.
+
+               `py-3` for the generous vertical padding. It also fixes a real
+               cramping: the input carried a fixed `h-10`, so text was confined
+               to 40px regardless of the container around it. That is gone —
+               the input now sizes to its content inside the padded pill. */
+            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full bg-slate-900/80 px-4 py-3 focus-within:ring-1 focus-within:ring-orange-400/40"
           >
           {/*
             ATTACHMENT, as a PAPERCLIP.
@@ -465,7 +488,7 @@ export function MessageComposer({
             onClick={() => imageInputRef.current?.click()}
             aria-label="Attach a file"
             title="Attach"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10 hover:text-[var(--chat-text)]"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10 hover:text-[var(--chat-text)]"
           >
             <Paperclip className="h-5 w-5" aria-hidden />
           </button>
@@ -482,12 +505,20 @@ export function MessageComposer({
             }}
             placeholder="Type here..."
             aria-label="Write a message"
-            // No border and no background of its own: the wrapper above owns both,
-            // which is what makes this read as one field rather than a box nested
-            // inside a box. `min-w-0 flex-1` is load-bearing — without it the input
-            // refuses to shrink below its intrinsic size and pushes the icons out
-            // of the row, which is how the placeholder ended up clipped to "Wri...".
-            className="h-10 min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [color:var(--chat-text)] placeholder:[color:var(--chat-muted)] disabled:opacity-60"
+            // `h-10` REMOVED. The input was pinned to a fixed 40px while the cluster
+            // around it was 40px too, so text had exactly one line of room
+            // inside a container that then added its own padding on top — there
+            // was nowhere for a second line to go, and descenders sat hard
+            // against the edge. With the pill now providing `py-3`, the input
+            // sizes to its content and the padding does that work instead.
+            //
+            // No border and no background of its own: the wrapper owns both,
+            // which is what makes this read as one field rather than a box
+            // nested inside a box. `min-w-0 flex-1` remains load-bearing —
+            // without it the input refuses to shrink below its intrinsic width
+            // and pushes the icons out of the row, which is how the placeholder
+            // once truncated to "Wri...".
+            className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none [color:var(--chat-text)] placeholder:[color:var(--chat-muted)] disabled:opacity-60"
             disabled={pending}
           />
           {/* THEME, from the old AttachmentDock. A palette icon rather than a
@@ -500,7 +531,7 @@ export function MessageComposer({
               aria-expanded={themeOpen}
               aria-label="Change chat theme"
               className={[
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95",
                 themeOpen ? "bg-orange-500/20" : "[color:var(--chat-icon)] hover:bg-white/10",
               ].join(" ")}
             >
@@ -513,7 +544,7 @@ export function MessageComposer({
             aria-label="Select emoji"
             aria-expanded={showEmoji}
             className={[
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95",
               showEmoji ? "bg-white/15 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-white/10",
             ].join(" ")}
           >
@@ -522,7 +553,7 @@ export function MessageComposer({
           <button
             type="button"
             aria-label="Record voice note"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10"
           >
             <Mic className="h-5 w-5" aria-hidden />
           </button>
