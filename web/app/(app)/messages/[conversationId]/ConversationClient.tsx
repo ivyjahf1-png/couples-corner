@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ChatHeader } from "@/components/app/ChatHeader";
 import { markConversationReadAction } from "@/lib/actions/messaging";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
 import { MatchIntroCard } from "@/components/app/MatchIntroCard";
+import { useChatWallpaper } from "@/lib/hooks/useChatWallpaper";
+import { ChatSettingsSheet } from "@/components/app/ChatSettingsSheet";
 import { MessageComposer, useChatTheme } from "@/components/app/MessageComposer";
 import { usePresence } from "@/lib/hooks/usePresence";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
@@ -130,11 +132,50 @@ export default function ConversationClient({
       : initialOnline
     : initialOnline;
 
+  const { wallpaper, setWallpaper } = useChatWallpaper();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <div
       className={`chat-theme-${theme} relative flex h-[100dvh] w-full flex-col overflow-hidden`}
       data-chat-theme={theme}
     >
+      {/* Custom wallpaper, painted UNDER the thread rather than behind the text.
+
+          THE TWO SCRIMS ARE THE POINT. This covers the whole column and draws,
+          back to front: the image, a theme-tinted wash, then a near-opaque
+          scrim. Message text reads against the SCRIM, not the photo, which is
+          the only reason a member can pick a bright sunset without making the
+          conversation unreadable. The image is allowed to be washed out; the
+          text is not.
+
+          Absolutely positioned and -z-10 so it cannot intercept taps meant for
+          the thread, and it renders nothing when there is no wallpaper — so an
+          untouched theme gets no extra paint layer and no unintended dimming. */}
+      {wallpaper ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10"
+          style={{
+            backgroundImage: `url("${wallpaper}")`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        >
+          {/* Tinted wash so the photo leans toward the active theme instead of
+              fighting it — a green photo under the Ember theme reads as a bug. */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: "var(--chat-canvas)", opacity: 0.45 }}
+          />
+          {/* The readability scrim. Opaque enough that incoming bubble text keeps
+              its measured contrast over any photograph at all. */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: "var(--chat-canvas)", opacity: 0.55 }}
+          />
+        </div>
+      ) : null}
       {/* Header and thread follow the theme, so a tinted conversation is not
           framed by two neutral grey bars. */}
       <div className="chat-theme-surface relative z-10 flex min-h-0 flex-1 flex-col">
@@ -144,6 +185,8 @@ export default function ConversationClient({
             currentUserId={currentUserId}
             conversationId={conversationId}
             initialOnline={online}
+            /* DIY themes and custom wallpaper live behind the three-dot menu. */
+            onOpenSettings={() => setSettingsOpen(true)}
           />
         </header>
 
@@ -184,6 +227,16 @@ export default function ConversationClient({
           onThemeChange={setTheme}
         />
       </div>
+    {/* DIY Chat themes + custom wallpaper. Mounted at the column root rather
+          than inside the scroll region so it is never clipped or scrolled. */}
+      <ChatSettingsSheet
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        wallpaper={wallpaper}
+        onWallpaperChange={setWallpaper}
+      />
     </div>
   );
 }

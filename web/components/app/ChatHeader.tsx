@@ -28,6 +28,13 @@ interface ChatHeaderProps {
   initialOnline?: boolean;
   /** Overrides the status line; otherwise derived from live presence. */
   statusText?: string;
+  /**
+   * Opens the DIY settings sheet (chat themes + custom wallpaper).
+   *
+   * Optional so the header still renders for any caller that does not want it —
+   * the menu entry is hidden rather than rendered dead when this is absent.
+   */
+  onOpenSettings?: () => void;
 }
 
 export function ChatHeader({
@@ -36,6 +43,7 @@ export function ChatHeader({
   currentUserId,
   initialOnline = false,
   statusText,
+  onOpenSettings,
 }: ChatHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -225,6 +233,24 @@ export function ChatHeader({
             aria-label="Chat options"
             className="absolute right-0 top-11 z-[100] w-48 overflow-hidden rounded-2xl border py-1.5 shadow-2xl [background-color:var(--chat-menu-bg)] [border-color:var(--chat-menu-border)]"
           >
+            {/* DIY themes + custom wallpaper. First item because it is the only
+                purely-personal control in this menu — everything below it acts on
+                the conversation or the member.
+                HIDDEN when no handler is passed rather than rendered disabled: a
+                menu entry that cannot do anything is worse than no entry. */}
+            {onOpenSettings ? (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenSettings();
+                }}
+                className="block w-full px-4 py-2.5 text-left text-sm text-[var(--chat-text)] transition hover:bg-white/10"
+              >
+                Chat settings
+              </button>
+            ) : null}
             <Link
               href="/messages"
               role="menuitem"
