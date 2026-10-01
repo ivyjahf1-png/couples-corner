@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { createFeedPostAction, recordUserMediaAction } from "@/lib/actions/profile";
+import { createFeedPostAction } from "@/lib/actions/profile";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
@@ -85,27 +85,30 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       const uploaded = await uploadMediaDirect(uid, file, setUploadPercent);
       if (!uploaded.ok) { setError(uploaded.error); return; }
 
-      // Bytes are up. What remains is the gallery row and the post itself —
-      // small writes, but a distinct phase so a member who was watching the bar
-      // can see it reached 100% and the sheet did not simply stall there.
+      // Bytes are up. What remains is the post row itself — a distinct phase so a
+      // member watching the bar can see it reached 100% and the sheet did not
+      // simply stall there.
       setPhase("saving");
 
-      // Links the file to the profile gallery permanently, as well as to the post.
-      // The caption passed here is nullable in the gallery row's schema, so an
-      // empty string is sent as null rather than as "" — an empty gallery caption
-      // and a missing one are different states.
-      const recorded = await recordUserMediaAction({
-        userId: uid,
-        storagePath: uploaded.storagePath,
-        mediaType: uploaded.mediaType,
-        caption: caption.trim() || null,
-      });
-      if (!recorded.ok || !recorded.data) {
-        setError(recorded.error ?? "Could not save your media.");
-        return;
-      }
+      /* THE PROFILE GALLERY IS NOT TOUCHED FROM HERE. Not a bug in the past, a
+         requirement now.
 
-      const created = await createFeedPostAction(uid, caption.trim(), [recorded.data.publicUrl]);
+         This modal used to call `recordUserMediaAction` as well, which appended a
+         row to `user_media` — the member's personal gallery. It was there only to
+         get a `publicUrl` back, because `uploadMediaDirect` did not return one,
+         and it had the side effect of every photo posted to the public feed also
+         appearing in their own profile grid. Posting a sunset to the feed is not
+         a statement about who you are, and it silently became one.
+
+         `uploadMediaDirect` now returns `publicUrl` directly (getPublicUrl is
+         pure string construction, no network call), so the gallery write was
+         pure overhead and is gone. The two surfaces are now genuinely separate:
+
+           • Moment feed  -> `posts`,                public, feed-visible.
+           • Me / Profile -> `user_media` via the profile uploader, unchanged.
+
+         The profile path still calls `recordUserMediaAction` and is untouched. */
+      const created = await createFeedPostAction(uid, caption.trim(), [uploaded.publicUrl]);
       if (!created.ok) { setError(created.error ?? "Could not publish post."); return; }
       onClose();
     } catch (err) {

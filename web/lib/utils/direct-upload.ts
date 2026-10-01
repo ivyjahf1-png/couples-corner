@@ -37,7 +37,25 @@ export const USER_MEDIA_BUCKET = "user-media";
 export const PROFILE_PHOTOS_BUCKET = "photos";
 
 export type DirectUploadResult =
-  | { ok: true; storagePath: string; mediaType: "image" | "video" }
+  | {
+      ok: true;
+      storagePath: string;
+      mediaType: "image" | "video";
+      /**
+       * Public URL of the stored object.
+       *
+       * Added so a caller that only wants to REFERENCE an upload does not have to
+       * write a `user_media` row just to get a URL back. `getPublicUrl` is pure
+       * string construction — it performs no network call and issues no signed
+       * request — so deriving it here costs nothing.
+       *
+       * This is what lets the Moment feed publish straight to `posts`: before
+       * this field existed, `FeedUploadModal` had to call `recordUserMediaAction`
+       * purely for the `publicUrl` it returned, which silently appended every
+       * feed photo to the member's personal profile gallery as a side effect.
+       */
+      publicUrl: string;
+    }
   | { ok: false; error: string };
 
 /** Extension -> mime, for devices whose File.type is empty (older Android). */
@@ -186,7 +204,12 @@ export async function uploadFileDirect(
       }
     }
 
-    return { ok: true, storagePath: path, mediaType };
+    return {
+      ok: true,
+      storagePath: path,
+      mediaType,
+      publicUrl: client.storage.from(bucket).getPublicUrl(path).data.publicUrl,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Upload failed.";
     return { ok: false, error: message };
