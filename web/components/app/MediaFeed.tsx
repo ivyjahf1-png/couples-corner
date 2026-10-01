@@ -1412,7 +1412,10 @@ export function MediaFeed({
               lines, so it does not need a different offset at larger sizes. */}
           <div
             className={[
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-20 px-4 pr-24 sm:px-6 sm:pr-28",
+              /* `z-30` for the same reason as the rail: the card's media stack is
+                 `relative z-20`, and a tie resolved only by source order is not
+                 a layering guarantee. */
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-30 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1485,7 +1488,15 @@ export function MediaFeed({
                  Offsets are 13rem / 14rem (was `bottom-44 sm:bottom-52`, i.e.
                  11rem / 13rem). The rail keeps the same gap to the FAB it always
                  had, so that spacing is unchanged. */
-              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-20 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
+              /* `z-30`, NOT `z-20`. The card's media stack is `relative z-20`, so a
+                 `z-20` overlay tied with it and only won by virtue of being later
+                 in source order — a tie that any refactor inserting markup between
+                 them silently reverses, which is exactly how an entire overlay
+                 layer ends up "not visible". Stacking above it explicitly makes
+                 the layer order a property of the design rather than an accident
+                 of file order. The same z-30 the top bar and composer already
+                 use, so all chrome now shares one layer above the media. */
+              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-30 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1942,6 +1953,25 @@ function MediaSurface({
   // control never claims "muted" while the video is actually audible.
   const onRequestUnmute = useRef<(() => void) | null>(null);
 
+  /** Reveal the media surface. Idempotent — every decode event calls it. */
+  const reveal = useCallback(() => setReady(true), []);
+
+  // The photo branch's element. Needed only to re-check `complete` on mount: an
+  // image served from cache (or one already in the memory cache from a previous
+  // visit to this same URL) is `complete` BEFORE React attaches `onLoad`, so the
+  // event never fires and the surface would stay at opacity-0 indefinitely.
+  const imageRef = useRef<HTMLImageElement>(null);
+  useEffect(() => {
+    if (imageRef.current?.complete) reveal();
+  }, [moment.mediaUrl, retryKey, reveal]);
+
+  // The same cached-source problem exists for video: an element whose source is
+  // already buffered can sit at `readyState >= HAVE_CURRENT_DATA` without
+  // dispatching `loadeddata` again for the current `src`.
+  useEffect(() => {
+    if (videoRef.current && videoRef.current.readyState >= 2) reveal();
+  }, [moment.mediaUrl, retryKey, reveal]);
+
   /**
    * FULLSCREEN ON ROTATION.
    *
@@ -2087,6 +2117,39 @@ function MediaSurface({
     setReady(false);
     setFailed(false);
   }, [moment.id, moment.mediaUrl, retryKey]);
+
+  /**
+   * THE BLANK-CARD SAFETY NET.
+   *
+   * The surface is gated on `ready` (`opacity-0` until revealed) so paging between
+   * moments cross-dissolves instead of flashing an empty black box. That gate is
+   * only as good as the events that lift it, and every one of them can be missed:
+   *
+   *   • `preload="none"` on off-screen cards means a card that is scrolled to
+   *     BEFORE its `src` is attached can reach `active` and play with no
+   *     `loadeddata` ever having fired for the CURRENT source.
+   *   • A cached/zero-byte or already-buffered resource can fire its decode event
+   *     BEFORE React attaches the handler, so the state write is missed entirely.
+   *   • On some mobile engines `loadeddata` is not dispatched at all when the
+   *     element is paused (which the source lifecycle deliberately does when the
+   *     member tapped pause).
+   *
+   * Any of those leaves a CORRECTLY SIZED but FULLY TRANSPARENT video, which is
+   * indistinguishable on screen from the card collapsing — the exact "blank
+   * space where the video should be" symptom, and the reason a purely layout-flavoured
+   * diagnosis kept coming up empty.
+   *
+   * So the gate is made FAIL-OPEN: if nothing has revealed the surface shortly
+   * after the source changes, reveal it anyway. Worst case the member sees the
+   * first frame or a black box a moment early; the alternative, which this
+   * replaces, is an invisible element that never recovers on its own. The failed
+   * state still wins, because `failed` returns the fallback card instead.
+   */
+  useEffect(() => {
+    if (failed) return;
+    const timer = window.setTimeout(() => setReady(true), 1200);
+    return () => window.clearTimeout(timer);
+  }, [moment.id, moment.mediaUrl, retryKey, failed]);
 
   /**
    * Playback is driven by `active`, not by the `autoPlay` attribute.
@@ -2371,19 +2434,33 @@ function MediaSurface({
           // No `autoPlay` attribute: it would play every mounted card at once.
           // The effect above is the single source of truth for playback.
           preload={preload}
-          onLoadedData={() => setReady(true)}
+          // Every one of these reveals the surface. `loadeddata` alone was the
+          // only one, and it is the event most often missed — see the fail-open
+          // timer below. `loadedmetadata` covers a stream that has dimensions but
+          // no decodable frame yet.
+          onLoadedMetadata={reveal}
+          onLoadedData={reveal}
+
           // Buffering is a normal, recoverable state. Surfacing it means a
           // mid-play rebuffer reads as "loading" rather than a random pause.
           // Nothing here RESTARTS playback - the element resumes by itself once
           // data arrives, and forcing a restart is what used to reset the
           // playback position and re-trigger the audio glitch.
+          //
+          // These two ALSO reveal. They already fired on the resume path, where
+          // `loadeddata` does not re-fire for a source that is already buffered —
+          // the exact case that used to leave a playing video fully transparent.
           onWaiting={() => setBuffering(true)}
           onStalled={() => setBuffering(true)}
           onPlaying={() => {
+            reveal();
             setBuffering(false);
             setBlocked(false);
           }}
-          onCanPlay={() => setBuffering(false)}
+          onCanPlay={() => {
+            reveal();
+            setBuffering(false);
+          }}
           // A decode, format or network failure must not leave a silent black
           // card. This is the handler that turns a blank screen into a message.
           onError={() => {
@@ -2462,13 +2539,14 @@ function MediaSurface({
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
+      ref={imageRef}
       src={moment.mediaUrl}
       alt={moment.content || "Shared moment"}
       // The active card is the LCP element, so it loads eagerly; the rest are
       // lazy so a long feed does not fetch every image up front.
       loading={active ? "eager" : "lazy"}
       decoding="async"
-      onLoad={() => setReady(true)}
+      onLoad={reveal}
       // Same reasoning as the video: a broken image previously rendered as an
       // empty box with no affordance and no explanation.
       onError={() => setFailed(true)}

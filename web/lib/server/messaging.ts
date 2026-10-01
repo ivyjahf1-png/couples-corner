@@ -4,7 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { Conversation, Message } from "@/lib/models";
 import { buildMessageInsert } from "@/lib/utils/message-payload";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
-import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
+import { profileSelectList, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
 import { getPresenceForUsers } from "@/lib/server/presence";
 import type { ProfilePhoto } from "@/lib/models/user";
 import { ageFromDateOfBirth, type ConversationParticipantSummary } from "@/lib/feature/types";
@@ -206,7 +206,11 @@ function mapCallPeer(
     kind: ((row.profile_type as string | null) === "coupled" ? "couple" : "person") as
       | "person"
       | "couple",
-    avatarUrl: photos.find((p) => p.isPrimary)?.publicUrl ?? photos[0]?.publicUrl ?? null,
+    // `profilePhotoUrl`, not an inline `publicUrl` lookup — see the note in
+    // `getConversationChatDataAction`. The `photos` rows carry a `storagePath`
+    // and no `publicUrl`, so the inline version always returned null and the call
+    // screen showed initials for members who had a photo.
+    avatarUrl: profilePhotoUrl({ userId: peerId, photos }),
     verified: false,
     location: (row.location as string | null) ?? null,
     age: ageFromDateOfBirth((row.date_of_birth as string | null) ?? undefined),

@@ -17,7 +17,7 @@ import {
 } from "@/lib/server/messaging";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
-import { profileSelectList, mapProfileRow } from "@/lib/server/profiles";
+import { profileSelectList, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
 import type { ConversationParticipantSummary, ChatStarter } from "@/lib/feature/types";
 import { ageFromDateOfBirth } from "@/lib/feature/types";
@@ -53,7 +53,7 @@ export async function sendMessageAction(params: {
 }): Promise<ActionResult> {
   const user = await requireUser();
   try {
-    const message = await sendMessage({
+    await sendMessage({
       conversationId: params.conversationId,
       senderId: user.uid,
       body: params.body,
@@ -344,7 +344,7 @@ export async function getConversationChatDataAction(
   const others = (conversation.participant_user_ids ?? []).filter((id) => id !== user.uid);
   if (others.length === 0) return null;
 
-  let initialMessages = await listMessages(conversationId);
+  const initialMessages = await listMessages(conversationId);
 
   const summary: ConversationParticipantSummary | null =
     otherProfile
@@ -352,9 +352,22 @@ export async function getConversationChatDataAction(
           id: otherProfile.userId,
           name: otherProfile.displayName,
           kind: otherProfile.kind,
-          avatarUrl: otherProfile.photos?.find((p) => p.isPrimary)?.publicUrl ??
-            otherProfile.photos?.[0]?.publicUrl ??
-            null,
+          // `profilePhotoUrl`, NOT an inline `photos.find(isPrimary)?.publicUrl`.
+          //
+          // The inline version this replaces was the bug: `photos` rows are
+          // persisted with a `storagePath` and NO `publicUrl` (see
+          // `setPrimaryProfilePhoto` in lib/server/profiles.ts), so that lookup
+          // always resolved to `undefined ?? null` and every chat header and
+          // incoming bubble fell back to initials — for members who HAD uploaded
+          // a photo. Discovery has always used `profilePhotoUrl` and always
+          // showed faces, which is why the same profile looked right in Discover
+          // and blank in the chat.
+          //
+          // `profilePhotoUrl` is the one canonical resolver: primary-first, then
+          // first photo, then `publicUrl` OR the `/api/photos/{uid}/{file}`
+          // route derived from `storagePath`. Using it here is what stops the two
+          // surfaces drifting again.
+          avatarUrl: profilePhotoUrl(otherProfile),
           // `verified` is FALSE because nothing has verified anyone.
           //
           // This was a literal `true`, and `ConversationSummaryCard` rendered it
