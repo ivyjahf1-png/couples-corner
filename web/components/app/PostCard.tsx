@@ -310,14 +310,33 @@ export function PostCard({ post }: { post: FeedPostView }) {
              reason — it crops, it never distorts. `overflow-hidden` on the
              parent clips the tiles to ONE outer radius, so the grid reads as a
              single clean rounded rectangle instead of several independently
-             rounded squares with gaps showing through. */
+             rounded squares with gaps showing through.
+
+             4:3 -> 3:4. Portrait tiles, per the layout brief.
+
+             THE TRADE THIS MAKES, because it is not free: 3:4 is 33% TALLER per
+             tile than 4:3. A single full-width photo on a 375px phone goes from
+             ~250px to ~340px, and a 2x2 grid goes from ~274px to ~490px — more
+             than a full screen for one post. That is a deliberate choice for a
+             dating feed, where the photo IS the content and a large image reads
+             as more intentional than a letterboxed one.
+
+             If density matters more than presence, `aspect-[4/5]` sits between
+             the two and is what most dating apps use; it is a one-token change
+             here and in both media elements below.
+
+             MediaGrid is deliberately NOT touched. It renders the PROFILE gallery
+             grids (UserMediaGallery, PublicMediaGallery), not the Moment feed,
+             and its uniform `aspect-square` exists precisely so a 4:5 phone snap
+             and a 16:9 video line up in the same row. Changing it would alter
+             profile pages, which is not what this brief asked for. */
           <div
             className={`mt-3 grid gap-1 overflow-hidden rounded-2xl ${
               post.mediaUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"
             }`}
           >
             {post.mediaUrls.slice(0, 4).map((url, i) => url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
-              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[4/3] w-full bg-black object-cover" />
+              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[3/4] w-full bg-black object-cover" />
             ) : (
               <img
                 key={`${url}-${i}`}
@@ -325,7 +344,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
                 alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
                 loading="lazy"
                 decoding="async"
-                className="aspect-[4/3] w-full bg-surface-muted object-cover"
+                className="aspect-[3/4] w-full bg-surface-muted object-cover"
               />
             ))}
           </div>
