@@ -179,11 +179,11 @@ export function MomentFeed({
           exist, which is worse than no label because a screen reader announces a
           broken relationship. Each panel now names itself. */}
       {/* ── THE VIDEOS PANEL ───────────────────────────────────────────────────
-          `flex flex-col` (NEW) so the media feed's `<section>` — which is
-          `flex-1`/`h-full` and NOT a direct flex child of this column otherwise —
-          actually resolves to "fill the remaining height". Without a column
-          context here the section's `h-full` resolves against this panel's
-          content height and the player collapses to zero on some paths.
+          This panel is `flex flex-col overflow-hidden` so it can hold the media
+          feed's `<section>` and clip it — NOT so the section can be `flex-1`.
+          The section itself supplies its height with `h-full`, and the panel's
+          job is only to be a definite-height box for that percentage to resolve
+          against, and to guarantee no overflow escapes upward into the header.
 
           `overflow-hidden` keeps this panel from EVER becoming the scroll region:
           the only scroller is `MediaFeed`'s inner snap scroller, one level down.

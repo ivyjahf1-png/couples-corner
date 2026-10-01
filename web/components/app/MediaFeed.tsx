@@ -923,19 +923,31 @@ export function MediaFeed({
         // no side columns, no card border, no shell gutters. See globals.css
         // LANDSCAPE.
         "landscape-bleed relative flex w-full select-none flex-col overflow-hidden bg-slate-950",
-        // `h-full min-h-0 flex-1` when filling — all three are needed, and which one
-        // does the work depends on the parent this section is rendered into:
-        //   • On `/feed` the parent is `MomentFeed`'s videos panel, a FLEX COLUMN, so
-        //     `flex-1` takes the remaining height.
-        //   • On `/` the section is a child of AppMain's `mx-auto h-full w-full`
-        //     wrapper, which is a plain BLOCK box, so `flex-1` is inert and `h-full`
-        //     is what supplies the height. Dropping `h-full` collapses the player to
-        //     zero there; dropping `flex-1` breaks it on `/feed`.
-        //   • `min-h-0` on both: without it the item keeps `min-height:auto` (its
-        //     content's height), refuses to shrink, overflows its box, and that
-        //     overflow leaks out to the body as the page scrolling this screen is
-        //     not allowed to have.
-        fill ? "h-full min-h-0 flex-1" : "h-dvh",
+        // `h-full min-h-0` when filling, and NOT `flex-1`.
+        //
+        // A previous pass added `flex-1` here and on the scroller below, on the
+        // theory that the videos panel is a flex column and `flex-1` was the
+        // "correct" way to fill it. That is exactly wrong, and it is why the
+        // media, captions and interaction rail disappeared.
+        //
+        // `flex-1` expands to `flex: 1 1 0%` — a `flex-basis` of ZERO. The
+        // section and the scroller then size from leftover space rather than from
+        // a definite height, and every card inside is sized with `height: 100%`,
+        // a PERCENTAGE that has no definite containing block to resolve against.
+        // The cards collapsed to zero height, taking the video/image, the caption
+        // stack and the bottom action rail with them, because all three live
+        // inside the card.
+        //
+        // `h-full` is the load-bearing part: it makes the box a percentage of a
+        // parent that DOES have a definite height (the shell's viewport-locked
+        // column), which is what gives the cards their `height: 100%` something
+        // to resolve against.
+        //
+        // `min-h-0` is still required: as a flex item this section defaults to
+        // `min-height:auto`, i.e. it refuses to shrink below its content and
+        // overflows — which leaks out to the body as the page scrolling this
+        // screen is not allowed to have.
+        fill ? "h-full min-h-0" : "h-dvh",
       ].join(" ")}
     >
       {/* -------------------------------------------------- gradient scrims
@@ -1267,11 +1279,19 @@ export function MediaFeed({
                 complete to the next card instead of resting between two, which
                 is the behaviour a reel-style feed is expected to have.
               • `scrollbar-none` hides the track; the progress bars in the
-                header already show position. */}
+                header already show position.
+
+              `h-full` — NOT `flex-1` — is what gives each card its height. The
+              cards below are `h-full` percentages, and a percentage needs a
+              DEFINITE containing block height. `flex-1` sets `flex-basis: 0%`,
+              which is the opposite: it sizes from leftover space, leaves the
+              scroller without a definite height, and collapses every card to
+              zero. That bug blanked the media, captions and action rail
+              entirely. See the note on the section's fill class above. */}
         <div
           ref={scrollRef}
           data-moments-scroller
-          className="min-h-0 w-full flex-1 snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
+          className="h-full min-h-0 w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
         >
           {cards.map((card, i) => {
             const item = authorNav[i];
