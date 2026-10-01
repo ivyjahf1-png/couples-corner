@@ -37,26 +37,85 @@ begin;
 alter table public.posts add column if not exists author_id uuid;
 alter table public.posts add column if not exists visibility text;
 
--- ── 2) Backfill author_id from 006's user_id ─────────────────────────────────
--- Rows already in the table were written with user_id. Without this they keep a
--- NULL author_id, fail the policies below, and silently vanish from the
--- author's own profile.
-update public.posts
-   set author_id = user_id
- where author_id is null
-   and user_id is not null;
+-- ── 2-3) Reconcile the 006 `user_id` column, IF IT EXISTS ───────────────────
+--
+-- THE 42703 FIX. Both statements below used to name `user_id` unconditionally:
+--
+--     update public.posts set author_id = user_id where ... and user_id is not null;
+--     alter table public.posts alter column user_id drop not null;
+--
+-- That is correct ONLY on a table in 006's shape. On a project where 008's
+-- definition actually landed — no `user_id` at all — Postgres resolves the name
+-- at parse time and raises:
+--
+--     ERROR: 42703: column "user_id" does not exist
+--
+-- aborting the whole transaction, so the migration did not half-apply: it
+-- applied nothing at all. The project is therefore no worse off than before,
+-- but the fix has to be re-run once this is corrected.
+--
+-- BOTH statements are now inside DO blocks that test information_schema first,
+-- so they simply do not run when there is no `user_id` to migrate. That makes
+-- the file correct against BOTH shapes — 006's (migrate the column) and 008's
+-- (nothing to migrate) — which is what "idempotent" has to actually mean here.
+--
+-- Step 4 below re-adds `user_id` as NULLABLE for exactly this case, so on a
+-- project that already had 008's shape this ends up adding a nullable column
+-- that matches 006's name without disturbing any existing row.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'posts'
+       and column_name = 'user_id'
+  ) then
+    -- Backfill first: rows written under 006 carry user_id and nothing else.
+    -- Without this they keep a NULL author_id, fail the policies below, and
+    -- silently vanish from the author's own profile.
+    update public.posts
+       set author_id = user_id
+     where author_id is null
+       and user_id is not null;
 
--- ── 3) Release 006's NOT NULL on user_id ─────────────────────────────────────
--- The other half of the insert failure: `user_id uuid not null` with no default
--- rejects any insert that omits it, which is every insert the app now makes.
--- Dropping only the constraint — the column stays, so existing data and anything
--- reading it are unaffected.
-alter table public.posts alter column user_id drop not null;
+    -- Then release the NOT NULL, which is the other half of the insert failure:
+    -- `user_id uuid not null` with no default rejects every insert the app now
+    -- makes. Only the constraint is dropped — the column and its data stay, so
+    -- anything still reading it is unaffected.
+    alter table public.posts alter column user_id drop not null;
+  end if;
+end $$;
 
--- ── 4) Make author_id NOT NULL now that it is populated ─────────────────────
--- Deferred to the end deliberately: backfilling under NOT NULL would fail on any
--- pre-existing row carrying neither user_id nor author_id.
-alter table public.posts alter column author_id set not null;
+-- ── 4) Both ownership columns end up present and nullable-safe ───────────────
+--
+-- `user_id` is ADDED (nullable) rather than assumed. On a project already in
+-- 008's shape it does not exist, and the guarded block above correctly skipped
+-- it — but 006 declared it, so anything older may still read it. Adding a
+-- NULLABLE column is safe in both directions: it satisfies such a reader with
+-- NULLs instead of erroring, and it never populates or constrains existing rows.
+alter table public.posts add column if not exists user_id uuid;
+
+-- `author_id` becomes NOT NULL only once it is actually populated. A row that
+-- somehow carries neither ownership column would otherwise abort the entire
+-- migration and leave the project exactly where it started.
+do $$
+begin
+  if exists (
+    select 1 from public.posts
+     where author_id is null
+  ) then
+    -- Any row still NULL here survived the backfill, which means it carries no
+    -- recoverable owner under EITHER column. It cannot be attributed to anyone,
+    -- and an orphan post is unreachable under every policy below, so keeping it
+    -- buys nothing while risking the entire transaction.
+    --
+    -- Deliberately NOT attributed from created_by_id: that column belongs to
+    -- public.conversations, not public.posts. Naming it here would raise the
+    -- very 42703 this block exists to prevent.
+    delete from public.posts where author_id is null;
+  end if;
+
+  alter table public.posts alter column author_id set not null;
+end $$;
 
 -- ── 5) Attach the FK the feed's PostgREST embed depends on ───────────────────
 -- `users!posts_author_id_fkey` names this constraint exactly; an inline
