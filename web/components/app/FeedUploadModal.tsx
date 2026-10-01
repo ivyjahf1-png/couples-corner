@@ -41,10 +41,27 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
   const [caption, setCaption] = useState("");
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Upload progress, split into phases.
+
+     This modal used to call `uploadMediaDirect(uid, file)` with no
+     `onProgress`, so a 4MB photo on mobile data was several seconds of a
+     button reading "Publishing…" with nothing moving. On a stalled connection
+     that is indistinguishable from a crash, and it invites a second tap.
+
+     Two phases, not one percentage, because the two steps are different work and
+     a member should know which one they are waiting on:
+       • `uploading` — the BYTES going to Supabase Storage. The slow part.
+       • `saving`    — the two tiny database writes after it. Near-instant.
+
+     The label changes with the phase for the same reason `ProfilePhotoUploader`
+     does — a stuck number tells a member nothing about whether it is working. */
+  const [phase, setPhase] = useState<"idle" | "uploading" | "saving">("idle");
+  const [uploadPercent, setUploadPercent] = useState(0);
 
   async function publish() {
     if (!userId) { setError("Sign in to publish a post."); return; }
     setPublishing(true); setError(null);
+    setPhase("uploading"); setUploadPercent(0);
     try {
       /* A caption is OPTIONAL for an uploaded photo, and that is what "upload a photo
          directly into the feed" has to mean in practice.
@@ -65,8 +82,13 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       const uid = auth.user?.id;
       if (!uid) { setError("Please sign in again."); return; }
 
-      const uploaded = await uploadMediaDirect(uid, file);
+      const uploaded = await uploadMediaDirect(uid, file, setUploadPercent);
       if (!uploaded.ok) { setError(uploaded.error); return; }
+
+      // Bytes are up. What remains is the gallery row and the post itself —
+      // small writes, but a distinct phase so a member who was watching the bar
+      // can see it reached 100% and the sheet did not simply stall there.
+      setPhase("saving");
 
       // Links the file to the profile gallery permanently, as well as to the post.
       // The caption passed here is nullable in the gallery row's schema, so an
@@ -90,6 +112,9 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       setError(err instanceof Error ? err.message : "Could not publish your post.");
     } finally {
       setPublishing(false);
+      // Reset the phase so a re-pick after a failure starts from "Uploading 0%"
+      // rather than showing a stale 100% bar over an error.
+      setPhase("idle");
     }
   }
 
@@ -202,9 +227,38 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
           </label>
 
         {error ? <p role="alert" className="mt-3 text-sm text-red-300">{error}</p> : null}
+
+        {/* Upload progress. A real <progress> element rather than a styled div:
+            it is announced by screen readers and carries the value natively, so
+            the number and the visual cannot disagree. Same element, and same
+            reason, as ProfilePhotoUploader. */}
+        {publishing ? (
+          <div className="mt-3" role="status" aria-live="polite">
+            <progress
+              max={100}
+              value={phase === "saving" ? 100 : uploadPercent}
+              aria-label="Photo upload progress"
+              className="w-full"
+            />
+            <p className="mt-1 text-xs text-white/60">
+              {phase === "saving" ? "Saving your post…" : `Uploading ${uploadPercent}%`}
+            </p>
+          </div>
+        ) : null}
+
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button disabled={!userId || !canPublish} onClick={publish}>{publishing ? "Publishing…" : "Publish"}</Button>
+          {/* Cancel is disabled mid-publish deliberately. `uploadMediaDirect` holds
+              the bytes in flight and exposes no abort handle, so closing the sheet
+              would leave an orphaned upload with nowhere to report a failure. */}
+          <Button variant="secondary" onClick={onClose} disabled={publishing}>
+            Cancel
+          </Button>
+          <Button
+            disabled={!userId || !canPublish}
+            onClick={publish}
+          >
+            {publishing ? "Publishing…" : "Publish"}
+          </Button>
         </div>
       </div>
     </div>
