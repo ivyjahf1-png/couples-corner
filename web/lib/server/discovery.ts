@@ -5,6 +5,7 @@ import type { UserProfile } from "@/lib/models/user";
 import type { ConnectionRowView, ProfileCardView } from "@/lib/feature/types";
 import { mapProfileCardRow, mapProfileRow, publicProfileSelectList, profilePhotoUrl } from "@/lib/server/profiles";
 import { hydrateDiscoveryProfile, isDiscoveryUserId } from "@/lib/utils/discovery-profile";
+import { normalizeInviteCode } from "@/lib/utils/invite";
 
 // Keep discovery independent of unrelated profile-editing columns.
 const DISCOVERY_PROFILE_FIELDS = "user_id, display_name, bio, interests, location, country, date_of_birth, relationship_status, profile_type, photos";
@@ -38,6 +39,16 @@ function pairIdOf(a: string, b: string): string {
 }
 
 export interface DiscoveryFiltersInput {
+  /**
+   * Free-text search: a display-name fragment, or an exact public user code.
+   *
+   * PRESENT HERE ONLY NOW. `parseDiscoveryFilters` has always returned `query`
+   * on the wider `DiscoveryFilters` shape, but this input type never declared
+   * it — so the value flowed from the URL into this function with nothing to
+   * read it off, and the search silently did nothing. The missing field was the
+   * bug; see the note where it is applied in `getDiscoverProfiles`.
+   */
+  query?: string;
   location?: string;
   ageRange?: { min: number; max: number } | null;
   interests?: string[];
@@ -100,15 +111,53 @@ export async function getDiscoverProfiles(
     throw new Error("Invalid discovery viewer");
   }
 
+  /* ── THE SEARCH TERM, ACTUALLY APPLIED ──────────────────────────────────────
+     `parseDiscoveryFilters` has always read `q` into `filters.query`, but this
+     function never used it. The search box submitted `?q=` to a page that
+     parsed the param and then ignored it, so a member typed a code, hit enter,
+     and got back the same unfiltered deck — indistinguishable from a search
+     that found nothing, which is worse than having no search at all.
+
+     Matching is on `display_name` (case-insensitive substring) or an exact
+     `user_code`. The code is matched EXACTLY and only when it is a well-formed
+     code: `normalizeInviteCode` is the same helper the submit path uses, so a
+     six-letter paste and a lowercase paste reach the same place, and a display
+     name that merely looks like a code ("ABCDE") still falls through to the
+     name search instead of being silently discarded.
+
+     THE ESCAPING IS LOAD-BEARING. This string goes into a PostgREST `.or()`
+     filter, whose grammar is comma-separated `column.op.value`. An unescaped
+     comma in the input would inject a second predicate — `q=a,discoverable.eq.false`
+     would rewrite the query — and an unescaped `*` or `(` corrupts it outright.
+     `%`, `,`, `(`, `)`, `.` and `*` are all stripped, and the term is
+     length-capped. `%` matters most: it is PostgREST's wildcard, so a bare `%`
+     would match every profile in the database. */
+  const searchTerm = filters.query?.trim() ?? "";
+  const LIKE_SPECIALS = /[%(),.*]/g;
+  const safeName = searchTerm.replace(LIKE_SPECIALS, "").slice(0, 60);
+  const codeTerm = normalizeInviteCode(searchTerm);
+
   // Legacy profiles may have no owner. Never pass null IDs to users.id IN (...).
-  const { data: profileRows, error: profilesError } = await supabase
+  let candidatesQuery = supabase
     .from("profiles")
     .select(DISCOVERY_PROFILE_FIELDS)
     .not("user_id", "is", null)
     .neq("user_id", viewerUid)
     .eq("discoverable", true)
-    .eq("visibility", "public")
-    .limit(DISCOVERY_LIMIT);
+    .eq("visibility", "public");
+
+  if (safeName || codeTerm) {
+    const predicates: string[] = [];
+    if (safeName) predicates.push(`display_name.ilike.%${safeName}%`);
+    if (codeTerm) predicates.push(`user_code.eq.${codeTerm}`);
+    // `.or()` ANDs against the other filters, so `discoverable` and `visibility`
+    // above still apply. This narrows the candidate set; it does not widen it.
+    candidatesQuery = candidatesQuery.or(predicates.join(","));
+  }
+
+  const { data: profileRows, error: profilesError } = await candidatesQuery.limit(
+    DISCOVERY_LIMIT
+  );
   assertDiscoveryQuery("profiles.candidates", profilesError);
   const profileRowsTyped = (profileRows ?? []).filter(
     (row) => isDiscoveryUserId(row.user_id)

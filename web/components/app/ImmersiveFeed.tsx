@@ -1,5 +1,6 @@
 import { MediaFeed } from "@/components/app/MediaFeed";
-import { MediaFeedSearch } from "@/components/app/MediaFeedSearch";
+// MediaFeedSearch is NOT imported here. It moved to /discover; see the
+// searchSlot note below.
 import { LocationBadge } from "@/components/app/LocationBadge";
 import { SponsoredMomentCard } from "@/components/app/SponsoredMomentCard";
 import { getNextAdRewardAtAction } from "@/lib/actions/ad-rewards";
@@ -61,7 +62,16 @@ export async function ImmersiveFeed({
       // Inside AppShell the shell owns the viewport lock, so the feed fills the
       // region rather than claiming a full 100dvh of its own.
       fill
-      searchSlot={<MediaFeedSearch action="/" />}
+      /* NO searchSlot HERE ANYMORE.
+
+         The search field moved to Explore (/discover), which is where searching
+         for a person actually belongs: this is a video/photo feed, and a member
+         who wants to find someone was scrolling strangers to type a code. It
+         also cost vertical room on the one screen that must fill the viewport.
+
+         It is not lost — it is on the Explore header, and it submits `?q=` to
+         /discover, which now actually filters by name or code. See the note in
+         lib/server/discovery.ts. */
       topRightSlot={<LocationBadge />}
       /* A PLAIN ELEMENT, not a render function: this is a Server Component and
          MediaFeed is a Client Component, and a function prop cannot cross that

@@ -5,6 +5,7 @@ import { ErrorState } from "@/components/app/ErrorState";
 import { DiscoverCardStack } from "@/components/app/DiscoverCardStack";
 import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
 import { GameCenterButton } from "@/components/app/GameCenterButton";
+import { MediaFeedSearch } from "@/components/app/MediaFeedSearch";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
 import { Button } from "@/components/ui/Button";
@@ -100,6 +101,16 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
           title="Find your people"
           actions={<Button href="/explore" variant="ghost">Browse grid</Button>}
         />
+
+        {/* Search by name or public code. MOVED HERE from the Moment feed, where
+            it was a search box sitting over a video feed — the one place a
+            member looks to BROWSE, not to FIND. It sits under the header and
+            above the deck, `shrink-0` so it never takes height from the cards,
+            and submits `?q=` back to this route, which now filters by
+            display_name substring or an exact user_code. */}
+        <div className="mt-2.5 shrink-0 sm:mt-3">
+          <MediaFeedSearch action="/discover" />
+        </div>
       </div>
 
       <DiscoverFiltersSync filters={filters} resultCount={profiles.length} />
