@@ -35,7 +35,24 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const displayEmail = user?.email ?? "demo@couplescorner.app";
 
   return (
-    <div className="app-canvas relative flex h-[100dvh] w-full flex-col overflow-hidden bg-slate-950 select-none text-foreground">
+    // `min-h-0 flex-1`, NOT `h-[100dvh]`.
+    //
+    // `MobileBackHeader` — the "Moment / feed-view" bar — is mounted by the ROOT
+    // layout into `<body>` as a SIBLING ABOVE this shell, in normal flow. So the
+    // document is `header (4rem) + shell`, and a shell claiming a full `100dvh`
+    // made the BODY the scroll region by exactly the header's height. The member's
+    // only symptom was the whole screen sliding under the header and the player's
+    // bottom controls riding under the tab bar — the "messy scrolling" reported.
+    //
+    // The shell now fills exactly what the header leaves (`flex-1`), with
+    // `min-h-0` so it may shrink below its content's intrinsic height. The viewport
+    // is measured ONCE, by `<html class="h-full">` + `<body class="min-h-full">`;
+    // every route below just divides the space it is given.
+    //
+    // `overflow-hidden` is load-bearing: it makes containment STRUCTURAL. Without
+    // it a child that overflows its box silently promotes the shell into a
+    // scroller and the page starts drifting again.
+    <div className="app-canvas relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-950 select-none text-foreground">
       {/* Demo banner — shrink-0 so it never collapses or scrolls away. */}
       {isDemo && (
         <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">

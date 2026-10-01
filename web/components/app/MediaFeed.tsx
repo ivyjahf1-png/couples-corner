@@ -923,7 +923,19 @@ export function MediaFeed({
         // no side columns, no card border, no shell gutters. See globals.css
         // LANDSCAPE.
         "landscape-bleed relative flex w-full select-none flex-col overflow-hidden bg-slate-950",
-        fill ? "h-full min-h-0" : "h-dvh",
+        // `h-full min-h-0 flex-1` when filling — all three are needed, and which one
+        // does the work depends on the parent this section is rendered into:
+        //   • On `/feed` the parent is `MomentFeed`'s videos panel, a FLEX COLUMN, so
+        //     `flex-1` takes the remaining height.
+        //   • On `/` the section is a child of AppMain's `mx-auto h-full w-full`
+        //     wrapper, which is a plain BLOCK box, so `flex-1` is inert and `h-full`
+        //     is what supplies the height. Dropping `h-full` collapses the player to
+        //     zero there; dropping `flex-1` breaks it on `/feed`.
+        //   • `min-h-0` on both: without it the item keeps `min-height:auto` (its
+        //     content's height), refuses to shrink, overflows its box, and that
+        //     overflow leaks out to the body as the page scrolling this screen is
+        //     not allowed to have.
+        fill ? "h-full min-h-0 flex-1" : "h-dvh",
       ].join(" ")}
     >
       {/* -------------------------------------------------- gradient scrims
@@ -1259,7 +1271,7 @@ export function MediaFeed({
         <div
           ref={scrollRef}
           data-moments-scroller
-          className="h-full min-h-0 w-full snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
+          className="min-h-0 w-full flex-1 snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
         >
           {cards.map((card, i) => {
             const item = authorNav[i];

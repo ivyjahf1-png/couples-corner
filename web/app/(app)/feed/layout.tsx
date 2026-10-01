@@ -59,5 +59,26 @@ import type { ReactNode } from "react";
  * the screen needs, owned by the single owner at the root.
  */
 export default function FeedLayout({ children }: { children: ReactNode }) {
-  return <div className="flex h-full min-h-0 flex-1 flex-col">{children}</div>;
+  /* ── THE STRICT, NON-SCROLLING VIEWPORT LOCK ──────────────────────────────────
+     `overflow-hidden` + `min-h-0` + `flex-1` is what makes this screen a LOCKED
+     surface rather than a document that happens to be short:
+       • `overflow-hidden` — this element can never become a scroll region, so a
+         flick at the first or last video cannot chain up to the body.
+       • `min-h-0` — a flex item defaults to `min-height:auto`, i.e. its content's
+         height. Without this the column refuses to shrink below the player's
+         intrinsic height, overflows this box, and the overflow leaks out to the
+         body as page scrolling — the header then slides away and the composer's
+         bottom row sits under the fixed tab bar.
+       • `flex-1 w-full` — fill exactly the region AppMain hands over. NOT
+         `h-[100dvh]`: `AppShell` already owns the single viewport measurement
+         (it is `flex-1 min-h-0` under the root layout's `h-full` html), so a
+         fresh `100dvh` here would measure the viewport a SECOND time and overflow
+         this box by the height of the sticky header plus the fixed nav bar.
+
+     The result is the three-region lock the screen needs:
+       - top    — the "Moment / feed-view" header, owned by the root layout, in flow
+                  and `sticky top-0`, so it is a fixed sibling of the scroll region
+       - middle — `MomentFeed`, the only thing here that scrolls (below)
+       - bottom — the fixed tab bar, overlaying rather than in flow */
+  return <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">{children}</div>;
 }

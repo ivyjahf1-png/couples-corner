@@ -148,7 +148,9 @@ export function MomentFeed({
   }, [tab]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    // `w-full overflow-hidden`: this is the root of the Moment screen's column and
+    // must never become a scroll region — the panels below own the scrolling.
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
       {/* ── IN-PAGE TABS REMOVED ───────────────────────────────────────────────
           The "Videos / Community Feed" pill container is gone. It was a bordered,
           padded, gradient-filled box that ate roughly 56px of vertical space on
@@ -176,21 +178,37 @@ export function MomentFeed({
           references were left dangling — pointing at elements that no longer
           exist, which is worse than no label because a screen reader announces a
           broken relationship. Each panel now names itself. */}
+      {/* ── THE VIDEOS PANEL ───────────────────────────────────────────────────
+          `flex flex-col` (NEW) so the media feed's `<section>` — which is
+          `flex-1`/`h-full` and NOT a direct flex child of this column otherwise —
+          actually resolves to "fill the remaining height". Without a column
+          context here the section's `h-full` resolves against this panel's
+          content height and the player collapses to zero on some paths.
+
+          `overflow-hidden` keeps this panel from EVER becoming the scroll region:
+          the only scroller is `MediaFeed`'s inner snap scroller, one level down.
+          That is what keeps the header, the bottom nav and the floating upload
+          button pinned while the cards move under them. */}
       <div
         role="region"
         aria-label="Moment reels"
         id="moment-panel-videos"
         hidden={tab !== "videos"}
-        className="min-h-0 flex-1"
+        className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
       >
         {videos}
       </div>
+      {/* ── THE COMMUNITY PANEL ────────────────────────────────────────────────
+          The ONE scroll region on this screen. `overscroll-contain` stops a flick
+          at the very top or bottom of the timeline from chaining to the body
+          behind the shell, which would otherwise nudge the header — the same
+          failure mode the media scroller already guards against. */}
       <div
         role="region"
         aria-label="Community feed"
         id="moment-panel-community"
         hidden={tab !== "community"}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain"
       >
         {/* Rendered unconditionally. The `hidden` attribute above is what
             suppresses it — a conditional here would unmount the timeline and
