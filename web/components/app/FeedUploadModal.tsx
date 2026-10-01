@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { createFeedPostAction } from "@/lib/actions/profile";
+import { createFeedMomentAction, createFeedPostAction } from "@/lib/actions/profile";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
@@ -107,9 +107,58 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
            • Moment feed  -> `posts`,                public, feed-visible.
            • Me / Profile -> `user_media` via the profile uploader, unchanged.
 
-         The profile path still calls `recordUserMediaAction` and is untouched. */
+         The profile path was already independent and is untouched. */
       const created = await createFeedPostAction(uid, caption.trim(), [uploaded.publicUrl]);
       if (!created.ok) { setError(created.error ?? "Could not publish post."); return; }
+
+      /* ONE UPLOAD, TWO STREAMS. This is the reason an upload from the feed
+         used to be invisible in the player view.
+
+         /feed renders TWO different feeds from TWO different tables:
+
+           CommunityFeedView  -> `posts`   (cards, getPublicFeed)
+           ImmersiveFeed      -> `moments` (the full-screen player,
+                                              getRecentMoments)
+
+         The composer writes only `posts`, so a photo it published appeared in
+         the card list and then nowhere else - the player scrolled past it
+         entirely. Nothing was broken in isolation; the two surfaces simply
+         never shared a source.
+
+         So the upload now syndicates to `moments` as well. `media_url` holds
+         the same public URL rather than a foreign key, which is how the delete
+         path already links the two: `deleteUserMediaAction` removes moments by
+         matching `media_url` against the gallery file's public URL, so a moment
+         must carry that exact string for cleanup to keep working.
+
+         FAIL-SOFT, AND DELIBERATELY. The `posts` row is the real post and is
+         written first; a moment failure is logged and the member still gets
+         their post. The reverse would be worse - refusing to publish because a
+         secondary view could not be updated would make a working publish button
+         do nothing visible.
+
+         NOT transactional: there is no cross-table transaction available here,
+         so a moment can fail independently. That is the same posture the rest
+         of this file takes, and the feed self-heals on the next publish. */
+      const momentType = uploaded.mediaType === "video" ? "video" : "image";
+      const shared = await createFeedMomentAction(
+        uid,
+        uploaded.publicUrl,
+        momentType,
+        caption.trim()
+      );
+      if (!shared.ok) {
+        // The post row is already committed, so this is a partial publish, not a
+        // failure. Say so precisely rather than pretending nothing happened.
+        console.error("[feed] moment syndication failed", {
+          userId: uid,
+          mediaUrl: uploaded.publicUrl,
+          error: shared.error,
+        });
+      }
+      // Only now is the publish genuinely complete: the post exists, and the
+      // player view can see it. Closing earlier would dismiss the sheet while
+      // the second write was still in flight.
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish your post.");

@@ -641,6 +641,64 @@ export async function createFeedPostAction(
 
 
 /**
+ * Syndicate a feed post into `moments` so it appears in the player view.
+ *
+ * WHY THIS EXISTS. `/feed` renders TWO feeds from TWO tables:
+ * CommunityFeedView reads `posts`, and the full-screen ImmersiveFeed player
+ * reads `moments`. The composer published to `posts` only, so a photo it
+ * uploaded showed in the card list and then nowhere else — the player scrolled
+ * straight past it.
+ *
+ * WHY IT IS A SEPARATE ACTION RATHER THAN AN INLINE INSERT: this file is
+ * `"use client"`, and the server client is `server-only`. The build rejects a
+ * direct `.from("moments")` here. Server Actions are the correct seam.
+ *
+ * FAIL-SOFT BY DESIGN. `posts` is the real post and is written first; the
+ * caller logs a moment failure and still keeps the member's post. Refusing to
+ * publish because a secondary view could not update would make a working
+ * Publish button do nothing visible.
+ *
+ * `media_url` stores the PUBLIC URL rather than a foreign key, because that is
+ * how the two tables are already joined: `deleteUserMediaAction` deletes moments
+ * by matching `media_url` against a gallery file's public URL. Anything else
+ * written here would orphan on delete.
+ */
+export async function createFeedMomentAction(
+  userId: string,
+  mediaUrl: string,
+  mediaType: "image" | "video",
+  content: string
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireSessionUid(userId);
+    const supabase = getSupabaseServerClient();
+    if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+    // Trimmed and length-capped: this crosses the server/client boundary as an
+    // argument, so it must never be passed through unvalidated.
+    const url = mediaUrl.trim().slice(0, 2048);
+    // Only our own bucket. A caller-supplied URL is otherwise an open redirect
+    // into someone else's server, and the player view would happily render it.
+    if (!url.startsWith("https://") || !url.includes("/storage/v1/object/public/user-media/")) {
+      return { ok: false, error: "That media could not be shared." };
+    }
+
+    const { error } = await supabase.from("moments").insert({
+      user_id: userId,
+      content: content.trim().slice(0, 2200),
+      media_url: url,
+      media_type: mediaType === "video" ? "video" : "image",
+    });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true };
+  } catch (err) {
+    rethrowIfNavigation(err);
+    return { ok: false, error: err instanceof Error ? err.message : "Could not share to moments" };
+  }
+}
+
+
+/**
  * Toggle the viewer's like on a feed post.
  *
  * ── WHY THE UID COMES FROM THE SESSION, NOT THE ARGUMENTS ─────────────────────
