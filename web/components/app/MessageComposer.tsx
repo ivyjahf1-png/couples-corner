@@ -443,30 +443,24 @@ export function MessageComposer({
             aria-label="Choose an image"
           />
           <div
-            /* NO PERSISTENT BORDER. The field used to carry
+            /* NO ORANGE BORDER, EVER. The field used to carry
                `border border-[var(--chat-input-border)]` plus a
-               `focus-within:border-orange-400/60`, which drew a hard-edged box
-               around the whole cluster and read as a form control dropped into a
-               messenger. On a dark canvas that 1px ring is the loudest thing in
-               the dock and it fought the send button for attention.
+               `focus-within:border-orange-400/60`, which drew a hard-edged
+               orange box around the whole cluster. That was the loudest thing
+               in the dock and it fought the send button for attention — orange
+               in this app means "you" and "do this", and an input box is neither.
 
-               The surface now comes from the fill alone — `bg-slate-900/80`,
-               which is what a pill reads as. The border token is deliberately
-               UNUSED here now rather than set to a lighter value: a
-               near-transparent border is still a border, and on some themes it
-               resolves to a visible seam.
-
-               FOCUS IS NOT REMOVED, only the always-on box. Keyboard users still
-               get `focus-within:ring-1`, which draws nothing until the cluster is
-               actually focused. Dropping focus indication entirely would fail
-               WCAG 2.4.7, and a keyboard user tabbing into the composer would
-               have no idea where they were.
+               The border now, if there is one, is `border-slate-800`: a quiet
+               1px edge that separates the pill from the canvas without saying
+               anything. The focus state is a `ring`, not a `border`, and it
+               draws nothing until the cluster is actually focused — removing
+               focus indication entirely would fail WCAG 2.4.7.
 
                `py-3` for the generous vertical padding. It also fixes a real
                cramping: the input carried a fixed `h-10`, so text was confined
                to 40px regardless of the container around it. That is gone —
                the input now sizes to its content inside the padded pill. */
-            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full bg-slate-900/80 px-4 py-3 focus-within:ring-1 focus-within:ring-orange-400/40"
+            className="flex min-w-0 flex-1 items-center gap-0.5 rounded-full border border-slate-800 bg-slate-900/80 px-4 py-3 focus-within:ring-1 focus-within:ring-orange-400/40"
           >
           {/*
             ATTACHMENT, as a PAPERCLIP.

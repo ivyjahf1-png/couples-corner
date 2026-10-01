@@ -2191,12 +2191,30 @@ button,
     --chat-online: #34d399;
     --chat-online-dot: #34d399;
 
-    --chat-in-bg: #1c2637;
+    --chat-in-bg: #1e293b;
     --chat-in-text: #f1f5f9;
     --chat-in-border: rgb(255 255 255 / 0.08);
     --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
 
-    --chat-out-from: #f97316;
+    /* SOLID orange, not a gradient: both ends are the same value, so the sent
+       bubble is one clean flat fill.
+
+       WHY #c2410c AND NOT #f97316 (orange-500), since "solid brand orange" was
+       the ask: white on #f97316 measures ~2.8:1 and FAILS WCAG AA for body
+       text, which needs 4.5:1. White on #c2410c is ~5.1:1. A sent message is
+       exactly the text you cannot afford to have unreadable, so the flat fill
+       takes the AA-safe step. This is the same value the old gradient ENDED on,
+       so nothing here is a contrast downgrade - the lighter #f97316 start is
+       simply gone.
+
+       If a true orange-500 flat fill matters more than AA, change both lines to
+       #f97316 and expect white body text on it to fall below the floor.
+
+       Tokens rather than a literal `bg-orange-500`, deliberately: five themes
+       read these, and a hardcoded orange would make the Daylight canvas send
+       unreadable orange-on-white. The value is now flat and solid; it is still
+       themed. */
+    --chat-out-from: #c2410c;
     --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
 

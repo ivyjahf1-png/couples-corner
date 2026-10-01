@@ -422,7 +422,22 @@ export function LiveConversationThread({
               <div
                 className={[
                   "flex items-end gap-2",
-                  isMine ? "justify-end" : "justify-start",
+                  /* `ml-auto` is added alongside `justify-end` deliberately,
+                     not instead of it.
+
+                     `justify-end` distributes leftover space in the row, but the
+                     bubble is not a DIRECT child of this row — `MessageActionsMenu`
+                     renders an unstyled wrapper `<div>` between them, and that
+                     wrapper is what actually gets pushed. Whether the edge is
+                     truly pinned therefore depends on how that wrapper resolves
+                     its own width, which is exactly the kind of indirection that
+                     lets a sent bubble drift into the middle of a wide screen.
+
+                     `ml-auto` on the row's first child removes the dependency:
+                     margin-left:auto absorbs the free space, so the bubble ends
+                     flush right no matter what the wrapper does. Cheap, and it
+                     makes the intent explicit rather than emergent. */
+                  isMine ? "ml-auto justify-end" : "mr-auto justify-start",
                 ].join(" ")}
               >
                 {/* Incoming avatar, in the gutter LEFT of the bubble.
@@ -532,7 +547,7 @@ export function LiveConversationThread({
                        own edge, the bubble holds only the message — which is
                        what a bubble is for — and the time is still attached to
                        it. */
-                    <div className="min-w-0 max-w-[80%] sm:max-w-[70%]">
+                    <div className="min-w-0 max-w-[75%] sm:max-w-[70%]">
                       <div
                         className={[
                           // `break-words` is the fix for long unbroken content.
