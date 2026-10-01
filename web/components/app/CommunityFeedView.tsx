@@ -67,44 +67,58 @@ export function CommunityFeedView({
   const visible = posts;
 
   return (
-    <div className="flex flex-col gap-4 pb-8">
-      {/* ── SCAM / SAFETY WARNING ───────────────────────────────────────────
+    /* ── BOTTOM PADDING ──────────────────────────────────────────────────────
+       `pb-28` (7rem), not the old `pb-8` (2rem).
+
+       The tab bar is `fixed` and 5rem tall, so it OVERLAYS this column rather
+       than sitting below it — the column never grows to account for it. With
+       `pb-8` the last post scrolled to rest under the bar: the member reached
+       the end of the timeline and the final card was simply unreachable, which
+       reads as "the feed is broken" rather than "there is more".
+
+       7rem = 5rem bar + 2rem of breathing room, which is the same reservation
+       `profile/[userId]` uses and must agree with `AppMain`'s `pb-20` and
+       `NAV_BAR_REM` in `components/ui/layers.ts`. `md:pb-8` drops it where the
+       bar is `md:hidden` and the sidebar rail takes over. */
+    <div className="flex flex-col gap-4 pb-28 md:pb-8">
+      {/* ── SCAM / SAFETY WARNING — COMPACT ──────────────────────────────────
           `role="note"` rather than `role="alert"`: it is not urgent, and
           `alert` would interrupt a screen reader mid-sentence on every visit
           to this view. The amber left border is the visual signal; the shield
-          glyph is decorative, so the text alone carries the meaning. */}
+          glyph is decorative, so the text alone carries the meaning.
+
+          IT WAS A FULL-SCREEN BLOCK. It carried a heading, two body paragraphs,
+          and a link — roughly 200px of the first screen, before a single post
+          was visible, on every single visit. Safety advice does not need to be
+          re-read in full every time someone opens the app, and the thing it
+          protects against (a stranger pressuring you in a message) is a
+          between-conversations risk, not something you meet on the timeline.
+
+          So it is now ONE line of copy with a link to the safety centre, which
+          is where the full guidance lives and where it belongs. The advice is
+          not removed — it is moved to the place a member goes when they want
+          it, instead of being in the way when they do not. The amber border,
+          the shield and the wording all stay, so it still reads as a warning
+          rather than as a footnote. */}
       <aside
         role="note"
-        className="flex gap-3 rounded-2xl border border-amber-400/30 border-l-4 border-l-amber-400 bg-amber-500/[0.07] p-4"
+        className="flex items-center gap-3 rounded-xl border border-amber-400/25 border-l-4 border-l-amber-400 bg-amber-500/[0.07] px-3 py-2.5"
       >
         <span
           aria-hidden
-          className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400/15 text-amber-300"
         >
           <Icon name="shield" className="h-4 w-4" />
         </span>
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold text-amber-100">
-            Stay safe — a quick heads-up
-          </h2>
-          <p className="mt-1 text-xs leading-5 text-amber-100/80">
-            Never send money, gift cards or codes to someone you have not met in
-            person, and be wary of urgent requests, too-good-to-be-true offers,
-            or links to files and apps. If a message pressures you to act
-            quickly, that pressure is the warning sign.
-          </p>
-          <p className="mt-2 text-xs leading-5 text-amber-100/70">
-            Nothing on this app will ever ask you for a password, a code we sent
-            you, or a payment to unlock your account. Report anything that does —
-            we read every report.
-          </p>
-          <a
-            href="/safety"
-            className="mt-2 inline-block text-xs font-semibold text-amber-200 underline underline-offset-2 hover:text-amber-100"
-          >
-            Read the safety centre
-          </a>
-        </div>
+        <p className="min-w-0 flex-1 text-[11px] leading-4 text-amber-100/85">
+          Never send money, gift cards or codes — we never ask for them.
+        </p>
+        <a
+          href="/safety"
+          className="shrink-0 text-[11px] font-semibold text-amber-200 underline underline-offset-2 hover:text-amber-100"
+        >
+          Safety tips
+        </a>
       </aside>
 
       {/* Dark card. `border-slate-200 bg-white` were literal light-theme values

@@ -2150,74 +2150,75 @@ button,
      not a person, and it stays unambiguous if the two are ever mirrored.
      ═══════════════════════════════════════════════════════════════════════════ */
 
-  /* DEFAULT — MIDNIGHT SLATE / NAVY-PURPLE with vibrant orange accents.
-     This was a near-white "Daylight" canvas (#F7F7F8) with white cards. That was
-     the odd one out: every other surface in the app is a dark navy/purple, so a
-     white chat thread read as an unstyled page dropped inside the product.
+  /* DEFAULT — DARK SLATE with vibrant orange accents.
 
-     It now uses the same midnight purple as the `dusk` theme (#241634), paired
-     with the orange outgoing-bubble ramp. The token NAMES are unchanged, so
-     nothing downstream needed rewriting — only the values moved.
+     Chosen so the chat reads as part of the product rather than an unstyled page
+     dropped inside it: every other surface in the app is dark, and a white
+     thread sitting in a dark shell is the one place that looks unfinished.
 
-     The yellow accents this carried (pill bg #FFE4A3, and the #FFC93C intro card
-     in ConversationSummaryCard) are now orange. Yellow on navy reads as a warning
-     label; orange on navy reads as the brand, which is what it is.
+     The token NAMES are unchanged from the light-canvas version, so nothing
+     downstream needed rewriting — only the values moved.
 
-     The `default` id is retained rather than renamed so a stored preference from a
-     previous deploy still resolves — `readChatTheme` already falls back to
+     The `default` id is retained rather than renamed so a stored preference from
+     a previous deploy still resolves — `readChatTheme` already falls back to
      `default` on an unknown id, so renaming would have forced everyone onto it
-     anyway while breaking the saved value. */
+     anyway while breaking the saved value. The picker's entry for this id is
+     relabelled "Slate" with a dark swatch to match; see `CHAT_THEMES`. */
   .chat-theme-default {
-    /* THE ACTUAL LIGHT THEME. This block was `#241634` — a dark purple — while
-       `CHAT_THEMES` in MessageComposer.tsx has always labelled this id "Daylight"
-       and given it a `linear-gradient(135deg,#F7F7F8,#FFFFFF)` swatch. So the
-       picker advertised a clean white chat and delivered a dark one: the label,
-       the swatch and the CSS all disagreed, and "Daylight" was the default every
-       member landed on. The values below make the CSS match the promise the
-       picker was already making.
+    /* DARK SLATE, and now genuinely the app's own look rather than a light page
+       dropped inside a dark product.
 
-       Re-colouring this block is preferable to adding a sixth light theme: a new
-       id would leave the broken "Daylight" entry in the list, still showing a
-       white swatch next to a dark purple chat. The other four dark themes (dusk,
-       ocean, ember, rose) are untouched and still selectable.
+       The incoming bubble is a SOLID slate card (#1c2637), not the
+       `rgb(255 255 255 / 0.07)` scrim the four tinted themes use. On a neutral
+       slate canvas a 7%-white scrim is nearly invisible against it — the bubble
+       has no edge and the thread reads as floating text. A solid card also
+       measures as a real surface, so contrast is a property of two known colours
+       instead of a composite that shifts with whatever is behind it.
 
-       Canvas is #F7F7F8, not pure white: incoming bubbles are #FFFFFF, and a
-       white bubble on a white canvas has no edge. The 1% difference is what
-       separates them. */
-    --chat-canvas: #f7f7f8;
-    --chat-surface: rgb(255 255 255 / 0.92);
-    --chat-border: rgb(26 18 36 / 0.1);
-    --chat-text: #1a1224;
-    --chat-muted: #6b5a7d;
-    --chat-icon: #6b5a7d;
+       Measured, not eyeballed: #f1f5f9 on #1c2637 is ~13:1, comfortably over
+       the 4.5:1 AA floor. The outgoing ramp below is the AA-safe orange pair
+       (white on #c2410c = 5.18:1). */
+    --chat-canvas: #101826;
+    --chat-surface: rgb(12 18 30 / 0.82);
+    --chat-border: rgb(255 255 255 / 0.09);
+    --chat-text: #f1f5f9;
+    --chat-muted: #94a3b8;
+    --chat-icon: #94a3b8;
 
-    --chat-in-bg: #ffffff;
-    --chat-in-text: #1a1224;
-    --chat-in-border: rgb(26 18 36 / 0.08);
-    /* A light-mode shadow, so bubbles sit ON the canvas instead of glowing. */
-    --chat-in-shadow: 0 4px 16px rgb(26 18 36 / 0.08);
+    /* Presence green. The 400 step is correct on every dark canvas in the
+       palette; the 600 step this block needed on the old light canvas is
+       1.9:1 here and would fail. */
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
 
-    --chat-out-from: #ff8a3d;
-    --chat-out-to: #f2700f;
+    --chat-in-bg: #1c2637;
+    --chat-in-text: #f1f5f9;
+    --chat-in-border: rgb(255 255 255 / 0.08);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.28);
+
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
 
     /* YELLOW suggestion pills, per the reference. This is not a departure: the
-       ocean and ember themes already ship `#ffe4a3`, and on a light canvas a
-       saturated orange pill would compete with the orange sent bubbles directly
-       beside it. Yellow separates "suggestion" from "message". */
+       ocean and ember themes already ship `#ffe4a3`, and a saturated orange pill
+       would compete with the orange sent bubbles directly beside it. Yellow
+       separates "suggestion" from "message". */
     --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #2a1204;
     --chat-pill-border: rgb(245 179 66 / 0.45);
 
-    /* "Next" is DARK against the light canvas and the yellow pills, so advancing
-       reads as a different action from choosing a suggestion. */
-    --chat-next-bg: #1a1224;
-    --chat-next-text: #ffe4a3;
+    /* "Next" is a LIGHT button on the dark canvas, so advancing reads as a
+       different action from choosing a yellow suggestion — and it carries the
+       contrast the yellow pills cannot, being light-on-dark rather than
+       dark-on-yellow. */
+    --chat-next-bg: #f1f5f9;
+    --chat-next-text: #0f172a;
 
-    --chat-input-bg: #ffffff;
-    --chat-input-border: rgb(26 18 36 / 0.12);
-    --chat-menu-bg: #ffffff;
-    --chat-menu-border: rgb(26 18 36 / 0.1);
+    --chat-input-bg: #16202f;
+    --chat-input-border: rgb(255 255 255 / 0.12);
+    --chat-menu-bg: #1c2637;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
   }
 
   /* The remaining four keep their original hues, now expressed through the same
@@ -2231,12 +2232,14 @@ button,
     --chat-text: #f8fafc;
     --chat-muted: #a78bba;
     --chat-icon: #a78bba;
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
     --chat-in-bg: rgb(255 255 255 / 0.07);
     --chat-in-text: #f8fafc;
     --chat-in-border: rgb(255 255 255 / 0.1);
     --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
-    --chat-out-from: #ff8a3d;
-    --chat-out-to: #f2700f;
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
     --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #4a3405;
@@ -2256,12 +2259,14 @@ button,
     --chat-text: #f0f9ff;
     --chat-muted: #7fb6cd;
     --chat-icon: #7fb6cd;
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
     --chat-in-bg: rgb(255 255 255 / 0.07);
     --chat-in-text: #f0f9ff;
     --chat-in-border: rgb(255 255 255 / 0.1);
     --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
-    --chat-out-from: #ff8a3d;
-    --chat-out-to: #f2700f;
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
     --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #4a3405;
@@ -2281,12 +2286,14 @@ button,
     --chat-text: #fff7ed;
     --chat-muted: #c9a08a;
     --chat-icon: #c9a08a;
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
     --chat-in-bg: rgb(255 255 255 / 0.07);
     --chat-in-text: #fff7ed;
     --chat-in-border: rgb(255 255 255 / 0.1);
     --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
-    --chat-out-from: #ff8a3d;
-    --chat-out-to: #f2700f;
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
     --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #4a3405;
@@ -2306,12 +2313,14 @@ button,
     --chat-text: #fff1f2;
     --chat-muted: #c99aa6;
     --chat-icon: #c99aa6;
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
     --chat-in-bg: rgb(255 255 255 / 0.07);
     --chat-in-text: #fff1f2;
     --chat-in-border: rgb(255 255 255 / 0.1);
     --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.25);
-    --chat-out-from: #ff8a3d;
-    --chat-out-to: #f2700f;
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
     --chat-out-text: #ffffff;
     --chat-pill-bg: #ffe4a3;
     --chat-pill-text: #4a3405;

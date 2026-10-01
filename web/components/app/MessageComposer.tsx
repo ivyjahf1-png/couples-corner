@@ -98,9 +98,21 @@ const ICEBREAKER_WINDOW = 3;
  * later. The data below is only the label and the swatch used by the picker.
  */
 
-/** The id persisted in localStorage. `default` is the app's own look. */
+/**
+ * The id persisted in localStorage. `default` is the app's own look.
+ *
+ * The `default` entry is a DARK SLATE theme, so its swatch and label must both
+ * say so. Leaving the name "Daylight" with a white swatch while the CSS behind
+ * it is dark slate is the exact mismatch that made the picker lie: a member picks
+ * "Daylight", sees a white swatch, and gets a navy thread. The swatch is the only
+ * preview the member gets, so it has to be the truth.
+ *
+ * `readChatTheme` falls back to `default` for any unrecognised stored value, so
+ * re-pointing the id here re-homes everyone who had no valid choice saved
+ * without invalidating the ones that are.
+ */
 export const CHAT_THEMES = [
-  { id: "default", label: "Daylight", swatch: "linear-gradient(135deg,#F7F7F8,#FFFFFF)" },
+  { id: "default", label: "Slate", swatch: "linear-gradient(135deg,#1C2637,#101826)" },
   { id: "dusk", label: "Dusk", swatch: "linear-gradient(135deg,#2E1B3F,#4C2A5E)" },
   { id: "ocean", label: "Ocean", swatch: "linear-gradient(135deg,#0B2B3A,#124A5E)" },
   { id: "ember", label: "Ember", swatch: "linear-gradient(135deg,#3A1A10,#5C2A18)" },
@@ -453,7 +465,7 @@ export function MessageComposer({
             onClick={() => imageInputRef.current?.click()}
             aria-label="Attach a file"
             title="Attach"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5 hover:text-[var(--chat-text)]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10 hover:text-[var(--chat-text)]"
           >
             <Paperclip className="h-5 w-5" aria-hidden />
           </button>
@@ -489,7 +501,7 @@ export function MessageComposer({
               aria-label="Change chat theme"
               className={[
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-                themeOpen ? "bg-orange-500/20" : "[color:var(--chat-icon)] hover:bg-black/5",
+                themeOpen ? "bg-orange-500/20" : "[color:var(--chat-icon)] hover:bg-white/10",
               ].join(" ")}
             >
               <Palette className="h-5 w-5" aria-hidden />
@@ -502,7 +514,7 @@ export function MessageComposer({
             aria-expanded={showEmoji}
             className={[
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95",
-              showEmoji ? "bg-black/10 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-black/5",
+              showEmoji ? "bg-white/15 text-[var(--chat-text)]" : "[color:var(--chat-icon)] hover:bg-white/10",
             ].join(" ")}
           >
             <Smile className="h-5 w-5" aria-hidden />
@@ -510,7 +522,7 @@ export function MessageComposer({
           <button
             type="button"
             aria-label="Record voice note"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-black/5"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition active:scale-95 [color:var(--chat-icon)] hover:bg-white/10"
           >
             <Mic className="h-5 w-5" aria-hidden />
           </button>
@@ -543,7 +555,7 @@ export function MessageComposer({
                   setShowEmoji(false);
                   inputRef.current?.focus();
                 }}
-                className="rounded-lg p-1 text-xl hover:bg-black/5"
+                className="rounded-lg p-1 text-xl hover:bg-white/10"
                 aria-label={`Insert ${emoji}`}
               >
                 {emoji}
@@ -557,12 +569,12 @@ export function MessageComposer({
           type="submit"
           aria-label="Send message"
           disabled={pending || !value.trim()}
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-orange-600 text-white shadow-lg shadow-orange-950/40 transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[var(--chat-out-text)] shadow-lg shadow-orange-950/40 [background-image:linear-gradient(135deg,var(--chat-out-from),var(--chat-out-to))] transition hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Send className="h-5 w-5" aria-hidden />
         </button>
         {error ? (
-          <p role="alert" className="absolute -top-7 left-0 rounded px-2 py-1 text-xs text-red-600 [background-color:var(--chat-menu-bg)]">
+          <p role="alert" className="absolute -top-7 left-0 rounded px-2 py-1 text-xs text-red-400 [background-color:var(--chat-menu-bg)]">
             {error}
           </p>
         ) : null}

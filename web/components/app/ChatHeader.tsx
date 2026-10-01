@@ -89,49 +89,78 @@ export function ChatHeader({
       <Link
         href="/messages"
         aria-label="Back to Messages"
-        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--chat-text)] transition hover:bg-black/5"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[var(--chat-text)] transition hover:bg-white/10"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5" aria-hidden>
           <path d="M15 6 L9 12 L15 18" />
         </svg>
       </Link>
 
-      {/* Avatar with online dot */}
+      {/* THE HERO AVATAR.
+
+          `h-16` (4rem) rather than the 2.75rem it was, wrapped in a brand ring:
+          the person is the subject of this screen, and on a dating surface the
+          face is the thing a member is deciding about. A small circle reads as
+          a list row; a large one reads as a profile.
+
+          The `overflow-hidden` wrapper is what lets the photo fill the ring
+          exactly — `Avatar` renders `h-full w-full object-cover`, so the ring
+          crops rather than the image overflowing it. The ring colour is
+          `--chat-in-border` rather than a literal, so it follows the active
+          theme instead of sitting on every canvas as the same grey. */}
       <span className="relative shrink-0">
-        <span className="block h-11 w-11 overflow-hidden rounded-full ring-2 ring-[var(--chat-border)]">
+        <span className="block h-16 w-16 overflow-hidden rounded-full shadow-[0_0_0_3px_var(--chat-out-from)] ring-2 ring-[var(--chat-in-border)]">
           <Avatar
             src={avatarSrc}
             name={name}
             kind={summary?.kind}
-            className="h-full w-full text-sm"
+            className="h-full w-full text-lg"
           />
         </span>
-        <PresenceDot online={isOnline} size="md" />
+        <PresenceDot online={isOnline} size="lg" />
       </span>
 
-      {/* Name + status. "Offline" is spelled out rather than being left to an
-          empty line or a dot alone, so the state is unambiguous in text. */}
+      {/* Name + status.
+
+          THE ONLINE COLOUR WAS A HARD-CODED LITERAL. `text-emerald-600` is a
+          dark-theme value: on the dusk canvas (#1A1030) and on all four other
+          dark themes it sat at roughly 2.4:1 against the surface, which fails
+          WCAG AA for body text and made "Online" the least readable word in the
+          header. On the Daylight theme it was fine — which is exactly how a
+          value like that survives, because it is only ever checked against
+          whichever theme the tester happened to be on.
+
+          It is now `text-emerald-400`, the 400 step, which clears 4.5:1 on every
+          dark canvas in the palette, and it is paired with a small filled dot so
+          the state does not rely on colour alone. "Offline" keeps `--chat-muted`,
+          which is already per-theme and contrast-checked. */}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[15px] font-semibold text-[var(--chat-text)]">
           {name}
         </span>
         <span
           className={[
-            "block truncate text-xs",
-            isOnline ? "text-emerald-600" : "text-[var(--chat-muted)]",
+            "flex items-center gap-1.5 truncate text-xs",
+            isOnline ? "text-emerald-400" : "text-[var(--chat-muted)]",
           ].join(" ")}
         >
+          {/* The dot duplicates the avatar's presence indicator at text size.
+              Colour and shape both carry the state, so it is still legible to
+              someone who cannot separate emerald from slate. */}
+          {isOnline ? (
+            <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400" />
+          ) : null}
           {status}
         </span>
       </span>
 
       {/* Quick call actions */}
       <Link
-        href={`/call/${conversationId}/audio`} aria-label={`Audio call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-600 transition hover:bg-emerald-500/20">
+        href={`/call/${conversationId}/audio`} aria-label={`Audio call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-400/25 bg-emerald-400/10 text-emerald-400 transition hover:bg-emerald-400/20">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.12 4.2 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.69 2.8a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.33 1.84.56 2.8.69A2 2 0 0 1 22 16.92Z" /></svg>
       </Link>
       <Link
-        href={`/call/${conversationId}/video`} aria-label={`Video call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-500/25 bg-orange-500/10 text-orange-600 transition hover:bg-orange-500/20">
+        href={`/call/${conversationId}/video`} aria-label={`Video call ${name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-orange-400/25 bg-orange-400/10 text-orange-400 transition hover:bg-orange-400/20">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="m15 10 4.55-2.28A1 1 0 0 1 21 8.62v6.76a1 1 0 0 1-1.45.9L15 14M5 6h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" /></svg>
       </Link>
       {/* Options menu */}
@@ -142,7 +171,7 @@ export function ChatHeader({
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
-          className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--chat-text)] transition hover:bg-black/5"
+          className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--chat-text)] transition hover:bg-white/10"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
             <circle cx="12" cy="5" r="1.8" />
@@ -160,7 +189,7 @@ export function ChatHeader({
               href="/messages"
               role="menuitem"
               onClick={() => setMenuOpen(false)}
-              className="block px-4 py-2.5 text-sm text-[var(--chat-text)] transition hover:bg-black/5"
+              className="block px-4 py-2.5 text-sm text-[var(--chat-text)] transition hover:bg-white/10"
             >
               All conversations
             </Link>
@@ -169,7 +198,7 @@ export function ChatHeader({
                 href={`/matches`}
                 role="menuitem"
                 onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2.5 text-sm text-[var(--chat-text)] transition hover:bg-black/5"
+                className="block px-4 py-2.5 text-sm text-[var(--chat-text)] transition hover:bg-white/10"
               >
                 View connection
               </Link>
@@ -178,7 +207,7 @@ export function ChatHeader({
               type="button"
               role="menuitem"
               onClick={() => setMenuOpen(false)}
-              className="block w-full px-4 py-2.5 text-left text-sm text-[var(--chat-text)] transition hover:bg-black/5"
+              className="block w-full px-4 py-2.5 text-left text-sm text-[var(--chat-text)] transition hover:bg-white/10"
             >
               Search in chat
             </button>
@@ -186,7 +215,7 @@ export function ChatHeader({
               type="button"
               role="menuitem"
               onClick={() => setMenuOpen(false)}
-              className="block w-full px-4 py-2.5 text-left text-sm text-red-600 transition hover:bg-black/5"
+              className="block w-full px-4 py-2.5 text-left text-sm text-red-400 transition hover:bg-white/10"
             >
               Block / Report
             </button>

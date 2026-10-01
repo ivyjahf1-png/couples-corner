@@ -474,7 +474,7 @@ export function LiveConversationThread({
                         ].join(" ")}
                       >
                         {copiedId === message.id ? (
-                          <span className="font-medium text-emerald-500">Copied</span>
+                          <span className="font-medium text-emerald-400">Copied</span>
                         ) : null}
                         {formatTime(message.created_at)}
                       </span>
