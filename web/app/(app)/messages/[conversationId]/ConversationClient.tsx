@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { ChatHeader } from "@/components/app/ChatHeader";
 import { markConversationReadAction } from "@/lib/actions/messaging";
 import { LiveConversationThread } from "@/components/app/LiveConversationThread";
+import { MatchIntroCard } from "@/components/app/MatchIntroCard";
 import { MessageComposer, useChatTheme } from "@/components/app/MessageComposer";
 import { usePresence } from "@/lib/hooks/usePresence";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
@@ -39,18 +40,26 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
  * only). Two nested `overflow-y-auto` containers cause scroll chaining and the
  * erratic bouncing this page used to have.
  *
- * ── WHAT THE INTRO CARD COST ──────────────────────────────────────────────────
+ * ── WHAT THE INTRO CARD COST, AND WHY IT IS BACK ─────────────────────────────
  * This used to render a full `ConversationSummaryCard` between the header and
  * the first message: an avatar, identity chips, badges, a photo strip, an
- * interests grid and a disclosure toggle, opening EXPANDED. It is gone.
+ * interests grid and a disclosure toggle, opening EXPANDED. It was removed.
  *
  * It was a second profile banner directly beneath the header, restating the
  * name and avatar the header 4px above it already showed. On a 320px phone it
  * left almost no room for the messages it was describing, and the member had to
  * scroll past a stranger's photo grid to read "hi". The header carries the
- * identity now; the thread carries the conversation. That is the whole job of
- * each band, and having the header and a banner both answer "who am I talking
- * to" is what made the screen feel assembled rather than designed.
+ * identity now; the thread carries the conversation.
+ *
+ * It is back as `MatchIntroCard`, and the fix for all of the above is ONE
+ * WORD: collapsed. The old card was removed for taking up space it did not need
+ * to take — not for existing. A single 32px line, expanded on tap, costs a
+ * member nothing until they ask for it, and answers "who am I talking to" in
+ * place of a tap through to the profile.
+ *
+ * It still carries NO compatibility percentage. `personalitySimilarity` was
+ * hardcoded to 78 and rendered as "78% match" — a fabricated score about a real
+ * person. See the note in lib/actions/messaging.ts.
  */
 export default function ConversationClient({
   conversationId,
@@ -151,6 +160,11 @@ export default function ConversationClient({
           data-chat-scroll
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3"
         >
+          {/* Identity band. COLLAPSED by default — see MatchIntroCard's header
+              comment for why. When it is open it is taller, which is the whole
+              trade: the member spends that height on purpose, having tapped,
+              instead of paying for it on every message they send. */}
+          <MatchIntroCard summary={summary} />
           <LiveConversationThread
             conversationId={conversationId}
             currentUserId={currentUserId}
