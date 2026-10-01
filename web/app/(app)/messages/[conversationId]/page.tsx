@@ -5,6 +5,7 @@ import {
 } from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getPresenceForUsers } from "@/lib/server/presence";
+import { listCalls } from "@/lib/server/calls";
 
 interface ConversationPageProps {
   params: Promise<{ conversationId: string }>;
@@ -63,6 +64,14 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   // mutation context. See that file, and `markConversationReadAction` for the
   // full note.
 
+  // Call history, read in parallel with the other data.
+  //
+  // `listCalls` returns [] when migration 048 has not been applied, so this is
+  // safe to ship before the migration lands: the thread simply has no call
+  // entries yet. Fail-soft for the same reason — a missing calls table must not
+  // be able to take a conversation down.
+  const calls = await listCalls(conversationId, user.uid).catch(() => []);
+
   return (
     <ConversationClient
       conversationId={conversationId}
@@ -70,6 +79,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       summary={summary}
       initialMessages={initialMessages ?? []}
       initialOnline={otherOnline}
+      initialCalls={calls}
     />
   );
 }

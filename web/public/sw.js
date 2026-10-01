@@ -345,6 +345,34 @@ self.addEventListener("message", (event) => {
     if (port) port.postMessage(payload);
   };
 
+  if (data.type === "PUSH") {
+    // A notification raised by the PAGE, via `lib/utils/notify.ts`.
+    //
+    // This is the only path that can fire today: the browser will not deliver a
+    // real push event until VAPID keys, a subscription table and a push server
+    // exist (see the note above the `push` listener). Routing it through the same
+    // `showNotification` call the push handler uses means one place decides
+    // presentation and tap routing, rather than two that drift apart.
+    event.waitUntil(
+      self.registration
+        .showNotification(data.title || "New activity", {
+          body: data.body || "",
+          // Per-conversation tag, so a busy thread REPLACES its notification
+          // instead of stacking a wall of them the member clears unread.
+          tag: data.tag || undefined,
+          icon: "/icon.png",
+          badge: "/apple-icon.png",
+          data: { url: data.url || "/" },
+          requireInteraction: Boolean(data.requireInteraction),
+        })
+        // Permission may have been revoked in settings between the page's check
+        // and here. Swallowing keeps that from surfacing as a console error the
+        // member cannot act on from the page that triggered it.
+        .catch(() => undefined),
+    );
+    return;
+  }
+
   if (data.type === "PREFETCH") {
     const items = Array.isArray(data.items) ? data.items.slice(0, MAX_BATCH) : [];
     event.waitUntil(
@@ -407,6 +435,113 @@ self.addEventListener("install", () => {
   // messages, so an install-time precache would contradict the budget policy.
   self.skipWaiting();
 });
+
+/* ── PUSH ────────────────────────────────────────────────────────────────────
+ *
+ * ── WHAT IS ACTUALLY POSSIBLE HERE, AND WHAT IS NOT ──────────────────────────
+ * This handler makes the plumbing real: with a `push` listener and a
+ * `notificationclick` handler, a push message from ANY source (Web Push, or a
+ * `postMessage` from the page) is turned into a system notification that focuses
+ * the right route when tapped.
+ *
+ * It does NOT, by itself, deliver anything. Three pieces of infrastructure are
+ * still missing and none of them can be faked from a static file:
+ *
+ *   1. VAPID keys. A public key is required to subscribe at all.
+ *   2. A `push_subscriptions` table (endpoint + p256dh + auth) to store them.
+ *   3. A push SERVER — something that holds the private key and POSTs to each
+ *      endpoint. That runs off-request; in this codebase it belongs on
+ *      `api/cron/*`, which already has the pattern.
+ *
+ * Until those exist the browser will never deliver a push event here, so
+ * `showNotification` below is reachable only by `postMessage` from the page —
+ * which is still useful, and is what `lib/utils/notify.ts` uses for a message
+ * that arrives while the tab is backgrounded.
+ *
+ * ── WHAT A WEB PAGE CAN NEVER DO ─────────────────────────────────────────────
+ * It cannot draw over other apps, and it cannot force a heads-up alert. The OS
+ * decides presentation, and a member who has silenced this app's notifications
+ * has silenced them. "Alert that pops on top of the screen" is a native-app
+ * capability; the closest honest web equivalent is a system notification the
+ * member controls. Treat any claim otherwise as unimplemented.
+ */
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    if (event.data) payload = event.data.json();
+  } catch {
+    // A malformed body must not throw inside the handler: doing so silently
+    // drops the notification entirely, which is worse than showing a generic
+    // one. Non-JSON payloads are legitimate.
+    payload = { title: "New activity", body: event.data ? event.data.text() : "" };
+  }
+
+  const title = payload.title || "New activity";
+  const options = {
+    body: payload.body || "",
+    // `tag` COLLAPSES repeats. Every message from the same conversation would
+    // otherwise stack into a wall of 40 notifications, and the member clears the
+    // lot without reading any of it. The tag is per-conversation, so the newest
+    // replaces the oldest for that thread and the badge count carries the rest.
+    tag: payload.tag || undefined,
+    icon: payload.icon || "/icon.png",
+    badge: payload.badge || "/apple-icon.png",
+    // Route opened on tap. Read as a path and validated to be same-origin
+    // relative, because `notificationclick` does `clients.openWindow(url)` on
+    // whatever it is handed.
+    data: { url: payload.url || "/" },
+    requireInteraction: Boolean(payload.requireInteraction),
+    silent: Boolean(payload.silent),
+    vibrate: payload.vibrate || undefined,
+  };
+
+  // `showNotification` rejects when permission was never granted or was revoked
+  // in settings. Swallowing that is deliberate: an unhandled rejection here
+  // surfaces as a console error on every single push, and the member cannot act
+  // on it from the page that triggered it.
+  event.waitUntil(self.registration.showNotification(title, options).catch(() => undefined));
+});
+
+/* ── NOTIFICATION CLICK ──────────────────────────────────────────────────────
+ *
+ * Focus an existing tab on the target route if there is one, otherwise open a
+ * new one. Opening a second copy of a tab the member already has is the classic
+ * bug here: they tap a message notification, land in a chat, then find their
+ * original session still open behind it.
+ */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const target = event.notification.data && event.notification.data.url;
+  // Same-origin, path-only. An absolute URL here would let a push payload
+  // navigate the member anywhere.
+  const safeUrl =
+    typeof target === "string" && target.startsWith("/") && !target.startsWith("//")
+      ? target
+      : "/";
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      });
+      for (const client of clientList) {
+        // Same-origin AND already on the route: focus rather than navigate, so a
+        // half-finished form on that page is not silently replaced.
+        if (client.url.includes(safeUrl) && "focus" in client) return client.focus();
+      }
+      for (const client of clientList) {
+        if ("focus" in client) {
+          if ("navigate" in client) return client.navigate(safeUrl).then((c) => c && c.focus());
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(safeUrl);
+    })(),
+  );
+});
+
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(

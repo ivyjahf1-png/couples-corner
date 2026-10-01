@@ -58,6 +58,7 @@ export default function ConversationClient({
   summary,
   initialMessages,
   initialOnline = false,
+  initialCalls = [],
 }: {
   conversationId: string;
   currentUserId: string;
@@ -71,6 +72,14 @@ export default function ConversationClient({
     React.ComponentProps<typeof LiveConversationThread>["initialMessages"]
   >;
   initialOnline: boolean;
+  /**
+   * Call history for the timeline, merged with messages by start time.
+   * Defaults to none, so a caller that does not supply it renders exactly the
+   * message thread it always did.
+   */
+  initialCalls?: NonNullable<
+    React.ComponentProps<typeof LiveConversationThread>["calls"]
+  >;
 }) {
   const { theme, setTheme } = useChatTheme();
 
@@ -147,6 +156,7 @@ export default function ConversationClient({
             currentUserId={currentUserId}
             initialMessages={initialMessages}
             participant={summary}
+            calls={initialCalls}
           />
         </div>
       </div>

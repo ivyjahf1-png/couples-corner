@@ -9,6 +9,8 @@ import {
   type MessageAction,
 } from "@/components/app/MessageActionsMenu";
 import { deleteMessageAction, editMessageAction } from "@/lib/actions/messaging";
+import { MissedCallCard } from "@/components/app/MissedCallCard";
+import type { CallLogEntry } from "@/lib/feature/types";
 import { Avatar } from "@/components/app/Avatar";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
@@ -43,6 +45,14 @@ interface LiveConversationThreadProps {
    * caller has no summary — a missing avatar must never break the thread.
    */
   participant?: ConversationParticipantSummary | null;
+  /**
+   * Call history, merged into the timeline by `started_at`.
+   *
+   * Empty until migration 048 is applied, and until a call is placed, so the
+   * thread is byte-for-byte the message list it always was. A call that cannot be
+   * read is simply not drawn — see the note in `lib/server/calls.ts`.
+   */
+  calls?: CallLogEntry[];
 }
 
 function formatTime(iso: string): string {
@@ -84,6 +94,7 @@ export function LiveConversationThread({
   currentUserId,
   initialMessages = [],
   participant = null,
+  calls = [],
 }: LiveConversationThreadProps) {
   const { messages: realtimeMessages, isConnected } = useRealtimeMessages({
     conversationId,
@@ -273,6 +284,32 @@ export function LiveConversationThread({
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
 
+  /* Merge calls into the message timeline by their REAL start time.
+     Sorting the two lists together and walking once is what puts a missed call
+     between the messages that surrounded it. Appending calls at the end — the
+     obvious shortcut — would file a call that happened last Tuesday below
+     everything sent since, which is a different history from the one that
+     happened.
+
+     Keyed by kind because a message id and a call id are different namespaces
+     and can collide; without the prefix a call could be dropped as a duplicate
+     of a message. */
+  const timeline: Array<
+    | { kind: "message"; at: number; message: (typeof messages)[number] }
+    | { kind: "call"; at: number; call: CallLogEntry }
+  > = [
+    ...messages.map((message) => ({
+      kind: "message" as const,
+      at: new Date(message.created_at).getTime(),
+      message,
+    })),
+    ...(calls ?? []).map((call) => ({
+      kind: "call" as const,
+      at: new Date(call.startedAt).getTime(),
+      call,
+    })),
+  ].sort((a, b) => a.at - b.at);
+
   const listRef = useRef<HTMLUListElement>(null);
 
   // Auto-scroll to bottom on new message.
@@ -304,21 +341,49 @@ export function LiveConversationThread({
 
   return (
     <div className="flex flex-col">
-      {/* Message list. Padding lives on the page-level scroll wrapper, so it is
+      {/* Timeline. Padding lives on the page-level scroll wrapper, so it is
           omitted here to avoid doubling it. This <ul> is intentionally NOT a
           scroll container: two nested overflow-y-auto regions cause scroll
-          chaining, which is the erratic bouncing this page used to have. */}
+          chaining, which is the erratic bouncing this page used to have.
+
+          `role="log"` is retained, but it is now a MIXED log — messages and call
+          events interleaved. That is still correct for the role: assistive tech
+          announces additions to it in order, which is what a conversation wants.
+          `aria-label` says "Conversation" rather than "Messages" because it is
+          no longer only messages. */}
       <ul
         ref={listRef}
         className="flex flex-col gap-2 overflow-x-hidden"
-        aria-label="Messages"
+        aria-label="Conversation"
         role="log"
       >
-        {messages.map((message) => {
-          const isMine = message.sender_id === currentUserId;
-          const day = dayLabel(message.created_at);
+        {timeline.map((item) => {
+          // One day-pill rule across BOTH kinds, so a call does not reset the
+          // date separator and stamp "Today" again on the next message.
+          const at = item.kind === "message" ? item.message.created_at : item.call.startedAt;
+          const day = dayLabel(at);
           const showDayPill = day !== lastDay;
           lastDay = day;
+
+          if (item.kind === "call") {
+            return (
+              <li key={`call-${item.call.id}`} className="flex flex-col">
+                {showDayPill ? (
+                  <div className="mb-2 mt-1 flex justify-center">
+                    <span className="rounded-full border border-[var(--chat-border)] bg-[var(--chat-surface)] px-3 py-1 text-[11px] font-medium text-[var(--chat-muted)]">
+                      {day}
+                    </span>
+                  </div>
+                ) : null}
+                <div className="flex justify-center py-1">
+                  <MissedCallCard entry={item.call} viewerId={currentUserId} />
+                </div>
+              </li>
+            );
+          }
+
+          const message = item.message;
+          const isMine = message.sender_id === currentUserId;
           return (
             <li key={message.id} className="flex flex-col">
               {showDayPill ? (

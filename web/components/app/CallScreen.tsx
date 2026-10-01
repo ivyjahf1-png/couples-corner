@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Avatar } from "./Avatar";
 import {
   CHROME_FADE,
@@ -15,7 +15,18 @@ import {
 } from "./RealtimeIcons";
 import { useAutoHideControls } from "@/lib/hooks/useAutoHideControls";
 import { useWebRTCCall, type CallStatus } from "@/lib/hooks/useWebRTCCall";
+import { finishCallAction, startCallAction } from "@/lib/actions/calls";
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
+
+/**
+ * How long a call rings before it is treated as unanswered.
+ *
+ * A real telephony ring-out is 30-45s. 30s is the low end of that range, chosen
+ * so a member who walks away from a ringing phone does not come back to a card
+ * that has been sitting in their conversation for two minutes.
+ */
+const RING_OUT_MS = 30_000;
+
 
 /** The quick-gift strip offered mid-call. */
 const QUICK_GIFTS = [
@@ -96,6 +107,72 @@ export function CallScreen({
   const [giftSent, setGiftSent] = useState<string | null>(null);
   const [giftOpen, setGiftOpen] = useState(false);
 
+  /* ── CALL LOGGING ───────────────────────────────────────────────────────────
+     Before this, a call that nobody answered left no trace at all: the realtime
+     surface is peer-to-peer, the signalling never touches a row, and the two
+     people tap through a ringing screen that connects to nothing. The
+     conversation afterwards was indistinguishable from one where no call was
+     ever attempted.
+
+     `callId` is the row created when this call was placed. It is a REF rather
+     than state because the ring-out timer and the unmount cleanup both need the
+     current value synchronously — reading state there would close over the value
+     from the render in which the timer was armed, which is null. A state write
+     would also re-run the effect that arms the timer.
+
+     `recordedRef` guards against logging the same call twice: `stop()` runs on
+     unmount AND on hang-up, and a row that has already reached a terminal state
+     must not be moved again. */
+  const callIdRef = useRef<string | null>(null);
+  const recordedRef = useRef(false);
+
+  // Place the call record. Runs once on mount, and only when there is someone to
+  // call — `summary.id` is the callee, and it is null when the peer could not be
+  // identified, in which case there is nobody to ring and nothing to log.
+  useEffect(() => {
+    const calleeId = summary?.id;
+    if (!calleeId) return;
+    let live = true;
+    void startCallAction({ conversationId, calleeId, mode }).then((id) => {
+      if (live && id) callIdRef.current = id;
+    });
+    return () => {
+      live = false;
+    };
+  }, [conversationId, mode, summary?.id]);
+
+  // Ring-out: while the call is still `ringing`, a timer runs. If it expires
+  // without the call ever connecting, this one was never answered — mark it, and
+  // the callee sees a "Missed …" card in their thread.
+  useEffect(() => {
+    if (call.status !== "ringing") return;
+    const timer = window.setTimeout(() => {
+      const id = callIdRef.current;
+      if (!id || recordedRef.current) return;
+      recordedRef.current = true;
+      void finishCallAction({ callId: id, status: "missed" });
+    }, RING_OUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [call.status]);
+
+  // Reaching `connected` at all means media flowed, so this was never a missed
+  // call — flip the latch so the unmount cleanup writes `ended`, not `missed`.
+  useEffect(() => {
+    if (call.status === "connected") recordedRef.current = true;
+  }, [call.status]);
+
+  // Leaving the screen finalises the row. A call that never connected and was
+  // never ring-out-logged is a `cancelled` — the caller hung up on a silent
+  // phone, which is not the same event as the phone ringing out.
+  useEffect(() => {
+    return () => {
+      const id = callIdRef.current;
+      if (!id || recordedRef.current) return;
+      recordedRef.current = true;
+      void finishCallAction({ callId: id, status: "cancelled" });
+    };
+  }, []);
+
   // Leave the camera behind if the component unmounts by any route other than
   // the end-call button (a back gesture, a navigation, a lost session).
   useEffect(() => () => call.stop(), [call.stop]);
@@ -155,10 +232,42 @@ export function CallScreen({
         </div>
       </div>
 
+      {/* Full-surface tap target: the controls are hidden most of the time, so
+          tapping anywhere in the empty middle brings them back. It sits BELOW the
+          content column (z-10 vs z-20) so it never swallows a control tap, and
+          above the video so a tap anywhere else reaches it. */}
+      <button
+        type="button"
+        onClick={reveal}
+        aria-label="Show call controls"
+        className="absolute inset-0 z-10 cursor-default"
+        tabIndex={-1}
+      />
+
+      {/* ── THE CONTENT COLUMN ──────────────────────────────────────────────────
+          This is what makes the layout a flex column rather than a pile of
+          absolutely-positioned boxes. Previously the root declared
+          `flex h-[100dvh] flex-col` and then EVERY child was `absolute` — the
+          flexbox was declared and immediately made irrelevant, so nothing could
+          ever push, reserve or clip. The controls were `absolute bottom-0` with
+          a fixed `pb-[max(1.5rem, …)]`, and on a device with a home indicator
+          plus the gift strip open, the end-call pill sat under the bar.
+
+          `justify-between` distributes the three real regions: the header at the
+          top, a flexible spacer that owns the self-view in the middle, and the
+          controls in normal flow at the bottom. Because the controls are now a
+          flex CHILD rather than an overlay, the browser reserves their height —
+          the column cannot overflow and they cannot be cut off, whatever the
+          safe-area inset resolves to on a given device.
+
+          `min-h-0` is load-bearing: without it this child refuses to shrink below
+          the video's intrinsic size and the bottom region is pushed out. */}
+      <div className="relative z-20 flex min-h-0 flex-1 flex-col justify-between">
+
       {/* Top bar: name + status. Fades with the controls. */}
       <div
         className={[
-          "pointer-events-none absolute inset-x-0 top-0 z-20 bg-gradient-to-b from-slate-950/80 to-transparent px-4 pb-8",
+          "pointer-events-none shrink-0 bg-gradient-to-b from-slate-950/80 to-transparent px-4 pb-8",
           "pt-[max(0.75rem,env(safe-area-inset-top))]",
           CHROME_FADE,
           visible ? "opacity-100" : "opacity-0",
@@ -173,14 +282,18 @@ export function CallScreen({
         </p>
       </div>
 
+      {/* Flexible middle region. It owns the self-view, so the preview is
+          positioned against THIS box rather than the viewport — which is what
+          stops it landing on top of the control bar now that the controls are
+          in normal flow at the bottom. `min-h-0` so it can actually shrink. */}
+      <div className="relative min-h-0 flex-1">
       {/* Local preview, bottom-right. Hidden on an audio call ” there is no
           picture to preview, so the slot would just be a black rectangle. */}
       {isVideo ? (
         <div
           className={[
-            "absolute right-4 z-20 h-40 w-28 overflow-hidden rounded-2xl border border-white/20",
+            "absolute bottom-3 right-4 h-40 w-28 overflow-hidden rounded-2xl border border-white/20",
             "bg-slate-800 shadow-2xl sm:h-52 sm:w-36",
-            "bottom-[max(7rem,calc(env(safe-area-inset-bottom)+6rem))]",
             CHROME_FADE,
             // The preview stays faintly visible when the chrome fades, so the
             // user can always see whether their own camera is on.
@@ -205,6 +318,7 @@ export function CallScreen({
           ) : null}
         </div>
       ) : null}
+      </div>
 
       {/* Gift confirmation ” auto-clears, sits clear of the control bar. */}
       {giftSent ? (
@@ -222,19 +336,26 @@ export function CallScreen({
         </div>
       ) : null}
 
-      {/* Minimalist pill controls. `pointer-events-none` on the wrapper so a
-          stray tap in the empty space between pills falls through to the
-          video; the pills themselves re-enable it. */}
+      {/* Minimalist pill controls — now a NORMAL FLOW FLEX CHILD, not an overlay.
 
-      {/* Minimalist pill controls. `pointer-events-none` on the wrapper so a
-          stray tap in the empty space between pills falls through to the
-          video; the pills themselves re-enable it. */}
+          `shrink-0` keeps the row at its natural height when the gift strip opens
+          above it, and `pb-[max(1.5rem,env(safe-area-inset-bottom))]` puts the
+          safe-area inset INSIDE this block, so the reserved height accounts for
+          the home indicator rather than the pills sitting on top of it. That is
+          the difference between the end-call button being reachable and being
+          under the system bar.
+
+          `pointer-events-none` on the wrapper, re-enabled on the rows, so a stray
+          tap in the gap between pills falls through. The inner rows follow
+          `visible`: while the controls are faded out the buttons must not be
+          tappable, or an invisible button can still be activated — which is a
+          hang-up with nothing on screen to explain it. */}
       <div
         className={[
-          "pointer-events-none absolute inset-x-0 bottom-0 z-40 flex flex-col items-center gap-3",
+          "pointer-events-none z-40 flex shrink-0 flex-col items-center gap-3",
           "pb-[max(1.5rem,env(safe-area-inset-bottom))]",
           CHROME_FADE,
-          visible ? "opacity-100" : "opacity-0",
+          visible ? "opacity-100" : "pointer-events-none opacity-0",
         ].join(" ")}
       >
         {giftOpen ? (
@@ -313,16 +434,7 @@ export function CallScreen({
           </button>
         </div>
       </div>
-
-      {/* Full-surface tap target: the controls are hidden most of the time, so
-          tapping anywhere in the empty middle brings them back. */}
-      <button
-        type="button"
-        onClick={reveal}
-        aria-label="Show call controls"
-        className="absolute inset-0 z-10 cursor-default"
-        tabIndex={-1}
-      />
+      </div>
     </div>
   );
 }

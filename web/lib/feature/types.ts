@@ -106,6 +106,47 @@ export interface ConversationParticipantSummary {
   personalitySimilarity?: number;
 }
 
+/** Which of the six call states a call can be in. Mirrors the DB CHECK. */
+export type CallStatus =
+  | "ringing"
+  | "answered"
+  | "missed"
+  | "declined"
+  | "cancelled"
+  | "ended";
+
+/** One entry in a conversation's call history. */
+export interface CallLogEntry {
+  id: string;
+  conversationId: string;
+  callerId: string;
+  calleeId: string;
+  mode: "audio" | "video";
+  status: CallStatus;
+  startedAt: string;
+  answeredAt: string | null;
+  endedAt: string | null;
+}
+
+/**
+ * Whether a call entry should render as the "Missed …" card.
+ *
+ * A call that connected and then ended is NOT missed, however it finished — the
+ * two people spoke, and calling that "missed" would be both false and
+ * gratuitously accusatory. Only the states where no media ever flowed qualify,
+ * which is why this is a predicate rather than a `status === "missed"` test at
+ * the call site: a declined call is equally unanswered, and reading it as
+ * connected would silently hide it.
+ */
+export function isMissedCall(entry: CallLogEntry): boolean {
+  return entry.status === "missed" || entry.status === "declined";
+}
+
+/** Human label for a missed-call card, e.g. "Missed Video Call". */
+export function missedCallLabel(mode: "audio" | "video"): string {
+  return mode === "video" ? "Missed Video Call" : "Missed Audio Call";
+}
+
 /**
  * Whole years from a `date_of_birth` to now, or null when there is no usable
  * date.
