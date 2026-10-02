@@ -62,6 +62,50 @@ const LIFESTYLE_ICONS: Record<string, ProfileIconName> = {
   etelts: "etelts",
 };
 
+/* THE ONE HEADER FOR THIS SCREEN.
+
+   Rendered into `PageLock`'s `head` slot (see `app/(app)/profile/page.tsx`), NOT
+   inside the scrolling body, so it stays pinned exactly like the global bar it
+   replaces.
+
+   WHY IT REPLACES `MobileBackHeader` INSTEAD OF STACKING WITH IT: that component
+   renders on `/profile` because the segment is in its allow-list, and it carries
+   its own back arrow and title. Left alone, the screen had two bars — the global
+   "Profile · Home" bar and this "My Profile" card header — which is the doubled
+   chrome this refactor removes. `MobileBackHeader` now returns `null` for
+   `/profile`, so there is exactly one header, and it is this one: back button,
+   centred "Profile" title, settings gear.
+
+   Both controls are real <Link>s to real routes — back to /dashboard (the
+   post-auth landing) and settings to /settings. Neither is decorative. It is
+   visible at every breakpoint, because the global bar it supersedes is
+   `md:hidden` and would otherwise leave desktop with no header at all. */
+export function ProfileHeader() {
+  return (
+    <header className="flex items-center justify-between gap-3 border-b border-white/5 bg-slate-950/80 px-4 py-3 backdrop-blur">
+      <Link
+        href="/dashboard"
+        aria-label="Back to home"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+      >
+        <ProfileIcon name="back" className="h-5 w-5" />
+      </Link>
+
+      <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold text-white">
+        Profile
+      </h1>
+
+      <Link
+        href="/settings"
+        aria-label="Settings"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+      >
+        <ProfileIcon name="settings" className="h-5 w-5" />
+      </Link>
+    </header>
+  );
+}
+
 export function ProfileScreen({ data }: { data: ProfileScreenData }) {
   const { name, age } = data;
   const height = formatHeightDetailed(data.heightCm);
@@ -78,36 +122,6 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
   return (
     <div className="flex flex-col gap-6 pb-8">
-      {/* ── HEADER ────────────────────────────────────────────────────────────
-          The screen's own identity row, NOT a second global page bar.
-          `MobileBackHeader` is mounted by the root layout and already renders the
-          shared header above this on every app route; adding another full-width
-          bar here is what produced the previously-reported doubled chrome.
-
-          Both controls are real <Link>s to real routes — back to /dashboard (the
-          post-auth landing) and settings to /settings. Neither is decorative. */}
-      <header className="flex items-center justify-between gap-3">
-        <Link
-          href="/dashboard"
-          aria-label="Back to home"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
-        >
-          <ProfileIcon name="back" className="h-5 w-5" />
-        </Link>
-
-        <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold text-white">
-          My Profile
-        </h1>
-
-        <Link
-          href="/settings"
-          aria-label="Settings"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
-        >
-          <ProfileIcon name="settings" className="h-5 w-5" />
-        </Link>
-      </header>
-
       {/* ── HERO ─────────────────────────────────────────────────────────────
           Avatar, name, bio and stats.
 
@@ -160,8 +174,13 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             Each cell groups one <dt>/<dd> pair — an <a> may not be a direct child
             of a <dl>, so the link lives INSIDE the <dd>. `flex-col-reverse` puts
             the number on top visually while <dt> still comes first in the DOM, so
-            a screen reader announces "Friends, 12" rather than "12, Friends". */}
-        <dl className="grid w-full grid-cols-4 divide-x divide-white/10 border-y border-white/10">
+            a screen reader announces "Friends, 12" rather than "12, Friends".
+
+            GLASSMORPHIC CARD, not bare `border-y` rules: this row, the Edit
+            button and the wallet card below it all use the same
+            `bg-slate-900/60` + `border-white/10` + `rounded-2xl` recipe, so the
+            three read as one family instead of three different surfaces. */}
+        <dl className="grid w-full grid-cols-4 divide-x divide-white/10 rounded-2xl border border-white/10 bg-slate-900/60 px-2 py-1">
           {data.stats.map((stat) => (
             <div key={stat.label} className="flex flex-col-reverse items-center px-1 py-3">
               <dt className="mt-1 text-center text-[10px] font-medium uppercase tracking-wide text-ink-400">
@@ -184,9 +203,13 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           ))}
         </dl>
 
+        {/* EDIT PROFILE. Same glass recipe and the same `px-6` horizontal rhythm
+            as the wallet card, so the two controls do not read as different
+            weights. `w-full` on mobile: the button used to shrink-wrap, which left
+            it visibly narrower than the stats row directly above it. */}
         <Link
           href="/profile/edit"
-          className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/15 bg-white/[0.06] px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
         >
           <ProfileIcon name="edit" className="h-4 w-4" />
           Edit Profile
@@ -201,7 +224,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           a profile screen instead of growing a wallet back into it. */}
       <Link
         href="/subscription"
-        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+        className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-900/60 px-6 py-4 transition hover:bg-slate-900/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
       >
         <span className="min-w-0">
           <span className="block text-[11px] uppercase tracking-wide text-ink-400">

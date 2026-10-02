@@ -95,6 +95,14 @@ export function MobileBackHeader() {
   // back arrow and loses the height that separates the two.
   if (pathname === "/messages") return null;
 
+  /* `/profile` builds its OWN header inside `PageLock`'s `head` slot
+     (`ProfileHeader`: back arrow, "Profile" title, settings gear). That bar is
+     rendered at EVERY breakpoint, whereas this one is `md:hidden` — so keeping
+     both would stack two bars on phones and leave the profile's own header as the
+     only one on desktop anyway. Returning `null` leaves exactly one header
+     everywhere. Same rule, same reason, as `/messages` above. */
+  if (pathname === "/profile") return null;
+
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
 

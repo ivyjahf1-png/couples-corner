@@ -1,5 +1,5 @@
 import { PageLock } from "@/components/app/PageHeader";
-import { ProfileScreen } from "@/components/profile/ProfileScreen";
+import { ProfileScreen, ProfileHeader } from "@/components/profile/ProfileScreen";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
@@ -108,9 +108,22 @@ export default async function ProfilePage() {
        scroller, reintroducing the page-level scrolling the shell's fixed bottom
        nav cannot cope with.
 
-       `head` is omitted because the tab bar that used to occupy it is gone — the
-       redesigned screen has no tabs — so the body carries the top padding. */
-    <PageLock className="mx-auto w-full max-w-xl" bodyClassName="flex flex-col gap-6 px-4 pt-4 pb-10">
+       `head` carries `ProfileHeader` so the screen has exactly ONE header, pinned
+       above the scroll region. `MobileBackHeader` returns `null` on `/profile`,
+       so this replaces the global bar rather than stacking under it.
+
+       NO `max-w-xl`, NO centred inner column. The old `mx-auto w-full max-w-xl`
+       wrapper was a second, narrower frame drawn inside the app shell — the
+       "nested browser window" effect, where the profile appeared as a page
+       embedded in a page and its content was letterboxed on wide screens. The
+       shell already owns the viewport lock (`h-[100dvh] overflow-hidden`) and
+       `PageLock` measures its parent via `height: 100%`, so the page fills the
+       real screen with no clipping and no second set of edges. Padding is
+       applied once, here, rather than being baked into a width cap. */
+    <PageLock
+      head={<ProfileHeader />}
+      bodyClassName="flex flex-col gap-6 px-4 pt-4 pb-10"
+    >
       <ProfileScreen
         data={{
           uid: session.uid,

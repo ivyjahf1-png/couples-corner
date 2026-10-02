@@ -121,8 +121,14 @@ export function UserMediaGallery({ uid }: { uid: string }) {
     }
   }
 
+  /* NO LOCAL HEADING, ON PURPOSE.
+
+     This component used to render its own `<h2>Photos &amp; videos</h2>` inside
+     its Card. Its only caller wraps it in a `ProfileSection` that already carries
+     that exact title (and the accordion toggle), so the member saw the words
+     "Photos & videos" twice, stacked, with the second one inside a card border
+     below the first. The wrapper owns the title; this card owns the uploader. */
   return <Card className="flex flex-col gap-4">
-    <h2 className="font-semibold text-white">Photos &amp; videos</h2>
     <p className="text-sm text-ink-300">Public gallery. Up to 250 MB per file. Use the buttons on a tile to share or delete it.</p>
     <input ref={input} type="file" accept={USER_MEDIA_MIME_TYPES.join(",")} className="hidden" disabled={busy} onChange={() => void upload()} />
     <Button disabled={busy || loading} variant="secondary" onClick={() => input.current?.click()}>Upload photo / video</Button>

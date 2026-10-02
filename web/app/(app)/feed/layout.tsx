@@ -80,5 +80,29 @@ export default function FeedLayout({ children }: { children: ReactNode }) {
                   and `sticky top-0`, so it is a fixed sibling of the scroll region
        - middle — `MomentFeed`, the only thing here that scrolls (below)
        - bottom — the fixed tab bar, overlaying rather than in flow */
-  return <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">{children}</div>;
+  return (
+    /* PLAIN ROOT ELEMENT. No iframe, no WebView, no inner "device" wrapper, and
+       no component that renders a preview of the app inside itself — verified by
+       inspection: the only `<iframe>`s in the codebase are `MediaEmbed` (a
+       click-to-load third-party VIDEO player, scoped to no allow-same-origin and
+       no allow-top-navigation) and `GamePlayer` (a sandboxed external HTML5
+       game). Neither mounts on this route, and neither points at this app.
+
+       `bg-slate-950` matches `AppShell`'s canvas so the screen paints its own
+       surface even if a panel is briefly shorter than the viewport, instead of
+       flashing the page behind it.
+
+       DELIBERATELY NOT `min-h-dvh`, despite it being a natural thing to reach for
+       here. The viewport is measured ONCE, at `<html class="h-full">` +
+       `<body class="min-h-full">` + `AppShell`'s `flex-1 min-h-0`. A fresh
+       `min-h-dvh` here would measure the viewport a SECOND time and force this
+       column to be a full viewport tall *in addition to* the 4rem mobile header
+       above it and the fixed tab bar below — which reintroduces document-level
+       scrolling, the exact "messy scrolling" failure the header comment at the
+       top of this file documents as already fixed. `h-full` is the correct value
+       because it fills the space actually available. */
+    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-950">
+      {children}
+    </div>
+  );
 }
