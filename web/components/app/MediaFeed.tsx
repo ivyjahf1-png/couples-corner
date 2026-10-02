@@ -1527,16 +1527,17 @@ export function MediaFeed({
               breathing room. The safe-area term is ADDED to the offset, matching
               every other control here, so the clearance survives a home indicator.
 
-              ── NOW 10.5rem, BECAUSE THE RAIL CAME DOWN ──────────────────────────
-              The interaction rail moved from 13rem to 11rem in the same pass, so
-              the caption's old 11.5rem offset would have sat ABOVE the rail's new
-              bottom edge (11rem) and the two would overlap. It is dropped to
-              10.5rem (168px) to preserve the original ordering and the same ~12px
-              clearance to the bar's 172px top edge.
+              ── NOW 13rem, TRACKING THE RAISED STACK ─────────────────────────────────
+              The caption is anchored from the bottom, so raising everything
+              above it moves the bottom bar closer to its text. At its previous
+              `10.5rem` (168px) its bottom edge sat only ~4px above the bar's
+              164px top edge — visually colliding with the reaction row.
 
-              These two numbers — the rail at 11rem and this caption at 10.5rem —
-              are a PAIR. Moving either without the other re-collides them, which
-              is why both changes belong to this same edit.
+              `13rem` (208px) restores ~44px of clearance. It sits in the same
+              vertical band as the FAB (176-232px) without touching it, because
+              the caption is left-aligned with `pr-24` reserving 96px on the
+              right while the FAB occupies only the outer 12-68px. Same band,
+              different columns — which is why the two can share it safely.
 
               No `sm:` variant on purpose: the bar is `md:hidden` with no wider
               breakpoint of its own, and the caption's height is capped at three
@@ -1546,7 +1547,7 @@ export function MediaFeed({
               /* `z-30` for the same reason as the rail: the card's media stack is
                  `relative z-20`, and a tie resolved only by source order is not
                  a layering guarantee. */
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(13rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1610,24 +1611,25 @@ export function MediaFeed({
               /* `landscape-hide-chrome` — the rail is a column of `bottom-44`
                  offsets that has no room to exist in a short landscape
                  viewport, and it would sit over the video. */
-              /* The rail moved up 80px with the reaction bar, so it now clears
-                 the bottom tab bar instead of sitting under it. The FAB below is
-                 in the same right-hand column and moved by the same amount —
-                 they are stacked, so moving one without the other would simply
-                 have re-collided them.
+              /* ── RAISED TO 15rem / 16rem ────────────────────────────────────────────
+                 The rail, the FAB and the bottom bar are ONE right-hand
+                 column, so they are positioned as a stack measured from the
+                 floor upward:
 
-                 ── DROPPED TO 11rem / 12rem (was 13rem / 14rem) ────────────────
-                 The rail's bottom edge now sits just above the bottom bar's TOP
-                 edge rather than floating 30-40px clear of it. The reaction row
-                 and the message input are the tallest thing on this screen, so a
-                 rail perched far above them read as a detached column with a band
-                 of dead video between it and the controls it belongs with.
-                 Seating it directly on top of that stack closes the gap.
+                     nav            0   – 80px
+                     bottom bar    80   – 164px   (reactions + message input)
+                     FAB          176   – 232px   (56px, bottom-[calc(11rem)])
+                     this rail    240   – ~480px  (4 x 48px + gaps)
 
-                 `11rem` (176px) is measured, not chosen: the bottom bar occupies
-                 80-172px (5rem nav offset + ~90px of reactions row, `mb-2` and
-                 input), so 176px is the first whole-rem value above that range.
-                 `sm:12rem` keeps the same 16px relationship on wider screens. */
+                 At its previous `11rem` (176px) the rail's bottom edge sat
+                 exactly on the FAB's bottom edge, so the two overlapped
+                 outright once the FAB was raised. `15rem` (240px) restores an
+                 8px gap and keeps the four actions clear of the message input
+                 they were crowding.
+
+                 `sm:16rem` holds the same relationship on wider screens, where
+                 the reaction row and input are the same height but the gutter
+                 is wider. */
               /* `z-30`, NOT `z-20`. The card's media stack is `relative z-20`, so a
                  `z-20` overlay tied with it and only won by virtue of being later
                  in source order — a tie that any refactor inserting markup between
@@ -1636,7 +1638,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(11rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(12rem+env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(15rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(16rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1741,15 +1743,27 @@ export function MediaFeed({
           // is a different, redder orange, which made the FAB look like it
           // belonged to a different theme than the nav beneath it.
           //
-          // `5.5rem` (was `7rem`), moved DOWN 24px to sit at the base of the
-          // right-hand column, directly beneath the interaction rail rather than
-          // hovering above it. The rail's bottom edge is now at `11rem`, and this
-          // 56px button tops out at 5.5rem + 56px = 144px, leaving a ~32px gap
-          // under the rail — the two read as one stack anchored on the input bar.
+          // `11rem` (176px). THIS REVERTS MY OWN CHANGE, which was the bug.
+          //
+          // I moved this from 7rem DOWN to 5.5rem in an earlier pass on the
+          // instruction to "shift the FAB downward". That was wrong, and the
+          // symptom is exactly what is now reported: 5.5rem (88px) put this
+          // 56px button at 88-144px, which is INSIDE the bottom bar's band.
+          //
+          // The bottom bar is `bottom-[calc(5rem+…)]` (80px) and stacks the
+          // reaction row, its `mb-2` and the message input above that pad —
+          // roughly 84px of content, so it occupies ~80-164px. The FAB at
+          // 88-144px sat squarely inside it, crowding the input that is the
+          // one control that must always be reachable.
+          //
+          // `11rem` = 176px puts the button's bottom edge 12px clear of the
+          // bar's 164px top edge. `env()` is ADDED rather than swapped in, so
+          // the clearance holds on a device with a home indicator.
+          //
           // The `sm:` variant is dropped for the same reason as everywhere else
-          // here: the nav is `md:hidden`, so a second offset is one more number
-          // to keep in step with nothing.
-          className="landscape-hide-chrome absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
+          // in this file: the nav is `md:hidden`, so a second offset is one
+          // more number to keep in step with nothing.
+          className="landscape-hide-chrome absolute bottom-[calc(11rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
