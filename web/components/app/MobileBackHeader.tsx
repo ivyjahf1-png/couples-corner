@@ -103,6 +103,25 @@ export function MobileBackHeader() {
      everywhere. Same rule, same reason, as `/messages` above. */
   if (pathname === "/profile") return null;
 
+  /* `/likes` builds its own pinned title bar in `PageLock`'s `head` slot ("Who
+     liked you"). This global bar would otherwise sit directly above it, giving
+     the screen two stacked headers — the outer one carrying a back arrow, a
+     "Likes" label and a "Home" link, all of which duplicate what the inner bar
+     and the bottom nav already provide. Same rule as /profile and /messages. */
+  if (pathname === "/likes") return null;
+
+  // ── BARE HEADER ON DISCOVER / EXPLORE ───────────────────────────────────
+  // These two routes render ONLY the centred title: no back arrow on the left,
+  // no "Home" link on the right. They are top-level destinations in the bottom
+  // nav ("Discover" is its own tab), so a back arrow implied somewhere more
+  // important exists, and the "Home" link pointed at a route the member could
+  // already reach from the nav directly beneath it.
+  //
+  // The title is centred with a matching empty slot on each side rather than
+  // `text-center` alone, so it sits optically centred instead of drifting left
+  // once the two 44px controls are gone.
+  const isBareHeader = segment === "discover" || segment === "explore";
+
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
 
@@ -182,7 +201,9 @@ export function MobileBackHeader() {
               announcing a "Go back" action that no sighted member can see or use
               would be worse than omitting it. The bottom nav's Moment tab is the
               real, visible way back. */}
-          {segment === "feed" ? (
+          {isBareHeader ? (
+              <span aria-hidden className="h-11 w-11 shrink-0" />
+            ) : segment === "feed" ? (
             <span aria-hidden className="h-11 w-11 shrink-0" />
           ) : (
             <button
@@ -306,7 +327,12 @@ export function MobileBackHeader() {
               `aria-current="page"` when this toggle points AWAY from the view
               showing — i.e. it is a control, not a link to here — so the state is
               exposed rather than only implied by the label's wording. */}
-          {segment === "feed" ? (
+          {isBareHeader ? (
+            /* Nothing at all, not an empty 44px button. A transparent tap target
+               is worse than no target: it eats the row's right gutter and
+               swallows taps with no visible affordance. */
+            <span aria-hidden className="h-11 w-11 shrink-0" />
+          ) : segment === "feed" ? (
             <Link
               href={momentViewToggleHref(communityActive ? "community" : "videos")}
               aria-label={
