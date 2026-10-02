@@ -2,7 +2,7 @@
 
 import { PostCard } from "@/components/app/PostCard";
 import { EmptyState } from "@/components/app/EmptyState";
-import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
+
 import { FeedShareComposer } from "@/components/app/FeedShareComposer";
 import { Icon } from "@/components/landing/Icon";
 import type { FeedPostView } from "@/lib/feature/types";
@@ -172,16 +172,24 @@ export function CommunityFeedView({
         )}
       </div>
 
-      {/* Floating "+" opening the photo/moment composer.
+      {/* THE FLOATING "+" LAUNCHER IS GONE.
 
-          Gated on `canPost` deliberately. The launcher is `fixed`, and
-          `MomentFeed` keeps BOTH panels mounted (the hidden one via the `hidden`
-          attribute) so their scroll positions survive a toggle — so rendering
-          this unconditionally would put a second launcher on the video player's
-          subtree. `display:none` on the parent does suppress it, but relying on
-          that to hide a `position:fixed` control is fragile; this guard makes
-          the scoping explicit and independent of the panel's hidden state. */}
-      {canPost ? <FeedCreateLauncher userId={userId} /> : null}
+         It was `FeedCreateLauncher` — an amber-300 "+" fixed above the nav. Two
+         problems, one cosmetic and one structural:
+
+           1. It duplicated `MediaFeed`'s own upload FAB, which already sits in
+              the same right-hand column a few lines away on this very screen.
+              Two "+" controls for one action, one of them the wrong colour.
+
+           2. `MomentFeed` mounts BOTH panels at once so their scroll positions
+              survive the view toggle, so this `fixed` button existed on the
+              subtree for the immersive player too — a second, differently-styled
+              upload control floating over the reels.
+
+         Posting still works: `MediaFeed`'s own FAB (orange, bottom-right) is the
+         single entry point, and `FeedShareComposer` keeps the inline composer at
+         the top of the community timeline. Nothing that could publish became
+         unreachable. */}
     </div>
   );
 }
