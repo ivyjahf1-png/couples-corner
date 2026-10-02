@@ -3,6 +3,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/server/audit";
 import { requireActorUuid } from "@/lib/server/actor";
+import { displayNameFromEmail } from "@/lib/utils/display-name";
 import type { Report, RiskFlag, ReportStatus } from "@/lib/models";
 import type { AppRole, UserStatus } from "@/lib/models/common";
 
@@ -146,7 +147,13 @@ export async function listUsersForModeration(): Promise<ModerationUserRow[]> {
   return users.map((u) => ({
     uid: u.id as string,
     email: u.email as string,
-    displayName: (u.display_name as string) ?? (u.email as string)?.split("@")[0] ?? "Anonymous",
+    /* Same cleanup as the app shell: a member who never chose a name has
+       `display_name` seeded from the email local-part, so the admin table showed
+       "ivy.jahf1" for every one of them. `displayNameFromEmail` is the shared
+       implementation so the two surfaces cannot drift apart again. The `??` keeps
+       "Anonymous" for a row with neither a name nor an email. */
+    displayName:
+      (u.display_name as string) || displayNameFromEmail(u.email as string) || "Anonymous",
     status: u.status as UserStatus,
     role: u.role as AppRole,
     createdAt: u.created_at as string,

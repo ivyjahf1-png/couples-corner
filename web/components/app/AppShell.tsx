@@ -4,6 +4,7 @@ import { AppSidebar, AppMain, BottomNavRegion } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { getCurrentSessionUser } from "@/lib/server/session";
+import { displayNameFromEmail } from "@/lib/utils/display-name";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { BannerAd } from "@/components/ads/BannerAd";
@@ -31,7 +32,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     getUnreadCountAction(),
   ]);
   const isDemo = user?.isDemo ?? false;
-  const displayName = user?.email ? user.email.split("@")[0] : "User";
+  /* The name shown in the shell's avatar and account chip.
+
+     This was `user.email.split("@")[0]`, which renders "ivy.jahf1" in the top bar
+     for every member who signed up without choosing a name. `displayNameFromEmail`
+     turns that into "Ivy J." and leaves an already-chosen name alone. The `||` is
+     the fallback for an account with no email at all, which must still render
+     something rather than an empty avatar. */
+  const displayName = displayNameFromEmail(user?.email) || "User";
   const displayEmail = user?.email ?? "demo@couplescorner.app";
 
   return (
