@@ -9,6 +9,7 @@ import { GlassActionButton } from "@/components/app/GlassActions";
 import { Icon } from "@/components/landing/Icon";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { togglePostLikeAction } from "@/lib/actions/profile";
+import { setFollowAction } from "@/lib/actions/follow";
 import type { FeedPostView } from "@/lib/feature/types";
 
 /**
@@ -150,7 +151,30 @@ export function PostCard({ post }: { post: FeedPostView }) {
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [following, setFollowing] = useState(false);
+  const [followPending, setFollowPending] = useState(false);
+  const [followError, setFollowError] = useState<string | null>(null);
   const [, startLikeTransition] = useTransition();
+  const [, startFollowTransition] = useTransition();
+
+  /** Follow / unfollow the author, persisting to `user_follows`. */
+  function toggleFollow() {
+    if (followPending || !post.authorId) return;
+    const next = !following;
+    setFollowing(next);
+    setFollowError(null);
+    setFollowPending(true);
+    startFollowTransition(async () => {
+      const result = await setFollowAction({ targetUserId: post.authorId!, follow: next });
+      setFollowPending(false);
+      if (!result.ok) {
+        // Roll back, or the button would claim a follow that did not save.
+        setFollowing(!next);
+        setFollowError(result.error ?? "Couldn't update follow");
+        return;
+      }
+      setFollowing(result.following);
+    });
+  }
 
   /**
    * Gate for the relative timestamp.
@@ -329,14 +353,34 @@ export function PostCard({ post }: { post: FeedPostView }) {
              grids (UserMediaGallery, PublicMediaGallery), not the Moment feed,
              and its uniform `aspect-square` exists precisely so a 4:5 phone snap
              and a 16:9 video line up in the same row. Changing it would alter
-             profile pages, which is not what this brief asked for. */
+             profile pages, which is not what this brief asked for.
+
+             ── REDESIGN: THE RATIO MOVED ONTO THIS CONTAINER ──────────────────
+             The ratio used to sit on each tile, which meant a 2-up grid sized
+             itself from whichever tile loaded first. It now lives here, so every
+             tile in a grid is guaranteed the same box and the parent clips to ONE
+             radius.
+
+             A SINGLE photo is `aspect-[4/5]` on a phone — taller than the old 3:4 —
+             because the redesign asks for the media to feel "grand and immersive"
+             rather than merely present, and 4:5 is what dating feeds standardise on
+             for that. `sm:aspect-[3/4]` restores the previous ratio from `sm` up,
+             where the column is narrower and a full 4:5 tile would dominate the
+             viewport.
+
+             A MULTI-photo grid deliberately KEEPS the old ratio: two 4:5 tiles side
+             by side produce a grid taller than one screen, which pushes the post's
+             own actions below the fold. The grid case wants density; the single
+             case wants presence. Different goals, so different ratios. */
           <div
             className={`mt-3 grid gap-1 overflow-hidden rounded-2xl ${
-              post.mediaUrls.length > 1 ? "grid-cols-2" : "grid-cols-1"
+              post.mediaUrls.length > 1
+                ? "grid-cols-2 aspect-[3/4]"
+                : "grid-cols-1 aspect-[4/5] sm:aspect-[3/4]"
             }`}
           >
             {post.mediaUrls.slice(0, 4).map((url, i) => url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
-              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[3/4] w-full bg-black object-cover" />
+              <video key={`${url}-${i}`} src={url} controls playsInline className="h-full w-full bg-black object-cover" />
             ) : (
               <img
                 key={`${url}-${i}`}
@@ -344,7 +388,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
                 alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
                 loading="lazy"
                 decoding="async"
-                className="aspect-[3/4] w-full bg-surface-muted object-cover"
+                className="h-full w-full bg-surface-muted object-cover"
               />
             ))}
           </div>
@@ -386,20 +430,49 @@ export function PostCard({ post }: { post: FeedPostView }) {
           onClick={() => setCommentsOpen((v) => !v)}
           ariaLabel={commentsOpen ? "Hide comments" : "Show comments"}
         />
-        <button
-          type="button"
-          onClick={() => setFollowing((v) => !v)}
-          aria-pressed={following}
-          className={`min-h-11 rounded-full px-3 text-xs font-semibold transition ${following ? "bg-emerald-500/15 text-emerald-300" : "bg-brand-500/15 text-brand-200 hover:bg-brand-500/25"}`}
-        >
-          {following ? "Following" : "Follow"}
-        </button>
+        {/* ── FOLLOW — NOW PERSISTED, NOT LOCAL-ONLY STATE ─────────────────────
+            This was `useState(false)` + a toggle, so following was purely visual:
+            it vanished on refresh and wrote nothing to the database. `setFollowAction`
+            already exists and is already used by the moment cards, so this card now
+            calls the same Server Action.
+
+            Optimistic first, then reconciled against the server's `following` and
+            follower count — the same shape as `toggleLike` above, so a slow network
+            cannot leave the button claiming a relationship that did not save.
+
+            NOT RENDERED ON YOUR OWN POST: offering to follow yourself is a dead
+            control, and `post.isOwn` is computed server-side in mapFeedPosts for
+            exactly this reason. `authorId` is undefined for a post whose author row
+            is missing, which also hides the button rather than firing an action
+            with an empty target.
+
+            ORANGE, per the design. The previous `bg-brand-500/15` tint was too weak
+            to read as a primary action next to the amber "Hi" shortcut, so the two
+            competing rather than one leading. */}
+        {post.authorId && !post.isOwn ? (
+          <button
+            type="button"
+            onClick={toggleFollow}
+            disabled={followPending}
+            aria-pressed={following}
+            aria-label={following ? `Unfollow ${post.authorName}` : `Follow ${post.authorName}`}
+            className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-bold transition disabled:opacity-50 ${
+              following
+                ? "bg-orange-500/15 text-orange-200"
+                : "bg-orange-500 text-white shadow-lg shadow-orange-950/40 hover:bg-orange-400 active:scale-95"
+            }`}
+          >
+            {following ? "Following" : "Follow"}
+          </button>
+        ) : null}
 
         {/* A failed like is announced in place, where the member is looking, and
             is not a modal — a transient warning about a reaction must not
             interrupt reading the timeline. */}
-        {likeError ? (
-          <span role="alert" className="ml-1 truncate text-[11px] text-rose-300">{likeError}</span>
+        {likeError || followError ? (
+          <span role="alert" className="ml-1 truncate text-[11px] text-rose-300">
+            {likeError ?? followError}
+          </span>
         ) : null}
 
         {/* ── "Hi" — the direct-chat shortcut ─────────────────────────────────

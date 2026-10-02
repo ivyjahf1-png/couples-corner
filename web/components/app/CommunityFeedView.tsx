@@ -3,6 +3,7 @@
 import { PostCard } from "@/components/app/PostCard";
 import { EmptyState } from "@/components/app/EmptyState";
 import { FeedCreateLauncher } from "@/components/app/FeedCreateLauncher";
+import { FeedShareComposer } from "@/components/app/FeedShareComposer";
 import { Icon } from "@/components/landing/Icon";
 import type { FeedPostView } from "@/lib/feature/types";
 
@@ -81,6 +82,18 @@ export function CommunityFeedView({
        `NAV_BAR_REM` in `components/ui/layers.ts`. `md:pb-8` drops it where the
        bar is `md:hidden` and the sidebar rail takes over. */
     <div className="flex flex-col gap-4 pb-28 md:pb-8">
+      {/* ── SHARE COMPOSER ────────────────────────────────────────────────────
+          Sits ABOVE the safety banner, not below it.
+
+          This is the screen's primary action — a member who opened the Feed to
+          post something should reach it in one tap, not scroll past a warning and
+          a share card first. The banner is deliberately the SECOND element: it
+          still greets every reader before any stranger's text appears, which is the
+          whole reason it exists, and it costs one glance now instead of a scroll.
+
+          Gated on `canPost` because the composer opens an authenticated upload
+          modal; rendering it signed-out would offer a control that cannot work. */}
+      {canPost ? <FeedShareComposer userId={userId} /> : null}
       {/* ── SCAM / SAFETY WARNING — COMPACT ──────────────────────────────────
           `role="note"` rather than `role="alert"`: it is not urgent, and
           `alert` would interrupt a screen reader mid-sentence on every visit

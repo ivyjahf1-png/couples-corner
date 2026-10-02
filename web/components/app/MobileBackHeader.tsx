@@ -235,7 +235,21 @@ export function MobileBackHeader() {
               aria-current={communityActive ? undefined : "page"}
               className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-1 text-[15px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
             >
-              <span className="truncate">{titles[segment] ?? "Couple’s Corner"}</span>
+              {/* VIEW-AWARE TITLE. The route segment is "feed", but the two panels
+                  it serves are different products — the reels player is "Moment"
+                  and the community timeline is "Feed". Hardcoding `titles[segment]`
+                  labelled the timeline "Moment", which is the exact word the bottom
+                  nav uses for the OTHER view, so the screen a member was reading
+                  contradicted the tab they thought they were on.
+
+                  `communityActive` is derived from the URL through the same
+                  external store the toggle below uses, so the title and the toggle
+                  can never disagree about which panel is showing. The reels keep
+                  their existing title, which is why this is a substitution rather
+                  than an edit to the shared `titles` map. */}
+              <span className="truncate">
+                {communityActive ? "Feed" : (titles[segment] ?? "Couple’s Corner")}
+              </span>
             </Link>
           ) : (
             <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">
