@@ -121,7 +121,7 @@ export default async function ProfilePage() {
        real screen with no clipping and no second set of edges. Padding is
        applied once, here, rather than being baked into a width cap. */
     <PageLock
-      head={<ProfileHeader />}
+      head={<ProfileHeader name={name} />}
       bodyClassName="flex flex-col gap-6 px-4 pt-4 pb-10"
     >
       <ProfileScreen

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import type { UserProfile, User } from "@/lib/models";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
@@ -102,6 +103,7 @@ export function useProfileForm(
   initialProfile: (Partial<UserProfile> | null) & { user?: User | null },
   mode: "create" | "edit"
 ): UseProfileFormReturn {
+  const router = useRouter();
   const [formData, setFormData] = useState<ProfileFormState>(() => {
     const base = { ...initialFormState };
     if (initialProfile) {
@@ -240,6 +242,36 @@ export function useProfileForm(
           await updateOwnProfileAction(uid, payload);
         }
 
+        /* WHY THE ROUTER IS REFRESHED HERE, AND WHY THIS IS THE ACTUAL FIX.
+
+           `updateOwnProfileAction` already calls `revalidatePath("/profile")`,
+           and that is correct — it invalidates the SERVER-side cache. But it is
+           not sufficient on its own, and this is the difference between "saved"
+           and "saved AND visible":
+
+           The App Router keeps a client-side Router Cache of the last rendered
+           RSC payload for routes the member has already visited. `revalidatePath`
+           clears the server cache, but the browser can still hold the previous
+           payload for `/profile` in memory and re-hydrate from it when the
+           member navigates back from this edit screen — which is exactly the
+           reported symptom: the profile shows the OLD bio, occupation and
+           height until a hard refresh throws the tab's memory away.
+
+           `router.refresh()` invalidates that client cache and re-fetches the
+           current RSC payload for the routes already on screen, so the saved
+           values are present the moment the member lands back on `/profile`,
+           with no reload. It is the missing half of the existing revalidation,
+           not a replacement for it.
+
+           It is called only on success. Doing it in the `finally` would refetch
+           and re-render the form on a failed save, discarding what the member
+           just typed for no reason.
+
+           `resetSuccess` is left alone: the "Profile saved successfully" banner
+           stays up so the member gets explicit confirmation the write landed,
+           rather than the screen silently swapping under them. */
+        router.refresh();
+
         setIsSuccess(true);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Something went wrong. Please try again.";
@@ -248,7 +280,10 @@ export function useProfileForm(
         setIsSubmitting(false);
       }
     },
-    [formData, isSubmitting, mode, validate]
+    // `router` is a dep because `router.refresh()` is called inside; the App
+    // Router's router object is stable, so this does not re-create the callback
+    // on every render.
+    [formData, isSubmitting, mode, validate, router]
   );
 
   const resetSuccess = useCallback(() => setIsSuccess(false), []);

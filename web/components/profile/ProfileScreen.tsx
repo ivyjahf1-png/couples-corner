@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { UserMediaGallery } from "@/components/app/UserMediaGallery";
 import { Avatar } from "@/components/app/Avatar";
@@ -66,34 +67,119 @@ const LIFESTYLE_ICONS: Record<string, ProfileIconName> = {
 
    Rendered into `PageLock`'s `head` slot (see `app/(app)/profile/page.tsx`), NOT
    inside the scrolling body, so it stays pinned exactly like the global bar it
-   replaces.
+   replaces. `MobileBackHeader` returns `null` for `/profile`, so there is
+   exactly one header on this route.
 
-   WHY IT REPLACES `MobileBackHeader` INSTEAD OF STACKING WITH IT: that component
-   renders on `/profile` because the segment is in its allow-list, and it carries
-   its own back arrow and title. Left alone, the screen had two bars — the global
-   "Profile · Home" bar and this "My Profile" card header — which is the doubled
-   chrome this refactor removes. `MobileBackHeader` now returns `null` for
-   `/profile`, so there is exactly one header, and it is this one: back button,
-   centred "Profile" title, settings gear.
+   ── WHY IT IS A CLIENT COMPONENT ────────────────────────────────────────────
+   Only for the scroll listener. Everything it renders is otherwise static JSX,
+   and the member's name arrives as a prop from the server page, so no data
+   fetching and no extra client boundary is introduced.
 
-   Both controls are real <Link>s to real routes — back to /dashboard (the
-   post-auth landing) and settings to /settings. Neither is decorative. It is
-   visible at every breakpoint, because the global bar it supersedes is
-   `md:hidden` and would otherwise leave desktop with no header at all. */
-export function ProfileHeader() {
-  return (
-    <header className="flex items-center justify-between gap-3 border-b border-white/5 bg-slate-950/80 px-4 py-3 backdrop-blur">
-      <Link
-        href="/dashboard"
-        aria-label="Back to home"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+   ── WHY THE SCROLL CONTAINER IS FOUND BY DOM, NOT ASSUMED TO BE `window` ────
+   On this route `document` does not scroll. `PageLock` makes `.page-lock__body`
+   the single `overflow-y-auto` region, and the app shell clamps the document to
+   `h-full overflow-hidden`. A listener bound to `window` would therefore never
+   fire and the title would never appear — a silent no-op that looks like a
+   broken feature.
+
+   So the header walks up to its `.page-lock` ancestor and listens on the
+   `.page-lock__body` inside it. That is the element that actually moves, and it
+   is discovered rather than hard-coded so a future wrapper cannot silently break
+   this again.
+
+   ── WHY THE OBSERVER TARGETS THE HERO, NOT A PIXEL COUNT ────────────────────
+   `IntersectionObserver` on the hero heading fires when the NAME ITSELF leaves
+   the viewport — i.e. exactly the moment the title is worth showing. A fixed
+   `scrollTop > 120` threshold cannot know how tall the hero is: it would fire
+   early on a member with a long bio and never at all on a short one. The
+   observer is state-driven instead of position-driven, so the transition lands
+   at the right moment for every profile.
+*/
+export function ProfileHeader({ name }: { name: string }) {
+  const [condensed, setCondensed] = useState(false);
+
+  useEffect(() => {
+    const hero = document.getElementById("profile-hero-name");
+    if (!hero) return;
+
+    // Resolve the scroll region the same way the observer's root does: if the
+    // hero is inside a `.page-lock__body`, observe against THAT element, so
+    // "left the viewport" means "left the scroll region" rather than the window.
+    const body = hero.closest(".page-lock__body");
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setCondensed(!entry.isIntersecting),
+      {
+        root: body,
+        // Fire only once the heading is genuinely gone, not as its last pixel
+        // clips the edge — otherwise the title flickers while the avatar is
+        // still on screen.
+        threshold: 0,
+        rootMargin: "0px 0px -24px 0px",
+      }
+    );
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
+
+  // The settings gear keeps the bar's right-hand slot. The back button is
+  // REMOVED, not hidden: `Profile` is a primary tab in the bottom nav, so a
+  // back arrow implied somewhere more important exists, and an invisible 44px
+  // target would eat the row's gutter and swallow taps with no affordance.
+  // Navigation is one tap away in the nav directly below.
+  // `relative` on the heading is REQUIRED: the two stacked spans below are
+  // `absolute`, so without a positioned ancestor they would resolve against the
+  // header and paint over the settings gear.
+  const title = (
+    <h1
+      className={[
+        "relative min-w-0 flex-1 truncate text-center font-semibold text-white transition-all duration-300 ease-out motion-reduce:transition-none",
+        condensed ? "text-base" : "text-lg",
+      ].join(" ")}
+    >
+      {/* The name CROSS-FADES in over "Profile" rather than replacing it in the
+          DOM, so the bar never changes width and the gear never shifts. Both
+          are always mounted and stacked; only opacity and vertical offset move,
+          which is what makes it read as a transition rather than a swap. */}
+      <span
+        className={[
+          "block transition-all duration-300 ease-out motion-reduce:transition-none",
+          condensed ? "translate-y-0 opacity-100" : "pointer-events-none absolute translate-y-2 opacity-0",
+        ].join(" ")}
       >
-        <ProfileIcon name="back" className="h-5 w-5" />
-      </Link>
-
-      <h1 className="min-w-0 flex-1 truncate text-center text-base font-semibold text-white">
+        {name}
+      </span>
+      <span
+        className={[
+          "block transition-all duration-300 ease-out motion-reduce:transition-none",
+          condensed ? "pointer-events-none absolute translate-y-2 opacity-0" : "translate-y-0 opacity-100",
+        ].join(" ")}
+        aria-hidden={condensed}
+      >
         Profile
-      </h1>
+      </span>
+    </h1>
+  );
+
+  return (
+    <header
+      className={[
+        "relative flex items-center justify-end gap-3 border-b bg-slate-950/80 px-4 py-3 backdrop-blur transition-colors duration-300 motion-reduce:transition-none",
+        condensed ? "border-white/10 bg-slate-950/95 shadow-lg shadow-black/30" : "border-white/5",
+      ].join(" ")}
+    >
+      {/* `aria-live="polite"` so the title change is announced once, not on every
+          scroll frame. `sr-only` text keeps a screen-reader user informed of which
+          member's profile they are on without relying on the visual cross-fade. */}
+      <p aria-live="polite" className="sr-only">
+        {condensed ? `${name} profile` : "Profile"}
+      </p>
+
+      {/* Left slot is an inert spacer so the title stays optically centred
+          against the single gear on the right. */}
+      <span aria-hidden className="h-11 w-11 shrink-0" />
+
+      {title}
 
       <Link
         href="/settings"
@@ -159,7 +245,13 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         </div>
 
         <div className="text-center">
-          <h2 className="text-xl font-bold text-white">
+          {/* `id` is the CONTRACT with `ProfileHeader`'s IntersectionObserver,
+              which watches this exact node to decide when the member's name has
+              scrolled out of view. Both halves must change together: renaming the
+              id here without updating the observer leaves the sticky title
+              permanently off, and it fails silently because the observer simply
+              never finds its target. */}
+          <h2 id="profile-hero-name" className="text-xl font-bold text-white">
             {name}
             {/* Comma-separated age, and only when known — omitting it beats
                 printing a dangling comma. */}
