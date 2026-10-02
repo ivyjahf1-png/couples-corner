@@ -1213,15 +1213,33 @@ export function MediaFeed({
               there is a real verification source to bind it to.
             • A distance ("2km away"). MomentView carries no coordinates, so any
               figure would be invented. The timestamp beside it is real. */}
+        {/* NUDGED DOWN. `mt-4` / `sm:mt-5`, was `mt-2.5` / `sm:mt-3`.
+
+             The card is pinned to the TOP of the card, directly beneath the search
+             row, so at `mt-2.5` it sat almost flush against the media with no
+             breathing room and read as part of the video rather than a panel on
+             top of it. One extra half-rem gives it a visible gap from the media
+             above, which is what makes the glass edge legible.
+
+             This is the TOP-anchored summary ("who posted this"), not the bottom
+             caption block — those are different elements with different anchors,
+             and only this one needed the extra clearance. */}
         {current ? (
-          <div className="pointer-events-auto mt-2.5 w-fit max-w-[min(20rem,72vw)] rounded-2xl border border-white/15 bg-slate-950/45 p-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:mt-3">
+          <div className="pointer-events-auto mt-4 w-fit max-w-[min(20rem,72vw)] rounded-2xl border border-white/15 bg-slate-950/45 p-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:mt-5">
           <div className="flex items-center gap-2.5">
             <Link
               href={current.isMine ? "/profile" : `/profile/${current.userId}`}
               aria-label={`Open ${current.authorName ?? "profile"}`}
               className="relative flex shrink-0 items-center"
             >
-              <span className="block h-9 w-9 overflow-hidden rounded-full ring-2 ring-white/25">
+              {/* ORANGE RING ON THE AVATAR, to match the name beside it and the amber
+                  gradient ring already used on the profile hero (see
+                  ProfileScreen). Previously `ring-white/25`, which read as a
+                  neutral grey disc and left the avatar as the only cool-toned
+                  element in an otherwise warm cluster. `ring-orange-400/60` is
+                  deliberately lighter than the avatar's own photo edge so the
+                  ring never overpowers a dark portrait. */}
+                <span className="block h-9 w-9 overflow-hidden rounded-full ring-2 ring-orange-400/60">
                 <Avatar
                   src={current.authorAvatarUrl}
                   name={current.authorName ?? "Member"}
@@ -1235,9 +1253,26 @@ export function MediaFeed({
               )}
             </Link>
             <div className="min-w-0 flex-1">
+              {/* ORANGE NAME, per the app's accent direction.
+
+                  The author's name was `text-white` on a `bg-slate-950/45`
+                  frosted panel, which made it indistinguishable from the
+                  timestamp directly beneath it — two lines of similar weight
+                  saying different things, with no visual hierarchy between
+                  "who" and "when".
+
+                  It now carries the same `orange-300` accent the Connect
+                  button and the active nav pill use, so the identity on the
+                  card is the warmest thing in the top-left cluster and the
+                  identity is the first thing the eye lands on. This is a
+                  lighter orange than the button's `orange-400` ring on
+                  purpose: the name sits on a dark glass panel at small size
+                  and needs the extra luminance to stay legible, while the
+                  button's ring needs saturation to read as a control. Same
+                  hue family, tuned per surface. */}
               <Link
                 href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-                className="block truncate text-sm font-semibold text-white"
+                className="block truncate text-sm font-semibold text-orange-300 transition hover:text-orange-200"
               >
                 {current.authorName ?? "Member"}
               </Link>
@@ -1253,12 +1288,23 @@ export function MediaFeed({
             </p>
             </div>
 
-            {/* Connect control. HOLLOW by default — a 1px ring and transparent
-                fill, not a solid white pill — so it floats on the glass rather
-                than punching a bright hole in it. It fills in only once the
-                connection actually exists, so the button's appearance reports
-                real state instead of advertising a relationship that isn't
-                there yet. */}
+            {/* Connect control. ORANGE WHEN UNFOLLOWED, and that is the state change
+                that matters most: this is the primary action on the card, and
+                it was a hollow WHITE ring on a glass panel floating over
+                arbitrary photography — it inherited whatever was behind it and
+                frequently vanished against a light frame.
+
+                It now wears the same dating-app orange as the upload FAB, the
+                reaction chips and the active nav pill, so "the thing that makes
+                this person a connection" is the warmest object on the screen.
+                The hollow treatment is KEPT — an orange RING on transparent, not
+                a solid orange fill — because a solid fill at this size would
+                out-shout the media itself, and the ring still reports state
+                through `aria-pressed`.
+
+                Once connected it reverts to muted white glass: the orange is
+                what says "you have not connected yet", so keeping it lit after
+                the fact would make the two states look identical. */}
             {current && !current.isMine ? (
               <button
                 type="button"
@@ -1274,7 +1320,7 @@ export function MediaFeed({
                   "shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 disabled:opacity-50",
                   amFollowingAuthor
                     ? "border border-white/25 bg-white/10 text-white/80"
-                    : "border border-white/70 bg-transparent text-white hover:bg-white/10",
+                    : "border-2 border-orange-400/80 bg-orange-500/15 text-orange-100 shadow-[0_0_14px_-4px_rgba(249,115,22,0.8)] hover:bg-orange-500/30 hover:text-white",
                 ].join(" ")}
               >
                 {amFollowingAuthor ? "Connected" : "Connect"}
@@ -1481,6 +1527,17 @@ export function MediaFeed({
               breathing room. The safe-area term is ADDED to the offset, matching
               every other control here, so the clearance survives a home indicator.
 
+              ── NOW 10.5rem, BECAUSE THE RAIL CAME DOWN ──────────────────────────
+              The interaction rail moved from 13rem to 11rem in the same pass, so
+              the caption's old 11.5rem offset would have sat ABOVE the rail's new
+              bottom edge (11rem) and the two would overlap. It is dropped to
+              10.5rem (168px) to preserve the original ordering and the same ~12px
+              clearance to the bar's 172px top edge.
+
+              These two numbers — the rail at 11rem and this caption at 10.5rem —
+              are a PAIR. Moving either without the other re-collides them, which
+              is why both changes belong to this same edit.
+
               No `sm:` variant on purpose: the bar is `md:hidden` with no wider
               breakpoint of its own, and the caption's height is capped at three
               lines, so it does not need a different offset at larger sizes. */}
@@ -1489,7 +1546,7 @@ export function MediaFeed({
               /* `z-30` for the same reason as the rail: the card's media stack is
                  `relative z-20`, and a tie resolved only by source order is not
                  a layering guarantee. */
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(10.5rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1559,9 +1616,18 @@ export function MediaFeed({
                  they are stacked, so moving one without the other would simply
                  have re-collided them.
 
-                 Offsets are 13rem / 14rem (was `bottom-44 sm:bottom-52`, i.e.
-                 11rem / 13rem). The rail keeps the same gap to the FAB it always
-                 had, so that spacing is unchanged. */
+                 ── DROPPED TO 11rem / 12rem (was 13rem / 14rem) ────────────────
+                 The rail's bottom edge now sits just above the bottom bar's TOP
+                 edge rather than floating 30-40px clear of it. The reaction row
+                 and the message input are the tallest thing on this screen, so a
+                 rail perched far above them read as a detached column with a band
+                 of dead video between it and the controls it belongs with.
+                 Seating it directly on top of that stack closes the gap.
+
+                 `11rem` (176px) is measured, not chosen: the bottom bar occupies
+                 80-172px (5rem nav offset + ~90px of reactions row, `mb-2` and
+                 input), so 176px is the first whole-rem value above that range.
+                 `sm:12rem` keeps the same 16px relationship on wider screens. */
               /* `z-30`, NOT `z-20`. The card's media stack is `relative z-20`, so a
                  `z-20` overlay tied with it and only won by virtue of being later
                  in source order — a tie that any refactor inserting markup between
@@ -1570,7 +1636,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(11rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(12rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1675,13 +1741,15 @@ export function MediaFeed({
           // is a different, redder orange, which made the FAB look like it
           // belonged to a different theme than the nav beneath it.
           //
-          // Lifted 80px with the reaction bar and the action rail above it. All
-          // three are stacked in this right-hand column, and the previous
-          // `bottom-24` sat this 56px button under the 5rem tab bar, so the
-          // primary "share something" control was partly covered on every phone.
-          // The `env()` term is ADDED to the nav height rather than swapped in, so
-          // the clearance holds on a device with a home indicator.
-          className="landscape-hide-chrome absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-[calc(8rem+env(safe-area-inset-bottom))] sm:right-4"
+          // `5.5rem` (was `7rem`), moved DOWN 24px to sit at the base of the
+          // right-hand column, directly beneath the interaction rail rather than
+          // hovering above it. The rail's bottom edge is now at `11rem`, and this
+          // 56px button tops out at 5.5rem + 56px = 144px, leaving a ~32px gap
+          // under the rail — the two read as one stack anchored on the input bar.
+          // The `sm:` variant is dropped for the same reason as everywhere else
+          // here: the nav is `md:hidden`, so a second offset is one more number
+          // to keep in step with nothing.
+          className="landscape-hide-chrome absolute bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1772,17 +1840,28 @@ export function MediaFeed({
 
           {/* Message trigger.
 
-              LIGHTER SURFACE: was `border-white/15 bg-slate-950/70` with
-              `backdrop-blur-md` — a near-opaque slab across the bottom of the
-              frame. It is now a translucent `bg-white/10` that lets the video
-              read through, matching the action rail so the two edges of the
-              screen speak the same visual language.
+              /* VIBRANT ORANGE ACCENT, DELIBERATELY LOUD.
 
-              The send button only appears once there is something to send.
-              A permanently orange button advertised an action that was almost
-              always disabled, pulling the eye to the brightest object on an
-              otherwise calm surface. */}
-          <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1.5 backdrop-blur-md transition focus-within:border-white/25 focus-within:bg-white/15">
+                 This was `border-white/10 bg-white/10` — the same muted glass as
+                 every other overlay on the screen. Over a bright photo that
+                 surface all but disappears, and the message input became the
+                 hardest control on the page to find, despite being the only
+                 way to start a conversation from here.
+
+                 It now carries a solid `border-orange-400/70`, a warm
+                 `bg-orange-500/10` tint and a `shadow-[0_0_20px]` orange glow, so
+                 it reads as the primary action on the screen at a glance. The
+                 glow is what makes it survive a bright frame: a border alone
+                 disappears against white, the halo does not.
+
+                 `focus-within` AMPLIFIES rather than replaces — the ring tightens
+                 and brightens to full orange when the member is actually typing,
+                 so the resting state is loud but the active state is unmistakable.
+
+                 The inner <input> stays `bg-transparent`: tinting the field
+                 itself as well would double up the colour and muddy it. The
+                 container is the surface; the input is just the caret and text. */}
+          <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border-2 border-orange-400/70 bg-orange-500/10 px-3 py-1.5 shadow-[0_0_20px_-4px_rgba(249,115,22,0.65)] backdrop-blur-md transition focus-within:border-orange-300 focus-within:bg-orange-500/20 focus-within:shadow-[0_0_28px_-2px_rgba(249,115,22,0.85)]">
             {viewerId ? (
               <>
                 <label htmlFor="moment-reply" className="sr-only">
