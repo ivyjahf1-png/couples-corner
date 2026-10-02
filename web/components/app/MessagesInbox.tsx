@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { displayNameFromEmail, isLikelyEmailAddress } from "@/lib/utils/display-name";
 import { PageLock } from "@/components/app/PageHeader";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { Icon } from "@/components/landing/Icon";
@@ -123,7 +124,12 @@ export function MessagesInbox({
 
   return (
     <PageLock
-      className="mx-auto w-full max-w-3xl bg-[#0F0A1C] text-white"
+      /* `bg-slate-950` replaces the old bespoke `#0F0A1C`. That colour was a
+         one-off midnight purple used on this screen alone; the rest of the app
+         canvas is slate, so the inbox read as a different product when you
+         navigated into it and back out. Matching the shell canvas also means the
+         safe-area and overscroll edges blend instead of showing a seam. */
+      className="mx-auto w-full max-w-3xl bg-slate-950 text-white"
       /* `pb-28` clears the fixed 5rem tab bar plus the compose FAB, which
          overlaps the list's last rows. `md:pb-8` drops it where that bar is
          `md:hidden` and the sidebar rail takes over. */
@@ -283,7 +289,30 @@ function InboxHeader({
   setMenuOpen: (v: boolean) => void;
 }) {
   return (
-    <header className="px-4 pt-1 sm:px-6">
+    /* `sticky top-0` + a backdrop + a bottom hairline.
+
+     THE HEADER IS DOCKED BY THE PAGE, AND `sticky` IS THE FALLBACK, NOT THE
+     MECHANISM. This component renders into `PageLock`'s `head` slot, which is
+     `flex: 0 0 auto` and sits OUTSIDE `.page-lock__body` — the route's single
+     `overflow-y-auto` region. So the header is already pinned by layout and
+     cannot scroll away; it is not inside the thing that scrolls.
+
+     `sticky top-0` is kept anyway for two reasons:
+
+       1. It is harmless where the flex layout already holds (a `sticky` element
+          with room to move simply never moves), and it makes the intent legible
+          to the next person who opens this file.
+
+       2. It is load-bearing if the header is ever moved back INTO the body. In
+          that case `sticky` is the difference between a docked title and a title
+          that scrolls off, and the `backdrop-blur` + `bg-slate-950/95` below is
+          what stops the conversation list showing through it as it docks.
+
+     The opaque background is what makes this read as "docked" rather than
+     "floating": at `bg-slate-950/80` the rows scrolling underneath stay faintly
+     visible through the blur, which looks like a rendering fault rather than a
+     deliberate surface. */
+    <header className="sticky top-0 z-30 border-b border-white/5 bg-slate-950/95 px-4 pt-1 backdrop-blur-md sm:px-6">
       {/* Title row. `min-w-0` + `truncate` so the title ellipsizes rather than
           pushing the two icon buttons off the right edge. */}
       <div className="flex items-center gap-2">
@@ -356,7 +385,7 @@ function InboxHeader({
           the title; it is one quiet line now, and the pinned safety warning
           below does the real work. */}
       <p className="mt-0.5 text-sm text-ink-300">
-        Stay connected with your matches. Your chats are private.
+        Connect with your verified connections.
       </p>
 
       {/* Filter pills. A full-width segmented track is NOT used here — the brief
@@ -649,7 +678,25 @@ function PinnedNotice({
 }
 
 function ChatRow({ chat }: { chat: InboxChat }) {
-  const name = chat.name?.trim() || "Chat";
+  /* NAMES ARE SANITIZED BEFORE THEY REACH THE VIEW.
+
+     `display_name` is seeded from the email address on signup
+     (`email.split("@")[0]` in `lib/server/users.ts`), so a member who never
+     chose a name carries a machine string — and on some rows that string is the
+     FULL ADDRESS, not just the local part. The inbox is the one screen where
+     that matters most: it is a list of PEOPLE, and printing
+     "ivyjahf1@gmail.com" as the label for a person is both ugly and a small
+     privacy leak (it broadcasts the address to anyone looking at the screen,
+     including over someone's shoulder).
+
+     `displayNameFromEmail` turns an address into a handle ("Ivy J.") and
+     passes an already-human name through untouched, so this is a no-op for the
+     members who did choose a name. The `isLikelyEmailAddress` guard handles the
+     case where the column holds a real name that merely CONTAINS an "@" — it
+     only rewrites things that actually look like an address, so a deliberate
+     handle is never mangled. */
+  const rawName = chat.name?.trim() || "";
+  const name = rawName && isLikelyEmailAddress(rawName) ? displayNameFromEmail(rawName) || "Chat" : rawName || "Chat";
   const unread = Math.max(chat.unread ?? 0, 0);
   const at = chat.lastMessageAt ? formatChatTime(chat.lastMessageAt) : null;
 

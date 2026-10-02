@@ -56,3 +56,39 @@ export function displayNameFromEmail(email: string | null | undefined): string {
     .join(" ");
   return `${cap(first)} ${initials}`.trim();
 }
+
+/**
+ * Does this string look like an email address rather than a chosen name?
+ *
+ * WHY A SEPARATE PREDICATE, AND WHY NOT JUST CALL `displayNameFromEmail`
+ * UNCONDITIONALLY. That helper is a no-op for anything without an "@", so on its
+ * own it is safe — but it would still rewrite a name that legitimately contains
+ * an "@" ("Hey@Home", a deliberate handle), turning it into "Hey". Signup seeds
+ * `display_name` from the address, so untrusted address-shaped strings DO reach
+ * this column; they must be caught. A real name that happens to contain "@" must
+ * NOT be. The caller therefore asks this question first and only rewrites on a
+ * `true`.
+ *
+ * Deliberately strict. It requires, in order:
+ *   - exactly one "@"
+ *   - a non-empty local part with no whitespace
+ *   - a domain with at least one dot and a 2+ character TLD
+ *
+ * A bare "greg@" or "a@b" does not match and is left alone, because mangling a
+ * name is worse than showing an unusual one. Pure and dependency-free.
+ */
+export function isLikelyEmailAddress(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const raw = String(value).trim();
+  if (!raw || /\s/.test(raw)) return false;
+
+  const parts = raw.split("@");
+  if (parts.length !== 2) return false;
+
+  const [local, domain] = parts;
+  if (!local || !domain) return false;
+
+  const dot = domain.lastIndexOf(".");
+  if (dot <= 0) return false;
+  return domain.length - dot - 1 >= 2;
+}
