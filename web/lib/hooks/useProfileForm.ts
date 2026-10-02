@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import type { FormEvent } from "react";
 import type { UserProfile, User } from "@/lib/models";
 import { computeProfileCompletion } from "@/lib/utils/profile-completion";
+import { parseHeightToCm, formatHeight } from "@/lib/utils/height";
 import type { ProfileCompletion } from "@/lib/utils/profile-completion";
 import { updateOwnProfileAction, createProfileAction } from "@/lib/actions/profile";
 
@@ -20,6 +21,10 @@ export interface ProfileUpdateInput {
   relationshipStatus?: string | null;
   occupation?: string | null;
   genotype?: string | null;
+  /** Height in CENTIMETRES, or null when unset. See ProfileUpdateInput. */
+  heightCm?: number | null;
+  education?: string | null;
+  lifestyle?: string[];
   profileType?: "single" | "coupled" | "open" | null;
   lookingFor?: string | null;
   visibility?: "public" | "connections" | "private";
@@ -38,6 +43,17 @@ export interface ProfileFormState {
   relationshipStatus: string;
   occupation: string;
   genotype: string;
+  /**
+   * Height as raw feet/inches TEXT, not centimetres.
+   *
+   * The member types "5'11\"" or "179cm"; converting to centimetres happens once,
+   * at submit. Holding a pre-formatted string in state means the input can contain
+   * a half-typed value ("5'") without the field thrashing or losing focus, which is
+   * what storing a number and re-formatting on every keystroke would cause.
+   */
+  height: string;
+  education: string;
+  lifestyle: string[];
   profileType: "single" | "coupled" | "open";
   lookingFor: string;
   visibility: "public" | "connections" | "private";
@@ -56,6 +72,9 @@ const initialFormState: ProfileFormState = {
   relationshipStatus: "",
   occupation: "",
   genotype: "",
+  height: "",
+  education: "",
+  lifestyle: [],
   lookingFor: "",
   profileType: "single",
   visibility: "public",
@@ -97,6 +116,12 @@ export function useProfileForm(
       base.relationshipStatus = initialProfile.relationshipStatus || "";
       base.occupation = initialProfile.occupation || "";
       base.genotype = initialProfile.genotype || "";
+      /* Migration 051 fields. `height` holds DISPLAY text, so it is rendered from
+         the stored centimetres through the shared formatter rather than echoed
+         raw — the stored value has always been a number. */
+      base.height = formatHeight(initialProfile.heightCm) ?? "";
+      base.education = initialProfile.education || "";
+      base.lifestyle = initialProfile.lifestyle || [];
       base.lookingFor = initialProfile.lookingFor || "";
       base.profileType = initialProfile.profileType || "single";
       base.visibility = initialProfile.visibility || "public";
@@ -153,6 +178,16 @@ export function useProfileForm(
     if (formData.interests.length > 20) {
       newErrors.interests = "You can add up to 20 interests.";
     }
+    if (formData.education.length > 120) {
+      newErrors.education = "Education must be 120 characters or fewer.";
+    }
+    /* Height is validated by PARSING it, not by range-checking a number: the state
+       holds free text, so the only way to know it is acceptable is to attempt the
+       same conversion the submit path will do. An empty field is "not set", which
+       is valid — it is not an error. */
+    if (formData.height.trim() && parseHeightToCm(formData.height) === null) {
+      newErrors.height = "Enter a height like 5'11\", 5ft 11in, or 179cm.";
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -182,6 +217,12 @@ export function useProfileForm(
           relationshipStatus: formData.relationshipStatus || null,
           occupation: formData.occupation || null,
           genotype: formData.genotype || null,
+          /* Parsed here rather than in the field, so the exact value the member
+             sees validated is the exact value that is written. An empty field
+             becomes null ("not set"), which is different from 0. */
+          heightCm: parseHeightToCm(formData.height),
+          education: formData.education || null,
+          lifestyle: formData.lifestyle,
           profileType: formData.profileType as ProfileFormState["profileType"] | null,
           lookingFor: formData.lookingFor || null,
           visibility: formData.visibility,

@@ -51,6 +51,12 @@ export interface UserProfile {
   gender: string | null;
   orientation: string | null;
   occupation: string | null;
+  /** Height in centimetres. Null when the member has not set it. */
+  heightCm?: number | null;
+  /** Free-text education, e.g. "BSc Computer Science". */
+  education?: string | null;
+  /** Lifestyle tags, e.g. ["pet-owner", "fitness"]. Free-form, member-editable. */
+  lifestyle?: string[];
   genotype: string | null;
   country: string | null;
   photos: ProfilePhoto[];

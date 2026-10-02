@@ -1,9 +1,31 @@
 "use client";
 
 import {
+  ArrowLeft,
+  Award,
+  BookOpen,
+  Briefcase,
+  ChevronDown,
   Crown,
+  Dumbbell,
   Gift,
+  GraduationCap,
+  Heart,
+  Home,
+  Moon,
+  Music,
+  PawPrint,
+  Pencil,
+  Ruler,
   ShoppingBag,
+  Sparkles,
+  Sun,
+  Sunrise,
+  Plane,
+  Settings,
+  BookOpen as Reader,
+  Coffee,
+  Camera,
   TrendingUp,
   Wallet,
   type LucideIcon,
@@ -28,7 +50,36 @@ import {
  * Add a new icon by extending the map — the union type below makes a typo or a
  * missing entry a compile error rather than a blank space at runtime.
  */
-export type ProfileIconName = "crown" | "gift" | "shopping-bag" | "trending-up" | "wallet";
+export type ProfileIconName =
+  | "crown"
+  | "gift"
+  | "shopping-bag"
+  | "trending-up"
+  | "wallet"
+  /* Profile-screen redesign. Every name below is referenced BY NAME from the
+     Server Component page, so the union is the compile-time guarantee that a
+     typo becomes a build error rather than a blank square at runtime. */
+  | "back"
+  | "settings"
+  | "edit"
+  | "expand"
+  | "camera"
+  | "verified"
+  | "height"
+  | "profession"
+  | "education"
+  | "pet-owner"
+  | "fitness"
+  | "travel"
+  | "foodie"
+  | "music"
+  | "reader"
+  | "night-owl"
+  | "early-bird"
+  | "homebody"
+  | "outdoors"
+  | "creative"
+  | "etelts";
 
 const ICONS: Record<ProfileIconName, LucideIcon> = {
   crown: Crown,
@@ -36,6 +87,27 @@ const ICONS: Record<ProfileIconName, LucideIcon> = {
   "shopping-bag": ShoppingBag,
   "trending-up": TrendingUp,
   wallet: Wallet,
+  back: ArrowLeft,
+  settings: Settings,
+  edit: Pencil,
+  expand: ChevronDown,
+  camera: Camera,
+  verified: Award,
+  height: Ruler,
+  profession: Briefcase,
+  education: GraduationCap,
+  "pet-owner": PawPrint,
+  fitness: Dumbbell,
+  travel: Plane,
+  foodie: Coffee,
+  music: Music,
+  reader: Reader,
+  "night-owl": Moon,
+  "early-bird": Sunrise,
+  homebody: Home,
+  outdoors: Sparkles,
+  creative: Heart,
+  etelts: BookOpen,
 };
 
 /**

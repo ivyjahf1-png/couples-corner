@@ -9,6 +9,7 @@ import { useProfileForm } from "@/lib/hooks/useProfileForm";
 import type { UserProfile, User } from "@/lib/models";
 import { BasicInfoFields } from "./BasicInfoFields";
 import { BackgroundFields } from "./BackgroundFields";
+import { AboutFields } from "./AboutFields";
 import { InterestFields } from "./InterestFields";
 import { IdentityFields } from "./IdentityFields";
 import { PrivacyFields } from "./PrivacyFields";
@@ -108,6 +109,8 @@ export function ProfileForm({ uid, mode, initialData }: ProfileFormProps) {
           <div className="flex flex-col gap-6">
             <BasicInfoFields formData={formData} updateField={updateField} errors={errors} />
             <BackgroundFields formData={formData} updateField={updateField} errors={errors} />
+            {/* Height / Education / Lifestyle — see components/profile/AboutFields.tsx. */}
+            <AboutFields formData={formData} updateField={updateField} errors={errors} />
             <InterestFields formData={formData} updateField={updateField} errors={errors} />
             <IdentityFields formData={formData} updateField={updateField} />
             <PrivacyFields formData={formData} updateField={updateField} />

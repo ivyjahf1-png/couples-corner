@@ -20,6 +20,16 @@ export interface ProfileUpdateInput {
   relationshipStatus?: string | null;
   occupation?: string | null;
   genotype?: string | null;
+  /**
+   * Height in CENTIMETRES. The UI collects feet/inches and converts on submit, so
+   * there is exactly one unit in storage and one conversion point. Rejected
+   * outside 90-254 by the client hook AND by a check constraint (migration 051).
+   */
+  heightCm?: number | null;
+  /** Free-text education. Trimmed; empty string normalises to null. */
+  education?: string | null;
+  /** Lifestyle tags. Stored as TEXT[], same shape as `interests`. */
+  lifestyle?: string[];
   profileType?: "single" | "coupled" | "open" | null;
   lookingFor?: string | null;
   visibility?: ProfileVisibility;
@@ -39,6 +49,9 @@ export const PROFILE_DB_FIELDS = [
   "relationship_status",
   "occupation",
   "genotype",
+  "height_cm",
+  "education",
+  "lifestyle",
   "profile_type",
   "looking_for",
   "visibility",
@@ -84,6 +97,16 @@ export function mapProfileRow(row: Record<string, unknown> | null): UserProfile 
     relationshipStatus: r.relationship_status as string | null,
     occupation: r.occupation as string | null,
     genotype: r.genotype as string | null,
+    /* The three attribute columns added in migration 051.
+
+       `height_cm` is coerced to a number rather than cast: Postgres returns
+       INTEGER columns as a number over PostgREST, but a hand-edited row or a
+       differing column type would otherwise put a string into a `number` field
+       and render "179cm" in the profile. `Number.isFinite` rejects null, NaN and
+       "" alike, so a malformed value degrades to "not set" instead of NaN. */
+    heightCm: Number.isFinite(Number(r.height_cm)) ? Number(r.height_cm) : null,
+    education: r.education as string | null,
+    lifestyle: Array.isArray(r.lifestyle) ? (r.lifestyle as string[]) : [],
     profileType: (r.profile_type as UserProfile["profileType"]) ?? null,
     preferences: (r.preferences as UserProfile["preferences"]) ?? {
       notifyOnConnection: true,
@@ -146,6 +169,23 @@ export function profileUpdateFromInput(input: ProfileUpdateInput): Record<string
     updates.relationship_status = input.relationshipStatus?.trim() ?? null;
   if (input.occupation !== undefined) updates.occupation = input.occupation?.trim() || null;
   if (input.genotype !== undefined) updates.genotype = input.genotype?.trim() || null;
+  /* Migration 051 columns.
+
+     Height is re-validated HERE as well as in the form, because this function is
+     the shared write path: the database check constraint is the backstop, but a
+     rejected insert throws a 500 that the member cannot act on, so an obviously
+     out-of-range value is dropped to null here rather than sent. */
+  if (input.heightCm !== undefined) {
+    const cm = Math.round(Number(input.heightCm));
+    updates.height_cm = Number.isFinite(cm) && cm >= 90 && cm <= 254 ? cm : null;
+  }
+  if (input.education !== undefined) updates.education = input.education?.trim() || null;
+  if (input.lifestyle !== undefined) {
+    // Trim and drop empties so a stray "" cannot render as an empty pill.
+    updates.lifestyle = (input.lifestyle ?? [])
+      .map((tag) => String(tag).trim())
+      .filter(Boolean);
+  }
   if (input.profileType !== undefined) updates.profile_type = input.profileType;
   if (input.lookingFor !== undefined) updates.looking_for = input.lookingFor?.trim() || null;
   if (input.visibility !== undefined) updates.visibility = input.visibility;

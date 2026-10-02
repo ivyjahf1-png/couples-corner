@@ -1,101 +1,83 @@
-import { UserMediaGallery } from "@/components/app/UserMediaGallery";
-import { ProfileTabs, type ProfileTabId } from "@/components/app/ProfileTabs";
+import { PageLock } from "@/components/app/PageHeader";
+import { ProfileScreen } from "@/components/profile/ProfileScreen";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
 import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
-import { computeProfileCompletion } from "@/lib/utils/profile-completion";
-import { Avatar } from "@/components/app/Avatar";
-import { PageLock } from "@/components/app/PageHeader";
-import { PersistentIdBadge } from "@/components/profile/InviteLinkButton";
-import { PersistentUserId } from "@/components/profile/InviteLinkButton";
-import Link from "next/link";
-import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
-import type { ReactNode } from "react";
 
 /**
- * Quick actions on the "More" panel.
+ * Age in whole years from an ISO date of birth.
  *
- * Declared at module scope rather than inline in JSX: it is static navigation
- * config, not per-request data, and hoisting it keeps the render body about
- * layout. `primary` marks the one action that earns the orange accent, so the
- * strip has a single clear focal point instead of three equally-weighted tiles.
+ * SERVER-SIDE ONLY, and deliberately local to this page rather than promoted to
+ * `lib/utils/`: `lib/server/discovery.ts` has a private copy for member cards,
+ * and a shared version would have to reconcile two slightly different
+ * birthday-boundary implementations. This one adjusts for the birthday NOT having
+ * passed yet this year, which is the off-by-one that makes a profile show 28 on
+ * the member's 29th.
  *
- * `icon` is an ICON NAME, not a component. This file is a Server Component and
- * cannot pass a component function across the client boundary — see
- * ProfileIcon for the detail.
+ * Returns null for a missing or unparseable date so the caller omits the age
+ * entirely rather than printing "NaN" or a bare comma.
  */
-const QUICK_ACTIONS: {
-  label: string;
-  href: string;
-  icon: ProfileIconName;
-  primary?: boolean;
-}[] = [
-  { label: "Rewards", href: "/task", icon: "gift", primary: true },
-  { label: "Store", href: "/store", icon: "shopping-bag" },
-  { label: "Aristocracy", href: "/aristocracy", icon: "crown" },
-];
+function ageFromDob(dob?: string | null): number | null {
+  if (!dob) return null;
+  const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
+  // A negative age means a birth date in the future — bad data, not a person.
+  return age >= 0 && age < 130 ? age : null;
+}
 
 /**
- * The unified financial hub — three categories, one screen.
+ * Resolved URL for the member's primary profile photo.
  *
- * WHY THIS EXISTS. The token economy used to be scattered across three
- * differently-named doors: a "Wallet & Earnings" tab, a "Store" quick action,
- * and an "Income" quick action that pointed at /subscription — a page about
- * PAYING for a membership, which is the exact opposite of what someone tapping
- * "Income" is looking for. Members had to guess which tile moved money in and
- * which moved money out.
- *
- * The panel is now one surface with three explicitly-named sections, each
- * answering a different question, and in the order a member actually asks them:
- *
- *   1. WALLET & TOKENS   — "what do I have?"      → balance + VIP standing
- *   2. REWARDS & PERKS   — "how do I get more?"    → daily check-ins, tasks
- *   3. DIGITAL STORE    — "what can I spend on?"  → frames, gifts, cosmetics
- *
- * Earn routes come before the store on purpose: a member with a low balance
- * clicking into the Store first is a member about to be disappointed. Spend
- * links are kept labelled as spending, and the paid tier is labelled as an
- * upgrade, so none of the three is mistakable for another.
+ * Prefers the pre-signed `publicUrl` Supabase already returns, and falls back to
+ * the app's own `/api/photos/...` route. Returning null (rather than a broken
+ * path) is what lets `ProfileScreen` fall back to initials — a photo that 404s
+ * would otherwise render the browser's broken-image glyph inside the gradient
+ * ring.
  */
-const EARN_LINKS: {
-  label: string;
-  hint: string;
-  href: string;
-  icon: ProfileIconName;
-}[] = [
-  { label: "Daily check-in", hint: "Claim your daily token drop", href: "/task", icon: "gift" },
-  { label: "Tasks & achievements", hint: "Complete actions for bonus tokens", href: "/task", icon: "trending-up" },
-  { label: "Upgrade membership", hint: "Unlock the Aristocracy rank progression", href: "/aristocracy", icon: "crown" },
-];
-
-/** The boutique catalogue — cosmetics and gifts, explicitly the SPEND side. */
-const SPEND_LINKS: {
-  label: string;
-  hint: string;
-  href: string;
-  icon: ProfileIconName;
-}[] = [
-  { label: "Profile frames", hint: "Signature borders and animated avatars", href: "/store", icon: "shopping-bag" },
-  { label: "Gifts & effects", hint: "Send tokens on a moment or a person", href: "/store", icon: "gift" },
-];
+function primaryPhotoUrl(
+  uid: string,
+  profile: Awaited<ReturnType<typeof getOwnProfile>>["profile"]
+): string | null {
+  const photo = profile?.photos?.find((p) => p.isPrimary) ?? profile?.photos?.[0];
+  if (!photo) return null;
+  if (photo.publicUrl) return photo.publicUrl;
+  const fileName = photo.storagePath?.split("/").pop();
+  return fileName ? `/api/photos/${uid}/${fileName}` : null;
+}
 
 /**
- * "Me" - the signed-in member's own profile.
+ * "Me" — the signed-in member's own profile.
  *
- * Visual contract: a glamorous, luxury dark-canvas interface. An aurora canvas
- * (`.glam-shell`) drifts warm orange, rose, indigo and aqua light behind a
- * metallic conic hairline frame (`.glam-frame`); stats, balances, quick actions
- * and menu rows sit on frosted glass tiles (`.glam-tile`) so every number stays
- * crisp and readable. All motion is decorative (see `prefers-reduced-motion`
- * in app/globals.css).
+ * REPLACED. This file previously held a 700-line tabbed page (Profile / Wallet &
+ * Tokens / More) built from four glass tiles, a social-games row, seven menu rows
+ * and an invite-link card. It is replaced by `ProfileScreen`, the standard
+ * dating-app layout: header bar, hero (avatar, name + age, bio, four stats), a
+ * collapsible media grid, then About Me / My Interests / Lifestyle.
  *
- * PRESERVATION CONSTRAINT: the data contract is untouched - session lookup,
- * `getOwnProfile`, `getProfileStats`, `getGameWallet` and
- * `computeProfileCompletion` are the same calls in the same order, and every
- * href below is the exact route this page already linked to. Only layout,
- * tokens and ornament changed.
+ * WHAT SURVIVED THE REPLACEMENT, AND WHY IT WAS NOT SIMPLY DROPPED:
+ *
+ *   • The four server calls are UNCHANGED and still run in the same order:
+ *     `getOwnProfile`, `getProfileStats`, `getGameWallet`, plus the session.
+ *     The redesign is presentation, not a data-contract change.
+ *
+ *   • `getGameWallet` is retained specifically because this page was the ONLY
+ *     reader of it in the whole app. Dropping the call would have made a member's
+ *     token balance invisible on every surface, so the balance is passed into
+ *     `ProfileScreen` and rendered as one compact row. The old FOUR-TILE financial
+ *     hub is gone — that was the redesign — but the number is still on screen,
+ *     and /subscription, /task and /store all remain reachable from the nav.
+ *
+ *   • `getProfileStats` still backs the four stats, unchanged.
+ *
+ * The invite-link card (`PersistentUserId`) and the VIP/level badges were removed
+ * with the rest of the old chrome. Nothing is deleted from the database, and the
+ * permanent user code remains available in Settings.
  */
 export default async function ProfilePage() {
   const session = await getSessionUser();
@@ -106,552 +88,45 @@ export default async function ProfilePage() {
     getProfileStats(session.uid),
     getGameWallet(session.uid),
   ]);
-  const completion = computeProfileCompletion(profile);
 
   const name = profile?.displayName || user?.displayName || "Your name";
-  const photo = profile?.photos?.[0];
-  const shortId = profile?.userCode ?? "—";
-  const level = Math.max(1, Math.floor((completion?.percentage ?? 0) / 10));
 
+  /* Visitors is the one stat with somewhere to go, so it is the one link in the
+     row; Following points at discovery. Friends and Followers have no dedicated
+     list screen, and inventing an href for them would produce a dead link. */
   const statCells = [
     { label: "Friends", value: stats.friends, href: null },
     { label: "Following", value: stats.following, href: "/discover" },
     { label: "Followers", value: stats.followers, href: null },
-    // Visitors is the one stat with somewhere to go, so it is the one link in
-    // the row. It used to ALSO render as a separate 48px tile on the right of
-    // the identity row, which meant the same number appeared twice on screen.
     { label: "Visitors", value: stats.visitors, href: "/likes" },
   ];
 
-/**
- * The social / icebreaker games surfaced on the profile's Play Hub.
- *
- * STANDALONES ARE GONE FROM THE PROFILE. This used to be four casino-style
- * tiles (Fortune Gems, WealthyTiger…) in a 4-up gradient grid sitting directly
- * under the identity card, each a saturated square with its own colourway. On a
- * dating profile that block dominated the fold and read as a casino lobby
- * rather than a social product — it was the loudest thing on a screen whose
- * entire job is to introduce a person.
- *
- * The profile now shows ONE quiet row of SOCIAL games only (the two-player,
- * talk-while-you-play titles), each linked straight to its game. The full
- * catalogue lives at /games, rebranded the "Play Hub".
- *
- * Deliberately excluded: the Slots and Action categories, which are the
- * casino-style titles. They remain playable from the Play Hub's own browser,
- * but a dating profile no longer advertises them.
- */
-const recommendedGames = [
-  { id: "couples-ludo-advance", title: "Ludo", emoji: "🎲" },
-  { id: "connect-four-fireside", title: "Connect 4", emoji: "🔥" },
-  { id: "trivia-couple-cup", title: "Trivia", emoji: "💡" },
-  { id: "memory-match-hearts", title: "Match", emoji: "💞" },
-];
-
-  const menuItems: { label: string; emoji: string; href: string; trailing?: ReactNode }[] = [
-    { label: "Bag", emoji: "🛍️", href: "/moments" },
-    { label: "Level", emoji: "⭐", href: "/subscription" },
-    { label: "Badge", emoji: "🏅", href: "/subscription" },
-    {
-      label: "Certification",
-      emoji: "🛡️",
-      href: "/profile/edit",
-      trailing: <span className="text-xs font-semibold text-danger-400">Uncertified</span>,
-    },
-    { label: "Customer service", emoji: "🎧", href: "/settings" },
-    { label: "User Feedback", emoji: "💬", href: "/feedback" },
-    { label: "Settings", emoji: "⚙️", href: "/settings" },
-  ];
-
   return (
-    <PageLock
-      className="mx-auto w-full max-w-xl"
-      bodyClassName="flex flex-col gap-4 pb-10"
-      head={
-        // The identity card stays pinned; the tabs, stats and gallery below it
-        // are the only things that scroll.
-        //
-        // LAYOUT (compact horizontal): avatar hard left at 56px, everything
-        // else — name, VIP, level, public ID, completion — stacked in one
-        // column beside it. Nothing wraps onto a third line, and the card's own
-        // padding is `px-4 py-3.5` rather than the old `p-5 sm:p-6`, because on
-        // a phone this block is competing with the media gallery for vertical
-        // space and every row spent here is a row of photos not seen.
-        <section aria-label="Profile header" className="glam-shell px-4 py-3.5 sm:px-5 sm:py-4">
-        <div className="relative flex items-center gap-3">
-          <span className="shrink-0 rounded-full bg-gradient-to-br from-amber-300 via-rose-400 to-indigo-400 p-[2px] shadow-lg shadow-rose-500/20">
-            <span className="block rounded-full bg-[#0B1120] p-[2px]">
-              {photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`/api/photos/${session.uid}/${photo?.storagePath?.split("/")?.pop() ?? ""}`}
-                  alt={name}
-                  // h-16 exactly, matching `Avatar size="lg"`. The photo and the
-                  // initials fallback must be the same size or the card visibly
-                  // jumps between members; Avatar's sizes are fixed classes, so
-                  // a responsive 56px photo could not be matched responsively.
-                  className="h-16 w-16 rounded-full object-cover"
-                />
-              ) : (
-                <Avatar name={name} size="lg" />
-              )}
-            </span>
-          </span>
+    /* PageLock is kept, not replaced. It is the app's single-scroll-region
+       wrapper: `body` is the ONLY `overflow-y-auto` region and both slots carry
+       `min-h-0`. Handing this screen a plain <div> would make the page itself the
+       scroller, reintroducing the page-level scrolling the shell's fixed bottom
+       nav cannot cope with.
 
-          <div className="min-w-0 flex-1">
-            {/* Name + VIP + level on ONE line. They used to be a wrapped block
-                that could break onto two rows on a narrow phone, which is the
-                main reason the old card felt tall. */}
-            <div className="flex items-center gap-1.5">
-              <h1 className="glam-text truncate text-lg font-extrabold tracking-display sm:text-xl">
-                {name}
-              </h1>
-              <span className="glam-chip shrink-0 px-1.5 py-0.5 text-[10px] font-extrabold">
-                VIP
-              </span>
-              <span className="glass-badge shrink-0 px-1.5 py-0.5 text-[10px] font-bold text-sky-200">
-                Lv.{level}
-              </span>
-            </div>
-
-            {/* Public ID + completion on a single, tighter second line. */}
-            <div className="mt-1.5 flex items-center gap-2">
-              <PersistentIdBadge userId={session.uid} initialCode={profile?.userCode} />
-              <span className="truncate text-[11px] font-medium text-ink-300">
-                {completion.percentage}% complete
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Completion meter. Thinned to h-1 — it reads as a hairline accent at
-            this density rather than a chart, which is all it is. */}
-        <div
-          role="progressbar"
-          aria-label="Profile completion"
-          aria-valuenow={completion.percentage}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          className="mt-2.5 h-1 overflow-hidden rounded-full bg-white/10"
-        >
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-amber-300 via-rose-400 to-indigo-400"
-            style={{ width: `${Math.max(4, Math.min(100, completion.percentage))}%` }}
-          />
-        </div>
-
-        {/* Statistics: ONE inline row instead of four boxed tiles.
-            Each cell is number-over-label with a hairline divider between, so
-            the bar is ~30px tall rather than ~60px plus gaps. The tiles also
-            gave every stat equal visual weight, which made a 0 and a 2,400 look
-            equally important.
-
-            MARKUP NOTES:
-            • Each cell is a <div> grouping one <dt>/<dd> pair, which is what the
-              HTML spec allows inside a <dl>. The link lives INSIDE the <dd>
-              rather than wrapping the cell, because an <a> as a direct child of
-              <dl> is invalid.
-            • `dt` comes before `dd` in the DOM and the cell is
-              `flex-col-reverse`, so a screen reader announces the category
-              before the number while the number still renders on top. */}
-        <dl className="relative mt-2.5 flex items-stretch divide-x divide-white/10">
-          {statCells.map((cell) => (
-            <div
-              key={cell.label}
-              className="flex flex-1 flex-col-reverse items-center py-1"
-            >
-              <dt className="mt-1 text-center text-[10px] font-medium uppercase tracking-wide text-ink-400">
-                {cell.label}
-              </dt>
-              <dd className="flex items-center gap-1 text-sm font-extrabold leading-none tabular-nums text-white">
-                {cell.href ? (
-                  <Link
-                    href={cell.href}
-                    aria-label={`${cell.value} ${cell.label.toLowerCase()} — view ${cell.label.toLowerCase()}`}
-                    className="flex items-center gap-1 rounded px-1 transition hover:bg-white/10"
-                  >
-                    {cell.value}
-                    {cell.label === "Visitors" && cell.value > 0 ? (
-                      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-danger-500" />
-                    ) : null}
-                  </Link>
-                ) : (
-                  cell.value
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-      }
-    >
-
-      {/* ------------------------------------------------------------------
-          TABBED BODY. One category is mounted at a time (see ProfileTabs), so
-          the first screen is never the full clutter stack. The identity card
-          above stays pinned in PageLock's head slot; only the active panel
-          scrolls, inside PageLock's single overflow-y-auto body.
-          ------------------------------------------------------------------ */}
-      <ProfileTabs
-        panels={
-          {
-            /* ---------------- Profile: media, bio, edit ---------------- */
-            profile: (
-              <div className="flex flex-col gap-5 pb-10">
-                <div id="media" className="glam-tile rounded-2xl p-3">
-                  <UserMediaGallery uid={session.uid} />
-                </div>
-
-                {profile?.bio?.trim() ? (
-                  <section aria-label="About" className="glam-tile rounded-2xl p-4">
-                    <h2 className="glam-text mb-1 text-sm font-bold uppercase tracking-wide">
-                      About me
-                    </h2>
-                    <p className="text-sm leading-6 text-ink-200">{profile.bio}</p>
-                  </section>
-                ) : null}
-
-                <Link
-                  href="/profile/edit"
-                  className="mx-auto inline-flex items-center gap-2 rounded-full border border-white/15 bg-gradient-to-r from-amber-400/20 via-rose-400/20 to-indigo-400/20 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-black/30 backdrop-blur-md transition hover:from-amber-400/30 hover:via-rose-400/30 hover:to-indigo-400/30"
-                >
-                  ✏️ Edit personal information
-                </Link>
-              </div>
-            ),
-            /* ---------------- Financial hub (wallet) -----------------------
-                THE THREE-CATEGORY STRUCTURE. The token economy was previously
-                spread across three differently-named doors — a "Wallet &
-                Earnings" tab, a "Store" quick action, and an "Income" quick
-                action pointing at a page about PAYING for a membership. Members
-                had to guess which tile moved tokens in and which moved them out.
-
-                This panel is now one surface with three headed sections, ordered
-                by the questions a member asks in sequence:
-                  1. Wallet & Tokens  → "what do I have?"
-                  2. Rewards & Perks  → "how do I get more?"
-                  3. Digital Store   → "what can I spend them on?"
-                Earn routes deliberately precede the store: a member with a low
-                balance who taps "Store" first is a member about to be
-                disappointed.
-
-                TILE LABELS: the balance sub-label was "Coins / Balance", which
-                names the same quantity twice — now just "Token balance". A bare
-                "SVIP" code is paired with "VIP status", so a member who is not
-                yet a member sees what they are working toward rather than an
-                unexplained string. The membership tile points at /aristocracy,
-                which is where membership actually lives.
-
-                The two tiles drop their multi-colour gradient emoji chips for a
-                single tinted Lucide icon each, so the pair reads as one system
-                instead of two unrelated decorations. */
-            wallet: (
-              <div className="flex flex-col gap-6 pb-10">
-                {/* ============ 1. WALLET & TOKENS — "what do I have?" ======== */}
-                <section aria-labelledby="wallet-heading" className="flex flex-col gap-2.5">
-                  <h2
-                    id="wallet-heading"
-                    className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400"
-                  >
-                    Wallet &amp; Tokens
-                  </h2>
-                  <div className="grid grid-cols-2 gap-3">
-        <Link
-          href="/subscription"
-          className="glam-tile glam-tile--warm flex items-center gap-3 rounded-2xl p-4"
-        >
-          <span
-            aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-orange-500/20 text-orange-200"
-          >
-            <ProfileIcon name="wallet" className="h-5 w-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-lg font-extrabold leading-tight tabular-nums text-orange-100">
-              {wallet.coinBalance}
-            </span>
-            <span className="block text-[11px] font-semibold text-orange-200/80">
-              Token balance
-            </span>
-          </span>
-        </Link>
-        <Link
-          href="/aristocracy"
-          className="glam-tile glam-tile--violet flex items-center gap-3 rounded-2xl p-4"
-        >
-          <span
-            aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-violet-500/20 text-violet-200"
-          >
-            <ProfileIcon name="crown" className="h-5 w-5" />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-lg font-extrabold leading-tight tracking-wide text-violet-100">
-              SVIP
-            </span>
-            <span className="block text-[11px] font-semibold text-violet-200/80">
-              VIP status
-            </span>
-          </span>
-        </Link>
-                  </div>
-                </section>
-
-      {/* ============ 2. REWARDS & PERKS — "how do I get more?" ==========
-          Replaces the old standalone "Income" quick action, which pointed at the
-          subscription page and so told a member nothing about how to actually GET
-          tokens. These are the concrete inbound routes. */}
-      <section aria-labelledby="earn-heading" className="flex flex-col gap-2.5">
-        <h2 id="earn-heading" className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
-          Rewards &amp; Daily Perks
-        </h2>
-        <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-          {EARN_LINKS.map((item) => (
-            <li key={item.label}>
-              <Link
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.05]"
-              >
-                <span
-                  aria-hidden
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-ink-300"
-                >
-                  <ProfileIcon name={item.icon} className="h-4 w-4" />
-                </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-white">{item.label}</span>
-                    {item.hint ? (
-                      <span className="block text-[11px] text-ink-400">{item.hint}</span>
-                    ) : null}
-                  </span>
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4 shrink-0 text-ink-500"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={2.5}
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* ============ 3. DIGITAL STORE — "what can I spend them on?" ======
-          The boutique side of the economy: profile cosmetics and gifts. Kept as
-          its own headed section rather than folded into the earn list, so the
-          two directions of token flow are never mistaken for one another. */}
-      <section aria-labelledby="store-heading" className="flex flex-col gap-2.5">
-        <h2 id="store-heading" className="px-0.5 text-xs font-semibold uppercase tracking-wider text-ink-400">
-          Digital Store
-        </h2>
-        <ul className="divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-          {SPEND_LINKS.map((item) => (
-            <li key={item.label}>
-              <Link
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.05]"
-              >
-                <span
-                  aria-hidden
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.07] text-ink-300"
-                >
-                  <ProfileIcon name={item.icon} className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-white">{item.label}</span>
-                  {item.hint ? (
-                    <span className="block text-[11px] text-ink-400">{item.hint}</span>
-                  ) : null}
-                </span>
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 shrink-0 text-ink-500"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        <Link href="/store" className="lux-cta w-full py-3 text-center text-xs">
-          Browse the boutique
-        </Link>
-      </section>
-
-      {/* --------------------------------------------- 4. Relationship card */}
-      <section
-        aria-label="Relationship"
-        className="glam-tile glam-tile--aqua relative overflow-hidden rounded-2xl p-4"
-      >
-        <span aria-hidden className="absolute -right-2 -top-3 text-5xl opacity-25">
-          💕
-        </span>
-        <span aria-hidden className="absolute bottom-1 right-12 text-3xl opacity-20">
-          📌
-        </span>
-        <p className="text-sm font-bold text-white">Friend No Relation</p>
-        <p className="mt-0.5 text-xs text-ink-200">
-          Connect to unlock couples features together.
-        </p>
-        <PersistentUserId userId={session.uid} initialCode={profile?.userCode} />
-      </section>
-
-              </div>
-            ),
-            /* ---------------- Extras: quick actions, menu rows, games ----- */
-            extras: (
-              <div className="flex flex-col gap-5 pb-10">
-                {/* --------------------------------- 4. Quick actions (see below) */}
-      {/* ---------------------------- 5. Quick actions (coloured glass tiles)
-          LABELS: "Tasks" -> "Rewards". "Tasks" is a build-work word; members
-          recognise a list of things that pay out as rewards.
-          The membership surface is back to its original name, "Aristocracy",
-          at /aristocracy, so the /vip-club alias in next.config redirects here
-          for anyone still holding the old link.
-
-          "Income" is gone from this row on purpose: it pointed at the same
-          /subscription surface as the wallet tab, so the page showed two
-          differently-named doors to one room. All financial tooling now lives in
-          one place — the "Wallet & Tokens" tab, split into Wallet & Tokens,
-          Rewards & Daily Perks, and Digital Store.
-
-          ICONS: Lucide line icons, not emoji, so every tile in the grid sits on
-          the same optical centre. The previous emoji circles were also 40px of
-          saturated colour each, which made four competing focal points in a row
-          that should read as one strip.
-
-          THEME: a single Midnight Slate surface with one orange accent (the
-          primary action), rather than four differently-coloured tiles. The
-          multi-hue `glam-tile--*` modifiers are still used for genuine status
-          tiles (balance, membership) but not for navigation, where colour
-          variety reads as noise. */}
-      <nav aria-label="Quick actions" className="grid grid-cols-3 gap-2.5">
-        {QUICK_ACTIONS.map((action) => (
-          <Link
-            key={action.label}
-            href={action.href}
-            className={[
-              "group flex flex-col items-center gap-2 rounded-2xl px-2 py-3.5 text-center transition",
-              "border border-white/10 bg-white/[0.04] hover:border-white/20 hover:bg-white/[0.08]",
-              "focus-visible:ring-2 focus-visible:ring-orange-400/70",
-              action.primary ? "border-orange-400/40 bg-orange-500/[0.12]" : "",
-            ].join(" ")}
-          >
-            <span
-              aria-hidden
-              className={[
-                "flex h-9 w-9 items-center justify-center rounded-xl transition",
-                action.primary
-                  ? "bg-orange-500/20 text-orange-300"
-                  : "bg-white/[0.07] text-ink-300 group-hover:text-white",
-              ].join(" ")}
-            >
-              <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
-            </span>
-            <span className="text-[11px] font-semibold leading-tight text-white/85">
-              {action.label}
-            </span>
-          </Link>
-        ))}
-      </nav>
-
-      {/* --------------------------- 6. Menu rows (metallic hairline frame) */}
-      <nav aria-label="Profile menu" className="glam-frame">
-        <ul className="glam-frame__inner divide-y divide-white/5 overflow-hidden">
-          {menuItems.map((item) => (
-            <li key={item.label}>
-              <Link
-                href={item.href}
-                className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.05]"
-              >
-                <span
-                  aria-hidden
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/12 bg-gradient-to-br from-white/12 to-white/[0.02] text-base shadow-sm"
-                >
-                  {item.emoji}
-                </span>
-                <span className="flex-1 text-sm font-medium text-white">{item.label}</span>
-                {item.trailing ?? null}
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-4 w-4 shrink-0 text-ink-400"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2.5}
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </nav>
-
-      {/* --------------------------------- 7. Play Hub — deliberately last,
-          deliberately quiet, and SOCIAL TITLES ONLY.
-
-          The same four games this page always linked to, re-presented as one
-          low-contrast row placed AFTER the quick actions and menu rows.
-
-          WHAT CHANGED AND WHY: the old 4-up grid of saturated gradient squares
-          sat directly under the identity card, so it was the first thing below
-          the member's name and the loudest block on the screen. A profile whose
-          job is to introduce a person should not open with a casino lobby. The
-          grid is now social/icebreaker titles only (Ludo, Connect 4, Trivia,
-          Match) — the two-player games a couple can actually talk over.
-
-          The row keeps plain chips with no per-game colourway, so four games
-          read as one quiet strip of secondary links rather than four competing
-          calls to action, and "Play Hub" keeps the full catalogue one tap away. */}
-      <section aria-labelledby="games-heading" className="flex flex-col gap-2.5">
-        <div className="flex items-center justify-between px-0.5">
-          <h2 id="games-heading" className="text-xs font-semibold uppercase tracking-wider text-ink-400">
-            Play Hub
-          </h2>
-          <Link
-            href="/games"
-            className="text-[11px] font-semibold text-orange-300 transition hover:text-orange-200"
-          >
-            All games
-          </Link>
-        </div>
-        <ul className="grid grid-cols-4 gap-2">
-          {recommendedGames.map((game) => (
-            <li key={game.id}>
-              <Link
-                href={`/games/${game.id}`}
-                aria-label={`Play ${game.title}`}
-                className="group flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-1 py-2.5 transition hover:border-white/15 hover:bg-white/[0.07]"
-              >
-                <span aria-hidden className="text-xl opacity-70 transition group-hover:opacity-100">
-                  {game.emoji}
-                </span>
-                <span className="px-0.5 text-center text-[10px] font-medium leading-tight text-ink-300 transition group-hover:text-white/90">
-                  {game.title}
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-              </div>
-            ),
-          } satisfies Record<ProfileTabId, ReactNode>
-        }
+       `head` is omitted because the tab bar that used to occupy it is gone — the
+       redesigned screen has no tabs — so the body carries the top padding. */
+    <PageLock className="mx-auto w-full max-w-xl" bodyClassName="flex flex-col gap-6 px-4 pt-4 pb-10">
+      <ProfileScreen
+        data={{
+          uid: session.uid,
+          name,
+          age: ageFromDob(profile?.dateOfBirth ?? user?.dateOfBirth ?? null),
+          avatarUrl: primaryPhotoUrl(session.uid, profile),
+          bio: profile?.bio ?? null,
+          stats: statCells,
+          interests: profile?.interests ?? [],
+          occupation: profile?.occupation ?? null,
+          heightCm: profile?.heightCm ?? null,
+          education: profile?.education ?? null,
+          lifestyle: profile?.lifestyle ?? [],
+          tokenBalance: wallet.coinBalance,
+        }}
       />
     </PageLock>
   );
 }
-
-
-
