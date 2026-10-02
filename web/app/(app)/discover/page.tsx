@@ -154,10 +154,27 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
       </div>
 
       {/* Floating Game Center Button (client component boundary).
-          `bottom-24` clears the 5rem tab bar; the Discover default of
-          `bottom-32` sized for the 5-icon action row that this layout no longer
-          stacks above the bar. */}
-      <GameCenterButton bottomOffset="bottom-24" label="Game" ariaLabel="Open the game hub" />
+
+           `bottom-44` (176px), raised from `bottom-24` (96px).
+
+           THE NUMBER IS DERIVED, NOT GUESSED. The two obstacles between this
+           button and the floor of the screen are stacked:
+             - the 5rem (80px) fixed bottom tab bar
+             - the 5-icon action dock inside DiscoverCardStack, which is `h-16`
+               (64px) at its tallest (the Like button) plus `p-5` (20px) padding
+               => ~84px, sitting directly above the bar
+           So the dock's top edge sits at about 164px. `bottom-44` = 176px places
+           the 56px button's BOTTOM edge 12px above that, so the two never touch.
+
+           At the old `bottom-24` that bottom edge was at 96px - inside the dock's
+           80-164px band - so the button overlapped the Like/Super Like controls
+           and stole taps from the primary interaction on the screen. The
+           component's own comment already warned that clearing the nav is
+           "necessary but NOT sufficient"; this value clears both obstacles.
+
+           Unaffected by the taller card, because the button is `fixed` to the
+           VIEWPORT (see GameCenterButton), not to the card. */}
+      <GameCenterButton bottomOffset="bottom-44" label="Game" ariaLabel="Open the game hub" />
     </div>
   );
 }

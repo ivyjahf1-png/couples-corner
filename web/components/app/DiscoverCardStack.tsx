@@ -225,8 +225,30 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             The photo underneath is `object-cover`, so when the cap binds the card
             is slightly wider than 3:4 rather than running off the screen — the
             correct trade, since a cropped photo is recoverable and an unreachable
-            button is not. */}
-        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[3/4] sm:max-h-full sm:flex-none">
+            button is not.
+
+            ── TALLER CARD, SO PORTRAIT PHOTOS ARE NOT CROPPED ──────────────────
+            `sm:aspect-[3/4]` is now `sm:aspect-[4/5]`. A phone photo is commonly
+            3:4 itself, so the card matching that ratio exactly meant any taller or
+            wider portrait got its top and bottom sliced off by `object-cover` — a
+            face cropped at the forehead reads as a broken card, not as a design
+            choice.
+
+            The ratio moves the OTHER way on purpose (3:4 = 0.75, 4:5 = 0.80, so the
+            card is now relatively taller for its width) because a slightly taller
+            box absorbs far more of a portrait shot than a wider one would, and a
+            wider card would push the 5-icon dock toward the edges. `object-cover`
+            is KEPT rather than switched to `object-contain`: contain would letterbox
+            a landscape photo inside a portrait card with dead bars top and bottom,
+            which looks worse than the crop it fixes and breaks the card's own dark
+            gradient. The taller box reduces the cropping; contain would introduce a
+            new class of visual defect.
+
+            On phones the card is still `flex-1 min-h-0` and takes whatever height
+            the locked column leaves, so this ratio applies from `sm` up only — the
+            same breakpoint as before, and the `sm:max-h-full` cap above still
+            prevents the landscape-phone overflow that the 3/4 ratio once caused. */}
+        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[4/5] sm:max-h-full sm:flex-none">
             {/* Photo, or a designed fallback when there is none.
                 The old fallback dropped a plain avatar onto the bare card
                 gradient, leaving a large flat expanse of near-black with a
