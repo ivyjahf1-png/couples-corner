@@ -1189,9 +1189,33 @@ export function MediaFeed({
             The reel/stories standard puts WHO posted and WHEN directly above
             the media, so it reads before the caption. It is rendered here rather
             than over the bottom caption block because the bottom of the card is
-            already occupied by the caption and the message composer. */}
+            already occupied by the caption and the message composer.
+
+            ── FROSTED GLASS CARD ────────────────────────────────────────────────
+            Restyled to the design's floating glass profile card: a self-contained
+            blurred panel pinned upper-left, rather than a bare row of text and a
+            follow pill sitting directly on the video.
+
+            `pointer-events-auto` moves ONTO this card (it used to sit on the inner
+            row). The header itself stays `pointer-events-none` so taps still fall
+            through to the media everywhere the card does not cover; putting the
+            opt-in on the card itself is what makes that boundary legible — the
+            card is a real surface and takes taps, the space around it does not.
+
+            EVERY value in here is real. Two things the design shows are NOT
+            rendered, deliberately:
+
+            • A "Verified" badge. Nothing in this schema verifies anyone — see
+              ConversationParticipantSummary, where `verified` is hard-coded false
+              with the note "nothing has verified anyone". Rendering the badge
+              would put an unearned trust signal on a stranger's face, which is
+              the exact thing verification exists to prevent. It is omitted until
+              there is a real verification source to bind it to.
+            • A distance ("2km away"). MomentView carries no coordinates, so any
+              figure would be invented. The timestamp beside it is real. */}
         {current ? (
-          <div className="pointer-events-auto mt-2.5 flex items-center gap-2.5 sm:mt-3">
+          <div className="pointer-events-auto mt-2.5 w-fit max-w-[min(20rem,72vw)] rounded-2xl border border-white/15 bg-slate-950/45 p-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:mt-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href={current.isMine ? "/profile" : `/profile/${current.userId}`}
               aria-label={`Open ${current.authorName ?? "profile"}`}
@@ -1229,11 +1253,12 @@ export function MediaFeed({
             </p>
             </div>
 
-            {/* Follow control.
-                Deliberately in the creator bar rather than the action rail:
-                the rail is a fixed-width column whose geometry was just fixed
-                (0deef74), and a variable-width pill would re-introduce the
-                overlap that commit removed. */}
+            {/* Connect control. HOLLOW by default — a 1px ring and transparent
+                fill, not a solid white pill — so it floats on the glass rather
+                than punching a bright hole in it. It fills in only once the
+                connection actually exists, so the button's appearance reports
+                real state instead of advertising a relationship that isn't
+                there yet. */}
             {current && !current.isMine ? (
               <button
                 type="button"
@@ -1243,18 +1268,19 @@ export function MediaFeed({
                 aria-label={
                   amFollowingAuthor
                     ? `Unfollow ${current.authorName ?? "this member"}`
-                    : `Follow ${current.authorName ?? "this member"}`
+                    : `Connect with ${current.authorName ?? "this member"}`
                 }
                 className={[
                   "shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 disabled:opacity-50",
                   amFollowingAuthor
                     ? "border border-white/25 bg-white/10 text-white/80"
-                    : "border border-transparent bg-white text-slate-950",
+                    : "border border-white/70 bg-transparent text-white hover:bg-white/10",
                 ].join(" ")}
               >
-                {amFollowingAuthor ? "Following" : "Follow"}
+                {amFollowingAuthor ? "Connected" : "Connect"}
               </button>
             ) : null}
+          </div>
           </div>
         ) : null}
       </header>
