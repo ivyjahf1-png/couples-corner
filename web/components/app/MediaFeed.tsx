@@ -969,10 +969,34 @@ export function MediaFeed({
           empty-state copy. */}
       {feed.length > 0 ? (
         <>
+          {/* ── SCRIM LAYERING: ABOVE THE MEDIA, NOT LEVEL WITH IT ──────────────
+              These were `z-20` — the SAME layer as the card media stack
+              (`relative z-20`). A tie is decided by source order, and the scroller
+              is painted after the scrims, so the media won: the gradients were
+              painted UNDER the video and were therefore a NO-OP. The legibility
+              problem they were introduced to solve (white text over a bright
+              frame) was never actually addressed.
+
+              `z-30` puts them genuinely above the media, which is what a scrim IS
+              — a tint over the image. They cannot hide it: both are partially
+              transparent gradients that fade to `transparent` by their mid-point,
+              and they are `pointer-events-none`, so they never intercept a tap
+              aimed at the video or its controls.
+
+              Everything that must stay legible ON TOP of a scrim — the top bar,
+              caption, action rail, upload FAB and reaction bar — is moved to
+              `z-40` below, so the full order is now:
+
+                  z-10  cinema-view tap target (under the media, deliberately)
+                  z-20  media (video / image / embed)
+                  z-30  gradient scrims
+                  z-40  all interactive chrome
+
+              No two of those layers tie, so none of them depends on file order. */}
           <div
             aria-hidden
             className={[
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-20 h-40",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-30 h-40",
               "bg-gradient-to-b from-slate-950/85 via-slate-950/45 to-transparent",
               "sm:h-48",
               chromeClass,
@@ -981,7 +1005,7 @@ export function MediaFeed({
           <div
             aria-hidden
             className={[
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-0 z-20 h-64",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-0 z-30 h-64",
               "bg-gradient-to-t from-slate-950/90 via-slate-950/55 to-transparent",
               "sm:h-72",
               chromeClass,
@@ -1009,7 +1033,7 @@ export function MediaFeed({
              LANDSCAPE. In a ~360px-tall landscape viewport this stack of
              absolutely-positioned chrome sits directly on top of the video the
              member rotated specifically to watch. */
-          "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-30 shrink-0",
+          "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-40 shrink-0",
           chromeClass,
         ].join(" ")}
       >
@@ -1322,7 +1346,7 @@ export function MediaFeed({
                       until the member tapped elsewhere. Wrapping the slot in the
                       same z-20 layer the moments get restores the scroller as the
                       hit target for the ad card as well. */}
-                  <div className="relative z-20 h-full w-full">
+                  <div className="absolute inset-0 z-20">
                     {sponsoredSlot}
                   </div>
                 </article>
@@ -1353,12 +1377,36 @@ export function MediaFeed({
 
                   Lifting the whole media stack to `z-20` puts the media, its
                   tap-to-play button and the embed poster above that overlay, so
-                  taps reach the media as intended. The chrome (header at z-30,
-                  action rail and caption at z-20+) is unaffected: those are
-                  pointer-events-none containers whose actual controls re-enable
-                  pointer events on themselves only, so they still win on the
-                  few pixels they genuinely occupy. */}
-              <div className="relative z-20 h-full w-full">
+                  taps reach the media as intended. The chrome is unaffected:
+                  those are pointer-events-none containers whose actual controls
+                  re-enable pointer events on themselves only, so they still win
+                  on the few pixels they genuinely occupy.
+
+                  ── WHY `absolute inset-0` AND NOT `h-full` ─────────────────────
+                  This wrapper was `h-full w-full`, i.e. it asked to be 100% of a
+                  parent that is itself sized with `height: 100%`. That chain is
+                  only as strong as every link in it: if ANY ancestor between the
+                  scroller and here ever loses its definite height — a `flex-1`
+                  with a zero basis, an un-sized wrapper, a future `min-h-screen`
+                  — this resolves against an indefinite box, falls back to `auto`,
+                  and the media collapses to zero height. That is the "blank
+                  space where the video should be" failure, and it is invisible in
+                  review precisely because the chain looks right.
+
+                  `absolute inset-0` removes the dependency entirely: it sizes
+                  against the <article>'s padding box, which is `relative` and
+                  already definite. The media now fills the card unconditionally,
+                  with no percentage chain to break.
+
+                  Deliberately NOT `flex-1`, which was suggested for this: `flex-1`
+                  expands to `flex: 1 1 0%` — a basis of ZERO — which sizes from
+                  leftover space rather than from a definite height. That is the
+                  precise regression fixed in 46cd53b, and it would reintroduce the
+                  collapse this change exists to remove.
+
+                  The media element inside keeps `h-full w-full object-contain`,
+                  which is what fills this now-definite box. */}
+              <div className="absolute inset-0 z-20">
                 <MediaSurface
                   moment={moment}
                   muted={muted}
@@ -1415,7 +1463,7 @@ export function MediaFeed({
               /* `z-30` for the same reason as the rail: the card's media stack is
                  `relative z-20`, and a tie resolved only by source order is not
                  a layering guarantee. */
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-30 px-4 pr-24 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(11.5rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1496,7 +1544,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-30 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(13rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(14rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1607,7 +1655,7 @@ export function MediaFeed({
           // primary "share something" control was partly covered on every phone.
           // The `env()` term is ADDED to the nav height rather than swapped in, so
           // the clearance holds on a device with a home indicator.
-          className="landscape-hide-chrome absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-3 z-30 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-[calc(8rem+env(safe-area-inset-bottom))] sm:right-4"
+          className="landscape-hide-chrome absolute bottom-[calc(7rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:bottom-[calc(8rem+env(safe-area-inset-bottom))] sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1620,7 +1668,7 @@ export function MediaFeed({
             /* `landscape-hide-chrome` — the reaction + messaging bar is a third
                full-width row over the video; in landscape there is no room for
                it and the video is the point. */
-            "landscape-hide-chrome pointer-events-none absolute inset-x-0 z-30 shrink-0",
+            "landscape-hide-chrome pointer-events-none absolute inset-x-0 z-40 shrink-0",
             /* LIFTED OFF THE BOTTOM EDGE.
 
                The bar was `bottom-0`, which pinned it flush to the viewport and
@@ -1749,7 +1797,7 @@ export function MediaFeed({
       {/* ------------------------------------- comment sheet (bottom overlay) */}
       {commentsOpen && current ? (
         <div
-          className="absolute inset-0 z-40 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
           aria-label="Comments"
