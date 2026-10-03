@@ -508,6 +508,15 @@ export interface InboxSummaryRow {
    * show contradictory states for the same person at the same moment.
    */
   isOnline: boolean;
+  /**
+   * Age derived from the other participant's `date_of_birth`, or null when they
+   * have not set one (or the value is corrupt — see `ageFromDateOfBirth`).
+   *
+   * The inbox card renders "Sarah Chen, 32", the shape every dating surface in
+   * the product uses. Computed here rather than in the client component so the
+   * date of birth itself never crosses the boundary — only the integer does.
+   */
+  age: number | null;
 }
 
 /**
@@ -579,7 +588,7 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
     // Participant display names from profiles (id matches user_id).
     const profileById = new Map<
       string,
-      { name: string; kind: "person" | "couple"; avatarUrl: string | null }
+      { name: string; kind: "person" | "couple"; avatarUrl: string | null; age: number | null }
     >();
     for (const row of profileRows) {
       const profile = mapProfileRow(row);
@@ -589,6 +598,9 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
       profileById.set(profile.userId, {
         name: profile.displayName?.trim() || "Member",
         kind: profile.kind,
+        /* Null for anyone who has not set a DOB or whose value is unparseable —
+           the card then renders the name alone rather than a placeholder age. */
+        age: ageFromDateOfBirth(profile.dateOfBirth),
         avatarUrl:
           primary?.publicUrl ??
           (primary?.storagePath
@@ -618,6 +630,7 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           preview,
           lastMessageAt: c.last_message_at ?? last?.created_at ?? null,
           unread: unreadByConv.get(c.id) ?? 0,
+          age: other?.age ?? null,
           // Straight from the shared presence map. No `show_online_status`
           // gate here any more: a member who has the app open is online, and
           // hiding that was what made the dots look broken rather than private.

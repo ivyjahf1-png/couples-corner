@@ -13,7 +13,7 @@ const fs = require("fs");
 
 const css = fs.readFileSync("app/globals.css", "utf8");
 const THEMES = [
-  "chat-theme-default", "chat-theme-dusk", "chat-theme-ocean",
+  "chat-theme-default", "chat-theme-charcoal", "chat-theme-dusk", "chat-theme-ocean",
   "chat-theme-ember", "chat-theme-rose",
 ];
 

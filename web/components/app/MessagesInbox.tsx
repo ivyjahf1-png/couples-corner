@@ -1,57 +1,59 @@
-// MessagesInbox.tsx — the whole /messages surface below the shell chrome.
+// MessagesInbox.tsx - the entire /messages surface.
 //
-// ── WHY ONE CLIENT COMPONENT AND NOT FOUR ────────────────────────────────────
-// The header's filter pills, the search field and the conversation list are three
-// pieces of ONE control surface: picking "Chats" narrows the list, and typing in
-// the field narrows it again. Splitting them across components would mean lifting
-// the two filters into a shared parent anyway, so they live together here and the
-// page stays a thin Server Component that only fetches.
+// ONE CLIENT COMPONENT, NOT FOUR.
+// The header's filter pills, the search field and the conversation list are
+// three pieces of ONE control surface: picking "Chats" narrows the list and
+// typing in the field narrows it again. Splitting them would mean lifting both
+// filters into a shared parent anyway, so they live together and the page stays
+// a thin Server Component that only fetches. Everything crossing that boundary
+// is plain serialisable data, so no query is forced to run twice.
 //
-// The data crossing the boundary is plain and serialisable (ids, names, preview
-// strings, counts, timestamps, booleans), so this forces no query to run twice.
+// THE THEME.
+// Midnight slate (bg-slate-950) with the brand orange reserved for interactive
+// and status elements: the selected pill, the unread badge, the docked header's
+// hairline, the scam warning. Orange is an ACCENT here, never a surface - orange
+// cards turn a list of people into a list of alerts, and the one genuine warning
+// on the screen stops standing out against its own neighbours.
 //
-// ── WHY THE SEARCH IS CLIENT-SIDE AND HONEST ABOUT IT ────────────────────────
-// Every conversation is fetched up front, so filtering locally is instant and
-// costs no round trip. There is no server-side message search in this product,
-// and faking one with a hardcoded result set would be a control that looks live
-// and does nothing. This filters exactly what is on screen.
+// THE STICKY HEADER.
+// The header lives INSIDE PageLock's body, which is the route's single
+// overflow-y-auto region, so `sticky top-0` is what docks it. A docked bar
+// showing a 2rem title would permanently eat a third of a phone viewport, so the
+// bar cross-fades to a compact state the moment the large title scrolls out.
+// That transition is driven by an IntersectionObserver on a zero-height sentinel
+// placed ABOVE the header and rooted at the scroll container - discovered from
+// the DOM rather than assumed to be `window`, because on this route `document`
+// does not scroll. A scrollTop threshold cannot know how tall the header is.
 //
-// ── WHY THE TABS ARE All / Chats / CALLS ─────────────────────────────────────
-// There are no group conversations in this product — the `conversations` table
-// holds only `direct` and `couple` rows — so a "Groups" tab would be a tab that
-// can never select anything. It is deliberately absent rather than disabled.
-//
-// "Calls" filters to the people who are ONLINE right now, because a call can only
-// be placed to someone who can answer it. There is no call-history table in the
-// product, so showing a "recent calls" list would mean inventing one.
-
+// NO BACKGROUND LAYER. This component renders no absolutely-positioned image,
+// banner or graphic layer of any kind. PageLock is the root element, so there is
+// no positioned ancestor inside this page for such a layer to anchor to.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { displayNameFromEmail, isLikelyEmailAddress } from "@/lib/utils/display-name";
 import { PageLock } from "@/components/app/PageHeader";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
 import { Icon } from "@/components/landing/Icon";
 import { MicIcon, VideoIcon } from "@/components/app/RealtimeIcons";
+import { purgeLegacyChatWallpaper } from "@/lib/hooks/useChatWallpaper";
 
 export interface InboxChat {
   key: string;
   href: string;
-  /** Call route base (`/call/<id>`), or null for rows that cannot be dialled. */
+  /** Call route base (/call/<id>), or null for rows that cannot be dialled. */
   callHrefBase: string | null;
   name: string;
   kind: "person" | "couple";
   avatarUrl: string | null;
+  /** Null when the member has not shared a date of birth; the card omits it. */
+  age: number | null;
   preview: string;
   lastMessageAt: string | null;
   unread: number;
   isOnline: boolean;
-  /**
-   * Pinned to the top of the inbox (migration 050). Bot personas cannot be
-   * pinned — there is no `conversations` row behind one — so they are always
-   * false and the pinned section simply never lists them.
-   */
+  /** Pinned above the recency list. Bot personas can never be pinned. */
   isPinned?: boolean;
   isBot?: boolean;
 }
@@ -64,6 +66,7 @@ const TABS: { id: InboxTab; label: string }[] = [
   { id: "calls", label: "Calls" },
 ];
 
+
 export function MessagesInbox({
   chats,
   emptyState,
@@ -73,20 +76,90 @@ export function MessagesInbox({
 }) {
   const [query, setQuery] = useState("");
   const [tab, setTab] = useState<InboxTab>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [docked, setDocked] = useState(false);
+
+  /* THE INBOX HAS NO WALLPAPER, AND THIS ENFORDS IT ON EVERY LOAD.
+
+     An older build stored a per-device chat background under
+     `couples_corner:chat-wallpaper` and, when that key was present, painted a
+     photo behind this list - which is exactly the wrong thing to do on a screen
+     whose whole job is showing faces and message previews. This component
+     renders no image layer at all, so the only way a stale key could still
+     matter is via something else reading it later; clearing it on mount retires
+     the key for good rather than leaving it to be rediscovered.
+
+     The opaque backgrounds below are what actually protect the rows. This effect
+     is housekeeping: it stops the value coming back, it does not stop a
+     rendering fault. Both, deliberately. */
+  useEffect(() => {
+    purgeLegacyChatWallpaper();
+  }, []);
+
+  /* THE DOCKING TRIGGER. A zero-height sentinel above the header: while it is
+     inside the scroll container the large title is on screen and the bar stays
+     tall; the moment it leaves, the bar condenses. */
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const scroller = sentinel.closest(".page-lock__body");
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setDocked(!entry.isIntersecting),
+      {
+        root: scroller,
+        /* Fire only once the sentinel is genuinely gone, not as its last pixel
+           clips the edge - otherwise the bar flickers while the title is still
+           readable. */
+        threshold: 0,
+      }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, []);
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  /* THE MAGNIFIER AND THE FILTERS BUTTON OPEN THE SAME PANEL.
+
+     There is deliberately ONE search input on this screen. Two fields bound to
+     `query` would render two elements with id="inbox-search", and a duplicate id
+     breaks the label association for both. One input, two ways to reach it - a
+     labelled button and a bare glyph, which is exactly the pair the design calls
+     for.
+
+     Focus lands AFTER the panel is in the DOM; focusing a node that does not
+     exist yet is a silent no-op. */
+  const toggleSearch = useCallback(() => {
+    setMenuOpen(false);
+    setFiltersOpen((open) => {
+      const next = !open;
+      if (next) {
+        window.requestAnimationFrame(() => searchInputRef.current?.focus());
+      } else {
+        setQuery("");
+      }
+      return next;
+    });
+  }, []);
+
+  /* Derived, not stored, so the Filters button's dot can never disagree with the
+     pill row it mirrors. */
+  const activeFilter = TABS.find(({ id }) => id === tab)?.label ?? null;
 
   const needle = query.trim().toLowerCase();
 
   const visible = useMemo(() => {
-    /* Tab first, then the free-text needle — both are filters over the same
-       array, and ANDing them is what a member expects from two controls. */
+    /* Tab first, then the free-text needle - both filter the same array, and
+       ANDing them is what a member expects from two controls. */
     const byTab = tab === "calls" ? chats.filter((c) => c.isOnline) : chats;
-
     if (!needle) return byTab;
+
     /* Name AND preview, so "scarlett" finds the thread and "coffee" finds the
-       message. Matching on either alone makes the field feel broken on real
-       data, where people are known by what they wrote as much as by who they
-       are. */
+       message. Matching either alone makes the field feel broken on real data. */
     return byTab.filter(
       (c) =>
         c.name.toLowerCase().includes(needle) ||
@@ -94,19 +167,11 @@ export function MessagesInbox({
     );
   }, [chats, needle, tab]);
 
-  /* Pinned threads, split OUT of the recency list rather than reordered within
-     it. Two reasons this is derived from `visible` and not from `chats`:
-
-       • It has to obey the same search and tab filters as the list below it.
-         Typing "scarlett" must not leave her pinned thread stranded above a
-         result set that no longer mentions her.
-       • Reordering inside one list would fight the recency sort the page already
-         does, and pinned rows would shuffle as new messages arrive. A separate
-         section keeps the pin visibly deliberate.
-
-     `visible` is already sorted newest-first, so `pinned` inherits that order
-     and a member who pins three threads sees them in the order they last spoke,
-     not in an arbitrary stored order. */
+  /* Pinned threads split OUT of the recency list rather than reordered within it:
+     they must obey the same search and tab filters as the list below, and
+     reordering inside one list would fight the recency sort and shuffle pinned
+     rows as new messages arrive. `visible` is already newest-first, so `pinned`
+     inherits that order for free. */
   const pinned = visible.filter((c) => c.isPinned);
   const unpinned = visible.filter((c) => !c.isPinned);
 
@@ -114,72 +179,338 @@ export function MessagesInbox({
   const onlineCount = chats.filter((c) => c.isOnline).length;
 
   /* The most recent conversation that can actually be dialled. The quick-action
-     call buttons need a peer to call, and the newest thread is the one a member
-     starting a call almost always means. Null when there is none — the buttons
-     then render inert rather than linking to a call with no participant. */
-  const callable = useMemo(
-    () => chats.find((c) => c.callHrefBase && !c.isBot) ?? null,
-    [chats]
-  );
+     call buttons need a peer; null means they render inert rather than linking to
+     a call with no participant. */
+  const callable = useMemo(() => chats.find((c) => c.callHrefBase && !c.isBot) ?? null, [chats]);
+
 
   return (
+    /* THE CONTAINER.
+
+       PageLock is the ROOT. `overflow-hidden` and `min-h-0` are stated here
+       rather than left implicit in the stylesheet: they are what stop a long
+       list from pushing the header out of the locked column, and saying so at
+       the call site means the guarantee survives a future refactor.
+
+       WIDTH: max-w-md on a phone reads as the app's own shell rather than a
+       stretched web page, stepping to sm:max-w-2xl and lg:max-w-3xl as there is
+       room. The app shell already caps content at 88rem, so without a tighter cap
+       the rows stretch on a wide monitor until the avatar and the timestamp sit a
+       hand-span apart.
+
+       GUTTERS: px-3 on the narrowest phones, sm:px-5 once there is room. The sticky
+       header's negative margins below MUST match these exact values - that pairing
+       is what extends the header background to the screen edge.
+
+       pb-28 clears the fixed 5rem tab bar plus the compose FAB. */
     <PageLock
-      /* `bg-slate-950` replaces the old bespoke `#0F0A1C`. That colour was a
-         one-off midnight purple used on this screen alone; the rest of the app
-         canvas is slate, so the inbox read as a different product when you
-         navigated into it and back out. Matching the shell canvas also means the
-         safe-area and overscroll edges blend instead of showing a seam. */
-      className="mx-auto w-full max-w-3xl bg-slate-950 text-white"
-      /* `pb-28` clears the fixed 5rem tab bar plus the compose FAB, which
-         overlaps the list's last rows. `md:pb-8` drops it where that bar is
-         `md:hidden` and the sidebar rail takes over. */
-      bodyClassName="px-4 pb-28 sm:px-6 md:pb-8"
-      head={<InboxHeader
-        tab={tab}
-        onTab={setTab}
-        totalUnread={totalUnread}
-        onlineCount={onlineCount}
-        menuOpen={menuOpen}
-        setMenuOpen={setMenuOpen}
-      />}
+      /* `bg-slate-950` ON THE ROOT is the guarantee this screen was missing.
+
+         Nothing here paints a wallpaper, but before this the container declared
+         NO background of its own - it simply inherited whatever the app shell
+         put behind it. That is an open door: any element painted behind this
+         page (a stale shell background, an injected promo layer, a browser
+         extension, or simply a future change) shows straight through, because
+         the list is a stack of partly-transparent cards over an unstated canvas.
+
+         Declaring an OPAQUE background at the root means nothing behind this
+         page can ever reach the conversation rows, whatever it is. That is
+         defence in depth: it holds even for causes we have not identified, which
+         matters when a rendering bug has already proved hard to pin down. */
+      className="mx-auto w-full max-w-md overflow-hidden bg-slate-950 isolate sm:max-w-2xl lg:max-w-3xl"
+      /* The BODY carries it too, so the scroll region is opaque in its own right
+         rather than relying on the root showing through it. `min-h-0` keeps a
+         long list from pushing the header out of the locked column. */
+      bodyClassName="min-h-0 bg-slate-950 px-3 pb-28 sm:px-5"
     >
-      {/* ── SEARCH ──────────────────────────────────────────────────────────
-          `appearance-none` strips the platform search affordances (the clear
-          button on some engines, the inner shadow on iOS) so this reads as the
-          app's own field rather than a raw browser control. */}
-      <div className="relative mb-3 mt-4">
-        <label htmlFor="inbox-search" className="sr-only">
-          Search messages and people
-        </label>
-        <input
-          id="inbox-search"
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search messages, people..."
-          className="h-11 w-full appearance-none rounded-2xl border border-white/10 bg-slate-900/70 pl-10 pr-4 text-sm text-white outline-none transition-colors placeholder:text-ink-400 focus:border-orange-400/50 [&::-webkit-search-cancel-button]:hidden"
-        />
+      {/* The observer target. Zero-height and invisible - it exists purely to be
+          measured, and it MUST stay a sibling ABOVE the sticky header, so that
+          "the title left the viewport" means "the member scrolled past the
+          title", which is exactly when docking should begin. */}
+      <div ref={sentinelRef} aria-hidden className="h-px w-full" />
+
+      {/* THE HEADER.
+
+          `sticky top-0` inside the scroll body docks this block. `-mx-3 sm:-mx-5`
+          extends that background edge to edge so rows do not appear to slide under
+          a card-sized strip, and the same values are restored as padding on the
+          content. z-30 clears the conversation rows and the pinned section but
+          stays under the shell nav. */}
+      <header
+        className={[
+          "sticky top-0 z-30 -mx-3 border-b px-3 backdrop-blur-md sm:-mx-5 sm:px-5",
+          "transition-[background-color,border-color] duration-300 motion-reduce:transition-none",
+          /* Both docked states are FULLY OPAQUE slate-950. The undocked bar was
+             `bg-slate-950/60` with a blur, which is translucent by definition:
+             anything painted behind this page - a stale shell background, an
+             injected layer - shows through it while the large title scrolls.
+             There is no content behind a sticky header to justify the
+             see-through, so translucency here is pure risk. */
+          docked
+            ? "border-orange-500/30 bg-slate-950 shadow-lg shadow-black/40"
+            : "border-transparent bg-slate-950",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            /* The height cross-fade is what makes this read as "docking" rather
+               than a jump: the title shrinks into the bar while the bar gains its
+               hairline and opaque fill at the same time. */
+            "flex items-center gap-3 overflow-hidden transition-all duration-300 motion-reduce:transition-none",
+            docked ? "py-2.5" : "pb-4 pt-3",
+          ].join(" ")}
+        >
+          <h1
+            className={[
+              "min-w-0 flex-1 truncate font-bold tracking-tight text-white transition-all duration-300 motion-reduce:transition-none",
+              docked ? "text-lg" : "text-3xl",
+            ].join(" ")}
+          >
+            Messages
+          </h1>
+
+          {/* FILTERS BUTTON - a labelled entry point to the same panel the
+              magnifier opens. It lives in the TITLE ROW rather than the pill row
+              because that row collapses to zero height when the header docks: a
+              button down there would vanish at exactly the moment a member who
+              has scrolled down wants it. */}
+          <button
+            type="button"
+            onClick={toggleSearch}
+            aria-label="Filters"
+            aria-expanded={filtersOpen}
+            title="Filters"
+            className={[
+              "flex h-10 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60",
+              filtersOpen
+                ? "border-orange-500/50 bg-orange-500/15 text-orange-200"
+                : "border-white/10 bg-slate-900/80 text-ink-200 hover:border-orange-500/30 hover:text-orange-300",
+            ].join(" ")}
+          >
+            <Icon name="settings" className="h-4 w-4" />
+            Filters
+            {/* Only meaningful when something is actually narrowed. */}
+            {activeFilter && activeFilter !== "All" ? (
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-orange-400" />
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleSearch}
+            aria-label="Search messages"
+            aria-expanded={filtersOpen}
+            title="Search"
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60",
+              filtersOpen
+                ? "border-orange-500/30 bg-orange-500/15 text-orange-300"
+                : "border-white/10 bg-slate-900/80 text-ink-200 hover:border-orange-500/30 hover:text-orange-300",
+            ].join(" ")}
+          >
+            <Icon name="search" className="h-5 w-5" />
+          </button>
+
+
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Messages options"
+              aria-expanded={menuOpen}
+              aria-haspopup="menu"
+              title="Options"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-slate-900/80 text-ink-200 transition hover:border-orange-500/30 hover:text-orange-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60"
+            >
+              {/* Drawn inline: the shared Icon set has no overflow glyph and this
+                  is the only place that needs one. */}
+              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-5 w-5">
+                <circle cx="5" cy="12" r="1.75" />
+                <circle cx="12" cy="12" r="1.75" />
+                <circle cx="19" cy="12" r="1.75" />
+              </svg>
+            </button>
+
+            {menuOpen ? (
+              <>
+                {/* Scrim so the menu can be dismissed by an outside tap - a menu
+                    with no dismiss path traps the member on the page. */}
+                <button
+                  type="button"
+                  aria-label="Close options"
+                  onClick={() => setMenuOpen(false)}
+                  className="fixed inset-0 z-40 h-full w-full cursor-default"
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-orange-500/30 bg-slate-950 py-1 shadow-2xl"
+                >
+                  <MenuLink href="/notifications" onPick={() => setMenuOpen(false)}>
+                    Alerts
+                  </MenuLink>
+                  <MenuLink href="/settings" onPick={() => setMenuOpen(false)}>
+                    Privacy &amp; settings
+                  </MenuLink>
+                  <MenuLink href="/feedback" onPick={() => setMenuOpen(false)}>
+                    Report a problem
+                  </MenuLink>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Subtitle. Inside the header block so it docks away WITH the title
+            rather than being left floating on its own. */}
+        <p
+          className={[
+            "overflow-hidden text-sm text-ink-300 transition-all duration-300 motion-reduce:transition-none",
+            docked ? "max-h-0 opacity-0" : "max-h-16 opacity-100",
+          ].join(" ")}
+        >
+          Connect with your verified connections.
+        </p>
+
+        {/* Filter pills. A full-width segmented track is NOT used here - the
+            design calls for discrete pills, and three short pills read as three
+            destinations rather than one control with three settings. They collapse
+            with the header when it docks, which is exactly why the Filters button
+            above sits in the title row. */}
+        <div
+          role="tablist"
+          aria-label="Filter messages"
+          className={[
+            "flex items-center gap-2 overflow-x-auto transition-all duration-300 motion-reduce:transition-none",
+            docked ? "mt-0 max-h-0 -translate-y-1 opacity-0" : "mt-3 max-h-12 pb-1 opacity-100",
+          ].join(" ")}
+        >
+          {TABS.map(({ id, label }) => {
+            const selected = tab === id;
+            /* "All" carries no badge: its count would be the sum of the other two
+               and would just be noise next to them. */
+            const badge = id === "calls" ? onlineCount : id === "chats" ? totalUnread : 0;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setTab(id)}
+                className={[
+                  "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500/60",
+                  selected
+                    ? "border-orange-500/50 bg-orange-500/20 text-orange-200"
+                    : "border-white/10 bg-slate-900/80 text-ink-300 hover:border-orange-500/30 hover:text-white",
+                ].join(" ")}
+              >
+                {label}
+                {badge > 0 ? (
+                  <span
+                    className={[
+                      "rounded-full px-1.5 text-[10px] font-bold tabular-nums",
+                      selected ? "bg-orange-400/25 text-orange-100" : "bg-white/10 text-ink-200",
+                    ].join(" ")}
+                  >
+                    {badge}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+
+        {/* FILTERS PANEL. Rendered INSIDE the sticky header, which keeps it on
+            screen while the bar is docked. The header has no overflow-hidden (only
+            the title row does), so the panel is not clipped. */}
+        {filtersOpen ? (
+          <>
+            {/* Scrim BELOW the panel: dismisses on an outside tap without
+                stealing the tap that lands on the input itself. */}
+            <button
+              type="button"
+              aria-label="Close filters"
+              onClick={() => setFiltersOpen(false)}
+              className="fixed inset-0 z-30 h-full w-full cursor-default"
+            />
+            <div className="relative z-40 mt-2 rounded-2xl border border-orange-500/30 bg-slate-950 p-3 shadow-2xl">
+              {/* `relative` wrapper so the glyph anchors to the FIELD, not the
+                  panel - otherwise it floats at the padding edge, a full
+                  icon-width away from the text it decorates. */}
+              <div className="relative">
+                <label htmlFor="inbox-search" className="sr-only">
+                  Search messages and people
+                </label>
+                <input
+                  id="inbox-search"
+                  ref={searchInputRef}
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search messages, people..."
+                  className="h-11 w-full appearance-none rounded-2xl border border-orange-500/30 bg-slate-900/80 pl-10 pr-4 text-sm text-white outline-none transition-colors placeholder:text-ink-400 focus:border-orange-500/60 [&::-webkit-search-cancel-button]:hidden"
+                />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+                >
+                  <Icon name="search" className="h-4 w-4" />
+                </span>
+              </div>
+
+              {/* Clear only renders when there is something to clear - a
+                  permanently disabled "Clear" invites taps that do nothing. */}
+              {needle ? (
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/80 py-2 text-xs font-semibold text-ink-300 transition hover:border-orange-500/30 hover:text-white"
+                >
+                  Clear search
+                </button>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </header>
+
+      {/* THE SCAM WARNING.
+
+          ONE static banner. An auto-advancing safety notice is a notice nobody
+          reads: the copy a member actually needs must still be on screen when
+          they glance back at the list an hour later. Orange is reserved for this
+          one element, which is why it is a full-width block rather than a
+          dismissible toast. Nothing here claims anything about an individual
+          member - it is product copy about what the platform will never ask. */}
+      <section
+        aria-label="Scam warning"
+        className="mt-4 flex items-start gap-3 rounded-2xl border border-orange-500/30 bg-orange-500/10 p-3.5"
+      >
         <span
           aria-hidden
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/20 text-orange-300"
         >
-          <Icon name="search" className="h-4 w-4" />
+          <Icon name="shield" className="h-5 w-5" />
         </span>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-orange-100">Scam Warning</p>
+          <p className="mt-0.5 text-[11px] leading-4 text-orange-200/90">
+            Never send money, gift cards or codes to anyone. We will never ask you for them.
+          </p>
+        </div>
+      </section>
 
-      {/* ── QUICK ACTIONS ──────────────────────────────────────────────────
-          Four equal tiles, icon over caption. The caption is the visible label
-          AND, via the link text, the accessible name — so each tile reads
-          without hovering.
+      {/* QUICK ACTIONS.
 
           Every tile is a REAL destination. There is no "Create Group" tile: the
-          product has no group conversations, so such a button could only ever
-          lead nowhere. The fourth tile is the Game Center, which exists.
-
-          The two call tiles render INERT — not as dead links — when there is no
-          conversation to call, because `/call/<id>/<mode>` requires a real
-          conversation id and inventing one produces a 404 on tap. */}
-      <div className="mb-4 grid grid-cols-4 gap-2">
+          product has no group conversations, so such a button could only lead
+          nowhere. The call tiles render INERT - not as dead links - when there is
+          no conversation to call, because /call/<id>/<mode> needs a real id and
+          inventing one 404s on tap. */}
+      <div className="mb-4 mt-4 grid grid-cols-4 gap-2">
         <QuickAction href="/discover" label="New Chat" tone="orange">
           <Icon name="chat" className="h-5 w-5" />
         </QuickAction>
@@ -207,32 +538,18 @@ export function MessagesInbox({
         </QuickAction>
       </div>
 
-      {/* ── PINNED SYSTEM NOTICES, AS A CAROUSEL ────────────────────────────
-          ONE card position, cycling through the notices. They sat stacked
-          before, which put two full cards between the header and the first
-          real conversation — on a phone that is the whole first screen, and
-          the member has to scroll past two warnings to read a single "hi".
 
-          The carousel holds the section to exactly one card's height no matter
-          how many notices there are, so the conversation list always starts in
-          the same place. Add a third notice and the screen does not grow.
-
-          STATIC COPY, DELIBERATELY. Neither notice makes a claim about any
-          member and neither carries a number that could be wrong about a real
-          person — they are pointers to the team's own surfaces. Wiring them to
-          an "admin backend control" would mean inventing an announcements table
-          and an admin write path; until that exists these are honest static
-          product copy rather than a control that looks live and does nothing. */}
-      <NoticeCarousel />
-
-      {/* ── PINNED THREADS (migration 050) ────────────────────────────────────
-          Distinct from the system-notice carousel above: those are product
-          copy the team owns, these are real member threads the viewer pinned.
-          The pin glyph is decorative — the section's heading and its
-          aria-label already carry the meaning, so a screen reader is not told
-          "pin" twice per row. */}
+      {/* THE LIST SURFACE. `bg-slate-950` here is the second opaque layer under
+          the rows, and the one that does the real work: the root above already
+          paints solid, but these rows are partly translucent cards, so anything
+          that reaches the page must travel through THIS element to touch one.
+          Declaring the surface opaque closes that path for causes we have not
+          identified yet. No padding of its own - the page gutters do that. */}
+      <div className="bg-slate-950">
+      {/* PINNED THREADS. Distinct from the scam warning: that is product copy the
+          team owns, these are real threads the viewer pinned. */}
       {pinned.length > 0 ? (
-        <section aria-labelledby="inbox-pinned-heading" className="mb-1">
+        <section aria-labelledby="inbox-pinned-heading" className="mb-4">
           <h2
             id="inbox-pinned-heading"
             className="mb-2 flex items-center gap-1.5 px-1 text-[11px] font-semibold uppercase tracking-wider text-ink-400"
@@ -254,10 +571,10 @@ export function MessagesInbox({
         emptyState
       ) : visible.length === 0 ? (
         /* A search with no hits gets its OWN message, distinct from "you have no
-           conversations" — conflating the two makes a working inbox look broken. */
-        <p className="rounded-2xl border border-white/10 bg-surface px-4 py-6 text-center text-sm text-ink-300">
+           conversations" - conflating the two makes a working inbox look broken. */
+        <p className="rounded-2xl border border-white/10 bg-slate-900/90 px-4 py-6 text-center text-sm text-ink-300">
           {needle
-            ? `No conversations match “${query.trim()}”.`
+            ? `No conversations match "${query.trim()}".`
             : "Nobody is online right now. Start a chat to reach someone."}
         </p>
       ) : (
@@ -269,169 +586,13 @@ export function MessagesInbox({
           ))}
         </ul>
       )}
+      </div>
     </PageLock>
   );
 }
 
-function InboxHeader({
-  tab,
-  onTab,
-  totalUnread,
-  onlineCount,
-  menuOpen,
-  setMenuOpen,
-}: {
-  tab: InboxTab;
-  onTab: (t: InboxTab) => void;
-  totalUnread: number;
-  onlineCount: number;
-  menuOpen: boolean;
-  setMenuOpen: (v: boolean) => void;
-}) {
-  return (
-    /* `sticky top-0` + a backdrop + a bottom hairline.
-
-     THE HEADER IS DOCKED BY THE PAGE, AND `sticky` IS THE FALLBACK, NOT THE
-     MECHANISM. This component renders into `PageLock`'s `head` slot, which is
-     `flex: 0 0 auto` and sits OUTSIDE `.page-lock__body` — the route's single
-     `overflow-y-auto` region. So the header is already pinned by layout and
-     cannot scroll away; it is not inside the thing that scrolls.
-
-     `sticky top-0` is kept anyway for two reasons:
-
-       1. It is harmless where the flex layout already holds (a `sticky` element
-          with room to move simply never moves), and it makes the intent legible
-          to the next person who opens this file.
-
-       2. It is load-bearing if the header is ever moved back INTO the body. In
-          that case `sticky` is the difference between a docked title and a title
-          that scrolls off, and the `backdrop-blur` + `bg-slate-950/95` below is
-          what stops the conversation list showing through it as it docks.
-
-     The opaque background is what makes this read as "docked" rather than
-     "floating": at `bg-slate-950/80` the rows scrolling underneath stay faintly
-     visible through the blur, which looks like a rendering fault rather than a
-     deliberate surface. */
-    <header className="sticky top-0 z-30 border-b border-white/5 bg-slate-950/95 px-4 pt-1 backdrop-blur-md sm:px-6">
-      {/* Title row. `min-w-0` + `truncate` so the title ellipsizes rather than
-          pushing the two icon buttons off the right edge. */}
-      <div className="flex items-center gap-2">
-        <h1 className="min-w-0 flex-1 truncate text-2xl font-bold tracking-tight text-white">
-          Messages
-        </h1>
-
-        {/* Icon buttons, not a text menu: the header row is one line tall and
-            two text labels would wrap on a small phone. */}
-        <Link
-          href="/discover"
-          aria-label="Find people to message"
-          title="Find people"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ink-200 transition hover:bg-white/10 hover:text-white"
-        >
-          <Icon name="search" className="h-5 w-5" />
-
-
-        </Link>
-
-        <div className="relative shrink-0">
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            aria-label="Messages options"
-            aria-expanded={menuOpen}
-            aria-haspopup="menu"
-            title="Options"
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-ink-200 transition hover:bg-white/10 hover:text-white"
-          >
-            {/* Three dots drawn inline: the shared `Icon` set has no overflow
-                glyph, and this is the only place that needs one. */}
-            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-5 w-5">
-              <circle cx="5" cy="12" r="1.75" />
-              <circle cx="12" cy="12" r="1.75" />
-              <circle cx="19" cy="12" r="1.75" />
-            </svg>
-          </button>
-
-          {menuOpen ? (
-            <>
-              {/* Scrim: dismisses the menu on an outside tap. A menu with no
-                  dismiss path is a menu that traps the member on the page. */}
-              <button
-                type="button"
-                aria-label="Close options"
-                onClick={() => setMenuOpen(false)}
-                className="fixed inset-0 z-40 h-full w-full cursor-default"
-              />
-              <div
-                role="menu"
-                className="absolute right-0 z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-white/10 bg-[#1A1130] py-1 shadow-2xl"
-              >
-                <MenuLink href="/notifications" onPick={() => setMenuOpen(false)}>
-                  Alerts
-                </MenuLink>
-                <MenuLink href="/settings" onPick={() => setMenuOpen(false)}>
-                  Privacy &amp; settings
-                </MenuLink>
-                <MenuLink href="/feedback" onPick={() => setMenuOpen(false)}>
-                  Report a problem
-                </MenuLink>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      {/* Subheader. The privacy claim used to be a third competing line under
-          the title; it is one quiet line now, and the pinned safety warning
-          below does the real work. */}
-      <p className="mt-0.5 text-sm text-ink-300">
-        Connect with your verified connections.
-      </p>
-
-      {/* Filter pills. A full-width segmented track is NOT used here — the brief
-          specifies discrete pills, and three short pills read as three
-          destinations rather than as one control with three settings. */}
-      <div role="tablist" aria-label="Filter messages" className="mt-3 flex gap-2 overflow-x-auto pb-1">
-        {TABS.map(({ id, label }) => {
-          const selected = tab === id;
-          /* "All" carries no badge: its count would be the sum of the other two
-             and would just be noise next to them. */
-          const badge = id === "calls" ? onlineCount : id === "chats" ? totalUnread : 0;
-          return (
-            <button
-              key={id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => onTab(id)}
-              className={[
-                "flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition",
-                selected
-                  ? "border-orange-400/50 bg-orange-500/15 text-orange-200"
-                  : "border-white/10 bg-white/5 text-ink-300 hover:bg-white/10 hover:text-white",
-              ].join(" ")}
-            >
-              {label}
-              {badge > 0 ? (
-                <span
-                  className={[
-                    "rounded-full px-1.5 text-[10px] font-bold tabular-nums",
-                    selected ? "bg-orange-400/25 text-orange-100" : "bg-white/10 text-ink-200",
-                  ].join(" ")}
-                >
-                  {badge}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-    </header>
-  );
-
-}
 const TONES = {
-  orange: "bg-orange-500/15 text-orange-300 border-orange-400/30",
+  orange: "bg-orange-500/15 text-orange-300 border-orange-500/30",
   sky: "bg-sky-500/15 text-sky-300 border-sky-400/30",
   emerald: "bg-emerald-500/15 text-emerald-300 border-emerald-400/30",
   violet: "bg-violet-500/15 text-violet-300 border-violet-400/30",
@@ -449,7 +610,7 @@ function QuickAction({
   disabled?: boolean;
   label: string;
   tone: keyof typeof TONES;
-  /** Why the tile is inert — surfaced as a tooltip, not silently dimmed. */
+  /** Why the tile is inert - surfaced as a tooltip, not silently dimmed. */
   disabledTitle?: string;
   children: React.ReactNode;
 }) {
@@ -467,9 +628,9 @@ function QuickAction({
 
   if (disabled || !href) {
     return (
-      /* `aria-disabled` on a span rather than `disabled` on a <button>: a
-         genuinely disabled control is skipped by assistive tech with no
-         explanation. This stays in the tree and announces why it is inert. */
+      /* `aria-disabled` on a span rather than `disabled` on a <button>: a truly
+         disabled control is skipped by assistive tech with no explanation. This
+         stays in the tree and announces why it is inert. */
       <span role="button" aria-disabled="true" title={disabledTitle} className={shell}>
         {children}
         <span className={caption}>{label}</span>
@@ -483,245 +644,74 @@ function QuickAction({
       <span className={caption}>{label}</span>
     </Link>
   );
-
 }
 
-/** The pinned notices, in cycle order. */
-const NOTICES = [
-  {
-    id: "scam",
-    icon: "shield" as const,
-    title: "Scam Warning",
-    body: "Never send money, gift cards or codes to anyone. We will never ask you for them.",
-    tone: "amber" as const,
-  },
-  {
-    id: "team",
-    icon: "crown" as const,
-    title: "Official Team",
-    body: "Real messages from the team carry this badge. Report anyone claiming to be staff without it.",
-    tone: "orange" as const,
-  },
-];
 
-/** How long each notice is held before the carousel advances. */
-const NOTICE_INTERVAL = 5200;
+/* MEMOIZED, AND THE PROPS ARE A STABLE REFERENCE.
 
-/**
- * One card position, auto-advancing through the pinned notices.
- *
- * WHY A CAROUSEL AND NOT A STACK. Stacked, the two notices occupied the entire
- * first screen on a phone and the member had to scroll past both to read a
- * single "hi". One position holds the section to a fixed height however many
- * notices exist, so the conversation list always begins in the same place.
- *
- * WHY THE ADVANCE IS PAUSABLE. A ticker that keeps moving while you are reading
- * it is worse than a static card: the text leaves while the eye is on it. The
- * timer resets on any pointer or keyboard interaction and while the document is
- * hidden, so a notice stays put exactly when it is being read and only advances
- * when it is being ignored.
- *
- * The dots are real buttons, not decoration. They are the only way to reach a
- * specific notice on demand, and they are what makes an auto-advancing region
- * usable with a keyboard or a screen reader rather than something to sit and
- * wait out.
- *
- * `aria-live="polite"` announces the new notice without interrupting: a member
- * using a screen reader hears the change when they are between utterances,
- * rather than the ticker cutting across whatever they were reading.
- */
-function NoticeCarousel() {
-  const count = NOTICES.length;
-  const [index, setIndex] = useState(0);
-  const [paused, setPaused] = useState(false);
+   The inbox re-renders on every keystroke in the search field, and each render
+   re-ran every row. With a long list that is a real per-keystroke reconciliation
+   of the whole page, and it is entirely wasted: a row's markup depends only on
+   its own `chat` object, which the parent's `filter`/`map` never re-creates.
 
-  const go = useCallback(
-    (next: number) => {
-      setIndex(((next % count) + count) % count);
-    },
-    [count]
-  );
-
-  /* Reset the countdown on every interaction. `paused` is a dependency so that
-     releasing the pointer restarts a full interval rather than resuming a
-     nearly-expired one and snapping away immediately. */
-  useEffect(() => {
-    if (paused || count < 2) return;
-    const timer = window.setTimeout(() => go(index + 1), NOTICE_INTERVAL);
-    return () => window.clearTimeout(timer);
-  }, [index, paused, count, go]);
-
-  /* A backgrounded tab is not being read, but the timer still runs and the
-     member returns to a notice they never saw the start of. */
-  useEffect(() => {
-    const onVisibility = () => setPaused(document.hidden);
-    document.addEventListener("visibilitychange", onVisibility);
-    return () => document.removeEventListener("visibilitychange", onVisibility);
-  }, []);
-
-  if (count === 0) return null;
-
-  return (
-    <div
-      className="mb-3"
-      onPointerEnter={() => setPaused(true)}
-      onPointerLeave={() => setPaused(false)}
-      onFocusCapture={() => setPaused(true)}
-      onBlurCapture={() => setPaused(false)}
-    >
-      {/* ONE height for every slide.
-
-          All slides occupy the SAME grid cell and the container is sized by the
-          tallest of them, so the section never changes height as it advances and
-          the conversation list below never moves under the member's thumb. Add
-          a third notice and the screen does not grow.
-
-          `aria-live="polite"` sits on the container so the change is announced
-          without interrupting. */}
-      <div className="grid [&>*]:col-start-1 [&>*]:row-start-1" aria-live="polite">
-        {NOTICES.map((notice, i) => (
-          /* The hidden slides stay in the DOM, laid out in the same cell, so
-             the opacity transition has something to cross-fade between. They
-             are `aria-hidden` and `pointer-events-none`, so they are neither
-             announced nor tappable while hidden. `invisible` is deliberately
-             NOT used: it would remove them from the layout box as well and
-             make the container collapse to the visible slide's height, which
-             is the reflow this is built to avoid. */
-          <div
-            key={notice.id}
-            className={[
-              "transition-opacity duration-500 motion-reduce:transition-none",
-              i === index ? "opacity-100" : "pointer-events-none opacity-0",
-            ].join(" ")}
-            aria-hidden={i !== index}
-          >
-            <PinnedNotice
-              icon={<Icon name={notice.icon} className="h-5 w-5" />}
-              title={notice.title}
-              body={notice.body}
-              tone={notice.tone}
-            />
-          </div>
-        ))}
-      </div>
-
-      {count > 1 ? (
-        <div className="mt-1.5 flex justify-center gap-1.5" role="tablist" aria-label="Pinned notices">
-          {NOTICES.map((notice, i) => (
-            <button
-              key={notice.id}
-              type="button"
-              role="tab"
-              aria-selected={i === index}
-              aria-label={`Show notice: ${notice.title}`}
-              onClick={() => go(i)}
-              className={[
-                "h-1.5 rounded-full transition-all duration-300",
-                i === index ? "w-5 bg-orange-400/80" : "w-1.5 bg-white/25 hover:bg-white/40",
-              ].join(" ")}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function PinnedNotice({
-  icon,
-  title,
-  body,
-  tone,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  body: string;
-  tone: "amber" | "orange";
-}) {
-  return (
-    /* A `<section>`, not an `<li>`: the carousel stacks these in a grid cell
-       inside a plain `<div>`, and an `<li>` with no list parent is invalid
-       markup that assistive tech announces as an orphan. */
-    <section
-      aria-label={title}
-      className={[
-        "flex items-start gap-3 rounded-2xl border p-3.5",
-        tone === "amber"
-          ? "border-amber-400/30 bg-amber-500/10"
-          : "border-orange-400/30 bg-orange-500/10",
-      ].join(" ")}
-    >
-      <span
-        aria-hidden
-        className={[
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-          tone === "amber"
-            ? "bg-amber-500/20 text-amber-300"
-            : "bg-orange-500/20 text-orange-300",
-        ].join(" ")}
-      >
-        {icon}
-      </span>
-      <div className="min-w-0 flex-1">
-        {/* `line-clamp-2` on the body so a long warning cannot push the real
-            conversations further down the phone than necessary. */}
-        <p className="flex items-center gap-2 text-sm font-semibold text-white">
-          {title}
-          <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-ink-200">
-            Pinned
-          </span>
-        </p>
-        <p className="mt-0.5 line-clamp-2 text-[11px] leading-4 text-ink-200">{body}</p>
-      </div>
-    </section>
-  );
-}
-
-function ChatRow({ chat }: { chat: InboxChat }) {
+   `chat` is what makes this correct rather than just fast. The parent derives
+   `pinned`/`unpinned` with `filter`, which passes the SAME object references
+   through, so a row only re-renders when its own data actually changes. If this
+   ever needs fresh objects per render, this memo silently stops skipping - which
+   is why the comparison note lives here rather than in a comment on the props. */
+const ChatRow = memo(function ChatRow({ chat }: { chat: InboxChat }) {
   /* NAMES ARE SANITIZED BEFORE THEY REACH THE VIEW.
 
-     `display_name` is seeded from the email address on signup
-     (`email.split("@")[0]` in `lib/server/users.ts`), so a member who never
-     chose a name carries a machine string — and on some rows that string is the
-     FULL ADDRESS, not just the local part. The inbox is the one screen where
-     that matters most: it is a list of PEOPLE, and printing
-     "ivyjahf1@gmail.com" as the label for a person is both ugly and a small
-     privacy leak (it broadcasts the address to anyone looking at the screen,
-     including over someone's shoulder).
+     `display_name` is seeded from the email address on signup, so a member who
+     never chose a name carries a machine string - and on some rows that string is
+     the FULL ADDRESS. The inbox is the one screen where that matters most: it is a
+     list of PEOPLE, and printing "ivyjahf1@gmail.com" as the label for a person is
+     both ugly and a small privacy leak, since it broadcasts the address to anyone
+     looking at the screen.
 
-     `displayNameFromEmail` turns an address into a handle ("Ivy J.") and
-     passes an already-human name through untouched, so this is a no-op for the
-     members who did choose a name. The `isLikelyEmailAddress` guard handles the
-     case where the column holds a real name that merely CONTAINS an "@" — it
-     only rewrites things that actually look like an address, so a deliberate
-     handle is never mangled. */
+     `displayNameFromEmail` turns an address into a handle ("Ivy J.") and passes an
+     already-human name through untouched, so this is a no-op for members who did
+     choose a name. The `isLikelyEmailAddress` guard handles a real name that
+     merely CONTAINS an "@", so a deliberate handle is never mangled. */
   const rawName = chat.name?.trim() || "";
-  const name = rawName && isLikelyEmailAddress(rawName) ? displayNameFromEmail(rawName) || "Chat" : rawName || "Chat";
+  const name =
+    rawName && isLikelyEmailAddress(rawName)
+      ? displayNameFromEmail(rawName) || "Chat"
+      : rawName || "Chat";
   const unread = Math.max(chat.unread ?? 0, 0);
   const at = chat.lastMessageAt ? formatChatTime(chat.lastMessageAt) : null;
 
+  /* "Sarah Chen, 32". The age is OMITTED rather than replaced with a dash when
+     unknown, so a member who has not shared a date of birth looks like a member
+     rather than like a gap in the data. */
+  const identity = chat.age != null && chat.age > 0 ? `${name}, ${chat.age}` : name;
+
   return (
-    /* A raised card inset from the screen edge by the page's own `px-4`, so no
-       row touches the bezel. `active:scale-[0.99]` gives a tap real feedback on
-       touch, where there is no hover cursor to rely on. */
+    /* A raised OPAQUE card inset from the screen edge by the page's own padding,
+       so no row touches the bezel. Opaque matters, and it is now absolute: a
+       translucent fill lets whatever is behind the page show through the row,
+       which reads as a rendering fault. `bg-slate-900` with no alpha. */
     <Link
       href={chat.href as never}
-      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-surface p-3 transition active:scale-[0.99] hover:border-white/20 sm:gap-4"
+      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-slate-900 p-3 transition hover:border-orange-500/30 hover:bg-slate-800 active:scale-[0.99] sm:gap-4"
     >
-      <div className="relative shrink-0">
-        {chat.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={chat.avatarUrl} alt={name} className="h-12 w-12 rounded-full object-cover" />
-        ) : (
-          <Avatar name={name} kind={chat.kind} size="md" className="bg-brand-500/15 text-brand-300" />
-        )}
-        {/* Bots are never "online" — they have no presence row, so a dot on them
-            would be a status the product cannot actually resolve. */}
+      {/* A FIXED-SIZE, OVERFLOW-CLIPPED BOX around the avatar.
+
+          `h-11 w-11` mirrors Avatar's own `md` size, so the box and the image
+          agree even if a size utility is ever purged. `overflow-hidden` is the
+          real guarantee: whatever intrinsic pixel dimensions an uploaded
+          `/api/photos/...` file has, it is clipped to the circle instead of
+          escaping into the row. `relative` anchors the unread badge and the
+          presence dot to THIS element rather than to the page. */}
+      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-full">
+        <Avatar name={name} src={chat.avatarUrl} kind={chat.kind} size="md" />
+        {/* Bots are never "online" - they have no presence row, so a dot would be
+            a status the product cannot resolve. */}
         {chat.isBot ? null : <PresenceDot online={chat.isOnline} size="md" />}
         {unread > 0 ? (
           <span
             aria-label={`${unread} unread ${unread === 1 ? "message" : "messages"}`}
-            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-[#FF5722] px-1 text-[10px] font-bold text-white"
+            className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white"
           >
             {unread > 99 ? "99+" : unread}
           </span>
@@ -729,42 +719,67 @@ function ChatRow({ chat }: { chat: InboxChat }) {
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">{name}</p>
-        <p className="truncate text-xs text-ink-300">{chat.preview?.trim() || "No messages yet"}</p>
+        <p className="truncate text-sm font-semibold text-white">{identity}</p>
+        <p className="truncate text-xs text-ink-300">
+          {chat.preview?.trim() || "No messages yet"}
+        </p>
       </div>
 
-      {/* Timestamp hard right, OUTSIDE the truncating middle column, so it never
-          gets ellipsized by a long preview. */}
+      {/* Timestamp hard right, OUTSIDE the truncating middle column, so a long
+          preview can never ellipsize it.
+
+          `suppressHydrationWarning` IS LOAD-BEARING. `formatChatTime` reads
+          `Date.now()` DURING RENDER, and this component is server-rendered, so the
+          server renders at T and the client hydrates at T+delta - a thread showing
+          "1m ago" can hydrate as "2m ago". That is a genuine mismatch firing on the
+          inbox's first paint, not a cosmetic one.
+
+          The suppression is scoped to this element's own text, which is the only
+          value that legitimately differs between the two renders. The alternative -
+          gating the timestamp behind a mounted flag - renders an empty cell on the
+          server and pops the value in later, which is worse. */}
       {at ? (
         <span
+          suppressHydrationWarning
           className={[
-            "shrink-0 text-[11px]",
-            unread > 0 ? "font-semibold text-brand-300" : "text-ink-400",
+            "shrink-0 whitespace-nowrap text-[11px]",
+            unread > 0 ? "font-semibold text-orange-400" : "text-ink-400",
           ].join(" ")}
         >
           {at}
         </span>
       ) : null}
     </Link>
-
   );
-}
+});
 
-/** Compact relative/absolute chat timestamp. */
+/**
+ * Relative chat timestamp.
+ *
+ * "2m ago", "1h ago", "Yesterday" - the words a person would say out loud. Bare
+ * "2m" / "1h" / "3d" read as a machine counter next to a human name, and "3d"
+ * says nothing about whether the member missed three conversations or thirty.
+ *
+ * `Math.max` guards zero: server/device clock skew can put a message seconds in
+ * the future, which would otherwise render "in 4m ago".
+ */
 function formatChatTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const diffMs = Date.now() - date.getTime();
-  const minutes = Math.floor(diffMs / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
 
-  if (hours < 24) return `${hours}h`;
+  const minutes = Math.max(Math.floor((Date.now() - date.getTime()) / 60_000), 0);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m ago`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
   return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
+
 function MenuLink({
   href,
   onPick,
@@ -785,3 +800,4 @@ function MenuLink({
     </Link>
   );
 }
+

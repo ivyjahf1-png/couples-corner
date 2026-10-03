@@ -2351,9 +2351,48 @@ button,
     --chat-menu-border: rgb(255 255 255 / 0.1);
   }
 
+  /* CHARCOAL — NEUTRAL DARK, NO HUE AT ALL.
+
+     The other five themes are all TINTED (purple, teal, orange, rose). Charcoal
+     is the deliberately neutral one: a true grey with zero chroma, for members
+     who want the dark theme without a colour cast over every photo they set as a
+     wallpaper. That neutrality is also why it is the most forgiving canvas for a
+     custom image — no competing hue to fight the picture.
+
+     The canvas is #171719, a hair warmer than a pure #171717 so it does not read
+     as "dead" next to the blue-grey Slate default. Contrast is verified by
+     scripts/audit-chat-contrast.cjs, which every theme must pass. */
+  .chat-theme-charcoal {
+    --chat-canvas: #171719;
+    --chat-surface: rgb(20 20 22 / 0.82);
+    --chat-border: rgb(255 255 255 / 0.1);
+    --chat-text: #ededed;
+    --chat-muted: #a1a1aa;
+    --chat-icon: #a1a1aa;
+    --chat-online: #34d399;
+    --chat-online-dot: #34d399;
+    --chat-in-bg: rgb(255 255 255 / 0.07);
+    --chat-in-text: #ededed;
+    --chat-in-border: rgb(255 255 255 / 0.1);
+    --chat-in-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+    --chat-out-from: #f97316;
+    --chat-out-to: #c2410c;
+    --chat-out-text: #ffffff;
+    --chat-pill-bg: #ffe4a3;
+    --chat-pill-text: #4a3405;
+    --chat-pill-border: rgb(255 228 163 / 0.28);
+    --chat-next-bg: #1f1f22;
+    --chat-next-text: #ffffff;
+    --chat-input-bg: rgb(255 255 255 / 0.07);
+    --chat-input-border: rgb(255 255 255 / 0.14);
+    --chat-menu-bg: #26262a;
+    --chat-menu-border: rgb(255 255 255 / 0.1);
+  }
+
   /* Paints the thread canvas from the theme's own token, so the value here and
      the tokens above can never drift apart. */
   .chat-theme-default,
+  .chat-theme-charcoal,
   .chat-theme-dusk,
   .chat-theme-ocean,
   .chat-theme-ember,

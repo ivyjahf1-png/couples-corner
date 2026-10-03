@@ -28,6 +28,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Trash2, X } from "lucide-react";
 import { CHAT_THEMES, type ChatThemeId } from "@/components/app/MessageComposer";
+import {
+  DIM_MIN,
+  DIM_MAX,
+  BLUR_MIN,
+  BLUR_MAX,
+  type WallpaperTuning,
+} from "@/lib/hooks/useChatWallpaper";
 import { uploadFileDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
@@ -39,6 +46,8 @@ export function ChatSettingsSheet({
   onThemeChange,
   wallpaper,
   onWallpaperChange,
+  tuning,
+  onTuningChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -46,6 +55,13 @@ export function ChatSettingsSheet({
   onThemeChange: (next: ChatThemeId) => void;
   wallpaper: string | null;
   onWallpaperChange: (url: string | null) => void;
+  /**
+   * OPTIONAL wallpaper dimming/blur. Pass these only from a surface that renders
+   * the wallpaper itself (the inbox). Omitted, the dim/blur section is not
+   * rendered at all and the sheet behaves exactly as it did before.
+   */
+  tuning?: WallpaperTuning;
+  onTuningChange?: (next: Partial<WallpaperTuning>) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -168,6 +184,58 @@ return (
             })}
           </div>
         </section>
+
+        {/* ── WALLPAPER DIMMING & BLUR ───────────────────────────────────────
+            OPTIONAL. Only rendered when the caller passes `tuning`. The thread
+            view does not, so it gets exactly the sheet it had before — the
+            conversation's own scrims are tuned per theme and are not the member's
+            to move, whereas on the inbox the wallpaper sits behind a LIST of rows
+            they are actively choosing to look at.
+
+            Gated on `wallpaper` too: dimming a picture that is not there offers
+            two sliders that visibly do nothing. */}
+        {tuning && wallpaper ? (
+          <section aria-labelledby="sheet-tuning" className="mt-5">
+            <h3
+              id="sheet-tuning"
+              className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-400"
+            >
+              Photo adjustment
+            </h3>
+
+            <label className="mb-2 flex items-center justify-between gap-3 text-sm text-slate-300">
+              Dim
+              <input
+                type="range"
+                min={DIM_MIN}
+                max={DIM_MAX}
+                step={0.05}
+                value={tuning.dim}
+                onChange={(e) => onTuningChange?.({ dim: Number(e.target.value) })}
+                className="h-1.5 flex-1 accent-orange-500"
+              />
+            </label>
+
+            <label className="flex items-center justify-between gap-3 text-sm text-slate-300">
+              Blur
+              <input
+                type="range"
+                min={BLUR_MIN}
+                max={BLUR_MAX}
+                step={1}
+                value={tuning.blur}
+                onChange={(e) => onTuningChange?.({ blur: Number(e.target.value) })}
+                className="h-1.5 flex-1 accent-orange-500"
+              />
+            </label>
+
+            {/* Text, not just a position: a bare slider announces its raw value
+                ("0.62") to a screen reader, which means nothing to a person. */}
+            <p className="mt-2 text-[11px] text-slate-500">
+              Dim {Math.round(tuning.dim * 100)}% · Blur {tuning.blur}px
+            </p>
+          </section>
+        ) : null}
 
         {/* ── CUSTOM WALLPAPER ───────────────────────────────────────────── */}
         <section aria-labelledby="sheet-wallpaper" className="mt-5">

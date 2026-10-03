@@ -122,7 +122,14 @@ export default async function ProfilePage() {
        applied once, here, rather than being baked into a width cap. */
     <PageLock
       head={<ProfileHeader name={name} />}
-      bodyClassName="flex flex-col gap-6 px-4 pt-4 pb-10"
+      /* `pt-2`, not `pt-4`. The bar above is a fixed 56px tall and the hero's own
+         avatar ring already supplies visual breathing room, so the old 16px of
+         top padding pushed the whole profile down and left a dead band under the
+         header — the "excess vertical padding" in the screenshot. `pb-28` on
+         mobile clears the fixed 5rem tab bar, which is the thing actually
+         crowding the bottom of the last card; `md:pb-8` drops it where that bar
+         is `md:hidden` and the sidebar rail takes over. */
+      bodyClassName="flex flex-col gap-4 px-4 pt-2 pb-28 md:pb-8"
     >
       <ProfileScreen
         data={{
@@ -137,6 +144,17 @@ export default async function ProfilePage() {
           heightCm: profile?.heightCm ?? null,
           education: profile?.education ?? null,
           lifestyle: profile?.lifestyle ?? [],
+          /* The four relationship/preference fields below were already being
+             SELECTED by `profileSelectList()` and mapped onto `UserProfile` —
+             they simply never reached this page. Nothing new is queried and no
+             migration is needed; the data was there and unread. */
+          location: profile?.location ?? null,
+          country: profile?.country ?? null,
+          relationshipStatus: profile?.relationshipStatus ?? null,
+          profileType: profile?.profileType ?? null,
+          lookingFor: profile?.lookingFor ?? null,
+          gender: profile?.gender ?? null,
+          orientation: profile?.orientation ?? null,
           tokenBalance: wallet.coinBalance,
         }}
       />

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { EmptyState } from "@/components/app/EmptyState";
 import { MessagesInbox, type InboxChat } from "@/components/app/MessagesInbox";
 import { MessagesComposeFab } from "@/components/app/MessagesComposeFab";
@@ -9,52 +9,52 @@ import { getBotThreadsForUser } from "@/lib/server/likes";
 export const dynamic = "force-dynamic";
 
 /**
- * Messages â€” the private inbox.
+ * Messages - the private inbox.
  *
- * â”€â”€ WHAT THIS PAGE IS NOW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * A thin Server Component whose only jobs are: authenticate, fetch the two
- * conversation sources, merge them newest-first, and hand plain serialisable
- * rows to `MessagesInbox`. Every pixel of the screen is rendered by that one
- * client component, because the header pills, the search field and the list are
- * a single filter surface and splitting them would mean lifting the state here
- * into a client boundary anyway.
+ * A thin Server Component with exactly three jobs: authenticate, fetch the two
+ * conversation sources, and hand plain serialisable rows to `MessagesInbox`.
+ * Every pixel is painted by that one client component, because the header pills,
+ * the search field and the list are a single filter surface and splitting them
+ * would mean lifting that state into a client boundary anyway.
  *
- * THE OLD LAYOUT IS GONE. This page previously stacked, above the fold and
- * before a single conversation: a Chat/Call segmented control, a two-up grid of
- * scam + official-team cards, a status story tray, a "Near me" stories reel, a
- * profile-visitor teaser, and a separate search field of its own. Seven pieces
- * of chrome. The story reel and the visitor teaser are removed outright â€” the
- * former is a browsing surface that belongs on Discover, and the latter had no
- * data source at all and therefore rendered nothing anyway.
+ * WHY THE DATA IS SHAPED HERE AND NOT IN THE CLIENT: the inbox card renders
+ * "Sarah Chen, 32". The age is DERIVED from the other member's date_of_birth by
+ * `getInboxSummaries`, so only the integer crosses this boundary - the date of
+ * birth itself never leaves the server.
  *
- * â”€â”€ THE DARK CANVAS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * The screen renders on the app's midnight navy-purple (#0F0A1C) with the brand
- * orange on interactive elements, matching the chat room. It was briefly a
- * near-white list with dark text; that made Messages the only light surface in
- * the app and flashed the member from a white list onto a dark thread on every
- * tap-through. The conversation rows are dark raised cards on that canvas, so
- * each still reads as a discrete tappable row.
+ * NO BACKGROUND OPTION IS PASSED DOWN, DELIBERATELY. This route has never had a
+ * wallpaper control, and it must not grow one by accident: a photo behind a list
+ * of faces and message previews is the wrong trade on this screen. A legacy
+ * `couples_corner:chat-wallpaper` entry in localStorage used to fight that, so
+ * `MessagesInbox` purges the key on mount and paints solid slate under the rows.
+ * If someone later wants a wallpaper HERE, that is a product decision, not a
+ * default to restore.
  */
 export default async function MessagesPage() {
   const user = await requireUser();
-  const conversations = await getInboxSummaries(user.uid);
-  const botThreads = await getBotThreadsForUser(user.uid);
+
+  /* Concurrent, not sequential: these are independent reads and serialising
+     them would add one round trip to every page load for no benefit. */
+  const [conversations, botThreads] = await Promise.all([
+    getInboxSummaries(user.uid),
+    getBotThreadsForUser(user.uid),
+  ]);
 
   /**
-   * The two conversation sources merged into one list.
+   * Both sources merged into one recency-ordered list.
    *
    * `getInboxSummaries` reads real member-to-member `conversations`;
-   * `getBotThreadsForUser` reads bot persona threads from the FK-free bot
-   * tables. Both fail soft to `[]`, and the `.filter` guards mean a malformed
-   * row cannot produce a React key of `undefined`.
+   * `getBotThreadsForUser` reads bot persona threads from the FK-free bot tables.
+   * Both fail soft to `[]`, and the `.filter` guards mean a malformed row cannot
+   * produce a React key of `undefined`.
    *
-   * `callHrefBase` is the call route WITHOUT the mode segment, so the client
-   * can pick audio or video off the same conversation. It is `null` for bot
-   * threads: there is no `conversations` row behind a persona, so
-   * `/call/<personaId>/â€¦` would 404. That null is what renders the call tiles
-   * inert instead of as links that break.
+   * `callHrefBase` is the call route WITHOUT the mode segment, so the client can
+   * pick audio or video off the same conversation. It is `null` for bot threads:
+   * there is no `conversations` row behind a persona, so /call/<id>/ would 404.
+   * That null is what renders the call tiles inert instead of as links that
+   * break.
    */
-  const activeChats: InboxChat[] = [
+  const chats: InboxChat[] = [
     ...(Array.isArray(conversations) ? conversations : [])
       .filter((c) => c?.id)
       .map((c) => ({
@@ -63,14 +63,14 @@ export default async function MessagesPage() {
         name: c.name,
         kind: c.kind,
         avatarUrl: c.avatarUrl,
+        /* Null unless they shared a date of birth - the card then renders the
+           name alone rather than a placeholder age. */
+        age: c.age,
         preview: c.preview,
         lastMessageAt: c.lastMessageAt,
         unread: c.unread,
         isOnline: c.isOnline,
-        /* Migration 050. Carried through to the client so the inbox can render
-           a pinned section above the recency-ordered list. */
         isPinned: c.isPinned ?? false,
-        /* Real conversation, so it is genuinely callable. */
         callHrefBase: `/call/${c.id}`,
       })),
     ...(Array.isArray(botThreads) ? botThreads : [])
@@ -81,13 +81,13 @@ export default async function MessagesPage() {
         name: b.name,
         kind: b.kind,
         avatarUrl: b.avatarUrl,
+        /* Personas have no date of birth, so there is never an age to print. */
+        age: null,
         preview: b.preview,
         lastMessageAt: b.lastMessageAt,
         unread: b.unread,
         isOnline: false,
         isBot: true,
-        /* A bot persona has no `conversations` row, so there is no call route
-           to link to. See the note on `callHrefBase` above. */
         callHrefBase: null,
       })),
   ].sort((a, b) => {
@@ -96,14 +96,10 @@ export default async function MessagesPage() {
     return bt - at;
   });
 
-  /* The canvas, the side padding and the scroll region all live in
-     `MessagesInbox`'s `PageLock` — the header, search field and list are one
-     scroll body, so they must be configured in the same place rather than
-     split across this page and the client component. */
   return (
     <>
       <MessagesInbox
-        chats={activeChats.filter((c) => c?.key)}
+        chats={chats}
         emptyState={
           <EmptyState
             icon="chat"
@@ -118,12 +114,10 @@ export default async function MessagesPage() {
         }
       />
 
-      {/* Blue compose FAB, bottom-right, above the 5rem tab bar. Replaces the
-          Game Center button this page used to float there — two round floating
+      {/* Compose FAB, bottom-right, clear of the 5rem tab bar. It replaces the
+          Game Center button this page used to float there - two round floating
           buttons would fight for the same corner. */}
       <MessagesComposeFab />
     </>
   );
 }
-
-

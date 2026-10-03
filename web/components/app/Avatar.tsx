@@ -99,8 +99,37 @@ export function Avatar({ name, src, kind = "person", size = "md", className }: A
         //
         // The initials branch below already had `shrink-0`; the image branch did
         // not, so the bug only appeared for members WITH a profile photo.
+        //
+        // LOADING HINTS. `loading="lazy"` + `decoding="async"` keep a long inbox
+        // from queueing dozens of thumbnail fetches and decodes against the
+        // first paint, and `fetchPriority="low"` stops each one from competing
+        // with the shell's own critical CSS/JS. Without that last one every
+        // avatar defaults to `high` priority, and the browser treats a wall of
+        // thumbnails as more urgent than the text around them - the classic
+        // "photos arrive, words do not" inversion on a slow phone.
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
+        // Sizing is FIXED to the avatar box and never derived from a parent.
+        //
+        // `h-full w-full` used to sit in this class list. With no positioned,
+        // fixed-size wrapper above it, `height: 100%` resolves against whatever
+        // containing block exists - and on a page whose root is not itself a
+        // fixed-height box, that is the viewport. A member's raw
+        // `/api/photos/...` upload then rendered as a page-sized graphic over the
+        // whole messages view. The initials branch is immune because it is a
+        // `<span>` whose own size comes from `sizeClasses`, which is exactly why
+        // the fault only ever appeared for members WITH a photo.
+        //
+        // So: the size utilities alone define the box. `object-cover` crops,
+        // `max-h-full`/`max-w-full` are a belt-and-braces ceiling that cannot
+        // grow past the box if a caller's `className` sets only one axis, and the
+        // inline styles are a hard backstop that survives even a stylesheet that
+        // failed to load or a utility class that was purged.
+        style={{ maxHeight: "100%", maxWidth: "100%", display: "block" }}
         className={[
-          "h-full w-full shrink-0 rounded-full object-cover",
+          "block shrink-0 overflow-hidden rounded-full object-cover",
+          "max-h-full max-w-full",
           sizeClasses[size],
           className ?? "",
         ]

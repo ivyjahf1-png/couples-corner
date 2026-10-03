@@ -36,6 +36,27 @@ export interface ProfileScreenData {
   /** Lifestyle ids; labels resolved through lifestyleLabel(). */
   lifestyle: string[];
   /**
+   * Where the member is. Rendered as a pill under the name and age — the single
+   * most-scanned fact on a dating profile, which is why it sits in the hero
+   * rather than in a section the member has to scroll to find.
+   */
+  location: string | null;
+  /** Country, shown as its own pill. Often the only place a member is from. */
+  country: string | null;
+  /**
+   * Relationship metadata. All four are free-text columns the member fills in,
+   * so each is nullable and each is rendered only when set — a card reading
+   * "Relationship status — " for a member who has not answered is worse than a
+   * shorter card.
+   */
+  relationshipStatus: string | null;
+  /** "single" | "coupled" | "open" — the account type. */
+  profileType: string | null;
+  /** What the member is looking for, in their own words. */
+  lookingFor: string | null;
+  gender: string | null;
+  orientation: string | null;
+  /**
    * Token balance.
    *
    * The previous profile page was the ONLY surface in the app that read
@@ -97,7 +118,6 @@ const LIFESTYLE_ICONS: Record<string, ProfileIconName> = {
 */
 export function ProfileHeader({ name }: { name: string }) {
   const [condensed, setCondensed] = useState(false);
-
   useEffect(() => {
     const hero = document.getElementById("profile-hero-name");
     if (!hero) return;
@@ -133,18 +153,28 @@ export function ProfileHeader({ name }: { name: string }) {
   const title = (
     <h1
       className={[
-        "relative min-w-0 flex-1 truncate text-center font-semibold text-white transition-all duration-300 ease-out motion-reduce:transition-none",
+        /* LEFT-ALIGNED, not centred. The bar is now "Profile" on the left and the
+           gear on the right, so a centred title would float between two things
+           that are not symmetrical — it read as unanchored. `text-left` plus
+           `min-w-0 flex-1 truncate` keeps a long member name ellipsizing in
+           place rather than shoving the gear off the edge. */
+        "relative min-w-0 flex-1 truncate text-left font-semibold text-white transition-all duration-300 ease-out motion-reduce:transition-none",
         condensed ? "text-base" : "text-lg",
       ].join(" ")}
     >
       {/* The name CROSS-FADES in over "Profile" rather than replacing it in the
           DOM, so the bar never changes width and the gear never shifts. Both
           are always mounted and stacked; only opacity and vertical offset move,
-          which is what makes it read as a transition rather than a swap. */}
+          which is what makes it read as a transition rather than a swap.
+
+          The name is still centred WITHIN its own left-aligned slot via
+          `absolute inset-0 text-center` on the condensed span, so it stays
+          optically centred against the gear while "Profile" itself sits hard
+          left. */}
       <span
         className={[
           "block transition-all duration-300 ease-out motion-reduce:transition-none",
-          condensed ? "translate-y-0 opacity-100" : "pointer-events-none absolute translate-y-2 opacity-0",
+          condensed ? "absolute inset-0 translate-y-0 text-center opacity-100" : "pointer-events-none absolute translate-y-2 opacity-0",
         ].join(" ")}
       >
         {name}
@@ -162,10 +192,23 @@ export function ProfileHeader({ name }: { name: string }) {
   );
 
   return (
+    /* THE STICKY BAR.
+
+       `sticky top-0 z-50` is REQUIRED by the spec, and it is also what makes the
+       bar behave correctly now that this header carries the full glass treatment:
+       it must stay above the media grid's hover overlays and above the sticky
+       cards further down. `z-50` matches the shell's nav tier, so the bar sits at
+       the same level as the app chrome rather than punching through it.
+
+       `bg-slate-950/80` + `backdrop-blur-md` gives the frosted-glass read while
+       the content scrolls beneath it. The CONDENSED state raises the opacity to
+       /95 and adds a shadow: at /80 the cards passing underneath stay faintly
+       legible through the blur, which reads as a rendering fault rather than a
+       deliberate surface. Exactly as on the Messages screen. */
     <header
       className={[
-        "relative flex items-center justify-end gap-3 border-b bg-slate-950/80 px-4 py-3 backdrop-blur transition-colors duration-300 motion-reduce:transition-none",
-        condensed ? "border-white/10 bg-slate-950/95 shadow-lg shadow-black/30" : "border-white/5",
+        "sticky top-0 z-50 flex items-center gap-3 border-b bg-slate-950/80 px-4 py-2.5 backdrop-blur-md transition-colors duration-300 motion-reduce:transition-none",
+        condensed ? "border-orange-500/30 bg-slate-950/95 shadow-lg shadow-black/40" : "border-white/5",
       ].join(" ")}
     >
       {/* `aria-live="polite"` so the title change is announced once, not on every
@@ -175,16 +218,12 @@ export function ProfileHeader({ name }: { name: string }) {
         {condensed ? `${name} profile` : "Profile"}
       </p>
 
-      {/* Left slot is an inert spacer so the title stays optically centred
-          against the single gear on the right. */}
-      <span aria-hidden className="h-11 w-11 shrink-0" />
-
       {title}
 
       <Link
         href="/settings"
         aria-label="Settings"
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-900/80 text-white transition hover:border-orange-500/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
       >
         <ProfileIcon name="settings" className="h-5 w-5" />
       </Link>
@@ -205,6 +244,25 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
   if (height) aboutRows.push({ label: "Height", value: height, icon: "height" });
   if (data.occupation) aboutRows.push({ label: "Profession", value: data.occupation, icon: "profession" });
   if (data.education) aboutRows.push({ label: "Education", value: data.education, icon: "education" });
+
+  /* RELATIONSHIP GOALS, BUILT BY FILTERING, for the same reason as `aboutRows`:
+     a "Relationship status —" row with nothing after it is worse than an absent
+     section. These four columns are free text, so each is checked and trimmed
+     individually and the card simply shrinks as members answer less. */
+  const relationshipRows: { label: string; value: string; icon: ProfileIconName }[] = [];
+  /* Icons are drawn from the ALREADY-REGISTERED set rather than adding three
+     near-duplicate glyphs. `ProfileIconName` is a union with a `Record` behind
+     it, so an unregistered name is a compile error rather than a blank square —
+     which is how "profile" was caught here. Status and orientation share the
+     heart; profile type takes the crown; gender reuses the profession mark. */
+  if (data.relationshipStatus?.trim())
+    relationshipRows.push({ label: "Status", value: data.relationshipStatus, icon: "heart-goal" });
+  if (data.profileType?.trim())
+    relationshipRows.push({ label: "Profile type", value: data.profileType, icon: "crown" });
+  if (data.gender?.trim())
+    relationshipRows.push({ label: "Gender", value: data.gender, icon: "profession" });
+  if (data.orientation?.trim())
+    relationshipRows.push({ label: "Orientation", value: data.orientation, icon: "heart-goal" });
 
   return (
     <div className="flex flex-col gap-6 pb-8">
@@ -257,8 +315,35 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                 printing a dangling comma. */}
             {typeof age === "number" ? <span className="text-ink-300">, {age}</span> : null}
           </h2>
+
+          {/* LOCATION PILLS, directly under the name.
+
+              Location and country are SEPARATE PILLS, not one joined string. They
+              are independent columns and a member may well have set only one, so
+              each is filtered individually: someone who typed "Lagos" and nothing
+              else gets exactly one pill rather than "Lagos, " with a dangling
+              comma. `key` is the value itself, which is safe here because the
+              same text in both columns is the same pill.
+
+              Rendered only when at least one exists: a member who has not set a
+              location gets no row at all, rather than a row of placeholder
+              chips that advertises a field without answering it. */}
+          {data.location || data.country ? (
+            <ul className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              {[data.location, data.country].filter(Boolean).map((place) => (
+                <li
+                  key={place}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-medium text-orange-100"
+                >
+                  <ProfileIcon name="location" className="h-3.5 w-3.5 shrink-0 text-orange-300" />
+                  {place}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+
           {data.bio?.trim() ? (
-            <p className="mx-auto mt-1.5 max-w-xs text-sm leading-6 text-ink-300">{data.bio}</p>
+            <p className="mx-auto mt-3 max-w-sm text-sm leading-6 text-ink-300">{data.bio}</p>
           ) : null}
         </div>
 
@@ -332,8 +417,15 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
       {/* MEDIA. The existing UserMediaGallery is reused wholesale rather than
           reimplemented: it already owns upload, pagination, per-item share to the
           feed and delete-with-confirmation, all against the real `user_media`
-          table. A bespoke grid here would have been a second, weaker uploader. */}
-      <ProfileSection title="Photos & videos" icon="camera" collapsible defaultOpen>
+          table. A bespoke grid here would have been a second, weaker uploader.
+
+          It is now a NON-collapsible section that is always open. It was a
+          disclosure before, which meant the grid — the most visually persuasive
+          part of a dating profile — sat behind a tap on every visit, and the
+          spec explicitly asks for it expanded into a real gallery. The upload
+          affordance inside is the only control a member needs here, so there is
+          nothing left for a chevron to toggle. */}
+      <ProfileSection title="Photos & videos" icon="camera">
         <UserMediaGallery uid={data.uid} />
       </ProfileSection>
 
@@ -365,13 +457,20 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         </ProfileSection>
       ) : null}
 
+      {/* `outdoors`, not `sparkle`: "sparkle" is a name in the landing `Icon`
+          set, not in `ProfileIconName`, and the union makes that a type error
+          rather than a blank square. `outdoors` is the registered sparkles
+          glyph, so the interests header still gets its amber mark. */}
       {data.interests.length > 0 ? (
-        <ProfileSection title="My Interests">
+        <ProfileSection title="Interests" icon="outdoors">
+          {/* `break-words` on each pill: interests are free text typed by the
+              member, so a long one like "Distributed systems and espresso" must
+              wrap inside its own pill rather than stretching the row. */}
           <ul className="flex flex-wrap gap-2">
             {data.interests.map((interest) => (
               <li
                 key={interest}
-                className="rounded-full border border-white/10 bg-white/[0.04] px-3.5 py-1.5 text-sm text-ink-200"
+                className="max-w-full break-words rounded-full border border-orange-500/25 bg-orange-500/[0.08] px-3.5 py-1.5 text-sm text-orange-100"
               >
                 {interest}
               </li>
@@ -380,13 +479,87 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         </ProfileSection>
       ) : null}
 
+      {/* ── RELATIONSHIP GOALS & PREFERENCES ──────────────────────────────────
+          The spec's third rich card. Every field is BUILT BY FILTERING, exactly
+          as `aboutRows` is, so a member who has answered nothing gets no card
+          rather than a card of empty labels.
+
+          `lookingFor` is set apart from the rest because it is the only field
+          here written in the member's own words — it is their sentence, not a
+          taxonomy value — so it gets its own full-width block instead of a
+          label/value tile that would truncate it. */}
+      {relationshipRows.length > 0 ? (
+        <ProfileSection title="Relationship goals" icon="heart-goal">
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {relationshipRows.map((row) => (
+              <li
+                key={row.label}
+                className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-3"
+              >
+                <span
+                  aria-hidden
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-orange-500/15 text-orange-300"
+                >
+                  <ProfileIcon name={row.icon} className="h-4 w-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[11px] uppercase tracking-wide text-ink-400">
+                    {row.label}
+                  </span>
+                  <span className="block truncate text-sm font-medium capitalize text-white">
+                    {row.value}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          {data.lookingFor?.trim() ? (
+            <div className="mt-2.5 rounded-2xl border border-orange-500/25 bg-orange-500/[0.06] px-3.5 py-3">
+              <span className="block text-[11px] uppercase tracking-wide text-orange-300/80">
+                Looking for
+              </span>
+              {/* Not truncated — this is the member's own sentence and is the
+                  most human line on the whole card. */}
+              <p className="mt-1 text-sm leading-6 text-orange-50">{data.lookingFor}</p>
+            </div>
+          ) : null}
+        </ProfileSection>
+      ) : data.lookingFor?.trim() ? (
+        /* `lookingFor` alone still earns a card. The `else` branch means a
+           member whose only answered field is the one thing they wrote in their
+           own words still sees it, instead of having it silently dropped
+           because no taxonomy value was set. */
+        <ProfileSection title="Relationship goals" icon="heart-goal">
+          <p className="rounded-2xl border border-orange-500/25 bg-orange-500/[0.06] px-3.5 py-3 text-sm leading-6 text-orange-50">
+            {data.lookingFor}
+          </p>
+        </ProfileSection>
+      ) : null}
+
       {data.lifestyle.length > 0 ? (
-        <ProfileSection title="Lifestyle">
+        <ProfileSection title="Lifestyle" icon="travel">
+          {/* THE SPEC ASKS FOR "LIFESTYLE VERIFICATION BADGES". THERE IS NO
+              VERIFICATION IN THIS PRODUCT.
+
+              There is no verification column, no review queue, and no admin action
+              that sets one — `ConversationParticipantSummary.verified` is
+              hard-coded `false` with a comment saying exactly that, and the
+              hero's verified badge was removed from this file for the same reason
+              (see the HERO comment). Rendering a tick beside a self-declared tag
+              would be the unearned trust signal verification exists to prevent:
+              the member picks their own tags and could pick any of them, so a
+              "verified" tick would be a lie the product cannot back.
+
+              So the tags render as badges — visually strong, orange, the shape
+              the brief asked for — without a verification claim attached. The
+              `verified` icon stays registered in ProfileIcon, so if a real
+              verification source ever lands this is a one-line change. */}
           <ul className="flex flex-wrap gap-2">
             {data.lifestyle.map((id) => (
               <li
                 key={id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-orange-400/25 bg-orange-500/[0.10] px-3 py-1.5 text-xs font-medium text-orange-100"
+                className="inline-flex items-center gap-1.5 rounded-full border border-orange-500/25 bg-orange-500/[0.10] px-3 py-1.5 text-xs font-medium text-orange-100"
               >
                 {LIFESTYLE_ICONS[id] ? (
                   <ProfileIcon name={LIFESTYLE_ICONS[id]} className="h-3.5 w-3.5 shrink-0" />

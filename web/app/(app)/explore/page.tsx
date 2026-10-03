@@ -5,6 +5,7 @@ import { getNearbyProfiles, type NearbyProfileView } from "@/lib/server/nearby";
 import { demoProfileViews } from "@/lib/demo/demo-data";
 import { ProfileCard } from "@/components/app/ProfileCard";
 import { PageHeader } from "@/components/app/PageHeader";
+import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { EmptyState } from "@/components/app/EmptyState";
 import { Button } from "@/components/ui/Button";
 import type { ProfileCardView } from "@/lib/feature/types";
@@ -100,7 +101,13 @@ export default async function ExplorePage() {
     /* `/explore` is a BROWSING LIST and stays scrollable — see the note below.
        What is tightened here is the mobile rhythm, so more cards are reachable
        per swipe without changing what the page shows. */
-    <div className="flex flex-col gap-6 sm:gap-8">
+    <div className="flex flex-col gap-6 pb-28 sm:gap-8 md:pb-8">
+      {/* `pb-28` reserves room for the fixed bottom nav AND the floating Game
+          button above it. `AppMain` already applies a `pb-20` for the nav on
+          non-full-bleed routes, but that is measured to the nav alone — without
+          the extra reserve here the button covers the bottom-right corner of the
+          last profile card, which is exactly where its own Connect action sits.
+          `md:pb-8` drops both once the nav is `md:hidden`. */}
       <PageHeader
         eyebrow="Explore"
         title="Discover people"
@@ -165,6 +172,33 @@ export default async function ExplorePage() {
           />
         )}
       </section>
+
+      {/* ── FLOATING ACTION ───────────────────────────────────────────────
+          This browsing list had NO floating button at all, which left the
+          Game Center reachable only from the bottom nav — an extra tap on a
+          page whose whole purpose is browsing, and unreachable entirely if the
+          member is mid-scroll with a thumb over that corner.
+
+          IT IS THE GAME HUB BUTTON, reused via its existing `bottomOffset`
+          prop rather than a second near-identical component. Two round
+          floating buttons on one screen would fight for the same corner.
+
+          NOTE IT IS NOT THE "SWIPE DECK" ROUTE. That stays the "Swipe deck →"
+          ghost button inside the first section; this control goes to /games,
+          matching what the same button does on /discover.
+
+          `bottom-28` (112px) clears the 5rem (80px) nav by 32px. This page
+          stacks no action row or bottom bar beneath the nav — unlike /discover,
+          which clears an 84px card dock and passes `bottom-44` for that reason,
+          and unlike the feed, whose reaction bar reaches 164px. Copying either
+          of those larger values here would float the button oddly high for no
+          obstacle. `md:bottom-24` drops the extra lift where the nav is
+          `md:hidden` and the sidebar rail takes over. */}
+      <GameCenterButton
+        bottomOffset="bottom-28 md:bottom-24"
+        label="Game"
+        ariaLabel="Open the game hub"
+      />
     </div>
   );
 }

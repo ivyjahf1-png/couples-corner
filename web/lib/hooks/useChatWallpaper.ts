@@ -44,6 +44,30 @@ function readStored(): string | null {
   }
 }
 
+/**
+ * THE INBOX NEVER READS A WALLPAPER, AND THIS SAYS SO OUT LOUD.
+ *
+ * A stale `couples_corner:chat-wallpaper` entry written by an older build used to
+ * paint a full-bleed photo behind the conversation list, which pushed the rows
+ * and avatars out of the way of a picture nobody asked for on that screen. The
+ * inbox has no wallpaper control at all - the feature belongs to the thread
+ * view - so the correct value here is "off", not "whatever storage says".
+ *
+ * This clears the legacy key on mount rather than merely ignoring it: storage is
+ * per-device, so leaving the value in place means the next build that does read
+ * it (or an extension) resurrects the same picture. No-op on the server, and a
+ * no-op in private mode where storage throws.
+ */
+export function purgeLegacyChatWallpaper(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Storage blocked or unavailable - there is nothing to purge and nothing to
+    // report. The inbox paints solid regardless.
+  }
+}
+
 export function useChatWallpaper(): {
   wallpaper: string | null;
   setWallpaper: (url: string | null) => void;
@@ -70,4 +94,95 @@ export function useChatWallpaper(): {
   }, []);
 
   return { wallpaper, setWallpaper };
+}
+
+/**
+ * How strongly a wallpaper is muted behind the message list.
+ *
+ * WHY THIS IS SEPARATE FROM THE WALLPAPER ITSELF. `useChatWallpaper` answers
+ * "which image"; this answers "how loud". They are independent because the right
+ * dimming depends on the photo, not on the member's taste — a bright beach shot
+ * and a dark forest shot need different scrims for the same text to stay
+ * readable. Storing them together would mean re-uploading the image to change its
+ * dimming.
+ *
+ * `dim` is the combined opacity of the scrims (higher = the photo recedes),
+ * `blur` is the backdrop blur in pixels (higher = the photo softens). Both are
+ * clamped on read as well as on write: localStorage is user-writable and these
+ * values land directly in a `style`, so a hand-edited "9999" would otherwise
+ * produce a blur radius that costs the compositor real frame time.
+ *
+ * Same per-device, no-account model as the rest of the chat display settings.
+ */
+
+const TUNING_KEY = "couples_corner:wallpaper-tuning";
+
+/** Below this the wallpaper is effectively invisible; above it, unreadable. */
+export const DIM_MIN = 0;
+export const DIM_MAX = 0.95;
+export const BLUR_MIN = 0;
+export const BLUR_MAX = 24;
+
+export interface WallpaperTuning {
+  dim: number;
+  blur: number;
+}
+
+const DEFAULT_TUNING: WallpaperTuning = { dim: 0.62, blur: 0 };
+
+/** Clamp one number into range, falling back for anything non-finite. */
+function clamp(value: unknown, min: number, max: number, fallback: number): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function readTuning(): WallpaperTuning {
+  if (typeof window === "undefined") return DEFAULT_TUNING;
+  try {
+    const raw = window.localStorage.getItem(TUNING_KEY);
+    if (!raw) return DEFAULT_TUNING;
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return DEFAULT_TUNING;
+    const { dim, blur } = parsed as Record<string, unknown>;
+    return {
+      dim: clamp(dim, DIM_MIN, DIM_MAX, DEFAULT_TUNING.dim),
+      blur: clamp(blur, BLUR_MIN, BLUR_MAX, DEFAULT_TUNING.blur),
+    };
+  } catch {
+    // Corrupt JSON, or storage blocked in private mode. The defaults are fine.
+    return DEFAULT_TUNING;
+  }
+}
+
+export function useWallpaperTuning(): {
+  tuning: WallpaperTuning;
+  setTuning: (next: Partial<WallpaperTuning>) => void;
+} {
+  // Seeded with the defaults and corrected in an EFFECT, exactly like
+  // `useChatTheme`: reading localStorage during render would make the server's
+  // markup disagree with the client's first render — a real hydration mismatch,
+  // since these values go straight into inline styles.
+  const [tuning, setTuningState] = useState<WallpaperTuning>(DEFAULT_TUNING);
+
+  useEffect(() => {
+    setTuningState(readTuning());
+  }, []);
+
+  const setTuning = useCallback((next: Partial<WallpaperTuning>) => {
+    setTuningState((current) => {
+      const merged: WallpaperTuning = {
+        dim: clamp(next.dim ?? current.dim, DIM_MIN, DIM_MAX, DEFAULT_TUNING.dim),
+        blur: clamp(next.blur ?? current.blur, BLUR_MIN, BLUR_MAX, DEFAULT_TUNING.blur),
+      };
+      try {
+        window.localStorage.setItem(TUNING_KEY, JSON.stringify(merged));
+      } catch {
+        // Non-fatal: the tuning still applies for this session.
+      }
+      return merged;
+    });
+  }, []);
+
+  return { tuning, setTuning };
 }

@@ -119,6 +119,7 @@ const ICEBREAKER_WINDOW = 3;
  */
 export const CHAT_THEMES = [
   { id: "default", label: "Slate", swatch: "linear-gradient(135deg,#1C2637,#101826)" },
+  { id: "charcoal", label: "Charcoal", swatch: "linear-gradient(135deg,#2b2b2e,#171719)" },
   { id: "dusk", label: "Dusk", swatch: "linear-gradient(135deg,#2E1B3F,#4C2A5E)" },
   { id: "ocean", label: "Ocean", swatch: "linear-gradient(135deg,#0B2B3A,#124A5E)" },
   { id: "ember", label: "Ember", swatch: "linear-gradient(135deg,#3A1A10,#5C2A18)" },

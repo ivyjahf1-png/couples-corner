@@ -12,6 +12,7 @@ import {
   GraduationCap,
   Heart,
   Home,
+  MapPin,
   Moon,
   Music,
   PawPrint,
@@ -65,6 +66,8 @@ export type ProfileIconName =
   | "expand"
   | "camera"
   | "verified"
+  | "location"
+  | "heart-goal"
   | "height"
   | "profession"
   | "education"
@@ -93,6 +96,8 @@ const ICONS: Record<ProfileIconName, LucideIcon> = {
   expand: ChevronDown,
   camera: Camera,
   verified: Award,
+  location: MapPin,
+  "heart-goal": Heart,
   height: Ruler,
   profession: Briefcase,
   education: GraduationCap,
