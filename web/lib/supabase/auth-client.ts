@@ -271,16 +271,51 @@ export async function exchangeSessionCookie(accessToken: string): Promise<void> 
     body: JSON.stringify({ accessToken }),
   });
   if (!response.ok) {
+    /* READ THE STATUS CODE, NOT JUST THE BODY.
+
+       This used to branch on `detail === "Invalid session request"`, but the
+       route returned that literal string for EVERY failure — a 500 from a missing
+       SUPABASE_SERVICE_ROLE_KEY and a 403 for a suspended account produced the
+       same bytes. So the one branch that existed was nearly dead code, and
+       everything that fell through was rendered as "check your connection",
+       which is actively wrong advice for a server fault or a policy refusal: it
+       sends the member to check a network that was never the problem.
+
+       The route now returns a `code` alongside `error`, so each case can say
+       something true. Status alone is also checked because a proxy or platform
+       can produce a non-JSON body, and `response.status` is the one signal that
+       survives that. */
     let detail = "";
+    let code = "";
+    const status = response.status;
     try {
-      const body = (await response.json()) as { error?: string };
+      const body = (await response.json()) as { error?: string; code?: string };
       detail = body.error ?? "";
+      code = body.code ?? "";
     } catch {
-      // ignore JSON parse errors
+      // Non-JSON body (proxy error page, platform 5xx). Status is all we have.
+    }
+
+    // Logged client-side too: the server log carries the stack, but this records
+    // that the member is hitting it and how often.
+    console.error("[auth] session cookie exchange failed", { status, code, detail });
+
+    if (code === "account_inactive" || status === 403) {
+      // A deliberate policy decision, not a failure to retry. Retrying would
+      // never succeed, so the copy must not invite it.
+      throw new Error("This account is not active. Contact support for help.");
+    }
+    if (status === 400) {
+      throw new Error("Sign-in failed — the session token was missing or malformed.");
+    }
+    if (status >= 500) {
+      throw new Error(
+        "Sign-in couldn't be completed because of a server error. Please try again shortly."
+      );
     }
     throw new Error(
-      detail === "Invalid session request"
-        ? "Sign-in failed — the server couldn't verify your session. Please try again."
+      detail
+        ? `Sign-in failed — ${detail}. Please try again.`
         : "Sign-in could not be completed. Please check your connection and try again."
     );
   }

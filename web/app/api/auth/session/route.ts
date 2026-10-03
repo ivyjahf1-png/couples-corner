@@ -25,7 +25,48 @@ export async function POST(request: Request) {
       message: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Invalid session request" }, { status: 401 });
+
+    /* THE REASON IS RETURNED, NOT COLLAPSED.
+
+       This used to answer every failure with the literal string
+       "Invalid session request", so the client could distinguish exactly one
+       case and had to render every other cause as a generic network message.
+       Three very different failures all arrived here identically:
+
+         • "Supabase not configured"  — SUPABASE_SERVICE_ROLE_KEY missing/misnamed.
+           A deployment problem, not a member's problem.
+         • "Invalid session token"    — the access token was rejected by GoTrue
+           (expired, wrong project, or signed by a different Supabase instance).
+         • "Account is not active"    — a real policy decision: suspended or
+           deactivated. The member's sign-in is CORRECTLY refused, and telling
+           them to "check your connection" invites them to retry forever.
+
+       Only the last one is a message the member should see verbatim. The first
+       two are server misconfigurations whose copy belongs in the server log,
+       where it is already written above.
+
+       So the distinction is made here, once, at the boundary that has the full
+       error in hand — rather than being guessed at from a generic string in the
+       client, which is what made every cause look the same. */
+    const message = error instanceof Error ? error.message : String(error);
+    if (message === "Account is not active") {
+      return NextResponse.json(
+        { error: "Account is not active", code: "account_inactive" },
+        { status: 403 }
+      );
+    }
+    if (message === "Invalid session token") {
+      return NextResponse.json(
+        { error: "Invalid session request", code: "invalid_token" },
+        { status: 401 }
+      );
+    }
+    // Anything else is a server-side fault (missing service-role key, a thrown
+    // error inside the verify path). The detail stays in the log above.
+    return NextResponse.json(
+      { error: "Invalid session request", code: "server_error" },
+      { status: 500 }
+    );
   }
 }
 

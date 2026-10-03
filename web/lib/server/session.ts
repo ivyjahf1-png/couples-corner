@@ -207,13 +207,23 @@ export async function getCurrentSessionUser(
     if (cookie?.value !== validToken) {
       try {
         const cookieStore = await cookies();
-        cookieStore.set(SESSION_COOKIE_NAME, validToken, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: SESSION_TTL_SECONDS,
-          path: "/",
-        });
+        /* `sessionCookieOptions()`, NOT a hand-rolled object with
+           `secure: process.env.NODE_ENV === "production"`.
+
+           This block re-derives the attributes inline, and its rule directly
+           contradicts the function 60 lines above whose entire purpose is to
+           avoid exactly this. `sessionCookieOptions` decides `secure` from the
+           LIVE REQUEST so a Capacitor WebView on `capacitor://localhost` — where
+           the WebView silently DROPS a Secure cookie — can persist one at all.
+           Keying off NODE_ENV instead means the production APK writes a Secure
+           cookie that is never stored or sent back: the member signs in
+           successfully and every launch looks like a fresh signed-out install.
+
+           It is not merely redundant duplication. The refresh path is the one
+           that runs on ordinary authenticated navigation, so it is precisely the
+           path that turns a working native sign-in into a broken one. Reusing the
+           shared helper makes the two impossible to drift apart again. */
+        cookieStore.set(SESSION_COOKIE_NAME, validToken, await sessionCookieOptions());
       } catch {
         // Cookie refresh is best-effort (e.g. called outside a request scope).
       }

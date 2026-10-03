@@ -1,7 +1,15 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getCurrentSessionUser, SESSION_COOKIE_NAME, SESSION_TTL_SECONDS } from "@/lib/server/session";
+/* `SESSION_TTL_SECONDS` is NOT imported any more: the cookie's `maxAge` now
+   comes from `sessionCookieOptions()`, which owns the whole attribute set.
+   Importing it here is what allowed a second, divergent copy of those
+   attributes to sit next to the shared helper. */
+import {
+  getCurrentSessionUser,
+  SESSION_COOKIE_NAME,
+  sessionCookieOptions,
+} from "@/lib/server/session";
 import {
   changePassword,
   enrollMfaTotp,
@@ -133,15 +141,17 @@ export async function verifyMfaEnrollmentAction(
 
     // GoTrue rotates the access token on a verified MFA challenge — keep our
     // session cookie in sync so the next request doesn't bounce.
+    //
+    // `sessionCookieOptions()`, not a hand-rolled attribute list. This had the
+    // same `secure: NODE_ENV === "production"` rule that sessionCookieOptions
+    // exists to replace, so the post-MFA re-issue would hand a Capacitor WebView
+    // a Secure cookie it silently drops — logging the member out of the exact
+    // flow they just completed by entering their MFA code. The member is
+    // correctly verified; a dropped cookie makes the next tap look like a failed
+    // sign-in.
     if (newAccessToken) {
       const cookieStore = await cookies();
-      cookieStore.set(SESSION_COOKIE_NAME, newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: SESSION_TTL_SECONDS,
-        path: "/",
-      });
+      cookieStore.set(SESSION_COOKIE_NAME, newAccessToken, await sessionCookieOptions());
     }
     return { ok: true };
   } catch (err) {
