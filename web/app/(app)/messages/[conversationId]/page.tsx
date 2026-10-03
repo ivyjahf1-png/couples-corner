@@ -1,11 +1,8 @@
 import { notFound } from "next/navigation";
-import ConversationClient from "./ConversationClient";
-import {
-  getConversationChatDataAction,
-} from "@/lib/actions/messaging";
+import ChatRoomClient from "./ChatRoomClient";
+import { getConversationChatDataAction } from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getPresenceForUsers } from "@/lib/server/presence";
-import { listCalls } from "@/lib/server/calls";
 
 interface ConversationPageProps {
   params: Promise<{ conversationId: string }>;
@@ -15,25 +12,29 @@ interface ConversationPageProps {
  * A single conversation thread.
  *
  * Layout contract - exactly one vertical scroll region:
- *   - Shell: `relative flex h-[100dvh] w-full flex-col overflow-hidden`. This
- *     page owns the full dynamic viewport because the app shell drops its
- *     `<main>` padding on this route (see `AppMain`), so nothing is
- *     subtracted from the measurement. The column is locked and never bounces.
+ *   - Shell: `relative flex h-[100dvh] w-full flex-col overflow-hidden`, owned by
+ *     `ChatRoomClient`. This page drops the app shell's `<main>` padding on this
+ *     route (see `AppMain`), so nothing is subtracted from that measurement and
+ *     the column never bounces.
+ *   - The bottom tab nav is HIDDEN here by `BottomNavRegion`, so the content
+ *     region grows into the reclaimed space. `/messages` (the list) still shows
+ *     the bar, so the back arrow brings it straight back.
+ *   - Inside the client: header (shrink-0) / thread (flex-1 overflow-y-auto, the
+ *     ONLY scroller) / composer (shrink-0).
  *
- *   - The bottom tab nav is HIDDEN on this route by `BottomNavRegion`, so the
- *     content region grows to fill the reclaimed space. `/messages` (the
- *     list) still shows the tab bar, so tapping the back arrow in
- *     `ChatHeader` brings the bar straight back.
- *   - `<header>` is `z-10 shrink-0`: locked at the top, never compressed or
- *     clipped, carrying the back arrow, avatar, name/status and call buttons.
- *   - The thread wrapper is `flex-1 min-h-0 overflow-y-auto overflow-x-hidden`:
- *     the ONLY scroller, explicitly bounded between header and composer.
- *   - The composer is `z-10 shrink-0` and owns its own safe-area inset, since
- *     nothing below it applies that clearance any more.
+ * WHY CALL HISTORY IS NO LONGER FETCHED. The previous chat room merged `listCalls`
+ * into the timeline as `MissedCallCard` rows. That card is gone with the rest of
+ * the old chat room, and the new stream carries messages only, so fetching calls
+ * here would be a round trip whose result nothing renders.
  *
- * NOTE: LiveConversationThread's `<ul>` must stay non-scrolling
- * (overflow-x-hidden only). Two nested overflow-y-auto containers cause scroll
- * chaining and the erratic bouncing this page used to have.
+ * NOTE: marking the thread read is NOT done here, and must not be.
+ * It used to be `void markConversationReadAction(conversationId)` on this line,
+ * which is invalid: this is a Server Component render, and that action calls
+ * `revalidatePath`. Next.js rejects `revalidatePath` outside a mutation with
+ * "used `revalidatePath` ... during render which is unsupported", so opening any
+ * conversation threw. A render must also be side-effect free — writing `read_at`
+ * from one means a write React can repeat on its own. `ChatRoomClient` calls it
+ * from a mount effect instead, which is a genuine mutation context.
  */
 export default async function MessagesPage({ params }: ConversationPageProps) {
   const { conversationId } = await params;
@@ -45,41 +46,19 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   }
 
   const { summary, initialMessages } = chatData;
-  // Seed the header's presence so it paints the right state on the first frame
+  // Seed presence so the header paints the right state on the first frame
   // instead of flashing "Offline" until the client's first poll resolves.
   const otherId = summary?.id ?? null;
   const presence = otherId ? await getPresenceForUsers([otherId]) : {};
   const otherOnline = otherId ? Boolean(presence[otherId]?.online) : false;
 
-  // NOTE: marking the thread read is NOT done here.
-  //
-  // It used to be `void markConversationReadAction(conversationId)` on this line,
-  // which is invalid: this is a Server Component render, and that action calls
-  // `revalidatePath`. Next.js rejects `revalidatePath` outside a mutation with
-  // "used `revalidatePath` ... during render which is unsupported", so opening
-  // any conversation threw. A render must also be side-effect free — writing
-  // `read_at` from one means a write React can repeat on its own.
-  //
-  // `ConversationClient` now calls it from a mount effect, which is a genuine
-  // mutation context. See that file, and `markConversationReadAction` for the
-  // full note.
-
-  // Call history, read in parallel with the other data.
-  //
-  // `listCalls` returns [] when migration 048 has not been applied, so this is
-  // safe to ship before the migration lands: the thread simply has no call
-  // entries yet. Fail-soft for the same reason — a missing calls table must not
-  // be able to take a conversation down.
-  const calls = await listCalls(conversationId, user.uid).catch(() => []);
-
   return (
-    <ConversationClient
+    <ChatRoomClient
       conversationId={conversationId}
       currentUserId={user.uid}
       summary={summary}
       initialMessages={initialMessages ?? []}
       initialOnline={otherOnline}
-      initialCalls={calls}
     />
   );
 }

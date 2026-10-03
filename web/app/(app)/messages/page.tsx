@@ -1,59 +1,50 @@
-import Link from "next/link";
-import { EmptyState } from "@/components/app/EmptyState";
 import { MessagesInbox, type InboxChat } from "@/components/app/MessagesInbox";
-import { MessagesComposeFab } from "@/components/app/MessagesComposeFab";
 import { requireUser } from "@/lib/auth/authorization";
 import { getInboxSummaries } from "@/lib/server/messaging";
 import { getBotThreadsForUser } from "@/lib/server/likes";
+import { getProfileStats } from "@/lib/server/profile-stats";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Messages - the private inbox.
+ * Messages — the private inbox.
  *
- * A thin Server Component with exactly three jobs: authenticate, fetch the two
- * conversation sources, and hand plain serialisable rows to `MessagesInbox`.
- * Every pixel is painted by that one client component, because the header pills,
- * the search field and the list are a single filter surface and splitting them
- * would mean lifting that state into a client boundary anyway.
+ * A thin Server Component with three jobs: authenticate, fetch the conversation
+ * sources, and hand plain serialisable rows to `MessagesInbox`. Every pixel is
+ * painted by that one client component.
  *
- * WHY THE DATA IS SHAPED HERE AND NOT IN THE CLIENT: the inbox card renders
- * "Sarah Chen, 32". The age is DERIVED from the other member's date_of_birth by
- * `getInboxSummaries`, so only the integer crosses this boundary - the date of
- * birth itself never leaves the server.
+ * WHY THE DATA IS SHAPED HERE AND NOT IN THE CLIENT: the row renders
+ * "Loura · 10-02 20:35". The timestamp is derived from `lastMessageAt` inside the
+ * client component (it is display formatting, and it must use the browser's local
+ * timezone — formatting UTC on the server would print the wrong hour for most of
+ * Europe), while the age is DERIVED server-side by `getInboxSummaries` so the date
+ * of birth itself never leaves the server.
  *
- * NO BACKGROUND OPTION IS PASSED DOWN, DELIBERATELY. This route has never had a
- * wallpaper control, and it must not grow one by accident: a photo behind a list
- * of faces and message previews is the wrong trade on this screen. A legacy
- * `couples_corner:chat-wallpaper` entry in localStorage used to fight that, so
- * `MessagesInbox` purges the key on mount and paints solid slate under the rows.
- * If someone later wants a wallpaper HERE, that is a product decision, not a
- * default to restore.
+ * THE THREE SYSTEM ROWS ARE NOT DATA. "Visitors" is real — `getProfileStats`
+ * counts `profile_visitors`. "Official Team" and "Expired Messages" are inbox
+ * furniture with no table behind them; they are composed inside the client
+ * component so this page does not have to invent empty queries for them.
+ *
+ * `expiredCount` is 0 because there is no expired-messages table yet. It is a
+ * real parameter rather than a hardcoded "4" so the badge appears as soon as
+ * something can count it, instead of asserting a number the app cannot know.
  */
 export default async function MessagesPage() {
   const user = await requireUser();
 
-  /* Concurrent, not sequential: these are independent reads and serialising
-     them would add one round trip to every page load for no benefit. */
-  const [conversations, botThreads] = await Promise.all([
+  /* Concurrent, not sequential: these are independent reads and serialising them
+     would add a round trip to every page load for no benefit. */
+  const [conversations, botThreads, stats] = await Promise.all([
     getInboxSummaries(user.uid),
     getBotThreadsForUser(user.uid),
+    getProfileStats(user.uid),
   ]);
 
-  /**
-   * Both sources merged into one recency-ordered list.
-   *
-   * `getInboxSummaries` reads real member-to-member `conversations`;
-   * `getBotThreadsForUser` reads bot persona threads from the FK-free bot tables.
-   * Both fail soft to `[]`, and the `.filter` guards mean a malformed row cannot
-   * produce a React key of `undefined`.
-   *
-   * `callHrefBase` is the call route WITHOUT the mode segment, so the client can
-   * pick audio or video off the same conversation. It is `null` for bot threads:
-   * there is no `conversations` row behind a persona, so /call/<id>/ would 404.
-   * That null is what renders the call tiles inert instead of as links that
-   * break.
-   */
+  /* Both conversation sources merged into one recency-ordered list.
+     `getInboxSummaries` reads real member-to-member `conversations`;
+     `getBotThreadsForUser` reads bot persona threads from the FK-free bot tables.
+     Both fail soft to `[]`, and the `.filter` guards mean a malformed row cannot
+     produce a React key of `undefined`. */
   const chats: InboxChat[] = [
     ...(Array.isArray(conversations) ? conversations : [])
       .filter((c) => c?.id)
@@ -63,20 +54,22 @@ export default async function MessagesPage() {
         name: c.name,
         kind: c.kind,
         avatarUrl: c.avatarUrl,
-        /* Null unless they shared a date of birth - the card then renders the
-           name alone rather than a placeholder age. */
+        /* Null unless they shared a date of birth — the row then renders the name
+           alone rather than a placeholder age. */
         age: c.age,
         preview: c.preview,
         lastMessageAt: c.lastMessageAt,
         unread: c.unread,
         isOnline: c.isOnline,
         isPinned: c.isPinned ?? false,
-        callHrefBase: `/call/${c.id}`,
       })),
     ...(Array.isArray(botThreads) ? botThreads : [])
       .filter((b) => b?.personaId)
       .map((b) => ({
         key: `bot-${b.personaId}`,
+        /* Bot personas have no `conversations` row behind them, so this points at
+           the persona via the query string rather than a /messages/<id> route
+           that would 404. */
         href: `/messages?bot=${encodeURIComponent(b.personaId)}`,
         name: b.name,
         kind: b.kind,
@@ -88,7 +81,6 @@ export default async function MessagesPage() {
         unread: b.unread,
         isOnline: false,
         isBot: true,
-        callHrefBase: null,
       })),
   ].sort((a, b) => {
     const at = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
@@ -97,27 +89,9 @@ export default async function MessagesPage() {
   });
 
   return (
-    <>
-      <MessagesInbox
-        chats={chats}
-        emptyState={
-          <EmptyState
-            icon="chat"
-            title="No messages yet"
-            body="Once you connect with someone, you can start a private chat from their profile."
-            action={
-              <Link href="/discover" className="text-sm font-semibold text-brand-300 hover:underline">
-                Discover people
-              </Link>
-            }
-          />
-        }
-      />
-
-      {/* Compose FAB, bottom-right, clear of the 5rem tab bar. It replaces the
-          Game Center button this page used to float there - two round floating
-          buttons would fight for the same corner. */}
-      <MessagesComposeFab />
-    </>
+    /* No `EmptyState` prop any more: the inbox renders its own light-themed empty
+       block. `EmptyState` hardcodes the old dark palette and cannot be themed
+       from the call site. */
+    <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} />
   );
 }
