@@ -191,7 +191,15 @@ const mobileTabs: MobileTab[] = [
   // routes that belong to it.
   { href: "/discover", icon: "compass", label: "Explore", alsoActiveFor: ["/explore"] },
   { href: "/feed", icon: "moments", label: "Moment" },
-  { href: "/likes", icon: "heart", label: "Likes" },
+  /* `flame`, matching `appNavItems`. The sidebar has used `flame` for /likes
+     since the nav split, while this bar used `heart` — so the same destination
+     wore two different glyphs depending on viewport width, which reads as two
+     different features rather than one screen in two layouts. `flame` also
+     separates it from `heart` on the desktop rail, which is a live Matches
+     entry; on mobile Matches sits in the drawer, but keeping the glyph unique
+     means the two never look like the same button if it is ever promoted back.
+     Messages uses `chat` and /profile uses `profile`, so nothing else shifts. */
+  { href: "/likes", icon: "flame", label: "Likes" },
   { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
   { href: "/profile", icon: "profile", label: "Me" },
 ];
@@ -213,16 +221,19 @@ function mobileTabClasses(active: boolean) {
     .join(" ");
 }
 
-function ActiveDot({ active }: { active: boolean }) {
-  if (!active) return null;
-  return (
-    <span
-      aria-hidden
-      className="absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#FF5722]"
-    />
-  );
-}
+/* The active dot is GONE, deliberately.
 
+   It was an orange disc at the bottom edge of a tab whose active state is already
+   a full orange gradient pill with a glow. Orange-on-orange is invisible at
+   best, and at worst it reads as a rendering artifact where the gradient is
+   lightest — a smudge under the label of the very tab the member is on. The pill
+   plus the `font-semibold` weight already carry "you are here" unambiguously;
+   the dot was a third signal saying the same thing in a colour that cannot
+   survive its own background.
+
+   Removing it also means the active tab has no child positioned below the icon
+   row, so the icon and label sit optically centred in the pill instead of being
+   pushed up by an invisible element. */
 function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   const display = count > 99 ? "99+" : String(count);
@@ -450,7 +461,6 @@ function MobileNavigation({
                       {item.showBadge && unreadCount > 0 ? (
                         <UnreadBadge count={unreadCount} />
                       ) : null}
-                      {active ? <ActiveDot active={active} /> : null}
                     </span>
                     <span className="mt-1">{item.label}</span>
                   </Link>
