@@ -3,6 +3,55 @@
 import Link from "next/link";
 
 /**
+ * Compact Game Center badge, for use INSIDE a card's header area.
+ *
+ * WHY THIS EXISTS ALONGSIDE `GameCenterButton`. The floating button is pinned
+ * to the viewport's bottom-right, which on Discover puts it in the same band as
+ * the 5-icon action row and the fixed nav — every offset that "clears" one of
+ * them collides with another, because all three stack. Rather than keep tuning
+ * `bottom-*` values against a moving target, the badge form moves the control
+ * out of that band entirely and into the card's own top-right corner, where it
+ * competes for space with nothing.
+ *
+ * IT IS POSITIONED BY ITS PARENT, NOT BY ITSELF. `GameCenterButton` owns its
+ * `fixed` placement; this one renders `static` content inside a wrapper the
+ * caller positions, so the same component works on the Discover card and on any
+ * other card-shaped surface without a second set of offsets to maintain.
+ *
+ * Kept as an <a> for the same reason as the floating button: the statically
+ * hosted build can strand a client-side route transition on a not-yet-hydrated
+ * document, so this always does a full document navigation.
+ */
+export function GameCenterBadge({
+  /** Visible caption beside the glyph. */
+  label = "Games",
+  /** Accessible name — supply it when `label` alone is not descriptive. */
+  ariaLabel = "Open the Game Center",
+  /** Wrapper classes. The caller supplies the position (`absolute`, insets). */
+  className = "",
+}: {
+  label?: string;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  return (
+    <div className={className}>
+      <a
+        href="/games"
+        className="nm-raised group inline-flex items-center gap-1.5 rounded-full border border-sky-400/40 bg-[#0F172A]/90 px-3 py-1.5 text-white backdrop-blur transition duration-150 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120]"
+        title="Game Center"
+        aria-label={ariaLabel}
+      >
+        <span className="text-sm transition-transform duration-150 group-hover:scale-110" aria-hidden="true">
+          🎮
+        </span>
+        <span className="text-[11px] font-medium text-sky-300">{label}</span>
+      </a>
+    </div>
+  );
+}
+
+/**
  * Floating Game Center action button.
  *
  * Client Component: interactive controls (hover, focus, client-side

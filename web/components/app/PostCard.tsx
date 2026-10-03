@@ -153,6 +153,13 @@ export function PostCard({ post }: { post: FeedPostView }) {
   const [following, setFollowing] = useState(false);
   const [followPending, setFollowPending] = useState(false);
   const [followError, setFollowError] = useState<string | null>(null);
+  /* URLs that failed to load, so each broken tile degrades on its own.
+
+     Keyed by URL rather than index: a card can legitimately carry the same URL
+     twice, and index keys would mark a healthy duplicate as broken the moment
+     its twin failed. State is never cleared — a URL that 404'd once will 404 on
+     the next paint too, and re-requesting it on every scroll would be a loop. */
+  const [brokenMedia, setBrokenMedia] = useState<string[]>([]);
   const [, startLikeTransition] = useTransition();
   const [, startFollowTransition] = useTransition();
 
@@ -379,18 +386,41 @@ export function PostCard({ post }: { post: FeedPostView }) {
                 : "grid-cols-1 aspect-[4/5] sm:aspect-[3/4]"
             }`}
           >
-            {post.mediaUrls.slice(0, 4).map((url, i) => url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
-              <video key={`${url}-${i}`} src={url} controls playsInline className="h-full w-full bg-black object-cover" />
-            ) : (
-              <img
-                key={`${url}-${i}`}
-                src={url}
-                alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full bg-surface-muted object-cover"
-              />
-            ))}
+            {post.mediaUrls.slice(0, 4).map((url, i) => {
+              /* A tile that failed keeps its box and shows a quiet label rather
+                 than collapsing. Collapsing is the worse outcome: the grid is a
+                 fixed aspect ratio, so a broken tile used to leave a hole in the
+                 middle of a photo post, and the browser's own broken-image glyph
+                 in that hole reads as a broken app rather than a missing file. */
+              if (brokenMedia.includes(url)) {
+                return (
+                  <div
+                    key={`${url}-${i}`}
+                    className="flex h-full w-full items-center justify-center bg-surface-muted text-[11px] text-ink-400"
+                  >
+                    Photo unavailable
+                  </div>
+                );
+              }
+
+              return url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
+                <video key={`${url}-${i}`} src={url} controls playsInline className="h-full w-full bg-black object-cover" />
+              ) : (
+                <img
+                  key={`${url}-${i}`}
+                  src={url}
+                  alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
+                  loading="lazy"
+                  decoding="async"
+                  onError={() =>
+                    setBrokenMedia((current) =>
+                      current.includes(url) ? current : [...current, url]
+                    )
+                  }
+                  className="h-full w-full bg-surface-muted object-cover"
+                />
+              );
+            })}
           </div>
         ) : post.mediaCount ? (
           <div className="mt-3 flex aspect-video items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400">Creator media preview</div>

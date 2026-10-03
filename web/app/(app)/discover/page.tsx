@@ -4,7 +4,6 @@ import { EmptyState } from "@/components/app/EmptyState";
 import { ErrorState } from "@/components/app/ErrorState";
 import { DiscoverCardStack } from "@/components/app/DiscoverCardStack";
 import { DiscoverFiltersSync } from "@/components/app/DiscoverFiltersSync";
-import { GameCenterButton } from "@/components/app/GameCenterButton";
 import { MediaFeedSearch } from "@/components/app/MediaFeedSearch";
 import { parseDiscoveryFilters } from "@/lib/utils/filters";
 import { getDiscoverProfiles } from "@/lib/server/discovery";
@@ -153,28 +152,19 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
         )}
       </div>
 
-      {/* Floating Game Center Button (client component boundary).
+      {/* THE GAME CENTER IS NOT HERE ANYMORE.
 
-           `bottom-44` (176px), raised from `bottom-24` (96px).
+         It used to render as a viewport-fixed button at `bottom-44`, stacked
+         below the action dock and the 5rem tab bar. That was a losing position
+         to defend: three fixed-height elements shared one band at the bottom of
+         the screen, so the offsets had to be derived by hand and any change to
+         the card or the dock silently reintroduced an overlap — which is exactly
+         what happened, with the button landing on the Like control and stealing
+         taps from the screen's primary interaction.
 
-           THE NUMBER IS DERIVED, NOT GUESSED. The two obstacles between this
-           button and the floor of the screen are stacked:
-             - the 5rem (80px) fixed bottom tab bar
-             - the 5-icon action dock inside DiscoverCardStack, which is `h-16`
-               (64px) at its tallest (the Like button) plus `p-5` (20px) padding
-               => ~84px, sitting directly above the bar
-           So the dock's top edge sits at about 164px. `bottom-44` = 176px places
-           the 56px button's BOTTOM edge 12px above that, so the two never touch.
-
-           At the old `bottom-24` that bottom edge was at 96px - inside the dock's
-           80-164px band - so the button overlapped the Like/Super Like controls
-           and stole taps from the primary interaction on the screen. The
-           component's own comment already warned that clearing the nav is
-           "necessary but NOT sufficient"; this value clears both obstacles.
-
-           Unaffected by the taller card, because the button is `fixed` to the
-           VIEWPORT (see GameCenterButton), not to the card. */}
-      <GameCenterButton bottomOffset="bottom-44" label="Game" ariaLabel="Open the game hub" />
+         It now lives in the card's own top-right corner as `GameCenterBadge`
+         (see DiscoverCardStack), so the bottom of this page carries only the two
+         things that belong there: the action row and the nav. */}
     </div>
   );
 }

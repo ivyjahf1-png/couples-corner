@@ -185,15 +185,38 @@ export async function sendConnectionRequest(fromUid: string, toUid: string): Pro
   }
 
   if (notifyOnConnection !== false) {
-    await createNotification({
-      recipientId: toUid,
-      type: "connection_request",
-      actorId: fromUid,
-      entityType: "connectionRequest",
-      entityId: created.id,
-      title: "New connection request",
-      body: "Someone would like to connect with you.",
-    });
+    /* NOTIFICATION FAILURES MUST NOT FAIL THE REQUEST.
+
+       The insert above has already committed. `createNotification` runs after it
+       and is a separate write with its own failure modes (a missing
+       `notifications` table, a schema cache that has not picked up a recent
+       migration, a transient network error). Before this guard, any of those
+       threw out of `sendConnectionRequest`, so the Server Action returned
+       `{ ok: false }` and the member was told their like failed — when in fact
+       the connection request was sitting in the database the whole time. Tapping
+       Like again then hit the "Request already sent" guard, so a single dropped
+       notification produced a like that appeared to fail, then appeared to fail
+       differently on retry, and never confirmed.
+
+       A notification is a courtesy, not the transaction. Losing one is strictly
+       better than losing the member's action and telling them it did not
+       happen, so it is logged and swallowed. */
+    try {
+      await createNotification({
+        recipientId: toUid,
+        type: "connection_request",
+        actorId: fromUid,
+        entityType: "connectionRequest",
+        entityId: created.id,
+        title: "New connection request",
+        body: "Someone would like to connect with you.",
+      });
+    } catch (notifyError) {
+      console.error("[connections] request created but notification failed", {
+        requestId: created.id,
+        error: notifyError instanceof Error ? notifyError.message : String(notifyError),
+      });
+    }
   }
 }
 

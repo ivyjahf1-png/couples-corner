@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { createFeedMomentAction } from "@/lib/actions/profile";
+import { createFeedPostAction, createFeedMomentAction } from "@/lib/actions/profile";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
@@ -108,25 +108,50 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
            • Me / Profile -> `user_media` via the profile uploader, unchanged.
 
          The profile path was already independent and is untouched. */
-      /* ONE UPLOAD, ONE STREAM: `moments` ONLY.
+      /* ONE UPLOAD, TWO TABLES — `posts` THEN `moments`.
 
-         The player view is the single destination. This used to write `posts`
-         first and then syndicate a second row to `moments`, so a single upload
-         surfaced in two places on the same screen — once as a card in the
-         community timeline and again, moments later, as a full-screen reel. The
-         member saw their own photo twice and could not tell which copy was
-         canonical.
+         This used to write `moments` only, reasoning that a single stream kept a
+         photo from appearing twice. That suppressed the far worse outcome: an
+         upload from the community feed was written to a table that screen never
+         reads, so it appeared nowhere at all. See the full note below.
 
-         `CommunityFeedView` still READS `posts` (existing history is not deleted),
-         but nothing publishes there any more, so no new upload duplicates. The
-         write below is therefore no longer fail-soft against a second table — it
-         is the only write, so a failure is reported honestly to the member rather
-         than half-committed and logged.
+         `media_url` on the moment holds the public URL rather than a foreign key,
+         because that is how the delete path already links back:
+         `deleteUserMediaAction` removes moments by matching `media_url` against a
+         gallery file's public URL, so a moment must carry that exact string for
+         cleanup to keep working. */
+      /* TWO TABLES, AND BOTH ARE REQUIRED.
 
-         `media_url` holds the public URL rather than a foreign key, which is how
-         the delete path already links back: `deleteUserMediaAction` removes
-         moments by matching `media_url` against a gallery file's public URL, so
-         a moment must carry that exact string for cleanup to keep working. */
+         `CommunityFeedView` reads `posts` — `getPublicFeed` selects from
+         `posts`, and `PostCard` renders `post.mediaUrls`, which comes from that
+         row's `media_urls` column. `ImmersiveFeed`, the player, reads
+         `moments`.
+
+         This modal wrote to `moments` ONLY, on the reasoning that one stream
+         avoided showing the member their own photo twice. The consequence was
+         that a photo uploaded from the community feed never appeared in the
+         community feed: the write went to a table nothing on that screen
+         queries. "I upload a photo and nothing happens" is exactly the reported
+         symptom, and it is a routing bug rather than a rendering one — the URL
+         was valid and the row did exist, just not where the card list looks.
+
+         So both rows are written, and the ORDER is deliberate:
+           1. `posts` FIRST. This is the canonical record: it is what the
+              timeline reads and it carries `media_urls` as the array `PostCard`
+              renders. If it fails, the member is told and nothing partial is
+              left behind.
+           2. `moments` SECOND, fail-soft. The player is a secondary view, so a
+              failure there must not discard a post already visible in the
+              timeline — it is logged, and the flow still succeeds.
+
+         `createFeedPostAction` calls `revalidatePath("/feed")`, which is what
+         makes the new card appear without a manual refresh. */
+      const published = await createFeedPostAction(uid, caption.trim(), [uploaded.publicUrl]);
+      if (!published.ok) {
+        setError(published.error ?? "Could not publish your post.");
+        return;
+      }
+
       const momentType = uploaded.mediaType === "video" ? "video" : "image";
       const shared = await createFeedMomentAction(
         uid,
@@ -135,8 +160,11 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
         caption.trim()
       );
       if (!shared.ok) {
-        setError(shared.error ?? "Could not publish your moment.");
-        return;
+        /* NOT a publish failure. The post is already live in the timeline and
+           the member can see it, so reporting an error here would tell them
+           their upload failed when it demonstrably succeeded. Logged instead so
+           a broken syndication stays traceable. */
+        console.error("[feed] post published but moment syndication failed", shared.error);
       }
       onClose();
     } catch (err) {

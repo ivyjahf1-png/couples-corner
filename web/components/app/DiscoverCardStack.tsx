@@ -12,6 +12,7 @@ import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
 import type { ProfileCardView } from "@/lib/feature/types";
 import { useCoinGate } from "@/lib/hooks/useCoinGate";
 import { ProfileDetailSheet } from "@/components/app/ProfileDetailSheet";
+import { GameCenterBadge } from "@/components/app/GameCenterButton";
 
 /**
  * Discover — swipe-deck style profile card stack (VISUAL MIGRATION ONLY).
@@ -95,7 +96,19 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
         setLikedIds((prev) => [...prev, targetId]);
         router.refresh();
       } else {
-        reportError(failureMessage(result.error || "Couldn't send your like. Please try again.", "Couldn't send your like. Please try again."));
+        /* The server's message is passed straight through, NOT wrapped in
+           `result.error || "Couldn't send your like…"`.
+
+           That `||` was the reason this button looked broken. `failureMessage`
+           only understood `Error` objects, so the string it was handed was read
+           as an empty message and replaced by the fallback — which means every
+           distinct failure (already connected, already requested, blocked,
+           rate-limited, a PostgREST or RLS rejection) surfaced as the same
+           generic sentence, and the real cause was never displayed anywhere.
+           Now that `failureMessage` handles strings, the reason survives to the
+           member; the fallback only covers an action that failed with no
+           message at all. */
+        reportError(failureMessage(result.error, "Couldn't send your like. Please try again."));
       }
     } catch (err) {
       reportError(failureMessage(err, "Couldn't send your like. Check your connection and try again."));
@@ -304,6 +317,25 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               {safeIndex + 1} / {total}
             </span>
 
+            {/* Card header row: deck counter left, Game Center badge right.
+
+                THE BADGE LIVES HERE, NOT FLOATING OVER THE PAGE. It used to be a
+                viewport-fixed button pinned to the bottom-right, which put it in
+                the same vertical band as the action row and the tab bar — all
+                three stack, so every `bottom-*` offset that cleared one collided
+                with another and the button repeatedly ended up overlapping the
+                Like control. Anchoring it to the card's top-right removes it from
+                that band completely: there is nothing at the top of a photo to
+                collide with, and it stops stealing taps from the primary action.
+
+                `z-20` matches the counter and the summary block, so it sits above
+                the tap zones (z-10) rather than under them. */}
+            <GameCenterBadge
+              label="Game"
+              ariaLabel="Open the game hub"
+              className="absolute right-4 top-4 z-20"
+            />
+
             {/* Profile summary — COMPACT ON MOBILE.
 
                 This block is `absolute … bottom-0` INSIDE the card, so it never
@@ -389,16 +421,33 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             onClose={() => setDetailOpen(false)}
           />
 
-          {/* 5-icon action bar. `relative z-20` keeps every button above the
-              card's own overlay and tap zones on touch devices, so taps always
-              land on the control rather than the card beneath it.
+          {/* THE ACTION BAR.
 
-              `gap-2` below `sm`: the row is `shrink-0` and therefore never
-              compressed, so its gaps are pure height tax on the card. No
-              individual button shrinks — the smallest stays `h-12` (48px), above
-              the 44px touch-target minimum — so this trims spacing only and
-              costs nothing in tappability. */}
-          <nav aria-label="Profile actions" className="relative z-20 flex w-full shrink-0 items-center justify-center gap-2 sm:gap-3">
+              A FLOATING CONTAINER, not a bare row. The buttons used to sit
+              directly on the card's bottom edge with nothing around them, so the
+              row read as a continuation of the photo rather than as controls —
+              and with five buttons of three different sizes (48/56/64px) on a
+              358px-wide phone, the only thing keeping them apart was a 8px gap.
+
+              `w-full max-w-md` + `justify-center` + `gap-4`/`sm:gap-5` gives the
+              row real rhythm and, critically, a guaranteed centre: the buttons
+              cannot drift left or get pushed off the right edge, because the
+              container is the full width of the deck and centres its content
+              inside it. `px-1` is the smallest gutter that still keeps the
+              outermost buttons off the bezel.
+
+              `pb-[env(safe-area-inset-bottom)]` is additive, not a substitute:
+              the deck already sits above the tab bar via the page's dock
+              reserve, so this only covers the gesture bar on devices that have
+              one.
+
+              `shrink-0` is load-bearing — without it the flex parent compresses
+              this row when the card wants more height, and compressed buttons
+              drop below the 44px touch-target minimum. */}
+          <nav
+            aria-label="Profile actions"
+            className="relative z-20 flex w-full max-w-md shrink-0 items-center justify-center gap-4 px-1 pb-[env(safe-area-inset-bottom)] sm:gap-5"
+          >
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"
               className="deck-btn deck-btn--rewind h-12 w-12">

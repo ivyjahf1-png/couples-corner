@@ -30,12 +30,41 @@ export function useActionError() {
   return [error, reportError] as const;
 }
 
+/**
+ * Pick the message to show for a failed action.
+ *
+ * WHY STRINGS ARE ACCEPTED, NOT JUST `Error`. The Server Actions in this app
+ * return `{ ok: false, error: string }` — they do not throw across the RSC
+ * boundary, because a thrown error becomes an opaque digest in production. So
+ * callers routinely pass an already-extracted `result.error` STRING here.
+ *
+ * This function used to do `error instanceof Error ? error.message : ""` and
+ * nothing else, which meant a string argument produced `message === ""`, matched
+ * no network pattern, and fell straight through to the generic `fallback`. The
+ * server's actual reason — "Request already sent", "You're already connected",
+ * a PostgREST schema-cache error, an RLS violation — was discarded and the
+ * member was shown a fixed sentence instead. That is precisely why the deck's
+ * Like button reported the same uninformative "Couldn't send your like" for
+ * every distinct database failure: the diagnostic was being thrown away at the
+ * last step, at the one place that displayed it.
+ *
+ * So: a non-empty string is used as-is. The network heuristic then only
+ * overrides the copy when the message really does describe a transport problem,
+ * which is the case it was written for.
+ */
 export function failureMessage(error: unknown, fallback: string) {
-  const message = error instanceof Error ? error.message : "";
-  if (/fetch|network|offline|timeout|timed out|abort/i.test(message)) {
+  const message =
+    typeof error === "string"
+      ? error
+      : error instanceof Error
+        ? error.message
+        : "";
+  if (message && /fetch|network|offline|timeout|timed out|abort/i.test(message)) {
     return "Connection interrupted. Check your connection. If you were saving or sending, check whether it completed before retrying.";
   }
-  return fallback;
+  // An empty/whitespace message carries no information, so the fallback is the
+  // honest thing to show rather than a blank toast.
+  return message.trim() || fallback;
 }
 
 export function FailureToasts() {
