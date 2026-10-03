@@ -612,6 +612,23 @@ export async function updateOwnProfileAction(uid: string, input: ProfileUpdateIn
   }
 }
 
+/**
+ * Publish a post to the community timeline.
+ *
+ * ── THE COLUMN NAMES ARE 008's SHAPE, NOT 006's ──────────────────────────────
+ * `author_id` + `visibility` + `media_urls text[]`, which is what `getPublicFeed`
+ * reads and what the `posts_insert_own` policy checks (`auth.uid() = author_id`).
+ * Do not "fix" these to `user_id`: migrations 006 and 008 both open with
+ * `create table if not exists public.posts`, so the deployed shape is whichever
+ * ran first, and 049 exists to reconcile them. `visibility: "public"` is not
+ * optional — `getPublicFeed` filters on it, so a post without it is invisible to
+ * the feed it was just written to.
+ *
+ * ── WHY THIS IS THE ONLY PUBLISH PATH ───────────────────────────────────────
+ * `FeedUploadModal` calls this, then separately syndicates to `moments` for the
+ * player. There is deliberately no second `createPost` action: two publish paths
+ * are how the media_url/author_id drift of the past started.
+ */
 export async function createFeedPostAction(
   userId: string,
   content: string,
@@ -630,7 +647,26 @@ export async function createFeedPostAction(
       media_urls: mediaUrls.slice(0, 4),
       visibility: "public",
     });
-    if (error) return { ok: false, error: error.message };
+    if (error) {
+      /* LOGGED BEFORE IT IS RETURNED. `error.message` is handed to the client,
+         and it reaches them through `failureMessage`, which keeps strings — so
+         this is genuinely visible in the member's toast. But a toast is a poor
+         place to first discover that a migration never ran: PGRST204 ("could not
+         find the column in the schema cache") and 42703 are the two failures
+         behind every "my photo doesn't appear" report in this repo's history, and
+         both are invisible in the browser's network tab without effort. Logging
+         the author, the media count and the raw message means a failure is
+         diagnosable from server output alone. */
+      console.error("[feed] posts insert failed", {
+        authorId: userId,
+        mediaCount: mediaUrls.length,
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      return { ok: false, error: error.message };
+    }
     revalidatePath("/feed");
     return { ok: true };
   } catch (err) {
