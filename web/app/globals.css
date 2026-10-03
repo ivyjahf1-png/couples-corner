@@ -935,8 +935,20 @@ button,
 }
 
 /* ========================================================================
-   image_25 reference — BOTTOM NAVIGATION PILLS (part B)
-   Smooth rounded pill layout + soft glowing gradient active state.
+   BOTTOM NAVIGATION PILLS
+   Active state = AMBER, not orange.
+
+   WHY THIS WAS RETINTED: the active tab was a saturated orange-to-red
+   gradient with a strong outer glow. On the light profile surface that read as
+   an emergency — a red-hot smear under the one tab the member is on — and it
+   fought the amber accent the rest of that screen is built around. The active
+   state is now a soft amber pill with an amber glyph and an amber underline
+   indicator, which is the same "you are here" signal at the screen's own
+   temperature.
+
+   `.nav-pill` is used ONLY by the mobile bottom bar (`mobileTabClasses` in
+   AppNav.tsx); the desktop sidebar uses its own classes. So this retint cannot
+   leak onto any other surface.
    ==================================================================== */
 .nav-pill {
   position: relative;
@@ -949,40 +961,51 @@ button,
   border-radius: 9999px;
   color: #94a3b8;
   border: 1px solid transparent;
-  transition: transform 0.15s ease, box-shadow 0.22s ease, background-color 0.22s ease,
-    border-color 0.22s ease, color 0.22s ease;
+  transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
+    color 0.2s ease;
   touch-action: manipulation;
   user-select: none;
 }
 .nav-pill:hover {
-  color: #f1f5f9;
-  background-color: rgb(255 255 255 / 0.06);
-  border-color: rgb(255 255 255 / 0.1);
+  color: #334155;
+  background-color: rgb(15 23 42 / 0.04);
 }
 .nav-pill:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(1px);
 }
+/* ACTIVE — amber pill. The border is amber at low alpha rather than a hard
+   outline, so the pill reads as a filled shape rather than a button. */
 .nav-pill--active,
 .nav-pill--active:hover {
-  color: #fff;
-  background-color: transparent;
-  background-image: linear-gradient(135deg, #fb923c 0%, #ff5722 52%, #ea580c 100%);
-  border-color: rgb(255 183 77 / 0.55);
-  box-shadow:
-    inset 0 1px 0 0 rgb(255 255 255 / 0.38),
-    0 0 0 1px rgb(255 145 0 / 0.25),
-    0 8px 20px -8px rgb(255 87 34 / 0.8),
-    0 0 22px -2px rgb(249 115 22 / 0.55);
+  color: #b45309;
+  background-color: rgb(245 158 11 / 0.14);
+  border-color: rgb(245 158 11 / 0.32);
+}
+/* The indicator: a short amber bar under the active tab's label.
+
+   A previous iteration shipped an orange DISC here as well as the orange pill.
+   That was invisible at best and, where the gradient was lightest, read as a
+   smudge under the very tab the member was on. This is a bar instead — it sits
+   on the pill's own axis, reads as a deliberate selection marker, and cannot be
+   confused with the red unread count badge, which is a filled circle. */
+.nav-pill--active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0.25rem;
+  width: 1rem;
+  height: 0.1875rem;
+  transform: translateX(-50%);
+  border-radius: 9999px;
+  background-color: #f59e0b;
 }
 .nav-pill--active:active:not(:disabled) {
-  transform: translateY(1px) scale(0.97);
-  box-shadow:
-    inset 0 3px 8px 0 rgb(120 30 0 / 0.6),
-    0 0 18px -2px rgb(249 115 22 / 0.5);
+  transform: translateY(1px);
+  background-color: rgb(245 158 11 / 0.2);
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-pill {
-    transition: box-shadow 0.2s linear, border-color 0.2s linear, color 0.2s linear;
+    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear;
   }
   .nav-pill:active:not(:disabled) {
     transform: none;

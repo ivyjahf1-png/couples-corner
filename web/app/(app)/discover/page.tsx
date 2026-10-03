@@ -90,14 +90,32 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
      *      and the deck inside it is `flex-1 min-h-0`, so the card absorbs the
      *      leftover height rather than setting it. Nothing on this route is
      *      allowed to contribute intrinsic height. */
+    /* HEADER HEIGHT.
+       This column is viewport-locked (see the note above), so every pixel the
+       header spends is a pixel the profile card loses — and the card is the
+       whole point of this screen. Three things were trimmed:
+
+         1. `pt-1` → `pt-0.5`, and the `sm:` lift to `sm:pt-1`.
+         2. `pb-1` → `pb-0`. The header row's own line-height already provides the
+            gap to the search field; the padding was adding to it twice.
+         3. The title drops from `text-lg` to `text-[15px] sm:text-base` via
+            `titleClassName`, which `PageHeader` applies last so it overrides the
+            `compact` default instead of competing with it.
+
+       Search spacing is now `mt-2.5` (sm:`mt-3`) rather than the old `mt-2`:
+       with the header padding trimmed the gap read as a cramped band squeezed
+       between two tight elements, so it is opened back up in proportion.
+       `shrink-0` stays — it is what stops the search field taking height from
+       the card. */
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       {/* No `env(safe-area-inset-top)` here — see note 1 above. The inset is a
           screen-edge concern and `MobileBackHeader` already owns it. */}
-      <div className="shrink-0 px-4 pb-1 pt-1.5 sm:px-6 sm:pt-2.5">
+      <div className="shrink-0 px-4 pt-0.5 sm:px-6 sm:pt-1">
         <PageHeader
           compact
           eyebrow="Discover"
           title="Find your people"
+          titleClassName="text-[15px] sm:text-base"
           actions={<Button href="/explore" variant="ghost">Browse grid</Button>}
         />
 

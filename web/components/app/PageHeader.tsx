@@ -2,6 +2,17 @@ import type { ReactNode } from "react";
 import { Chip } from "@/components/ui/Chip";
 
 interface PageHeaderProps {
+  /**
+   * Narrow, viewport-locked screens pass a smaller title so the heading cannot
+   * eat the height the content below it needs.
+   *
+   * OPTIONAL and defaulting to the current size, so no existing page changes
+   * appearance. It exists because `compact` already fixes the title at `text-lg`
+   * and there is no way to go smaller from the call site without either editing
+   * this shared component for everyone or wrapping the heading in a second,
+   * competing `<h1>` — which would break the document outline.
+   */
+  titleClassName?: string;
   eyebrow?: string;
   title: string;
   subtitle?: string;
@@ -67,7 +78,14 @@ export function PageLock({
 }
 
 /** Standard page heading block for authenticated-app pages. */
-export function PageHeader({ eyebrow, title, subtitle, actions, compact }: PageHeaderProps) {
+export function PageHeader({
+  eyebrow,
+  title,
+  subtitle,
+  actions,
+  compact,
+  titleClassName,
+}: PageHeaderProps) {
   if (compact) {
     /* One row, one line, `min-w-0` + `truncate` so a long title ellipsizes
        instead of wrapping to a second line and stealing height back. The
@@ -76,7 +94,17 @@ export function PageHeader({ eyebrow, title, subtitle, actions, compact }: PageH
        already on `/explore`. */
     return (
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <h1 className="min-w-0 truncate text-lg font-semibold tracking-display text-foreground">
+        <h1
+          className={[
+            "min-w-0 truncate font-semibold tracking-display text-foreground",
+            compact ? "text-lg" : "cc-fluid-title text-2xl sm:text-3xl",
+            /* Caller's size wins LAST so it overrides the `compact` default
+               instead of competing with it. */
+            titleClassName ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
           {eyebrow ? `${eyebrow}: ` : ""}
           {title}
         </h1>

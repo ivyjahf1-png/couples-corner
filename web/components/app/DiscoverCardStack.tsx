@@ -317,24 +317,16 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               {safeIndex + 1} / {total}
             </span>
 
-            {/* Card header row: deck counter left, Game Center badge right.
+            {/* THE GAME BADGE NO LONGER SITS HERE.
+                It used to be `absolute right-4 top-4`, over the photo's top-right
+                corner. On a card this tall the top corner is a long way from
+                anything the eye lands on — the name, the bio and the tags all sit
+                at the BOTTOM — so the badge read as floating chrome parked on the
+                picture rather than as part of the card's content. It is now in
+                the summary overlay, on the same row as the interest chips, where
+                it is actually seen and where it cannot cover the member's photo.
 
-                THE BADGE LIVES HERE, NOT FLOATING OVER THE PAGE. It used to be a
-                viewport-fixed button pinned to the bottom-right, which put it in
-                the same vertical band as the action row and the tab bar — all
-                three stack, so every `bottom-*` offset that cleared one collided
-                with another and the button repeatedly ended up overlapping the
-                Like control. Anchoring it to the card's top-right removes it from
-                that band completely: there is nothing at the top of a photo to
-                collide with, and it stops stealing taps from the primary action.
-
-                `z-20` matches the counter and the summary block, so it sits above
-                the tap zones (z-10) rather than under them. */}
-            <GameCenterBadge
-              label="Game"
-              ariaLabel="Open the game hub"
-              className="absolute right-4 top-4 z-20"
-            />
+                The deck counter keeps this corner to itself. */}
 
             {/* Profile summary — COMPACT ON MOBILE.
 
@@ -392,16 +384,36 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   clamped lines cost 48px, which on a phone is more than the whole
                   summary block's budget. Still two lines, still legible. */}
               {current?.bio?.trim() ? <p className="line-clamp-2 text-xs leading-5 text-ink-200 sm:text-sm sm:leading-6">{current.bio.trim()}</p> : null}
-              {current?.interests?.length ? (
-                <ul className="flex flex-wrap gap-1.5" aria-label="Interests">
-                  {/* Three chips on a phone, four from `sm` up. The fourth is
-                      hidden rather than removed from the array so the desktop
-                      render is untouched. */}
-                  {current.interests.slice(0, 4).map((interest, index) => (
-                    <li key={interest} className={index === 3 ? "max-sm:hidden" : undefined}><Chip tone="neutral">{interest}</Chip></li>
-                  ))}
-                </ul>
-              ) : null}
+              {/* TAGS + GAME BADGE, ONE ROW.
+                  The badge sits inline beside the interest chips instead of
+                  floating over the photo, so it reads as part of the card's
+                  content rather than as chrome parked on the picture.
+
+                  `ml-auto` pins it to the right edge of the row so it lines up
+                  with the "View full profile" link below rather than drifting
+                  mid-row on a phone, where three chips and a badge will not fit
+                  on one line. `flex-wrap` on the parent means that when they
+                  genuinely cannot fit, the badge wraps to its own line instead of
+                  overflowing the summary block or clipping a chip. `shrink-0`
+                  stops the badge itself being squeezed to nothing by the chips. */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                {current?.interests?.length ? (
+                  <ul className="flex flex-wrap gap-1.5" aria-label="Interests">
+                    {/* Three chips on a phone, four from `sm` up. The fourth is
+                        hidden rather than removed from the array so the desktop
+                        render is untouched. */}
+                    {current.interests.slice(0, 4).map((interest, index) => (
+                      <li key={interest} className={index === 3 ? "max-sm:hidden" : undefined}><Chip tone="neutral">{interest}</Chip></li>
+                    ))}
+                  </ul>
+                ) : null}
+
+                <GameCenterBadge
+                  label="Game"
+                  ariaLabel="Open the game hub"
+                  className="ml-auto shrink-0"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setDetailOpen(true)}
