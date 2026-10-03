@@ -1,35 +1,12 @@
 import { PageLock } from "@/components/app/PageHeader";
 import { ProfileScreen, ProfileHeader } from "@/components/profile/ProfileScreen";
+import { GameCenterButton } from "@/components/app/GameCenterButton";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getOwnProfile } from "@/lib/server/profiles";
 import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
-
-/**
- * Age in whole years from an ISO date of birth.
- *
- * SERVER-SIDE ONLY, and deliberately local to this page rather than promoted to
- * `lib/utils/`: `lib/server/discovery.ts` has a private copy for member cards,
- * and a shared version would have to reconcile two slightly different
- * birthday-boundary implementations. This one adjusts for the birthday NOT having
- * passed yet this year, which is the off-by-one that makes a profile show 28 on
- * the member's 29th.
- *
- * Returns null for a missing or unparseable date so the caller omits the age
- * entirely rather than printing "NaN" or a bare comma.
- */
-function ageFromDob(dob?: string | null): number | null {
-  if (!dob) return null;
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const monthDiff = now.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age -= 1;
-  // A negative age means a birth date in the future — bad data, not a person.
-  return age >= 0 && age < 130 ? age : null;
-}
+import { getMembership } from "@/lib/server/subscription";
 
 /**
  * Resolved URL for the member's primary profile photo.
@@ -54,51 +31,61 @@ function primaryPhotoUrl(
 /**
  * "Me" — the signed-in member's own profile.
  *
- * REPLACED. This file previously held a 700-line tabbed page (Profile / Wallet &
- * Tokens / More) built from four glass tiles, a social-games row, seven menu rows
- * and an invite-link card. It is replaced by `ProfileScreen`, the standard
- * dating-app layout: header bar, hero (avatar, name + age, bio, four stats), a
- * collapsible media grid, then About Me / My Interests / Lifestyle.
+ * REDESIGNED TWICE. This file first held a 700-line tabbed page (Profile / Wallet
+ * & Tokens / More) of glass tiles, then a dating-app layout (hero, bio, media
+ * grid, About/Interests/Lifestyle). It is now the light-theme member hub:
+ * header card, four-stat bar, wallet + VIP cards, friend banner, recommended
+ * games, quick actions and two list rows — all rendered by `ProfileScreen`.
  *
- * WHAT SURVIVED THE REPLACEMENT, AND WHY IT WAS NOT SIMPLY DROPPED:
+ * WHAT THE SERVER CALLS NOW OWN, AND WHY EACH ONE STAYS:
  *
- *   • The four server calls are UNCHANGED and still run in the same order:
- *     `getOwnProfile`, `getProfileStats`, `getGameWallet`, plus the session.
- *     The redesign is presentation, not a data-contract change.
+ *   • `getOwnProfile` — name and avatar only. Everything else it returns (bio,
+ *     interests, lifestyle, occupation, height, relationship fields) is no longer
+ *     rendered on this screen. The columns stay in the database and are still
+ *     edited at /profile/edit; they are simply not displayed here.
  *
- *   • `getGameWallet` is retained specifically because this page was the ONLY
- *     reader of it in the whole app. Dropping the call would have made a member's
- *     token balance invisible on every surface, so the balance is passed into
- *     `ProfileScreen` and rendered as one compact row. The old FOUR-TILE financial
- *     hub is gone — that was the redesign — but the number is still on screen,
- *     and /subscription, /task and /store all remain reachable from the nav.
+ *   • `getGameWallet` — retained because this page was the ONLY reader of it in
+ *     the whole app. Dropping it would make the balance invisible everywhere, so
+ *     it drives the yellow wallet card.
  *
- *   • `getProfileStats` still backs the four stats, unchanged.
+ *   • `getProfileStats` — the four stats, unchanged. Friends/Followers/Visitors
+ *     all still come from here.
  *
- * The invite-link card (`PersistentUserId`) and the VIP/level badges were removed
- * with the rest of the old chrome. Nothing is deleted from the database, and the
- * permanent user code remains available in Settings.
+ *   • `getMembership` — NEW. The old layout had no VIP card, so the tier was
+ *     never read; the new one needs it. It degrades to `subscriptionTier: "free"`
+ *     on error.
+ *
+ * The invite-link card (`PersistentUserId`) and the VIP/level badges were
+ * removed with the rest of the old chrome. Nothing is deleted from the database,
+ * and the permanent user code remains available in Settings.
  */
 export default async function ProfilePage() {
   const session = await getSessionUser();
   if (!session) return null; // requireUser() at the layout level already redirects.
 
   const { user, profile } = await getOwnProfile(session.uid);
-  const [stats, wallet] = await Promise.all([
+  /* `getMembership` is the fourth call, and it is the one that changed shape with
+     the redesign: the VIP card needs a tier, not just a balance. It degrades to
+     `{ subscriptionTier: "free", coinBalance: 0 }` on error, so a Supabase
+     hiccup costs the VIP card its badge and nothing else. */
+  const [stats, wallet, membership] = await Promise.all([
     getProfileStats(session.uid),
     getGameWallet(session.uid),
+    getMembership(session.uid),
   ]);
 
   const name = profile?.displayName || user?.displayName || "Your name";
 
   /* Visitors is the one stat with somewhere to go, so it is the one link in the
      row; Following points at discovery. Friends and Followers have no dedicated
-     list screen, and inventing an href for them would produce a dead link. */
+     list screen, and inventing an href for them would produce a dead link.
+     `notify` lights the red dot: a visitor count above zero means there is
+     something unread waiting at /likes. */
   const statCells = [
-    { label: "Friends", value: stats.friends, href: null },
-    { label: "Following", value: stats.following, href: "/discover" },
-    { label: "Followers", value: stats.followers, href: null },
-    { label: "Visitors", value: stats.visitors, href: "/likes" },
+    { label: "Friends", value: stats.friends, href: null, notify: false },
+    { label: "Following", value: stats.following, href: "/discover", notify: false },
+    { label: "Followers", value: stats.followers, href: null, notify: false },
+    { label: "Visitors", value: stats.visitors, href: "/likes", notify: stats.visitors > 0 },
   ];
 
   return (
@@ -129,34 +116,47 @@ export default async function ProfilePage() {
          mobile clears the fixed 5rem tab bar, which is the thing actually
          crowding the bottom of the last card; `md:pb-8` drops it where that bar
          is `md:hidden` and the sidebar rail takes over. */
-      bodyClassName="flex flex-col gap-4 px-4 pt-2 pb-28 md:pb-8"
+      /* NO `gap` HERE, DELIBERATELY. `ProfileScreen` owns all of its own vertical
+         rhythm through the single `gap-3` on its root column. A second gap on
+         this wrapper produced a doubled gutter around the whole screen — the
+         first of the "disjointed spacing" symptoms.
+
+         `pb-28` on mobile clears the fixed 5rem tab bar, which is the thing
+         actually crowding the bottom of the last card; `md:pb-8` drops it where
+         that bar is `md:hidden` and the sidebar rail takes over. */
+      bodyClassName="px-4 pt-2 pb-28 md:pb-8"
     >
       <ProfileScreen
         data={{
           uid: session.uid,
           name,
-          age: ageFromDob(profile?.dateOfBirth ?? user?.dateOfBirth ?? null),
           avatarUrl: primaryPhotoUrl(session.uid, profile),
-          bio: profile?.bio ?? null,
           stats: statCells,
-          interests: profile?.interests ?? [],
-          occupation: profile?.occupation ?? null,
-          heightCm: profile?.heightCm ?? null,
-          education: profile?.education ?? null,
-          lifestyle: profile?.lifestyle ?? [],
-          /* The four relationship/preference fields below were already being
-             SELECTED by `profileSelectList()` and mapped onto `UserProfile` —
-             they simply never reached this page. Nothing new is queried and no
-             migration is needed; the data was there and unread. */
-          location: profile?.location ?? null,
-          country: profile?.country ?? null,
-          relationshipStatus: profile?.relationshipStatus ?? null,
-          profileType: profile?.profileType ?? null,
-          lookingFor: profile?.lookingFor ?? null,
-          gender: profile?.gender ?? null,
-          orientation: profile?.orientation ?? null,
-          tokenBalance: wallet.coinBalance,
+          coinBalance: wallet.coinBalance,
+          vipTier: membership.subscriptionTier,
+          relation: "No Relation",
         }}
+      />
+      {/* THE FLOATING GAME BUTTON.
+
+          `bottom-24` (96px) = 80px tab bar + 16px of visible clearance, so the
+          button sits clearly ABOVE the capsule instead of overlapping its rounded
+          top edge. `md:bottom-8` drops the lift on tablet and desktop, where the
+          bar is `md:hidden` and the sidebar rail takes over — without that, the
+          button would float oddly high on a screen that has no bar under it.
+
+          This is the SAME `GameCenterButton` the /explore and /discover surfaces
+          float, reused with its own `bottomOffset` rather than reimplemented, so
+          the control cannot drift between screens.
+
+          WHY IT LIVES HERE AND NOT IN `ProfileScreen`. It is `position: fixed`, so
+          it must escape `PageLock`'s scroll region — a button rendered inside the
+          scrolling body would slide up the page and leave a permanent hole where
+          it was. The page, not the component, owns the viewport-level overlay. */}
+      <GameCenterButton
+        bottomOffset="bottom-24 md:bottom-8"
+        label="Game"
+        ariaLabel="Open the game hub"
       />
     </PageLock>
   );

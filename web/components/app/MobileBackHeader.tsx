@@ -103,6 +103,20 @@ export function MobileBackHeader() {
      everywhere. Same rule, same reason, as `/messages` above. */
   if (pathname === "/profile") return null;
 
+  /* `/profile/<uid>` — the EXTERNAL profile screen — is an immersive surface:
+     a full-bleed photo header with its OWN back chevron and overflow menu drawn
+     over the image (`PublicProfileScreen`).
+
+     This global bar would render directly above it, so the screen would open
+     with two stacked headers: a navy "Profile · Home" bar, then the photo's own
+     chrome immediately under it. It would also add the 4rem header spacer, which
+     on a viewport-locked immersive surface is pure dead height.
+
+     Same rule, same reason, as `/profile`, `/messages` and `/likes` above: the
+     screen owns its header, so this one steps aside. Matched with `startsWith`
+     because `/profile` itself is already handled on the line above. */
+  if (pathname?.startsWith("/profile/")) return null;
+
   /* `/likes` builds its own pinned title bar in `PageLock`'s `head` slot ("Who
      liked you"). This global bar would otherwise sit directly above it, giving
      the screen two stacked headers — the outer one carrying a back arrow, a

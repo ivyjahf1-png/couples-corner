@@ -62,18 +62,28 @@ export const appSecondaryNavItems: AppNavItem[] = [
 
 /** Destinations inside the mobile "Menu" drawer. */
 export const menuDrawerItems: AppNavItem[] = [
+  // Explore and Likes lead the drawer BECAUSE they are no longer tabs. Explore is
+  // the product's core loop and /likes is the member's inbound list; neither may
+  // be reachable only by typing a URL. They are listed first so the drawer opens
+  // on the destinations that just lost their tab, rather than burying the core
+  // loop under live and alerts.
+  { href: "/discover", label: "Explore", icon: "compass", alsoActiveFor: ["/explore"] },
+  { href: "/likes", label: "Likes", icon: "flame" },
   // Mirrors the sidebar order — Go Live first in the engagement group, and
   // third overall so it is above the fold of the drawer.
   { href: "/live", label: "Go Live", icon: "live" },
   { href: "/messages", label: "Messages", icon: "chat" },
-  // Explore and Moment are the bottom bar now, so they are not repeated here.
-  // "/" stays reachable as the immersive feed for old bookmarks and deep links.
+  // "/" stays reachable as the immersive feed for old bookmarks and deep links,
+  // and for the same reason `/` is NOT the "Home" tab's only other home — it is
+  // both, deliberately: the tab is the primary affordance, the drawer is the
+  // safety net for a deep link that opens this surface directly.
   { href: "/", label: "Home (immersive feed)", icon: "home", alsoActiveFor: ["/dashboard"] },
   { href: "/profile", label: "Profile", icon: "profile" },
   { href: "/notifications", label: "Alerts", icon: "bell" },
   { href: "/subscription", label: "VIP Membership", icon: "crown" },
   { href: "/aristocracy", label: "Aristocracy", icon: "crown" },
   { href: "/task", label: "Task Center", icon: "check" },
+  { href: "/feedback", label: "User feedback", icon: "chat" },
   { href: "/settings", label: "Settings", icon: "settings" },
 ];
 
@@ -165,49 +175,57 @@ interface MobileTab extends AppNavItem {
 }
 
 /**
- * Mobile bottom-bar tabs — the exact 5-tab sequence:
- * Explore · Moment · Likes · Messages · Me.
- * Every href is an absolute app route verified to exist in `app/(app)/**`.
+ * Mobile bottom-bar tabs — the exact 4-tab sequence:
+ * Home · Moment · Chat · Me.
+ *
+ * ── WHY THIS IS NOW FOUR TABS AND NOT FIVE ────────────────────────────────────
+ * The reference design shows four, with Chat carrying the red unread badge and
+ * Me carrying the active amber treatment. `Explore` and `Likes` are no longer
+ * tabs.
+ *
+ * That is not a deletion, and it is the reason this comment is long. Explore
+ * (`/discover`) is the product's core loop — the route a member lands on after
+ * signing in — and dropping it from the bar with nowhere else to reach it would
+ * strand the single most important screen on mobile. So BOTH removed
+ * destinations were moved into the "Menu" drawer, which is rendered by the same
+ * component and is already the home for secondary destinations on a phone.
+ * Neither route was deleted, and neither becomes unreachable:
+ *
+ *   • Explore → drawer (and the "Explore · Find your people" page header still
+ *     links out to the /explore grid, so the surface stays threaded through the
+ *     app even though it is no longer a tab).
+ *   • Likes   → drawer.
+ *
+ * If Explore is ever promoted back to a tab, the bar goes back to five entries
+ * and `grid-cols-4` becomes `grid-cols-5` in `AppMobileNav` — the grid column
+ * count and this array MUST be changed together or the tabs will not spread
+ * evenly across the capsule.
+ *
+ * "Home" points at "/", the immersive feed, with `alsoActiveFor` covering
+ * `/dashboard` so it lights up on the nested route too. Moment points at `/feed`,
+ * which is the other feed surface; they are separate tabs because the reference
+ * shows them as separate, and `moments` vs `home` glyphs keep them legible.
+ *
+ * `showBadge` stays on Chat: it is the only tab that can carry an unread count,
+ * and the count comes from the real `unreadCount` prop (`getUnreadCountAction`
+ * in `AppShell`), never a hardcoded number.
  */
 const mobileTabs: MobileTab[] = [
-  // THE CORE FLOW, IN ORDER: Explore first, then the Moment feed.
-  //
-  // Explore leads because it is the actual purpose of the product — seeing who
-  // is available to meet. The moment feed is a second-order surface you browse
-  // once you have people to browse. Leading with a feed put a member in front
-  // of other people's content before they had met anyone, which is the
-  // opposite of the loop this app runs on.
-  //
-  // "Home" is gone from this bar on purpose. It pointed at "/", which is the
-  // immersive MediaFeed, and that surface is now reachable as the "Moment" tab
-  // via /feed. Keeping both would have offered the same feed twice under two
-  // names, which is worse than not having it. "/" is NOT dropped as a route —
-  // it still serves the signed-in feed for existing deep links — it simply is
-  // no longer a tab. The desktop sidebar still lists it.
-  //
-  // ICONS: `compass` for Explore (discovery) and `moments` for the Moment feed
-  // (short video), so the two read as different things rather than both
-  // looking like a grid. `alsoActiveFor` keeps the tab lit for the nested
-  // routes that belong to it.
-  { href: "/discover", icon: "compass", label: "Explore", alsoActiveFor: ["/explore"] },
+  { href: "/", icon: "home", label: "Home", alsoActiveFor: ["/dashboard"] },
   { href: "/feed", icon: "moments", label: "Moment" },
-  /* `flame`, matching `appNavItems`. The sidebar has used `flame` for /likes
-     since the nav split, while this bar used `heart` — so the same destination
-     wore two different glyphs depending on viewport width, which reads as two
-     different features rather than one screen in two layouts. `flame` also
-     separates it from `heart` on the desktop rail, which is a live Matches
-     entry; on mobile Matches sits in the drawer, but keeping the glyph unique
-     means the two never look like the same button if it is ever promoted back.
-     Messages uses `chat` and /profile uses `profile`, so nothing else shifts. */
-  { href: "/likes", icon: "flame", label: "Likes" },
-  { href: "/messages", icon: "chat", label: "Messages", showBadge: true },
+  { href: "/messages", icon: "chat", label: "Chat", showBadge: true },
   { href: "/profile", icon: "profile", label: "Me" },
 ];
 
 /**
- * Shared tab styling: smooth rounded pill + soft glowing gradient active state
- * (image_25 reference). `nav-pill` / `nav-pill--active` come from globals.css;
- * `nav-pill--tab` keeps the icon-above-label column layout inside the pill.
+ * Shared tab styling: a rounded pill with an amber active state (the `nav-pill`
+ * family comes from globals.css; `nav-pill--tab` keeps the icon-above-label
+ * column layout inside the pill).
+ *
+ * The INACTIVE colour is light slate, not the `#94a3b8` the pill carried when the
+ * bar was dark: an inactive tab has to recede against a light surface, and the
+ * old mid-grey was the same value it had when the bar behind it was near-black.
+ * Hover moves to amber so the affordance is still discoverable.
  */
 function mobileTabClasses(active: boolean) {
   return [
@@ -215,7 +233,7 @@ function mobileTabClasses(active: boolean) {
     active ? "nav-pill--active font-semibold" : "",
     "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
     "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active ? "" : "text-slate-400 hover:text-orange-400",
+    active ? "" : "text-slate-400 hover:text-amber-600",
   ]
     .filter(Boolean)
     .join(" ");
@@ -291,8 +309,19 @@ export function AppMain({ children }: { children: React.ReactNode }) {
      Component's child and has no access to the feed's own state. Both routes
      are the same player (`ImmersiveFeed`), so matching on the two paths is
      enough and cannot drift out of sync with the feed's internals. */
+  /* `/profile/<uid>` is IMMERSIVE, like the feed and the discover deck: a
+     full-bleed photo occupies the top half of the screen and the white profile
+     sheet overlaps it edge to edge. `<main>`'s `px-4` and `pt-6` would frame
+     that photo inside a gutter — grey bands down both sides, which is the one
+     thing an immersive header must not have. The page reserves the tab bar's
+     height itself (see the action bar in `PublicProfileScreen`), so dropping the
+     `pb-20` compensation here strands nothing.
+
+     Matched with `startsWith` rather than `===` because this is a DYNAMIC route:
+     `/profile` itself is the own-profile page and keeps its normal document
+     gutters, so an exact match would opt the wrong screen in or out. */
   const isFullBleedSurface =
-    pathname === "/feed" || pathname === "/" || pathname === "/discover";
+    pathname === "/feed" || pathname === "/" || pathname === "/discover" || pathname?.startsWith("/profile/");
 
   return (
     <main
@@ -397,11 +426,10 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 }
 
 /**
- * Mobile chrome: a 5-item bottom bar (Explore · Moment · Likes · Messages · Me)
- * rendered as
+ * Mobile chrome: a 4-item bottom bar (Home · Moment · Chat · Me) rendered as
  * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
- * `md` up, where the fixed sidebar takes over. The "Menu" drawer is retained
- * for secondary destinations.
+ * `md` up, where the fixed sidebar takes over. The "Menu" drawer holds every
+ * destination that is not a tab.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -445,7 +473,11 @@ function MobileNavigation({
         className="app-bottom-nav shrink-0 border-t border-slate-800/50 bg-slate-950/90 backdrop-blur-md"
       >
         <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
-          <ul className="mx-auto grid max-w-md grid-cols-5">
+          {/* `grid-cols-4` MATCHES THE LENGTH OF `mobileTabs` (4). These two MUST
+              change together: a stale column count would either squeeze four
+              tabs into five tracks — leaving a dead gap at one end — or stretch
+              them across an empty fifth, which is the more obvious bug. */}
+          <ul className="mx-auto grid max-w-md grid-cols-4">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
               return (

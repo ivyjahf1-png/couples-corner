@@ -1,35 +1,33 @@
 "use client";
 
 import {
-  ArrowLeft,
-  Award,
-  BookOpen,
-  Briefcase,
+  BadgeCheck,
+  Check,
   ChevronDown,
+  ChevronRight,
+  CircleUser,
+  Coins,
+  Copy,
   Crown,
-  Dumbbell,
-  Gift,
-  GraduationCap,
+  Diamond,
+  Eye,
+  Gamepad2,
+  Gem,
+  Headset,
   Heart,
-  Home,
-  MapPin,
-  Moon,
-  Music,
-  PawPrint,
-  Pencil,
-  Ruler,
+  Leaf,
+  ListChecks,
+  LucideIcon,
+  MessageSquare,
   ShoppingBag,
+  ShoppingCart,
   Sparkles,
-  Sun,
-  Sunrise,
-  Plane,
   Settings,
-  BookOpen as Reader,
-  Coffee,
-  Camera,
+  Star,
   TrendingUp,
+  UserPlus,
+  Users,
   Wallet,
-  type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -41,85 +39,89 @@ import {
  * evaluation, which has no meaning in the server (RSC) module graph, so importing
  * it into a server component fails the build with
  * "d.createContext is not a function". Every other page that uses Lucide is a
- * Client Component, which is why this never came up before.
+ * Client Component, which is why this never comes up elsewhere.
  *
  * So the icons live here, behind a `"use client"` boundary, and the server page
  * refers to them BY NAME. That keeps the component boundary serialisable: a
  * component *function* cannot cross it, but a plain string can, which is why
- * callers pass `name="gift"` rather than `icon={Gift}`.
+ * callers pass `name="wallet"` rather than `icon={Wallet}`.
  *
  * Add a new icon by extending the map — the union type below makes a typo or a
  * missing entry a compile error rather than a blank space at runtime.
  */
 export type ProfileIconName =
+  /* Header + stats */
+  | "chevron-right"
+  | "chevron-down"
+  | "copy"
+  | "badge"
+  | "leaf"
+  | "user"
+  | "users"
+  | "user-plus"
+  | "eye"
+  /* Wallet + VIP cards */
+  | "coin"
+  | "gem"
+  | "diamond"
   | "crown"
-  | "gift"
-  | "shopping-bag"
-  | "trending-up"
-  | "wallet"
-  /* Profile-screen redesign. Every name below is referenced BY NAME from the
-     Server Component page, so the union is the compile-time guarantee that a
-     typo becomes a build error rather than a blank square at runtime. */
-  | "back"
   | "settings"
-  | "edit"
-  | "expand"
-  | "camera"
-  | "verified"
-  | "location"
-  | "heart-goal"
-  | "height"
-  | "profession"
-  | "education"
-  | "pet-owner"
-  | "fitness"
-  | "travel"
-  | "foodie"
-  | "music"
-  | "reader"
-  | "night-owl"
-  | "early-bird"
-  | "homebody"
-  | "outdoors"
-  | "creative"
-  | "etelts";
+  /* Friend banner + games */
+  | "heart"
+  | "gamepad"
+  | "sparkles"
+  /* Quick actions + menu rows */
+  | "tasks"
+  | "wallet"
+  | "store"
+  | "bag"
+  | "level"
+  | "star"
+  | "trending-up"
+  /* Menu rows below Bag/Level. `badge` (achievements), `certification`
+     (checkmark), `support` (headset), `feedback` (message bubble) and
+     `settings` (gear) — each one a DISTINCT glyph, so scanning the list does not
+     require reading five labels to tell the rows apart. */
+  | "certification"
+  | "support"
+  | "feedback";
 
 const ICONS: Record<ProfileIconName, LucideIcon> = {
+  "chevron-right": ChevronRight,
+  "chevron-down": ChevronDown,
+  copy: Copy,
+  badge: BadgeCheck,
+  leaf: Leaf,
+  user: CircleUser,
+  users: Users,
+  "user-plus": UserPlus,
+  eye: Eye,
+  coin: Coins,
+  gem: Gem,
+  diamond: Diamond,
   crown: Crown,
-  gift: Gift,
-  "shopping-bag": ShoppingBag,
-  "trending-up": TrendingUp,
-  wallet: Wallet,
-  back: ArrowLeft,
   settings: Settings,
-  edit: Pencil,
-  expand: ChevronDown,
-  camera: Camera,
-  verified: Award,
-  location: MapPin,
-  "heart-goal": Heart,
-  height: Ruler,
-  profession: Briefcase,
-  education: GraduationCap,
-  "pet-owner": PawPrint,
-  fitness: Dumbbell,
-  travel: Plane,
-  foodie: Coffee,
-  music: Music,
-  reader: Reader,
-  "night-owl": Moon,
-  "early-bird": Sunrise,
-  homebody: Home,
-  outdoors: Sparkles,
-  creative: Heart,
-  etelts: BookOpen,
+  heart: Heart,
+  gamepad: Gamepad2,
+  sparkles: Sparkles,
+  tasks: ListChecks,
+  wallet: Wallet,
+  store: ShoppingCart,
+  bag: ShoppingBag,
+  level: Star,
+  star: Star,
+  "trending-up": TrendingUp,
+  certification: Check,
+  support: Headset,
+  feedback: MessageSquare,
 };
 
 /**
  * Render one profile icon.
  *
- * `className` is passed straight through so each call site keeps control of size
- * and colour, matching the surrounding Midnight Slate & Orange treatment.
+ * `className` is passed straight through so each call site keeps full control of
+ * size, colour and stroke weight — the new profile screen is a LIGHT theme, so
+ * every glyph is tinted at the call site rather than inheriting a dark default.
  */
 export function ProfileIcon({
   name,
