@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -22,11 +22,11 @@ import { ProfileChatButton, ProfileFollowButton } from "@/components/profile/Pub
 /**
  * THE EXTERNAL (PUBLIC) PROFILE SCREEN.
  *
- * â”€â”€ WHY THIS IS A CLIENT COMPONENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ WHY THIS IS A CLIENT COMPONENT ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
  * The previous version of this screen was a Server Component rendering a stack
  * of dark `<Card>` sections down an ordinary scrolling page. That is a fine
  * layout for a document and the wrong one for a profile: the reference design is
- * an IMMERSIVE surface — a full-bleed photo occupying the top half of the
+ * an IMMERSIVE surface Ã¢â‚¬â€ a full-bleed photo occupying the top half of the
  * viewport, a white sheet overlapping it, chrome pinned over the top of the
  * photo, and a two-button action bar that never leaves the screen. None of that
  * can be expressed in a document flow, because the photo must be POSITIONED
@@ -34,19 +34,19 @@ import { ProfileChatButton, ProfileFollowButton } from "@/components/profile/Pub
  *
  * So this is one `"use client"` component. It still receives plain, serialisable
  * data from the server page (see `PublicProfileView`), and it still fetches
- * nothing on mount except presence polling — the same split the rest of this app
+ * nothing on mount except presence polling Ã¢â‚¬â€ the same split the rest of this app
  * uses. Only the presentation state the design requires lives here: which photo
  * is active, which tab is open, and whether the overflow menu is showing.
  *
- * â”€â”€ WHY THE FOLLOW BUTTON IS NOT IN HERE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ WHY THE FOLLOW BUTTON IS NOT IN HERE ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
  * See `PublicProfileActions.tsx`. This file renders layout; that file renders the
  * two controls that mutate server state.
  *
- * â”€â”€ SCROLLING, AND WHY THERE IS EXACTLY ONE SCROLL REGION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ SCROLLING, AND WHY THERE IS EXACTLY ONE SCROLL REGION ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬ÃƒÂ¢Ã¢â‚¬ÂÃ¢â€šÂ¬
  * The photo header is `absolute`, so it contributes NO height to the flow and
  * cannot push anything down. Everything else lives in one column that scrolls.
  * The bottom action bar is OUTSIDE that column, at the end of an `h-full` flex
- * parent — so it is always visible WITHOUT being `fixed`.
+ * parent Ã¢â‚¬â€ so it is always visible WITHOUT being `fixed`.
  *
  * `fixed` is deliberately avoided for one specific reason: a `fixed` bar at
  * `bottom-0` sits UNDER the app's own fixed tab bar (`BottomNavRegion`), because
@@ -69,7 +69,7 @@ export interface PublicProfilePhoto {
  * computes age from `dateOfBirth`, resolves photo URLs and formats distance on
  * the server; the client receives facts, not raw columns. That keeps the derived
  * values identical on first paint and after any re-render, and stops this
- * component from re-implementing — and slowly drifting from — the server's rules.
+ * component from re-implementing Ã¢â‚¬â€ and slowly drifting from Ã¢â‚¬â€ the server's rules.
  */
 export interface PublicProfileView {
   /** Route id. Also the copy-to-clipboard payload shown as `ID:<uid>`. */
@@ -94,7 +94,7 @@ export interface PublicProfileView {
   viewerUid: string | null;
   /** Relationship / status chip beside the name, e.g. "Single". */
   statusBadge: string | null;
-  /** Bio — the long-form copy under the tabs. */
+  /** Bio Ã¢â‚¬â€ the long-form copy under the tabs. */
   bio: string | null;
   /** Interest chips: the "About Me" tag cloud. */
   interests: string[];
@@ -119,16 +119,102 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 /**
+ * Glyphs for the interest / lifestyle chips, matched on the member's own text.
+ *
+ * WHY A LOOKUP RATHER THAN AN ICON PER ROW. Both columns are free text a member
+ * typed, so there is no per-row icon in the database to read. Matching on the
+ * label is the honest version of the reference's "chip with a small icon": a
+ * recognised label gets its glyph, and anything unrecognised still renders as a
+ * clean text chip.
+ *
+ * Keys are LOWERCASE because the comparison lowercases the label Ã¢â‚¬â€ members type
+ * "Cooking" and "cooking" interchangeably, and a case-sensitive map would silently
+ * drop the icon for half of them.
+ *
+ * `match` allows a prefix/substring match so "cooking & baking" or "comic books
+ * fan" still resolve. Kept short and specific: a broad rule like "anything
+ * containing 'a' gets a heart" would attach nonsense glyphs.
+ */
+const TAG_ICONS: Record<string, string> = {
+  // About Me / personal-detail tags, matched on the member's own label text.
+  coffee: "\u2615",
+  undergraduate: "\u{1F393}",
+  never: "\u{1F6AC}",
+  "change the world": "\u{1F4AC}",
+  no: "\u{1F47B}",
+  naive: "\u{1F60A}",
+  aries: "\u2648",
+  // Interests / hobbies.
+  cooking: "\u{1F373}",
+  "comic books": "\u{1F4D6}",
+  comics: "\u{1F4D6}",
+  games: "\u{1F3AE}",
+  gaming: "\u{1F3AE}",
+  music: "\u{1F3B5}",
+  travel: "\u2708\uFE0F",
+  fitness: "\u{1F3CB}",
+  gym: "\u{1F3CB}",
+  reading: "\u{1F4D6}",
+  books: "\u{1F4D6}",
+  photography: "\u{1F4F7}",
+  art: "\u{1F3A8}",
+  coding: "\u{1F4BB}",
+  pets: "\u{1F43E}",
+  nature: "\u{1F33F}",
+  dancing: "\u{1F483}",
+  always: "\u2764\uFE0F",
+};
+
+
+/**
+ * Resolve a tag label to its emoji, or null when the label is not recognised.
+ *
+ * Substring matching (`includes`) is what lets "comic books fan" resolve through
+ * the "comic books" key. Returns null â€” not a placeholder â€” for an unrecognised
+ * label: a chip with a mismatched glyph ("Cooking" beside a graduation cap) reads
+ * worse than a clean text-only chip.
+ */
+function tagIcon(label: string): string | null {
+  const text = label.trim().toLowerCase();
+  if (!text) return null;
+  const direct = TAG_ICONS[text];
+  if (direct) return direct;
+  for (const [key, glyph] of Object.entries(TAG_ICONS)) {
+    if (text.includes(key)) return glyph;
+  }
+  return null;
+}
+
+/**
  * Tag pill in the "About Me" cloud and the lifestyle groups.
  *
  * `flex-wrap` is on the PARENT list, so an over-long member-authored tag wraps to
  * its own line instead of overflowing the white sheet and clipping. `break-words`
- * handles the pathological case — a member who typed a sentence into
- * "interests" — where one unbroken word would otherwise punch out of the pill.
+ * handles the pathological case Ã¢â‚¬â€ a member who typed a sentence into
+ * "interests" Ã¢â‚¬â€ where one unbroken word would otherwise punch out of the pill.
+ * THE OPTIONAL EMOJI. The reference shows every chip carrying a small glyph, so
+ * `icon` is accepted and rendered ahead of the text. It is OPTIONAL on purpose:
+ * `interests` and `lifestyle` are free-text columns, so most rows have no
+ * sensible glyph to attach, and a chip with a mismatched emoji ("Cooking" beside a
+ * graduation cap) is worse than a clean text chip. `tagIcon` resolves the label
+ * through the catalogue above and returns null for anything unrecognised, so an
+ * unknown tag renders as a plain text pill rather than guessing.
+ *
+ * `shrink-0` on the glyph stops a flex child from squeezing the icon when the
+ * label is long, which would deform a circle into an oval.
  */
-function TagPill({ label }: { label: string }) {
+function TagPill({ label, icon }: { label: string; icon?: string | null }) {
   return (
-    <span className="inline-flex max-w-full items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-medium text-slate-700">
+    <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[13px] font-medium text-slate-700">
+      {/* `aria-hidden`: the emoji is a visual shorthand for the label beside it, so
+          announcing it would read the glyph's name twice. `text-[13px]` matches the
+          label rather than sitting larger â€” an oversized emoji reads as a second,
+          competing element instead of a prefix. */}
+      {icon ? (
+        <span aria-hidden className="shrink-0 text-[13px] leading-none">
+          {icon}
+        </span>
+      ) : null}
       <span className="break-words">{label}</span>
     </span>
   );
@@ -151,7 +237,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
  *
  * `absolute inset-x-0 top-0` with a fixed height, so it is taken OUT of the
  * document flow entirely. That is what lets the white sheet below overlap it
- * with a negative margin and still scroll correctly — a header in normal flow
+ * with a negative margin and still scroll correctly Ã¢â‚¬â€ a header in normal flow
  * cannot be overlapped by a sibling without pushing the whole column down.
  *
  * Two scrims, not one: the top scrim keeps the white back-chevron legible over a
@@ -175,7 +261,7 @@ function ProfilePhotoHeader({
   name: string;
 }) {
   /* `active` is clamped rather than trusted. `photos` can be empty (a member with
-     no photos), in which case the fallback below takes over — but an out-of-range
+     no photos), in which case the fallback below takes over Ã¢â‚¬â€ but an out-of-range
      index would otherwise paint a blank frame. */
   const active = photos[activeIndex] ?? photos[0] ?? null;
 
@@ -186,7 +272,7 @@ function ProfilePhotoHeader({
         <img
           key={active.key}
           src={active.src}
-          alt={`${name} — photo ${activeIndex + 1} of ${photos.length}`}
+          alt={`${name} Ã¢â‚¬â€ photo ${activeIndex + 1} of ${photos.length}`}
           /* `key` on the image is deliberate: it forces a fresh element per photo,
              so the browser cannot keep painting the previous photo while the next
              one decodes. */
@@ -296,7 +382,7 @@ function ProfilePhotoHeader({
 }
 
 /**
- * THE WHITE SHEET'S IDENTITY BLOCK — name, badges, details, ID + presence.
+ * THE WHITE SHEET'S IDENTITY BLOCK Ã¢â‚¬â€ name, badges, details, ID + presence.
  *
  * This is the content that overlaps the photo. Every row is a single
  * `flex-wrap` line, so a member with a long country name, a missing field, or a
@@ -312,7 +398,7 @@ function ProfileIdentity({ view, online }: { view: PublicProfileView; online: bo
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <h1 className="text-xl font-bold text-slate-900">{view.name}</h1>
         <span aria-hidden className="text-base leading-none tracking-tight">
-          ❤️❤️❤️
+          Ã¢ÂÂ¤Ã¯Â¸ÂÃ¢ÂÂ¤Ã¯Â¸ÂÃ¢ÂÂ¤Ã¯Â¸Â
         </span>
         <BadgeCheck className="h-5 w-5 shrink-0 text-emerald-500" aria-label="Verified profile" />
         {view.statusBadge ? (
@@ -424,7 +510,7 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
 
           {/* TABS. A real `tablist` with `aria-selected`, so the active state is
               announced rather than being conveyed by the yellow dot alone. The dot
-              is an `absolute` child of each TAB — not of the tablist — so it tracks
+              is an `absolute` child of each TAB Ã¢â‚¬â€ not of the tablist Ã¢â‚¬â€ so it tracks
               the label's width instead of stretching across it. */}
           <div className="mt-4 border-b border-slate-100">
             <div role="tablist" aria-label="Profile sections" className="flex gap-6">
@@ -454,7 +540,7 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
           </div>
 
           {/* PANELS. Only the active one is mounted, rather than all three with the
-              inactive ones hidden — a hidden panel is still in the DOM, and three
+              inactive ones hidden Ã¢â‚¬â€ a hidden panel is still in the DOM, and three
               of these is three times the tag nodes for assistive tech to walk
               through on a screen with nothing to show. */}
           <div
@@ -495,7 +581,7 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
                     <ul className="flex flex-wrap gap-2">
                       {view.interests.map((interest) => (
                         <li key={interest} className="max-w-full">
-                          <TagPill label={interest} />
+                          <TagPill label={interest} icon={tagIcon(interest)} />
                         </li>
                       ))}
                     </ul>
@@ -515,7 +601,7 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
                     <ul className="flex flex-wrap gap-2">
                       {view.lifestyle.map((tag) => (
                         <li key={tag} className="max-w-full">
-                          <TagPill label={tag} />
+                          <TagPill label={tag} icon={tagIcon(tag)} />
                         </li>
                       ))}
                     </ul>
@@ -570,12 +656,18 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
       </div>
 
       {/* THE BOTTOM ACTION BAR. A SIBLING of the scroll region inside the locked
-          column, so it is always on screen without being `fixed` — and so it can
+          column, so it is always on screen without being `fixed` Ã¢â‚¬â€ and so it can
           never be painted underneath the app's own fixed tab bar.
 
-          `pb-[calc(4.5rem+env(safe-area-inset-bottom))]` reserves the 4.5rem tab
-          bar plus the gesture-bar inset. `md:pb-0` drops it where that bar is
-          `md:hidden` and the sidebar rail takes over.
+          THE NAV RESERVE IS A CALC, NOT A GUESS. `pb-[calc(4.5rem+env(safe-area-inset-bottom))]`
+          reserves 72px, which is the real measured height of the bottom capsule
+          (52px tab min-height + 2x 8px capsule padding + 2px border Ã¢â€°Ë† 70px) plus
+          the gesture-bar inset. The earlier `4rem` figure was 8px short and let
+          the capsule's rounded top edge clip the buttons' bottom row.
+
+          `md:pb-0` drops the reserve where that bar is `md:hidden` and the
+          sidebar rail takes over Ã¢â‚¬â€ without it the buttons would float 72px above
+          the screen edge on a surface that has nothing beneath them.
 
           The self view hides the bar entirely: there is no one to Chat with or
           Follow, and an inert primary action is noise, not a feature. */}

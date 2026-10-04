@@ -3,6 +3,7 @@ import ChatRoomClient from "./ChatRoomClient";
 import { getConversationChatDataAction } from "@/lib/actions/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { getPresenceForUsers } from "@/lib/server/presence";
+import { getGameWallet } from "@/lib/server/games";
 
 interface ConversationPageProps {
   params: Promise<{ conversationId: string }>;
@@ -52,6 +53,21 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
   const presence = otherId ? await getPresenceForUsers([otherId]) : {};
   const otherOnline = otherId ? Boolean(presence[otherId]?.online) : false;
 
+  /* COIN BALANCE, for the gift drawer's balance pill.
+   *
+   * A SECOND, INDEPENDENT READ rather than a column on the conversation query. The
+   * conversation query is on the hot path for opening a chat, and joining a wallet
+   * table into it to populate a drawer that most visits never open would slow down
+   * every conversation for the sake of an optional panel. `getGameWallet` already
+   * exists and is what `/store` and `/profile` read, so there is no new query to
+   * write.
+   *
+   * It fails soft to 0: a wallet hiccup must not stop a member reading their
+   * messages, and the drawer's Send button stays disabled at 0 until the next
+   * open, which is a far better failure than a blank conversation. The DEBIT is
+   * still authoritative - `sendGift` re-reads the balance server-side. */
+  const wallet = await getGameWallet(user.uid).catch(() => ({ coinBalance: 0 }));
+
   return (
     <ChatRoomClient
       conversationId={conversationId}
@@ -59,6 +75,7 @@ export default async function MessagesPage({ params }: ConversationPageProps) {
       summary={summary}
       initialMessages={initialMessages ?? []}
       initialOnline={otherOnline}
+      coinBalance={wallet.coinBalance}
     />
   );
 }
