@@ -148,11 +148,39 @@ function vipLabel(tier: string): string | null {
  * token rather than an afterthought: it is what lets a hairline `border-t` between
  * two bands stay a straight edge instead of poking out past the radius.
  */
+/**
+ * THE SHARED SURFACE — one radius, one fill, one border, one shadow.
+ *
+ * DARK GLASS. `bg-white/[0.04]` over the `#0F0C1B` canvas, with a hairline at
+ * `white/10` and a shadow that is nearly black. A solid `bg-white` here is what
+ * the previous build used, and against a dark page it produced five white
+ * rectangles with hard edges — the exact "generic white card" the brand rules
+ * forbid.
+ *
+ * WHY THE FILL IS 4% WHITE AND NOT `#1A1429`. A flat `#1A1429` is indistinguishable
+ * from the canvas at low contrast on cheap panels, so the cards stop reading as
+ * cards. Translucent white lifts the fill proportionally on every display while
+ * keeping the underlying hue, which is what "glassmorphism" actually means. The
+ * BORDER is what carries the separation when the fill alone is too subtle, which
+ * is why it is not omitted.
+ *
+ * `overflow-hidden` stays part of the token: it is what lets a hairline `border-t`
+ * between two bands stay a straight edge instead of poking out past the radius.
+ */
 const SURFACE =
-  "overflow-hidden rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.12)]";
+  "overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.6)]";
 
-/** Focus ring on the amber accent, shared by every tappable element. */
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400";
+/**
+ * Focus ring on the brand orange.
+ *
+ * ORANGE rather than amber-yellow: `#FF7A00` against `#0F0C1B` is ~7.4:1, while
+ * `#fbbf24` sits at ~11:1 but is the same hue as the gold wallet tile and so
+ * stopped reading as "you are focused here" the moment that tile was on screen.
+ * `ring-offset` in the canvas colour keeps the ring visible against a dark card
+ * instead of merging into it.
+ */
+const FOCUS =
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]";
 /** One of the four quick-action tiles. */
 interface QuickAction {
   label: string;
@@ -199,12 +227,12 @@ const GAMES: GameTile[] = [
  */
 export function ProfileHeader({ name }: { name: string }) {
   return (
-    <div className="flex h-14 items-center justify-between border-b border-slate-200 bg-white">
-      <h1 className="truncate px-4 text-base font-bold text-slate-900">{name}</h1>
+    <div className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]">
+      <h1 className="truncate px-4 text-base font-bold text-white">{name}</h1>
       <Link
         href="/settings"
         aria-label="Settings"
-        className={`mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+        className={`mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
       >
         <ProfileIcon name="settings" className="h-5 w-5" />
       </Link>
@@ -238,7 +266,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <p className="truncate text-lg font-bold text-slate-900">{data.name}</p>
+              <p className="truncate text-lg font-bold text-white">{data.name}</p>
               {/* A null tier renders nothing rather than a "VIP0" pill — "VIP0"
                   would read as a rank the member had earned. */}
               {vip ? (
@@ -256,7 +284,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           <Link
             href="/profile/edit"
             aria-label="View and edit profile"
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
           >
             <ProfileIcon name="chevron-right" className="h-5 w-5" />
           </Link>
@@ -264,12 +292,12 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
         {/* `divide-x` gives each stat a hairline without a wrapper per cell, so
             the four columns stay ONE grid rather than four floating items. */}
-        <div className="grid grid-cols-4 divide-x divide-slate-100 border-t border-slate-100">
+        <div className="grid grid-cols-4 divide-x divide-white/[0.08] border-t border-white/[0.08]">
           {data.stats.map((stat) => {
             const body = (
               <>
                 <span className="flex items-center gap-1">
-                  <span className="text-base font-bold tabular-nums text-slate-900">
+                  <span className="text-base font-bold tabular-nums text-white">
                     {stat.value}
                   </span>
                   {/* `aria-hidden`: the value above is already announced, so the
@@ -278,7 +306,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                     <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-red-500" />
                   ) : null}
                 </span>
-                <span className="mt-0.5 text-[11px] font-medium text-slate-500">
+                <span className="mt-0.5 text-[11px] font-medium text-[#A09AB0]">
                   {stat.label}
                 </span>
               </>
@@ -289,7 +317,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                 key={stat.label}
                 href={stat.href}
                 aria-label={`${stat.value} ${stat.label}`}
-                className={`flex flex-col items-center gap-0.5 py-3 transition hover:bg-slate-50 ${FOCUS}`}
+                className={`flex flex-col items-center gap-0.5 py-3 transition hover:bg-white/[0.06] ${FOCUS}`}
               >
                 {body}
               </Link>
@@ -323,10 +351,10 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           aria-label={`Coin balance ${data.coinBalance}. Open store`}
           className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl bg-amber-400 px-3.5 transition hover:bg-amber-500 ${FOCUS}`}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/10 text-slate-900">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/15 text-[#0F0C1B]">
             <ProfileIcon name="coin" className="h-5 w-5" />
           </span>
-          <span className="text-2xl font-bold tabular-nums text-slate-900">
+          <span className="text-2xl font-bold tabular-nums text-[#0F0C1B]">
             {data.coinBalance}
           </span>
         </Link>
@@ -361,15 +389,15 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * ================================================================ */}
       <section
         aria-label="Friend relationship"
-        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl bg-sky-100 px-4 py-3.5"
+        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/10 bg-sky-500/[0.12] px-4 py-3.5"
       >
         <div className="relative z-10 min-w-0">
-          <p className="text-sm font-bold text-slate-900">
+          <p className="text-sm font-bold text-white">
             Friend: <span className="font-semibold">{data.relation}</span>
           </p>
           <Link
             href="/invite"
-            className="mt-2 inline-flex min-h-9 items-center rounded-full bg-slate-900 px-5 py-1.5 text-xs font-bold text-white transition hover:bg-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            className="mt-2 inline-flex min-h-9 items-center rounded-full bg-[#FF7A00] px-5 py-1.5 text-xs font-bold text-[#0F0C1B] transition hover:bg-[#FF9500] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
           >
             Invite
           </Link>
@@ -412,11 +440,11 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             that does not exist. */}
         <div className="px-4 pb-4 pt-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Recommended Games</h2>
+            <h2 className="text-base font-bold text-white">Recommended Games</h2>
             <Link
               href="/store"
               aria-label="See all games"
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+              className={`flex h-8 w-8 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
             >
               <ProfileIcon name="chevron-right" className="h-5 w-5" />
             </Link>
@@ -427,7 +455,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               <li key={game.title}>
                 <Link
                   href={game.href}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-slate-50 ${FOCUS}`}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-white/[0.06] ${FOCUS}`}
                 >
                   <span
                     aria-hidden
@@ -437,7 +465,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                       rather than wrapping and breaking the row's baseline. */}
                   <span
                     title={game.title}
-                    className="line-clamp-1 w-full text-center text-[11px] font-semibold text-slate-700"
+                    className="line-clamp-1 w-full text-center text-[11px] font-semibold text-[#E0E0E0]"
                   >
                     {game.title}
                   </span>
@@ -449,17 +477,17 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
         {/* Band 2 — quick actions. Bold black outlines, yellow icon chips, on
             the shared surface rather than in their own floating card. */}
-        <div className="grid grid-cols-4 gap-2 border-t border-slate-100 px-4 py-4">
+        <div className="grid grid-cols-4 gap-2 border-t border-white/[0.08] px-4 py-4">
           {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.label}
               href={action.href}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 border-slate-900 bg-white px-1 py-2.5 transition hover:bg-amber-50 ${FOCUS}`}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 border-white/15 bg-white/[0.06] px-1 py-2.5 transition hover:bg-[#FF7A00]/10 ${FOCUS}`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400 text-slate-900">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400 text-[#0F0C1B]">
                 <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
               </span>
-              <span className="text-[11px] font-bold text-slate-900">{action.label}</span>
+              <span className="text-[11px] font-bold text-white">{action.label}</span>
             </Link>
           ))}
         </div>
@@ -467,37 +495,37 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         {/* Band 3 — Bag and Level. `divide-y` rules BETWEEN rows only; the band
             above it is separated by its own `border-t`, so there is never a
             doubled line where two rules land on top of each other. */}
-        <ul className="divide-y divide-slate-100 border-t border-slate-100">
+        <ul className="divide-y divide-white/[0.08] border-t border-white/[0.08]">
           <li>
             <Link
               href="/store"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400"
+              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-slate-900">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
                 <ProfileIcon name="bag" className="h-5 w-5" />
               </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-slate-900">
+              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
                 Bag
               </span>
               <span className="shrink-0 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
                 Game
               </span>
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-slate-300" />
+              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
             </Link>
           </li>
 
           <li>
             <Link
               href="/task"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400"
+              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-slate-900">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
                 <ProfileIcon name="level" className="h-5 w-5" />
               </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-slate-900">
+              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
                 Level
               </span>
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-slate-300" />
+              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
             </Link>
           </li>
         </ul>
@@ -523,15 +551,15 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             row drift out of step with its neighbours. */}
         <ul className="mt-0">
           {MENU_ROWS.map((row) => (
-            <li key={row.label} className="border-t border-slate-100">
+            <li key={row.label} className="border-t border-white/[0.08]">
             <Link
               href={row.href}
-              className={`flex items-center gap-3 px-4 py-3 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400 ${FOCUS}`}
+              className={`flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0 ${FOCUS}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-slate-900">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
                 <ProfileIcon name={row.icon} className="h-5 w-5" />
               </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-slate-900">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
                 {row.label}
               </span>
               {/* INLINE INDICATOR, before the chevron. `shrink-0` keeps the
@@ -547,7 +575,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                   {row.status}
                 </span>
               ) : null}
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-slate-300" />
+              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
             </Link>
           </li>
         ))}

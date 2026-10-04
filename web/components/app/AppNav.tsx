@@ -256,9 +256,29 @@ function UnreadBadge({ count }: { count: number }) {
   if (count <= 0) return null;
   const display = count > 99 ? "99+" : String(count);
   return (
+    /* THE BADGE NEEDS ROOM TO OVERFLOW ITS PARENT.
+
+       Positioning it at `right-0` put the dot's right edge flush with the 20px
+       icon box, so with a one-digit count ("5") the circle hung mostly OUTSIDE
+       the glyph and read as a smudge beside the chat icon rather than a badge on
+       it. Pulling it back with a negative inset centres the single digit over the
+       icon's top-right corner, which is where a member looks for it.
+
+       `-top-1.5` (not `-top-0.5`) is what makes it float clear ABOVE the icon: at
+       half a step it overlapped the glyph's own top edge and looked pasted on.
+
+       THE ANIMATED WRAPPER IS LOAD-BEARING. `overflow-x: hidden` + `overflow-y:
+       visible` cannot be combined in CSS — the "visible" side silently computes
+       to "auto", which would give this element a scroll container and clip the
+       badge at its own edge. So the icon wrapper is the positioned ancestor with
+       NO overflow at all, and the badge is a plain `absolute` inside it.
+
+       `bg-[#FF5722]` is the app's existing action orange (same value as the Chat
+       button's gradient end), not a new red, so the badge matches the rest of
+       the yellow/orange theme rather than introducing a fourth accent. */
     <span
       aria-label={`${count} unread messages`}
-      className="absolute -top-0.5 right-0 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-[#FF5722] px-1 text-[10px] font-bold leading-4 text-white"
+      className="pointer-events-none absolute -right-1 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-slate-900 bg-[#FF5722] px-1 text-[10px] font-bold leading-none text-white"
     >
       {display}
     </span>
@@ -488,8 +508,30 @@ function MobileNavigation({
                     aria-label={item.label}
                     className={mobileTabClasses(active)}
                   >
-                    <span className="relative flex items-center justify-center">
-                      <Icon name={item.icon} className="h-5 w-5" />
+                    {/* THE BADGE'S POSITIONED ANCESTOR.
+
+    `relative` with NO overflow clipping — that is what lets the badge escape
+    upward past the icon and past the capsule's padding to sit over the chat
+    glyph's top-right corner. See `UnreadBadge` for why the mixed-overflow trick
+    is not available here.
+
+    `w-6` is wider than the 20px icon on purpose: it is the positioning box that
+    lets the badge sit slightly outside the glyph without shifting the icon. */}
+                    {/* THE ICON EXPLICITLY, NOT BY INHERITANCE.
+
+    The active tab's text colour is `#b45309` — a DARK amber chosen to stay
+    legible as label text. Inheriting that into the glyph gave a muddy brown
+    chat/home mark, which is not the "signature yellow icon highlight" the
+    reference shows. So the active icon is pinned to `text-amber-400`
+    (`#fbbf24`), the same value as the Chat pill and the amber indicator bar, and
+    the INACTIVE icon is pinned to slate explicitly too — otherwise it would
+    inherit the pill's text colour and lose its own contrast once the
+    `.nav-pill` background changes. */}
+                    <span className="relative flex h-5 w-6 items-center justify-center">
+                      <Icon
+                        name={item.icon}
+                        className={`h-5 w-5 ${active ? "text-amber-400" : "text-slate-400"}`}
+                      />
                       {item.showBadge && unreadCount > 0 ? (
                         <UnreadBadge count={unreadCount} />
                       ) : null}

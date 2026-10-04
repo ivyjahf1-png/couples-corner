@@ -124,7 +124,16 @@ export function GameCenterButton({
         <span className="text-xl transition-transform duration-150 group-hover:scale-110" aria-hidden="true">
           🎮
         </span>
-        <span className="text-[10px] font-medium text-sky-300">{label}</span>
+        {/* THE YELLOW HALF OF THE BLUE/YELLOW PAIR. The chrome above is blue
+            (`sky-400` border, slate gradient), so the label carries the warm
+            accent — amber, the same value as the profile action bar's Chat button
+            and the `nav-pill` active state. Two-tone is what makes this read as a
+            deliberate game widget rather than a generic dark FAB.
+
+            `text-amber-300` (not `amber-400`) because it sits on a near-black
+            gradient: 400 is vivid enough to vibrate against `#0F172A` at this
+            size, 300 keeps it legible without glowing. */}
+        <span className="text-[10px] font-semibold text-amber-300">{label}</span>
       </a>
     </div>
   );

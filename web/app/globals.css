@@ -981,6 +981,27 @@ button,
   background-color: rgb(245 158 11 / 0.14);
   border-color: rgb(245 158 11 / 0.32);
 }
+
+/* THE ACTIVE TAB'S GLOW.
+
+   The retint above dropped the old orange `box-shadow` glow entirely, which
+   removed the "glowing pill" the reference design has. This restores it, in AMBER
+   rather than the old orange, so it belongs to the same accent as the pill fill
+   and the indicator bar.
+
+   It is a tight, low-alpha inner glow rather than a wide outer one on purpose: a
+   wide amber shadow on a dark capsule bleeds into the neighbouring tabs and
+   makes the active one look blurry rather than lit. `inset` keeps the light
+   inside the pill's own rounded edge, which is what reads as a backlit surface
+   at this size.
+
+   Paired with `transition` on `.nav-pill` (already declared above), so moving
+   between tabs animates the glow instead of snapping it. */
+.nav-pill--active {
+  box-shadow:
+    inset 0 0 12px -2px rgb(251 191 36 / 0.35),
+    0 0 12px -4px rgb(245 158 11 / 0.45);
+}
 /* The indicator: a short amber bar under the active tab's label.
 
    A previous iteration shipped an orange DISC here as well as the orange pill.

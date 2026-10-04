@@ -52,13 +52,13 @@ export function CopyIdButton({
       onClick={copy}
       aria-label={`Copy profile ID ${value}`}
       title="Copy ID"
-      className="inline-flex max-w-full items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+      className="inline-flex max-w-full items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-[#A09AB0] transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
     >
       <span className="truncate tabular-nums">{label ?? `ID:${value}`}</span>
       {copied ? (
         <ProfileIcon name="badge" className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
       ) : (
-        <ProfileIcon name="copy" className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+        <ProfileIcon name="copy" className="h-3.5 w-3.5 shrink-0 text-[#A09AB0]" />
       )}
       {/* Announced to screen readers only — the tick is a colour/shape cue and
           the visible label does not change. */}
