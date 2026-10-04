@@ -19,6 +19,11 @@ import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { STORE_ITEMS, type StoreCategory } from "@/lib/storeCatalog";
+/* The gift catalogue is client-safe static data with no `server-only` marker, so it
+   can be imported by the drawer AND by `sendGift` below. That is deliberate: the
+   DEBIT must resolve against the SAME list the shopper sees, and a second copy in a
+   server-only file would be exactly the kind of duplication that drifts. */
+import { MAX_GIFT_QUANTITY, resolveGift } from "@/lib/giftCatalog";
 import {
   ARISTOCRACY_TIERS,
   TIER_DURATION_DAYS,
@@ -373,4 +378,144 @@ export async function giftAristocracyTier(
     };
   }
   return debitAndGrant(payerId, recipientId, tier, null);
+}
+
+/** Why a gift send was refused. Lets the drawer say something useful. */
+export type GiftFailureReason =
+  | "unknown_gift"
+  | "insufficient"
+  | "bad_quantity"
+  | "conflict"
+  | "not_a_participant";
+
+export interface GiftResult {
+  ok: boolean;
+  error?: string;
+  reason?: GiftFailureReason;
+  /** True balance on `insufficient`, so the UI can show HAVE / NEED as numbers. */
+  coinBalance?: number;
+  /** The message actually written, so the client can render it optimistically. */
+  messageId?: string;
+}
+
+/**
+ * Send a virtual gift into a conversation: resolve the price, debit, post the
+ * message. One function, because a half-completed gift (debited but not sent, or
+ * sent but not debited) is worse than a failed one.
+ *
+ * ── WHY THE PRICE IS NEVER TAKEN FROM THE CALLER ──────────────────────────────
+ * `giftId` is the only thing the client names; the cost comes from `resolveGift`
+ * against the static catalogue. A client that could post its own price would make
+ * the coin balance meaningless, so the multiplication by quantity happens HERE,
+ * on already-trusted numbers.
+ *
+ * ── THE DEBIT IS COMPARE-AND-SWAP ────────────────────────────────────────────
+ * The `.eq("coin_balance", wallet.coin_balance)` guard makes the update a
+ * conditional write: if anything else moved the balance between the read and the
+ * write, zero rows match and this returns `conflict` rather than overwriting it.
+ * Without that guard two concurrent gifts would both read the same balance and the
+ * second would take the member below zero. It is the same pattern
+ * `purchaseStoreItem` uses, deliberately.
+ *
+ * ── MEMBERSHIP IS CHECKED BEFORE THE DEBIT ───────────────────────────────────
+ * A non-participant is rejected before any coin moves, so a crafted request
+ * cannot charge a stranger for a message that will never be delivered.
+ */
+export async function sendGift(
+  senderId: string,
+  conversationId: string,
+  giftId: string,
+  quantity: number
+): Promise<GiftResult> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Supabase not configured" };
+
+  /* Fail CLOSED on an unrecognised id. This is the only argument on the send path
+     a client fully controls, so an unknown value must not fall through to a
+     zero-cost send. */
+  const gift = resolveGift(giftId);
+  if (!gift) return { ok: false, error: "Unknown gift", reason: "unknown_gift" };
+
+  /* Coerced and bounded HERE rather than trusted. A client asking for 1e9 of the
+     50,000 gift would otherwise produce an absurd debit. */
+  const qty = Math.min(Math.max(Math.floor(Number(quantity) || 0), 1), MAX_GIFT_QUANTITY);
+  const total = gift.price * qty;
+
+  try {
+    /* Membership first: never debit for a message that cannot be delivered. */
+    const { data: conversation } = await supabase
+      .from("conversations")
+      .select("id, member_a, member_b")
+      .eq("id", conversationId)
+      .single();
+    if (!conversation) {
+      return { ok: false, error: "That conversation no longer exists", reason: "not_a_participant" };
+    }
+    const isMember = conversation.member_a === senderId || conversation.member_b === senderId;
+    if (!isMember) {
+      return { ok: false, error: "You're not in this conversation", reason: "not_a_participant" };
+    }
+
+    const wallet = await ensureWallet(senderId);
+    if (wallet.coin_balance < total) {
+      return {
+        ok: false,
+        error: "Not enough coins",
+        reason: "insufficient",
+        coinBalance: wallet.coin_balance,
+      };
+    }
+
+    /* Debit FIRST, then post. The reverse order can charge for a message that
+       failed to insert, and there is no refund path for a partial failure. */
+    const { data: debited, error: debitError } = await supabase
+      .from("game_wallets")
+      .update({ coin_balance: wallet.coin_balance - total, updated_at: new Date().toISOString() })
+      .eq("user_id", senderId)
+      .eq("coin_balance", wallet.coin_balance)
+      .select("coin_balance")
+      .single();
+    if (debitError || !debited) {
+      return { ok: false, error: "Send conflict, please retry", reason: "conflict" };
+    }
+
+    const { data: message, error: messageError } = await supabase
+      .from("messages")
+      .insert({
+        conversation_id: conversationId,
+        sender_id: senderId,
+        /* `type: "gift"` is what lets the thread render a gift bubble instead of a
+           text one. The renderer does not exist yet, so this currently reads as a
+           gift line of text - which is honest about the state of the feature
+           rather than silently swallowing the send. */
+        type: "gift",
+        body: `${gift.emoji} ${qty > 1 ? `${gift.name} x${qty}` : gift.name}`,
+      })
+      .select("id")
+      .single();
+    if (messageError || !message) {
+      /* The coins are already gone and there is no compensation here. Logging the
+         balance is deliberate: a silent loss of tokens is the single worst
+         outcome this function can produce, and it must be visible in the logs even
+         though the member only sees the failure. */
+      console.error("[gifts] message insert failed after a successful debit", {
+        conversationId,
+        senderId,
+        giftId,
+        quantity: qty,
+        debited: total,
+        remainingBalance: debited.coin_balance,
+        error: messageError,
+      });
+      return { ok: false, error: "Couldn't send the gift", reason: "conflict" };
+    }
+
+    return { ok: true, messageId: message.id as string };
+  } catch (error) {
+    console.error("[gifts] send failed", error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Couldn't send the gift",
+    };
+  }
 }

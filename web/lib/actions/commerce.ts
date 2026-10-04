@@ -9,7 +9,9 @@ import {
   equipInventoryItem,
   giftAristocracyTier,
   purchaseStoreItem,
+  sendGift,
   type ActivationResult,
+  type GiftResult,
   type PurchaseResult,
 } from "@/lib/server/commerce";
 import { resolveUserCode } from "@/lib/server/profiles";
@@ -118,5 +120,39 @@ export async function giftAristocracyTierAction(
   } catch (err) {
     rethrowIfNavigation(err);
     return { ok: false, error: err instanceof Error ? err.message : "Gift failed" };
+  }
+}
+/**
+ * Server action: send a virtual gift into a conversation.
+ *
+ * The client sends ONLY `giftId` and `quantity` — never a price. `sendGift`
+ * resolves the cost from the shared catalogue, so a modified client cannot debit a
+ * friend less than the gift is worth.
+ */
+export async function sendGiftAction(params: {
+  conversationId: string;
+  giftId: string;
+  quantity: number;
+}): Promise<GiftResult> {
+  try {
+    const user = await getCurrentSessionUser();
+    if (!user) return { ok: false, error: "Sign in to send a gift" };
+    const result = await sendGift(
+      user.uid,
+      params.conversationId,
+      params.giftId,
+      params.quantity
+    );
+    if (result.ok) {
+      revalidatePath(`/messages/${params.conversationId}`);
+      revalidatePath("/profile");
+    }
+    return result;
+  } catch (error) {
+    rethrowIfNavigation(error);
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Couldn't send the gift",
+    };
   }
 }
