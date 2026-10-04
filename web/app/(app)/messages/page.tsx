@@ -62,6 +62,15 @@ export default async function MessagesPage() {
         unread: c.unread,
         isOnline: c.isOnline,
         isPinned: c.isPinned ?? false,
+        /* DECORATIVE FIELDS, LEFT UNSET ON PURPOSE.
+
+           `emoji`, `frame` and `stickers` render the reference's ornaments (the
+           heart/kiss runs, the gold VIP ring, the anime stickers). There is no
+           column for any of them in this schema, so nothing here invents them —
+           a member cannot choose their own ornaments yet, and asserting "VIP" or
+           "heart run" for someone the database says nothing about would be a lie
+           on their own profile. Rows render correctly without them, and wiring
+           these becomes a two-line change here once the columns exist. */
       })),
     ...(Array.isArray(botThreads) ? botThreads : [])
       .filter((b) => b?.personaId)

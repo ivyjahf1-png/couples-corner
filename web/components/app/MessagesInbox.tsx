@@ -1,42 +1,48 @@
-// MessagesInbox.tsx — the entire /messages surface.
-//
-// WHY THIS IS A CLIENT COMPONENT: the notification banner has to read
-// `Notification.permission` and call `requestPermission()`, and the dismiss state
-// has to live somewhere. Everything else it renders is plain serialisable data
-// passed down from the page, so nothing here fetches.
-//
-// THE LIGHT THEME MATCHES THE PROFILE SCREEN (`components/profile/ProfileScreen.tsx`)
-// so the two screens read as one app. Both declare the same slate/amber ramp
-// inline rather than through a theme file, because the app's `--background`
-// token is still the old dark navy and retinting it would repaint every route.
-//
-// NO WALLPAPER. The previous inbox painted a per-device chat background out of
-// localStorage. A photo behind a list of faces and message previews is the wrong
-// trade on this screen, so the layer is gone rather than restored, and the
-// background is stated explicitly on the root instead of being inherited from
-// whatever the shell happens to paint behind it.
-//
-// BOTTOM NAVIGATION IS NOT IN HERE — the shell already renders a fixed tab bar
-// (`BottomNavRegion`) and `AppMain` carries the matching padding, which `pb-24`
-// below reserves. See `ProfileScreen` for the same reasoning.
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+/**
+ * MESSAGES INBOX — the `/messages` list.
+ *
+ * â”€â”€ WHY A CLIENT COMPONENT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * The header's Chat/Call switcher, the scam banner's dismiss state and the
+ * active-tab highlight are all interaction state, so this file owns them. Every
+ * conversation is fetched on the SERVER (see `app/(app)/messages/page.tsx`) and
+ * arrives here as plain serialisable rows — nothing in this file queries Supabase
+ * or re-reads the session.
+ *
+ * â”€â”€ THE LIGHT THEME MATCHES THE PROFILE SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * `components/profile/ProfileScreen.tsx` declares the same slate/amber ramp, so
+ * the two read as one app. The ramp is stated inline rather than through a theme
+ * token because the app's `--background` is still the old dark navy, and
+ * retinting it would repaint every route in the product.
+ *
+ * â”€â”€ BOTTOM NAVIGATION IS NOT IN HERE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * The app shell renders a fixed tab bar (`BottomNavRegion`) on every route, and
+ * `AppMain` carries the matching padding. Rendering a second bar inside the
+ * scroll region would draw a duplicate above the real one — the exact bug the
+ * profile screen documents. `pb-24` here reserves its height.
+ */
+
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
-  Bell,
-  Crown,
   Headset,
-  Mail,
   MessageCircle,
+  Phone,
+  Search,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  UserPlus,
   X,
   type LucideIcon,
 } from "lucide-react";
 import { PageLock } from "@/components/app/PageHeader";
 import { Avatar } from "@/components/app/Avatar";
-import { requestNotificationPermission } from "@/lib/utils/notify";
 
-/** One real conversation, as assembled by the page. */
+/** One real conversation, as assembled by the server page. */
 export interface InboxChat {
   key: string;
   href: string;
@@ -51,15 +57,27 @@ export interface InboxChat {
   isOnline: boolean;
   isPinned?: boolean;
   isBot?: boolean;
+  /**
+   * Decorative heart/kiss run shown beside the name, matching the reference.
+   *
+   * OPTIONAL because there is no emoji column in this schema — a member cannot
+   * choose their own. When absent the row renders the name alone rather than
+   * inventing a glyph, so the screen never claims an attribute the data does not
+   * carry. Set it once a real column exists.
+   */
+  emoji?: string;
+  /** Ornate frame treatment for VIP/ornate accounts. */
+  frame?: "gold" | null;
+  /** Sticker glyphs overlaid on the avatar (anime / kitty style). */
+  stickers?: string[];
 }
 
 /**
- * A row that is NOT a conversation: Visitors, Official Team, Expired Messages.
+ * A row that is NOT a conversation: the seen-me counter and Official Team.
  *
- * These are product surfaces that happen to live in the inbox. Modelled as their
- * own variant rather than faked up as a chat, because a system row has no
- * timestamp, no avatar and no preview — shoehorning them into `InboxChat` is what
- * made the old inbox print "undefined" in those columns.
+ * Modelled as its own variant rather than faked up as a chat, because a system
+ * row has no timestamp, no avatar and no preview — shoehorning them into
+ * `InboxChat` is what made the old inbox print "undefined" in those columns.
  */
 interface SystemRow {
   kind: "system";
@@ -69,9 +87,11 @@ interface SystemRow {
   /** Leading disc glyph + its gradient. */
   icon: LucideIcon;
   gradient: string;
+  /** Small glyph pinned to the disc's lower-right, e.g. the "Hi" badge. */
+  iconBadge?: string;
   /** Null renders the row inert — there is no screen to open. */
   href: string | null;
-  /** Right-hand count chip, e.g. "+169". */
+  /** Right-hand count chip, e.g. "+170". */
   badge: string | null;
 }
 
@@ -84,26 +104,23 @@ interface ChatRow {
 
 type InboxRow = SystemRow | ChatRow;
 
-/** localStorage key recording that the member dismissed the banner for good. */
-const BANNER_DISMISSED_KEY = "couples_corner:notification-banner-dismissed";
-
 /** Soft card shadow shared by every white surface, matching the profile screen. */
 const CARD =
   "rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.12)]";
 
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400";
 
+const ROW_FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400";
 /**
- * "2026-10-02T20:35:00Z" → "10-02 20:35".
+ * "2026-10-02T20:35:00Z" â†’ "10-02 20:35".
  *
- * LOCAL time, deliberately, not UTC: this label sits next to a person, and
- * "20:35" must mean twenty past eight where the reader is. Formatting with
- * `toISOString().slice()` would print UTC and put the row an hour out for most
- * of Europe. The reference design shows this exact width — month, dash, day,
- * space, 24-hour clock — so it is padded rather than trimmed.
+ * LOCAL time, deliberately. This label sits next to a person, and "20:35" must
+ * mean twenty past eight where the READER is. `toISOString()` would print UTC and
+ * put the row an hour out for most of Europe. Padded, not trimmed, to the fixed
+ * month-day-hour width the reference uses.
  *
- * Returns null for a missing or unparseable value; the row then omits the
- * timestamp instead of printing "Invalid Date".
+ * Returns null for a missing or unparseable value; the row then omits the stamp
+ * rather than printing "Invalid Date".
  */
 function formatStamp(iso: string | null): string | null {
   if (!iso) return null;
@@ -112,116 +129,261 @@ function formatStamp(iso: string | null): string | null {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
 /**
- * The permission prompt at the top of the inbox.
+ * THE HEADER — pinned above the scroll region via `PageLock`'s `head` slot.
  *
- * WHY IT IS NOT `position: fixed`: the design calls it "floating", but a truly
- * fixed card would sit above the shell's own header, cover the route title, and
- * never scroll away — a permanent overlay above a list. It is rendered first
- * inside the scroll region instead, so it reads as a floating card at the top
- * and then scrolls with the content, which is what the reference does.
+ * WHY IT IS IN `head` AND NOT IN THE BODY: this is the only chrome that must not
+ * scroll. `PageLock` renders `head` outside the single `overflow-y-auto` body, so
+ * the switcher and the right-hand actions stay put while the list scrolls under
+ * them — which is what the reference shows.
  *
- * WHY PERMISSION IS ONLY EVER REQUESTED FROM THE BUTTON: Chrome and Safari both
- * reject `requestPermission()` that does not trace back to a user gesture, and
- * there is no workaround. So nothing here calls it on mount — only the Allow
- * button does, and that is the whole reason this file is a client component.
- *
- * The dismissal is persisted, because a banner a member swipes away and sees
- * again on every visit is worse than no banner at all. Reading localStorage is
- * deferred to an effect so the server markup and the first client paint agree;
- * rendering it on the server and hiding it after hydration would flash it.
+ * THE CHAT / CALL SWITCHER. `role="tablist"` with `aria-selected`, so the active
+ * pane is announced rather than being conveyed by the yellow pill alone. "Call"
+ * is a real tab in the reference but there is NO call-log route in this app, so
+ * selecting it renders an honest empty state rather than links to nowhere. A tab
+ * that opens nothing is worse than a tab that admits it is empty.
  */
-function NotificationBanner({ onDismiss }: { onDismiss: () => void }) {
-  const [state, setState] = useState<"idle" | "working" | "done">("idle");
-
-  /* Deferred to an effect, and read defensively: Safari throws on localStorage
-     in private mode, and an unreadable preference must not take the inbox down. */
-  useEffect(() => {
-    try {
-      if (window.localStorage.getItem(BANNER_DISMISSED_KEY) === "1") onDismiss();
-    } catch {
-      /* storage unavailable — show the banner rather than hide it forever */
-    }
-  }, [onDismiss]);
-
-  const allow = useCallback(async () => {
-    setState("working");
-    const result = await requestNotificationPermission();
-    /* Retired on `granted` AND `denied`: a member who said no has answered, and
-       re-asking on every visit is what gets a site blocked. Only `default`
-       (they dismissed the native sheet) leaves the banner up. */
-    if (result === "granted" || result === "denied") {
-      try {
-        window.localStorage.setItem(BANNER_DISMISSED_KEY, "1");
-      } catch {
-        /* ignore — the banner simply returns next visit */
-      }
-      onDismiss();
-      return;
-    }
-    setState("idle");
-  }, [onDismiss]);
+function MessagesHeader({
+  tab,
+  onTabChange,
+  unread,
+}: {
+  tab: "chat" | "call";
+  onTabChange: (tab: "chat" | "call") => void;
+  unread: number;
+}) {
+  const tabs: { id: "chat" | "call"; label: string; icon: LucideIcon }[] = [
+    { id: "chat", label: "Chat", icon: MessageCircle },
+    { id: "call", label: "Call", icon: Phone },
+  ];
 
   return (
-    <div className={`flex items-center gap-3 p-3 ${CARD}`}>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-600">
-        <Bell className="h-5 w-5" aria-hidden />
-      </span>
-
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-slate-900">Turn on message notification</p>
-        <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-          Click to enable notification permission to receive chat messages in time
-        </p>
+    <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-3">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-lg font-bold text-slate-900">Messages</h1>
+        {/* The filter control is `hidden sm:flex`: on the narrowest phones three
+            icons plus a title crowds the row and wraps. Search and Settings
+            survive at every width. */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Search messages"
+            className={`flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+          >
+            <Search className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Filter messages"
+            className={`hidden h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 sm:flex ${FOCUS}`}
+          >
+            <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Message settings"
+            className={`flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+          >
+            <Settings2 className="h-[18px] w-[18px]" aria-hidden />
+          </button>
+        </div>
       </div>
 
-      <button
-        type="button"
-        onClick={allow}
-        disabled={state === "working"}
-        className={`shrink-0 rounded-full bg-amber-400 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-amber-500 disabled:opacity-60 ${FOCUS}`}
-      >
-        {state === "working" ? "…" : "Allow"}
-      </button>
+      {/* THE SWITCHER. The amber pill is `aria-selected` made visible, and the
+          unread count rides INSIDE the Chat tab so the two pieces of information
+          cannot drift apart. */}
+      <div role="tablist" aria-label="Message type" className="mt-3 flex gap-2">
+        {tabs.map((item) => {
+          const Icon = item.icon;
+          const selected = tab === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onTabChange(item.id)}
+              className={[
+                "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition",
+                FOCUS,
+                selected
+                  ? "bg-amber-400 text-slate-900 shadow-[0_2px_10px_-2px_rgba(245,158,11,0.5)]"
+                  : "bg-slate-100 text-slate-500 hover:bg-slate-200",
+              ].join(" ")}
+            >
+              <Icon className="h-4 w-4" aria-hidden />
+              {item.label}
+              {item.id === "chat" && unread > 0 ? (
+                <span
+                  aria-label={`${unread} unread`}
+                  className="ml-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                >
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+    </header>
+  );
+}
+
+/**
+ * THE SCAM WARNING BANNER.
+ *
+ * THIS REPLACES a faint grey "Fake Coin Offers" line of text. That line was
+ * announced to a screen reader on every inbox load while carrying almost no
+ * visual weight — the worst of both worlds. It is now a real, dismissible banner
+ * in the pastel peach/amber the reference specifies, with the decorative glyphs
+ * hidden from assistive tech so only the sentence is announced.
+ *
+ * The copy is deliberately blunt and uppercase, matching the reference. This is
+ * the one place in the product where shouting is correct: it is a fraud warning
+ * aimed at people who are being actively targeted, and a soft-toned warning
+ * would not survive being skimmed.
+ *
+ * `role="status"` rather than `alert`: an `alert` fires an ASSERTIVE announcement
+ * on every render, which for a banner present on every visit is exhausting.
+ * `status` is polite and still announced.
+ */
+function ScamWarningBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      role="status"
+      className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+    >
+      {/* Decorative ghost + sunflower, per the reference. `aria-hidden` because they
+          carry no information the sentence does not. */}
+      <span aria-hidden className="flex shrink-0 items-center text-lg leading-none">
+        ðŸ‘»<span className="-ml-1 text-base">ðŸŒ»</span>
+      </span>
+
+      <p className="min-w-0 flex-1 text-[13px] font-extrabold uppercase leading-tight tracking-wide text-amber-900">
+        Scam Warning!! Don&apos;t fall for fake coin offers
+      </p>
 
       <button
         type="button"
         onClick={onDismiss}
-        aria-label="Dismiss notification prompt"
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 ${FOCUS}`}
+        aria-label="Dismiss scam warning"
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-700 transition hover:bg-amber-200/60 ${FOCUS}`}
       >
         <X className="h-4 w-4" aria-hidden />
       </button>
     </div>
   );
 }
+
 /**
- * One inbox row.
+ * THE AVATAR CELL — online dot, VIP frame and sticker overlays.
  *
- * System rows get a gradient disc with a glyph; chat rows get the member's real
- * avatar through `Avatar`, which falls back to initials when the photo URL is
- * missing or broken. The two are separate branches rather than one row with a
- * nullable avatar, because the leading disc IS the design for a system row and an
- * initials fallback would falsely imply a person sent it.
+ * All three decorations mount on ONE positioned wrapper rather than on the
+ * avatar itself, because `Avatar` renders a plain `<img>`/initials disc and has no
+ * overflow or positioning of its own to hang them off.
+ *
+ * THE ONLINE DOT is bottom-RIGHT, which is the convention every other surface in
+ * this app uses (`PresenceDot` on the profile), so a member does not have to learn
+ * two different presence positions. It sits OUTSIDE the disc so a dark photo
+ * cannot swallow it.
+ *
+ * THE GOLD FRAME is a conic-gradient ring for VIP/ornate accounts. `conic-gradient`
+ * is used rather than a plain border because a flat gold border reads as a
+ * disabled input; the sweep is what makes it read as ornament. It is purely
+ * decorative (`aria-hidden`), since the data has no VIP flag — the `frame` prop is
+ * set by the caller, never inferred.
+ *
+ * `overflow-visible` is the default and is what lets both the dot and the stickers
+ * escape the disc. A wrapper with any overflow value here would clip them.
+ */
+function InboxAvatar({ chat }: { chat: InboxChat }) {
+  return (
+    <span className="relative shrink-0">
+      {chat.frame === "gold" ? (
+        <span
+          aria-hidden
+          className="absolute -inset-[3px] rounded-full bg-[conic-gradient(from_180deg,#f59e0b,#fde68a,#fbbf24,#d97706,#f59e0b)]"
+        />
+      ) : null}
+
+      <span className="relative block">
+        <Avatar name={chat.name} src={chat.avatarUrl} size="md" />
+      </span>
+
+      {/* STICKER OVERLAYS. Pinned to two opposite corners so two glyphs never
+          collide, and `text-[10px]` keeps them reading as badges on the photo
+          rather than competing with the face. */}
+      {chat.stickers?.slice(0, 2).map((sticker, index) => (
+        <span
+          key={`${sticker}-${index}`}
+          aria-hidden
+          className={`absolute text-[10px] leading-none drop-shadow-sm ${
+            index === 0 ? "-left-1 -top-1" : "-bottom-1 -right-1"
+          }`}
+        >
+          {sticker}
+        </span>
+      ))}
+
+      {chat.isOnline ? (
+        <span
+          className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500"
+          aria-hidden
+        />
+      ) : null}
+
+      {/* The state is ALSO stated in text, so presence is never colour-only. */}
+      <span className="sr-only">{chat.isOnline ? "Online now" : "Offline"}</span>
+    </span>
+  );
+}
+
+/**
+ * ONE ROW — either a system row or a conversation.
+ *
+ * WHY A DISCRIMINATED UNION. A system row has no timestamp, no avatar and no
+ * preview; forcing it through the chat shape is what printed "undefined" in those
+ * columns in earlier versions. Each branch renders only the fields it has.
  */
 function InboxRowItem({ row }: { row: InboxRow }) {
-  const ROW_FOCUS =
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400";
-
   if (row.kind === "system") {
     const Icon = row.icon;
     const body = (
       <>
-        <span
-          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${row.gradient} text-white`}
-        >
-          <Icon className="h-6 w-6" aria-hidden />
+        {/* The disc is the positioned host for the optional "Hi" corner badge, so
+            the badge tracks the disc rather than the row. */}
+        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-white shadow-sm">
+          <span className={`absolute inset-0 rounded-full bg-gradient-to-br ${row.gradient}`} aria-hidden />
+          <Icon className="relative h-6 w-6" aria-hidden />
+          {row.iconBadge ? (
+            <span
+              aria-hidden
+              className="absolute -bottom-0.5 -right-1 rounded-full bg-amber-400 px-1.5 py-px text-[9px] font-bold leading-none text-slate-900 ring-2 ring-white"
+            >
+              {row.iconBadge}
+            </span>
+          ) : null}
         </span>
+
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-bold text-slate-900">{row.title}</span>
+          <span className="flex items-center gap-1.5">
+            <span className="truncate text-sm font-bold text-slate-900">{row.title}</span>
+            {/* The lips glyph on the Official Team row. `aria-hidden`: it is a
+                decorative echo of the row's meaning, which the title already
+                carries. */}
+            {row.badge && !/^\+?\d+$/.test(row.badge) ? (
+              <span aria-hidden className="shrink-0 text-sm leading-none">
+                {row.badge}
+              </span>
+            ) : null}
+          </span>
           <span className="mt-0.5 block truncate text-xs text-slate-500">{row.subtitle}</span>
         </span>
-        {row.badge ? (
+
+        {/* Numeric counters only. `shrink-0` keeps the chip pinned right even when
+            the subtitle is long enough to wrap. */}
+        {row.badge && /^\+?\d+$/.test(row.badge) ? (
           <span className="shrink-0 rounded-full bg-red-500 px-2 py-0.5 text-[11px] font-bold text-white">
             {row.badge}
           </span>
@@ -232,12 +394,15 @@ function InboxRowItem({ row }: { row: InboxRow }) {
     return (
       <li>
         {row.href ? (
-          <Link href={row.href} className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}>
+          <Link
+            href={row.href}
+            className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}
+          >
             {body}
           </Link>
         ) : (
-          /* No destination: a non-interactive row. `href="#"` would look tappable
-             and do nothing, which is worse than an obviously inert row. */
+          /* No destination: an inert row. `href="#"` would look tappable and do
+             nothing, which is worse than an obviously inactive row. */
           <div className="flex items-center gap-3 px-4 py-3.5">{body}</div>
         )}
       </li>
@@ -249,25 +414,23 @@ function InboxRowItem({ row }: { row: InboxRow }) {
 
   return (
     <li>
-      <Link href={chat.href} className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}>
-        {/* `relative` hosts the Game badge, which is deliberately allowed to
-            overlap the avatar's edge — that offset is what makes it read as a
-            floating badge rather than a second, badly placed avatar. */}
-        <span className="relative shrink-0">
-          <Avatar name={chat.name} src={chat.avatarUrl} size="md" />
-          {chat.isBot ? (
-            <span className="absolute -bottom-0.5 -right-1 rounded-full bg-rose-500 px-1.5 py-px text-[9px] font-bold text-white">
-              Game
-            </span>
-          ) : null}
-        </span>
+      <Link
+        href={chat.href}
+        className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}
+      >
+        <InboxAvatar chat={chat} />
 
         <span className="min-w-0 flex-1">
-          {/* Name and stamp share one flex row so the timestamp pins to the right
-              edge even when the name wraps to two lines. */}
+          {/* Name, emoji run and stamp share ONE flex row so the timestamp pins to
+              the right edge even when the name is long enough to ellipsize. */}
           <span className="flex items-baseline gap-2">
-            <span className="min-w-0 flex-1 truncate text-sm font-bold text-slate-900">
-              {chat.name}
+            <span className="flex min-w-0 items-baseline gap-1">
+              <span className="truncate text-sm font-bold text-slate-900">{chat.name}</span>
+              {chat.emoji ? (
+                <span aria-hidden className="shrink-0 text-xs leading-none">
+                  {chat.emoji}
+                </span>
+              ) : null}
             </span>
             {stamp ? (
               <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{stamp}</span>
@@ -276,8 +439,8 @@ function InboxRowItem({ row }: { row: InboxRow }) {
           <span className="mt-0.5 block truncate text-xs text-slate-500">{chat.preview}</span>
         </span>
 
-        {/* Hidden entirely at zero — a grey "0" chip on every read thread is noise,
-            and `aria-label` carries the meaning instead. */}
+        {/* Hidden at zero — a grey "0" chip on every read thread is noise, and the
+            `aria-label` carries the meaning instead. */}
         {chat.unread > 0 ? (
           <span
             aria-label={`${chat.unread} unread`}
@@ -290,37 +453,36 @@ function InboxRowItem({ row }: { row: InboxRow }) {
     </li>
   );
 }
+
+/**
+ * THE INBOX — header, scam banner, system rows and the conversation list.
+ */
 export function MessagesInbox({
   chats,
   visitors,
   expiredCount,
 }: {
   chats: InboxChat[];
-  /** Profile-visitor count for the Visitors row. 0 hides the "+n" chip. */
+  /** Profile-visitor count for the seen-me row. 0 hides the "+n" chip. */
   visitors: number;
   /** Unread expired-message count. 0 hides the badge; the row still shows. */
   expiredCount: number;
 }) {
-  const [bannerVisible, setBannerVisible] = useState(false);
+  const [tab, setTab] = useState<"chat" | "call">("chat");
+  const [warningDismissed, setWarningDismissed] = useState(false);
+  const dismissWarning = useCallback(() => setWarningDismissed(true), []);
 
-  /* Start hidden and reveal in an effect. On THIS route the member is already
-     signed in and has seen the app before, so the common case is "already
-     answered" — flashing a permission prompt at someone who dismissed it last
-     visit is exactly the behaviour that trains people to dismiss banners. */
-  useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = window.localStorage.getItem(BANNER_DISMISSED_KEY);
-    } catch {
-      /* storage unavailable — fall through and show the banner */
-    }
-    setBannerVisible(stored !== "1");
-  }, []);
+  /* TOTAL UNREAD, for the Chat tab's count chip. Derived rather than passed so the
+     header can never show a total that disagrees with the rows beneath it.
+     `Number.isFinite` guards a malformed row: `NaN` would poison the whole sum and
+     blank the chip. */
+  const totalUnread = useMemo(
+    () => chats.reduce((sum, chat) => sum + (Number.isFinite(chat.unread) ? chat.unread : 0), 0),
+    [chats]
+  );
 
-  const dismissBanner = useCallback(() => setBannerVisible(false), []);
-
-  /* Pinned threads first, then everyone else newest-first. The page already
-     sorted by recency, so this only lifts the pinned ones. */
+  /* PINNED FIRST, THEN NEWEST. The page already sorted by recency, so this only
+     lifts the pinned ones to the top. */
   const rows: InboxRow[] = useMemo(() => {
     const chatRows = [...chats]
       .sort((a, b) => Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)))
@@ -332,8 +494,10 @@ export function MessagesInbox({
         key: "system-visitors",
         title: `${visitors} have seen me`,
         subtitle: "Hey! People here appreciate you, see whos visiting your profile",
-        icon: MessageCircle,
+        icon: UserPlus,
         gradient: "from-violet-500 to-purple-700",
+        /* The reference pins a "Hi" speech badge to this disc. */
+        iconBadge: "Hi",
         href: "/likes",
         badge: visitors > 0 ? `+${visitors}` : null,
       },
@@ -347,9 +511,7 @@ export function MessagesInbox({
         /* Official announcements live in the alerts surface; there is no separate
            "team inbox" route to open. */
         href: "/notifications",
-        /* The reference design marks this row with a lips/kiss glyph. A unicode
-           emoji is used rather than an icon so it matches the reference exactly;
-           wrapped in aria-hidden because the row's own text carries the meaning. */
+        /* Rendered as the lips glyph beside the title, per the reference. */
         badge: "💋",
       },
       ...chatRows,
@@ -358,75 +520,91 @@ export function MessagesInbox({
         key: "system-expired",
         title: "Expired Messages",
         subtitle: "Expired Messages Record",
-        icon: Mail,
+        icon: Sparkles,
         gradient: "from-amber-300 to-yellow-500",
-        /* There is no expired-messages screen in this app, so this row is inert
-           rather than a link to nowhere. It still reports the count. */
+        /* No expired-messages screen exists in this app, so the row is inert rather
+           than a link to nowhere. It still reports the count. */
         href: null,
         badge: expiredCount > 0 ? String(expiredCount) : null,
       },
     ];
   }, [chats, visitors, expiredCount]);
 
-  return (
-    /* PageLock is the app's single scroll region (`body` is the only
-       `overflow-y-auto` element), which is what keeps the shell's fixed bottom
-       nav from bouncing. `pb-24` clears that nav.
+  const showChats = tab === "chat";
 
-       `bg-slate-50` on the root is explicit on purpose: the previous inbox
-       inherited whatever the shell painted behind it, which let any layer behind
-       this page show straight through the rows. */
+  return (
+    /* `PageLock` is the app's single scroll region — `body` is the only
+       `overflow-y-auto` element, which is what stops the shell's fixed bottom nav
+       from bouncing. `head` holds the pinned header; `pb-24` reserves the nav's
+       height so the last row is never stranded behind it.
+
+       `bg-slate-50` on the root is explicit on purpose: an inherited background
+       let whatever the shell painted show straight through the white rows. */
     <PageLock
       flush
       className="bg-slate-50"
+      head={<MessagesHeader tab={tab} onTabChange={setTab} unread={totalUnread} />}
       bodyClassName="flex flex-col gap-3 px-4 py-3 pb-24"
     >
-      {bannerVisible ? <NotificationBanner onDismiss={dismissBanner} /> : null}
+      {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
+          whether the member is reading chats or calls, and hiding it behind the
+          Call tab would defeat its purpose. */}
+      {!warningDismissed ? <ScamWarningBanner onDismiss={dismissWarning} /> : null}
 
-      {/* Faint promotional strip. `aria-hidden` — it is decoration with no
-          destination, and announcing "FAKE COIN OFFERS" to a screen reader
-          every time the inbox loads is noise. Say it to sighted users only. */}
-      <p aria-hidden className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-300">
-        Fake Coin Offers
-      </p>
-
-      {chats.length === 0 ? (
-        /* The three system rows are inbox furniture, not conversations, so they
-           still render when there are no chats — an empty inbox shows Visitors,
-           Official Team and Expired Messages plus this notice. `EmptyState` is
-           deliberately NOT used here: it hardcodes the old dark palette
-           (`bg-surface-muted`, `text-white`) and would render as a black slab on
-           this light screen. */
-        <div className={`flex flex-col items-center gap-2 px-6 py-12 text-center ${CARD}`}>
-          <MessageCircle className="h-8 w-8 text-slate-300" aria-hidden />
-          <p className="text-sm font-bold text-slate-900">No messages yet</p>
-          <p className="max-w-xs text-xs leading-5 text-slate-500">
-            Once you connect with someone, you can start a private chat from their profile.
-          </p>
-          <Link
-            href="/discover"
-            className={`mt-1 rounded-full bg-amber-400 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-amber-500 ${FOCUS}`}
-          >
-            Discover people
-          </Link>
-        </div>
+      {showChats ? (
+        chats.length === 0 ? (
+          /* The system rows are inbox furniture, not conversations, so they still
+             render with no chats — an empty inbox shows them plus this notice.
+             `EmptyState` is deliberately not used: it hardcodes the old dark
+             palette and would render as a black slab on this light screen. */
+          <div className={`flex flex-col items-center gap-2 px-6 py-12 text-center ${CARD}`}>
+            <MessageCircle className="h-8 w-8 text-slate-300" aria-hidden />
+            <p className="text-sm font-bold text-slate-900">No messages yet</p>
+            <p className="max-w-xs text-xs leading-5 text-slate-500">
+              Once you connect with someone, you can start a private chat from their profile.
+            </p>
+            <Link
+              href="/discover"
+              className={`mt-1 rounded-full bg-amber-400 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-amber-500 ${FOCUS}`}
+            >
+              Discover people
+            </Link>
+          </div>
+        ) : (
+          /* ONE card, `divide-y` between rows. Giving each row its own card draws a
+             border above and below every line, which reads as a stack of boxes
+             rather than one list. */
+          <ul className={`divide-y divide-slate-100 overflow-hidden ${CARD}`}>
+            {rows.map((row) => (
+              <InboxRowItem key={row.key} row={row} />
+            ))}
+          </ul>
+        )
       ) : (
-        /* One card, `divide-y` between rows. Splitting each row into its own card
-           puts a border above and below every single line, which reads as a stack
-           of boxes rather than one list. */
-        <ul className={`divide-y divide-slate-100 overflow-hidden ${CARD}`}>
-          {rows.map((row) => (
-            <InboxRowItem key={row.key} row={row} />
-          ))}
-        </ul>
+        /* THE CALL TAB'S EMPTY STATE. There is no call-log table in this schema, so
+           rather than fake entries this states plainly that the feature has no
+           history to show yet. */
+        <div className={`flex flex-col items-center gap-2 px-6 py-12 text-center ${CARD}`}>
+          <Phone className="h-8 w-8 text-slate-300" aria-hidden />
+          <p className="text-sm font-bold text-slate-900">No call history</p>
+          <p className="max-w-xs text-xs leading-5 text-slate-500">
+            Calls you make and receive will show up here.
+          </p>
+        </div>
       )}
 
-      {/* Crown mark on the last chat row, per the reference: it reads as a
-          VIP/persona marker. Decorative only. */}
-      {chats.length > 0 ? (
-        <p aria-hidden className="flex items-center justify-center gap-1 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-300">
-          <Crown className="h-3 w-3" aria-hidden />
-          End of inbox
+      {/* SAFETY REMINDER at the foot of the chat list. The scam banner is
+          dismissible, which means it can be gone; this line is not, so the warning
+          never leaves the screen entirely. `aria-hidden` — the banner above
+          already announced the message, and repeating it on every scroll is noise
+          for a screen-reader user who has already heard it. */}
+      {showChats && chats.length > 0 ? (
+        <p
+          aria-hidden
+          className="flex items-center justify-center gap-1.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-400"
+        >
+          <ShieldCheck className="h-3 w-3" aria-hidden />
+          Stay safe · never share your password
         </p>
       ) : null}
     </PageLock>
