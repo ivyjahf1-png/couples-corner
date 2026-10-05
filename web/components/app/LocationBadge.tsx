@@ -12,7 +12,7 @@ import { getNearbyProfilesAction } from "@/lib/actions/location";
  * ("Near you" until a city/region is resolved). Never throws: any failure
  * simply leaves the generic label in place.
  */
-export function LocationBadge({ fallbackLabel = "Discover nearby" }: { fallbackLabel?: string }) {
+export function LocationBadge({ fallbackLabel = "Discover Nearby" }: { fallbackLabel?: string }) {
   const [label, setLabel] = useState(fallbackLabel);
   const [ready, setReady] = useState(false);
 
@@ -32,7 +32,13 @@ export function LocationBadge({ fallbackLabel = "Discover nearby" }: { fallbackL
         try {
           const nearby = await getNearbyProfilesAction({ latitude, longitude });
           const first = Array.isArray(nearby) ? nearby.find((person) => person?.location) : null;
-          if (first?.location) setLabel(first.location);
+          /* "Discover Nearby, <city>" once a real location is known, matching the
+           reference pill. It previously REPLACED the fallback with the bare city, so
+           the pill lost the fact that it is a discovery control and read as just a
+           place name. The fallback alone is used when geolocation is unavailable
+           or denied, which is the only case where "Nearby" is all we can honestly
+           claim - we must not print a city we could not resolve. */
+          if (first?.location) setLabel(`${fallbackLabel}, ${first.location}`);
         } catch {
           /* keep the generic label */
         } finally {
@@ -42,7 +48,7 @@ export function LocationBadge({ fallbackLabel = "Discover nearby" }: { fallbackL
       () => setReady(true),
       { timeout: 8000, maximumAge: 600_000 }
     );
-  }, []);
+  }, [fallbackLabel]);
 
   return (
     <span

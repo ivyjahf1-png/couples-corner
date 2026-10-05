@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
@@ -1058,10 +1058,26 @@ export function MediaFeed({
 
             So the top padding here is a plain, even `0.75rem`: this overlay sits
             below the header and just needs breathing room. */}
+        {/* THE LOCATION PILL IS THE `order-1` ITEM, SO IT LEADS THE ROW.
+
+           It used to be handed in through `topRightSlot`, which put it on the
+           RIGHT of the search field with the options dots. The reference puts the
+           discovery tag on the LEFT as the row's leading element, with only the
+           options dots on the right — so the pill now leads and
+           `topRightSlot` is reserved for genuinely secondary controls (games,
+           whatever a host passes later).
+
+           When a host DOES pass `searchSlot`, the pill still leads: on phones
+           `flex-wrap` puts the search field on its own full-width line beneath
+           this row, so there is no competition for the leading position, and from
+           `sm` up the pill keeps the left edge and the search takes the remaining
+            width. Previously the order was the reverse of this. */}
         <div className="pointer-events-auto flex flex-wrap items-center gap-2 px-3 pt-3 sm:flex-nowrap sm:gap-3 sm:px-5 sm:pt-4">
-          {searchSlot ? <div className="order-1 min-w-0 flex-1 basis-full sm:basis-auto">{searchSlot}</div> : null}
-          <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
-            {topRightSlot ? <div className="flex shrink-0 items-center gap-2">{topRightSlot}</div> : null}
+          {topRightSlot ? (
+            <div className="order-1 flex shrink-0 items-center gap-2">{topRightSlot}</div>
+          ) : null}
+          {searchSlot ? <div className="order-2 min-w-0 flex-1 basis-full sm:basis-auto">{searchSlot}</div> : null}
+          <div className="order-3 ml-auto flex shrink-0 items-center gap-2">
           {/* Per-card options menu (copy link / report). */}
           {current ? (
             <div className="relative shrink-0">
@@ -1642,6 +1658,56 @@ export function MediaFeed({
               chromeClass,
             ].join(" ")}
           >
+            {/* THE FOLLOW (+) BUTTON - TOP OF THE RAIL.
+
+                  The reference puts "add this person" at the TOP of the action
+                  stack, above Like, where a thumb naturally lands first. This
+                  screen only had the Connect control down in the bottom-left card,
+                  so on a large phone the two are far apart and the primary action
+                  is the hardest one to reach.
+
+                  It is the SAME control as the "Connect" button in the bottom-left
+                  card — same `toggleFollow`, same `amFollowingAuthor` state, same
+                  disabled guard — so the two can never disagree about whether you
+                  already follow this person. It is a `+` rather than the word
+                  "Connect" only because the rail is icon-only; both carry a full
+                  `aria-label` and `aria-pressed`, so the state is never
+                  icon-only for assistive tech.
+
+                It sits ABOVE the heart, not below, matching the reference order
+                (Follow, Like, Comments, Share, Audio). */}
+              <RailItem>
+                {current && !current.isMine ? (
+                  <ActionButton
+                  label={
+                    amFollowingAuthor
+                      ? `Unfollow ${current.authorName ?? "this member"}`
+                      : `Follow ${current.authorName ?? "this member"}`
+                  }
+                  active={amFollowingAuthor}
+                  disabled={!viewerId || followBusy}
+                  onClick={toggleFollow}
+                >
+                  {amFollowingAuthor ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                      aria-hidden
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <Plus className="h-6 w-6" />
+                  )}
+                </ActionButton>
+              ) : null}
+            </RailItem>
+
             <RailItem count={reactions}>
               {/* The rail heart is the SAME control as the "love" chip in the
                   reaction row — same kind, same handler, same state. It used to be

@@ -251,40 +251,42 @@ const mobileTabs: MobileTab[] = [
  * inside for why it is a separate branch and not a modifier on the amber pill.
  */
 function mobileTabClasses(active: boolean, raised = false) {
-  if (raised) {
-    /* THE RAISED CENTRE TAB.
-     
-       `-mt-4` lifts the pill out of the row so it reads as elevated. It has to be a
-       NEGATIVE MARGIN, not extra bottom padding: padding would only make the pill
-       taller, it would not move it up.
+    /* THE RAISED CENTRE TAB - NO RESTING CONTAINER.
       
-       COLOUR IS STATEFUL, AND THE PAIR IS INVERTED FOR A WHITE CAPSULE.
-       
-       Resting is LIGHT VIOLET (`#F1EDFA`) and active is DEEP PURPLE (`#2A2438`),
-       because the capsule underneath is now pure white. The previous pairing - a
-       permanently orange raised button meaning "primary action" - cannot work on
-       white: orange is the app's reserved primary-action colour, and a large
-       saturated orange block in the middle of a white bar reads as an alert.
-       
-       Resting-light / active-dark also keeps the raised tab legible while it sits
-       lifted above the capsule edge, where a mid-tone would blend into the white
-       behind it.
-      
-       `h-full` is deliberately absent: the negative margin needs the box to take its
-       natural height, and `h-full` would re-expand it to the row and cancel the
-       lift out entirely. */
+       This button previously carried a permanent filled pill (`#F1EDFA` at rest,
+       deep purple when active) plus a `-mt-4` lift, which made the "Feed" tab a
+       solid white block sitting in the middle of the bar. It read as a permanent
+       primary action and out-shouted its four neighbours, which are transparent
+       until tapped.
+
+       It is now SHAPELESS AT REST: `bg-transparent`, no border, no lift, and the
+       same muted label colour the other four resting tabs use. Selection is carried
+       entirely by the brand ORANGE fill and its glow, so the orange that means "you
+       are here" is the only orange on the bar.
+
+       The lift is gone for the same reason as the fill: a control raised above its
+       neighbours with nothing inside it reads as a broken or half-rendered element,
+       not as a distinguished one. Elevation is now a STATE (orange, lifted) rather
+       than a permanent trait, which is also what makes the transition legible when
+       the member taps the tab.
+
+       `-mt-4`/`-mb-1` are deliberately NOT retained: they only made sense as space
+       for the filled pill to overflow into. With no fill there is nothing to
+       overflow, so they would leave the icon floating above the row. */
     return [
-      "nav-pill--tab",
-      "flex w-full flex-col items-center justify-center gap-0.5",
-      "-mb-1 -mt-4 rounded-full px-4 pt-2.5 pb-2 transition",
-      /* ACTIVE = DEEP PURPLE, RESTING = LIGHT VIOLET: the same pair as the other
-         four tabs, so the raised centre button signals selection the same way. */
-      active
-        ? "bg-[#2A2438] text-white shadow-[0_8px_20px_-6px_rgba(42,36,56,0.55)]"
-        : "bg-[#F1EDFA] text-[#5B6478] shadow-[0_6px_16px_-8px_rgba(42,36,56,0.35)] hover:bg-[#E6DFF5] hover:text-[#2A2438]",
+      "nav-pill nav-pill--tab",
+      "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-4 pt-2.5 pb-2 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
-    ].join(" ");
-  }
+      active
+        ? /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
+             wash; this one is the primary destination and the reference calls for the
+             vibrant orange accent. Near-black label on orange clears 7.4:1, so the text
+             stays legible instead of going orange-on-orange. */
+          "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.75)]"
+        : "bg-transparent text-[#5B6478] hover:bg-[#2A2438]/[0.06] hover:text-[#2A2438]",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   return [
     "nav-pill nav-pill--tab",
