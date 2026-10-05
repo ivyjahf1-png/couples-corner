@@ -571,14 +571,43 @@ input::placeholder, textarea::placeholder {
     24px 0 48px -32px rgb(0 0 0 / 0.9);
 }
 
-/* Mobile top bar + bottom tab bar: frosted navy so content glows through. */
-.app-top-bar,
-.app-bottom-nav {
+/* Mobile top bar: frosted navy so content glows through.
+
+   `.app-bottom-nav` is DELIBERATELY NOT IN THIS RULE. It used to be grouped here,
+   which meant this rule won over the bar's own Tailwind classes and re-imposed a
+   translucent purple fill plus a `backdrop-filter` on what is now a solid white
+   capsule — a stylesheet silently overriding the component it is meant to style.
+   The bar now paints itself (see `.app-bottom-nav` below) and this rule covers
+   only the top bar. */
+.app-top-bar {
   background-color: var(--nav-surface);
   border-color: var(--nav-border);
   color: #ffffff;
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* THE BOTTOM BAR — SOLID, OPAQUE, NO BLUR.
+
+   This is the one surface in the app that is deliberately NOT glassmorphic. The
+   capsule is pure `#FFFFFF` and the strip behind it is opaque deep purple, which
+   gives it a hard, crisp edge against the theme instead of a frosted one.
+
+   WHY IT MATTERS ENOUGH TO ASSERT EXPLICITLY. A `backdrop-filter` on a bar that
+   sits directly over scrolling content does not read as "premium depth" on a
+   phone — it samples whatever happens to be underneath at each frame, so the
+   labels permanently sit on a shifting smear of the messages behind them, and on
+   a fast scroll they visibly lag the content. Removing the blur is a legibility
+   fix, not only a stylistic one.
+
+   `background-color` is set here rather than left to Tailwind so the opacity is
+   guaranteed: an accidental `/90` on the utility class would be silently
+   overridden in the other direction otherwise. */
+.app-bottom-nav {
+  background-color: #1b1636;
+  color: #1f2937;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. */
@@ -967,6 +996,20 @@ button,
    AppNav.tsx); the desktop sidebar uses its own classes. So this retint cannot
    leak onto any other surface.
    ==================================================================== */
+/* THE PILL STATES ARE TUNED FOR A WHITE CAPSULE.
+
+   These were written for a dark purple bar: a near-white active pill and light
+   lavender inactive text. On pure white that inverts — the resting labels
+   (`#94a3b8`) fell to roughly 2.6:1 and read as disabled, and the white-on-white
+   active pill was invisible. Every value below is now measured against `#FFFFFF`:
+
+     inactive `#5B6478`  ~ 6.1:1  (AA body, and clearly "resting" not "disabled")
+     hover    `#2A2438`  ~ 14:1
+     active   `#2A2438`  ~ 14:1  on a `#F1EDFA` wash
+
+   The active state is a light violet wash rather than the brand orange: orange is
+   still reserved for primary actions, and on white an orange wash reads as an
+   alert badge rather than a selection. */
 .nav-pill {
   position: relative;
   display: inline-flex;
@@ -976,7 +1019,7 @@ button,
   min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
   border-radius: 9999px;
-  color: #94a3b8;
+  color: #5b6478;
   border: 1px solid transparent;
   transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
     color 0.2s ease;
@@ -984,52 +1027,46 @@ button,
   user-select: none;
 }
 .nav-pill:hover {
-  color: #334155;
-  background-color: rgb(15 23 42 / 0.04);
+  color: #2a2438;
+  background-color: rgb(42 36 56 / 0.06);
 }
 .nav-pill:active:not(:disabled) {
   transform: translateY(1px);
 }
-/* ACTIVE — THE ONE ORANGE STATE ON THE BAR.
+/* ACTIVE — A VIOLET WASH, NOT AN ORANGE ONE.
 
-   ONE RULE ACROSS ALL FIVE TABS: purple is the resting state, orange means
-   "selected". That is why the raised centre button is purple by default too (see
-   `mobileTabClasses`) — when it was permanently orange, orange meant "primary
-   action" permanently and could not also mean "you are here", so the active
-   state on the other four tabs had to be signalled by some other colour and the
-   bar ended up with three highlight colours instead of one.
+   These values were written for the previous translucent purple bar, where an
+   orange wash was the only way to separate the active tab from the others. On a
+   solid white capsule that pairing is wrong twice over: orange on white reads as
+   an alert or an unread badge rather than as "you are here", and it fights the
+   app's reserved primary-action orange (the Send button, the Invite button) for
+   the same meaning.
 
-   LABEL COLOUR IS NEAR-BLACK, NOT WHITE. `#FF7A00` is a LIGHT orange: white on
-   it is ~2.6:1 and fails WCAG AA, while `#0F0C1B` on it is ~7.4:1. The same
-   reasoning applies to the raised pill in AppNav, and the icon inherits from
-   here rather than being pinned separately. */
+   So the active tab is now DEEP PURPLE text on a LIGHT VIOLET wash. `#2A2438` on
+   `#F1EDFA` is about 13.9:1, and it carries the app's identity hue while leaving
+   orange unambiguous. The raised centre button in AppNav uses the same pair. */
 .nav-pill--active,
 .nav-pill--active:hover {
-  color: #0f0c1b;
-  background-color: rgb(255 122 0 / 0.18);
-  border-color: rgb(255 122 0 / 0.45);
+  color: #2a2438;
+  background-color: #f1edfa;
+  border-color: rgb(122 106 190 / 0.35);
 }
 
-/* A tight, low-alpha glow rather than a wide one on purpose: a wide shadow on a
-   dark capsule bleeds into the neighbouring tabs and makes the active one look
-   BLURRY rather than lit — the exact artefact a crisp line-art bar must not
-   suffer. `inset` keeps the light inside the pill's own rounded edge, which is
-   what reads as a backlit surface at this size. Violet, to match the fill.
+/* NO GLOW ON THE ACTIVE PILL.
 
-   Paired with `transition` on `.nav-pill` above, so moving between tabs animates
-   the glow instead of snapping it. */
+   The old inset/drop orange glow existed to make the tab read as "lit" against a
+   dark capsule. On white it is invisible at best and a grey smudge at worst, and
+   a drop shadow on a pill surrounded by other white pills reads as dirt between
+   the tabs. Selection is carried entirely by the fill and the label colour now. */
 .nav-pill--active {
-  box-shadow:
-    inset 0 0 12px -2px rgb(255 122 0 / 0.3),
-    0 0 12px -4px rgb(255 122 0 / 0.4);
+  box-shadow: none;
 }
-/* The indicator: a short orange bar under the active tab's label.
+/* The indicator: a short bar under the active tab's label.
 
-   A previous iteration shipped a DISC here as well as the pill. That was
-   invisible at best and, where the gradient was lightest, read as a smudge under
-   the very tab the member was on. This is a bar instead — it sits on the pill's
-   own axis, reads as a deliberate selection marker, and cannot be confused with
-   the red unread count badge, which is a filled circle.
+   Purple rather than orange, for the same reason as the pill above — orange on a
+   white capsule reads as an alert, and it is the app's reserved primary-action
+   colour. It sits on the pill's own axis and is still a bar, not a disc, so it
+   cannot be confused with the red unread count badge.
 
    The RAISED centre tab does not get this bar: it has a filled pill and a lifted
    position already, so an indicator under it would double the signal. */
@@ -1042,11 +1079,11 @@ button,
   height: 0.1875rem;
   transform: translateX(-50%);
   border-radius: 9999px;
-  background-color: #ff7a00;
+  background-color: #7a6abe;
 }
 .nav-pill--active:active:not(:disabled) {
   transform: translateY(1px);
-  background-color: rgb(255 122 0 / 0.28);
+  background-color: #e6dff5;
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-pill {

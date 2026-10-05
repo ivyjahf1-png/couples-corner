@@ -56,6 +56,7 @@ export function PageLock({
   bodyClassName = "",
   bodyStyle,
   style,
+  bodyRef,
 }: {
   /** The scrollable region. Everything here scrolls; nothing above it does. */
   children: ReactNode;
@@ -82,6 +83,19 @@ export function PageLock({
   bodyClassName?: string;
   /** Escape hatch for pages that need extra bottom padding (e.g. fixed nav). */
   bodyStyle?: React.CSSProperties;
+  /**
+   * Ref for the SCROLLING body element.
+   *
+   * Exists so a page can attach a `scroll` listener to the region `PageLock`
+   * owns, without `PageLock` having to know why. The inbox uses it with
+   * `useScrollCollapse` to collapse its header as the list scrolls; the chat
+   * room does the same with its own hand-rolled thread.
+   *
+   * Without this the only alternative is for the caller to wrap the body in its
+   * own scroll container, which would create a SECOND scroll region on the page
+   * — precisely the two-scrollers bug the `page-lock` contract exists to prevent.
+   */
+  bodyRef?: React.Ref<HTMLDivElement>;
 }) {
   return (
     <div
@@ -89,7 +103,11 @@ export function PageLock({
       style={style}
     >
       {head ? <div className="page-lock__head">{head}</div> : null}
-      <div className={["page-lock__body", bodyClassName].filter(Boolean).join(" ")} style={bodyStyle}>
+      <div
+        ref={bodyRef}
+        className={["page-lock__body", bodyClassName].filter(Boolean).join(" ")}
+        style={bodyStyle}
+      >
         {children}
       </div>
     </div>

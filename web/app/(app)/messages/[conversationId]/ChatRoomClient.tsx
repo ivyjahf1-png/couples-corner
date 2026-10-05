@@ -67,6 +67,7 @@ import {
 } from "@/components/app/MessageActionsMenu";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
+import { useScrollCollapse } from "@/lib/hooks/useScrollCollapse";
 import {
   deleteMessageAction,
   editMessageAction,
@@ -426,14 +427,37 @@ function MessageBubble({
 function ChatRoomHeader({
   summary,
   online,
+  collapsed,
 }: {
   summary: ConversationParticipantSummary | null;
   online: boolean;
+  /** True once the thread has been scrolled past the collapse threshold. */
+  collapsed: boolean;
 }) {
+  /* The two states are laid out as a GRID with the same number of rows and the
+     same explicit row heights, and only the CONTENT differs. Animating a height
+     between two genuinely different layouts (avatar+name+status vs a single line)
+     is not possible without measuring, and measuring on every scroll frame is
+     exactly the jank this feature must not introduce. So instead the bar keeps a
+     constant height and swaps what occupies it:
+
+       expanded  - a taller row holding avatar + name + status
+       collapsed - a single line: back arrow, name only, avatar
+
+     Both states render the SAME title text, so the name never disappears and
+     never jumps: it is centred in the expanded bar and sits left-aligned next to
+     the back arrow in the collapsed one, which is the "pins cleanly to the
+     top-left" behaviour that was asked for.
+
+     `min-h-16` is set on both, so collapsing changes what is visible rather than
+     how tall the bar is - no reflow of the thread below, no scroll-position jump. */
   return (
     <header
-      className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5"
+      className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2.5"
       style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
+      /* The title is announced as a page heading for assistive tech regardless of
+         which visual state is showing. */
+      aria-label={summary?.name ? `Conversation with ${summary.name}` : "Conversation"}
     >
       <Link
         href="/messages"
@@ -443,7 +467,16 @@ function ChatRoomHeader({
         <ArrowLeft className="h-5 w-5" aria-hidden />
       </Link>
 
-      <div className="min-w-0 flex-1 text-center">
+      {/* EXPANDED: centred identity with the presence line under the name. */}
+      <div
+        className={`min-w-0 flex-1 text-center transition-opacity duration-150 ${
+          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        }`}
+        /* Removed from the accessibility tree when collapsed, because the same
+           name is rendered by the compact row below and a screen reader would
+           otherwise announce the title twice. */
+        aria-hidden={collapsed}
+      >
         <p className="flex items-center justify-center gap-1 truncate text-sm font-bold text-white">
           <span className="truncate">{summary?.name ?? "Conversation"}</span>
         </p>
@@ -455,6 +488,20 @@ function ChatRoomHeader({
             className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-[#B8B2D1]"}`}
           />
           {online ? "Online" : "Offline"}
+        </p>
+      </div>
+
+      {/* COLLAPSED: the name pinned to the top-left, beside the back arrow.
+          It occupies the same flex slot as the block above, so the avatar on the
+          right never moves and nothing reflows. */}
+      <div
+        className={`min-w-0 flex-1 transition-opacity duration-150 ${
+          collapsed ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        aria-hidden={!collapsed}
+      >
+        <p className="truncate text-sm font-bold text-white">
+          {summary?.name ?? "Conversation"}
         </p>
       </div>
 
@@ -531,6 +578,23 @@ export default function ChatRoomClient({
   }, [initialMessages, live]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  /* SCROLL-DRIVEN HEADER COLLAPSE.
+
+     `useScrollCollapse` keeps its own internal ref to the scroll container, and
+     this component already has one for "pin to the newest message". Rather than
+     give the thread two `ref`s (impossible on one element) or duplicate the
+     listener, `attachThread` below writes ONE element into both. */
+  const { ref: collapseRef, collapsed: headerCollapsed } = useScrollCollapse<HTMLDivElement>(12);
+
+  /* A ref CALLBACK rather than an object ref, because the element has to be
+     registered in two places. It is memoised on `[]` so React does not detach and
+     re-attach the hook's scroll listener on every render — an unstable ref
+     callback here would silently break the header on each state change. */
+  const attachThread = useCallback((el: HTMLDivElement | null) => {
+    scrollRef.current = el;
+    collapseRef.current = el;
+  }, [collapseRef]);
 
   /* Pin to the newest message. Keyed on the merged list rather than per message
      id so an insert, a merge and an edit each settle the view once. */
@@ -697,7 +761,7 @@ export default function ChatRoomClient({
         backgroundAttachment: "fixed",
       }}
     >
-      <ChatRoomHeader summary={summary} online={online} />
+      <ChatRoomHeader summary={summary} online={online} collapsed={headerCollapsed} />
 
       {/* THREAD. `px-3` is the 12px edge padding from the spec — applied HERE rather
           than on the root column, because the root also holds the header and the
@@ -710,7 +774,7 @@ export default function ChatRoomClient({
           still pushes content up rather than stacking it at the top; the same job
           is done by `justify-end` on the inner message column, added below. */}
       <div
-        ref={scrollRef}
+        ref={attachThread}
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-3 pb-3 pt-3"
       >
         <PinnedProfileCard summary={summary} />

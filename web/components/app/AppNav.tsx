@@ -253,28 +253,23 @@ const mobileTabs: MobileTab[] = [
 function mobileTabClasses(active: boolean, raised = false) {
   if (raised) {
     /* THE RAISED CENTRE TAB.
-
+     
        `-mt-4` lifts the pill out of the row so it reads as elevated. It has to be a
        NEGATIVE MARGIN, not extra bottom padding: padding would only make the pill
        taller, it would not move it up.
-
-       COLOUR IS NOW STATEFUL, WHICH IS THE WHOLE POINT OF THIS CHANGE.
-
-       It used to be a PERMANENTLY orange fill, on the reasoning that the centre
-       button is the primary action and should look lit at all times. That made
-       "orange" mean "primary action" on this bar permanently, so orange could no
-       longer mean "the tab you are on" anywhere — the two signals collided, and
-       the active state on the other four tabs had to be carried by a different
-       colour entirely.
-
-       Now: DEEP PURPLE by default, ORANGE only while the member is actually on
-       `/feed`. One rule across all five tabs — purple is the resting state,
-       orange is "selected" — so the highlight means the same thing everywhere and
-       means nothing at all until it is earned.
-
-       Text is near-black on the orange, not white: `#FF7A00` is a LIGHT orange
-       and white on it is ~2.6:1, which fails WCAG AA. `#0F0C1B` on it is ~7.4:1.
-
+      
+       COLOUR IS STATEFUL, AND THE PAIR IS INVERTED FOR A WHITE CAPSULE.
+       
+       Resting is LIGHT VIOLET (`#F1EDFA`) and active is DEEP PURPLE (`#2A2438`),
+       because the capsule underneath is now pure white. The previous pairing - a
+       permanently orange raised button meaning "primary action" - cannot work on
+       white: orange is the app's reserved primary-action colour, and a large
+       saturated orange block in the middle of a white bar reads as an alert.
+       
+       Resting-light / active-dark also keeps the raised tab legible while it sits
+       lifted above the capsule edge, where a mid-tone would blend into the white
+       behind it.
+      
        `h-full` is deliberately absent: the negative margin needs the box to take its
        natural height, and `h-full` would re-expand it to the row and cancel the
        lift out entirely. */
@@ -282,11 +277,11 @@ function mobileTabClasses(active: boolean, raised = false) {
       "nav-pill--tab",
       "flex w-full flex-col items-center justify-center gap-0.5",
       "-mb-1 -mt-4 rounded-full px-4 pt-2.5 pb-2 transition",
-      /* THE ACTIVE BRANCH IS WHAT CHANGES COLOUR — the resting branch is the deep
-         purple. Both carry the same elevation shadow, lifted slightly on active. */
+      /* ACTIVE = DEEP PURPLE, RESTING = LIGHT VIOLET: the same pair as the other
+         four tabs, so the raised centre button signals selection the same way. */
       active
-        ? "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_22px_-6px_rgba(255,122,0,0.85)]"
-        : "bg-[#3A3150] text-white shadow-[0_8px_20px_-8px_rgba(122,106,160,0.6)] hover:bg-[#463A5F]",
+        ? "bg-[#2A2438] text-white shadow-[0_8px_20px_-6px_rgba(42,36,56,0.55)]"
+        : "bg-[#F1EDFA] text-[#5B6478] shadow-[0_6px_16px_-8px_rgba(42,36,56,0.35)] hover:bg-[#E6DFF5] hover:text-[#2A2438]",
       "text-[11px] font-bold leading-none whitespace-nowrap",
     ].join(" ");
   }
@@ -296,7 +291,7 @@ function mobileTabClasses(active: boolean, raised = false) {
     active ? "nav-pill--active font-semibold" : "",
     "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
     "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active ? "" : "text-[#9B93AE] hover:text-[#C4B5E4]",
+    active ? "" : "text-[#5B6478] hover:text-[#2A2438]",
   ]
     .filter(Boolean)
     .join(" ");
@@ -575,9 +570,9 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav shrink-0 border-t border-white/10 bg-[#2A2438]/90 backdrop-blur-md"
+        className="app-bottom-nav shrink-0 bg-[#1B1636]"
       >
-        <div className="mx-auto max-w-lg rounded-[28px] border border-white/12 bg-[#3A3150]/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(24,16,40,0.75),0_0_0_1px_rgba(122,106,160,0.35),inset_0_1px_0_rgba(255,255,255,0.06)]">
+        <div className="mx-auto max-w-lg rounded-[32px] border border-black/[0.06] bg-[#FFFFFF] p-2 shadow-[0_18px_38px_-14px_rgba(15,10,30,0.55),0_2px_6px_rgba(15,10,30,0.12)]">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch

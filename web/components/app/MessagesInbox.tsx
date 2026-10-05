@@ -40,6 +40,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { PageLock } from "@/components/app/PageHeader";
+import { useScrollCollapse } from "@/lib/hooks/useScrollCollapse";
 import { Avatar } from "@/components/app/Avatar";
 
 /** One real conversation, as assembled by the server page. */
@@ -180,10 +181,13 @@ function MessagesHeader({
   tab,
   onTabChange,
   unread,
+  collapsed,
 }: {
   tab: "chat" | "call";
   onTabChange: (tab: "chat" | "call") => void;
   unread: number;
+  /** True once the conversation list has been scrolled past the threshold. */
+  collapsed: boolean;
 }) {
   const tabs: { id: "chat" | "call"; label: string; icon: LucideIcon }[] = [
     { id: "chat", label: "Chat", icon: MessageCircle },
@@ -222,41 +226,62 @@ function MessagesHeader({
         </div>
       </div>
 
-      {/* THE SWITCHER. The amber pill is `aria-selected` made visible, and the
-          unread count rides INSIDE the Chat tab so the two pieces of information
-          cannot drift apart. */}
-      <div role="tablist" aria-label="Message type" className="mt-3 flex gap-2">
-        {tabs.map((item) => {
-          const Icon = item.icon;
-          const selected = tab === item.id;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => onTabChange(item.id)}
-              className={[
-                "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition",
-                FOCUS,
-                selected
-                  ? "bg-[#FF7A00] text-white shadow-[0_2px_10px_-2px_rgba(255,122,0,0.45)]"
-                  : "bg-white/[0.08] text-[#A09AB0] hover:bg-white/[0.12]",
-              ].join(" ")}
-            >
-              <Icon className="h-4 w-4" aria-hidden />
-              {item.label}
-              {item.id === "chat" && unread > 0 ? (
-                <span
-                  aria-label={`${unread} unread`}
-                  className="ml-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
-                >
-                  {unread > 99 ? "99+" : unread}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+      {/* THE SWITCHER collapses away once the list is scrolled.
+
+          Unlike the chat room's header, the "Messages" TITLE is a single short
+          word that is always worth showing, so it stays put; the Chat/Call pills
+          are the secondary row and are what collapses. They are removed from the
+          DOM entirely rather than faded, because `height: 0` + `overflow: hidden`
+          is the only way to actually reclaim the space, and keeping a focusable
+          button inside a zero-height clipped box is an accessibility trap: it
+          stays tabbable while being invisible. */}
+      <div
+        role="tablist"
+        aria-label="Message type"
+        className={`overflow-hidden transition-[max-height,opacity,margin] duration-200 ${
+          collapsed ? "mt-0 max-h-0 opacity-0" : "mt-3 max-h-16 opacity-100"
+        }`}
+        /* Hidden from assistive tech when collapsed, for the same reason: the
+           tabs are unreachable at zero height, so announcing them would promise
+           an interaction the member cannot perform. The current tab remains
+           recoverable from the row's own state, which is unchanged. */
+        aria-hidden={collapsed}
+      >
+        {/* The flex row lives INSIDE the clipping wrapper, so collapsing the
+            wrapper's max-height does not disturb the pills' own layout. */}
+        <div className="flex gap-2">
+          {tabs.map((item) => {
+            const Icon = item.icon;
+            const selected = tab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => onTabChange(item.id)}
+                className={[
+                  "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition",
+                  FOCUS,
+                  selected
+                    ? "bg-[#FF7A00] text-white shadow-[0_2px_10px_-2px_rgba(255,122,0,0.45)]"
+                    : "bg-white/[0.08] text-[#A09AB0] hover:bg-white/[0.12]",
+                ].join(" ")}
+              >
+                <Icon className="h-4 w-4" aria-hidden />
+                {item.label}
+                {item.id === "chat" && unread > 0 ? (
+                  <span
+                    aria-label={`${unread} unread`}
+                    className="ml-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white"
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </header>
   );
@@ -503,6 +528,11 @@ export function MessagesInbox({
   expiredCount: number;
 }) {
   const [tab, setTab] = useState<"chat" | "call">("chat");
+
+  /* SCROLL-DRIVEN HEADER COLLAPSE. The hook listens on the `page-lock__body`
+     region `PageLock` owns, passed down as `bodyRef` below - the inbox must not
+     introduce its own scroll container or the page ends up with two. */
+  const { ref: collapseRef, collapsed } = useScrollCollapse<HTMLDivElement>(12);
   const [warningDismissed, setWarningDismissed] = useState(false);
   const dismissWarning = useCallback(() => setWarningDismissed(true), []);
 
@@ -578,7 +608,15 @@ export function MessagesInbox({
     <PageLock
       flush
       style={CANVAS}
-      head={<MessagesHeader tab={tab} onTabChange={setTab} unread={totalUnread} />}
+      head={
+        <MessagesHeader
+          tab={tab}
+          onTabChange={setTab}
+          unread={totalUnread}
+          collapsed={collapsed}
+        />
+      }
+      bodyRef={collapseRef}
       bodyClassName="flex flex-col gap-3 px-4 py-3 pb-24"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
