@@ -129,11 +129,11 @@ const THEME = {
   /** The scam-warning card: a red-shifted dark, so it reads as a caution. */
   warning: "#2A1520",
   /**
-   * Own (right-hand) bubbles. `#2E2447` is the purple-leaning step above `surface`
+   * Own (right-hand) bubbles. `#F2670C` is the vibrant orange from the app ramp
    * — enough separation to tell who is speaking at a glance, while staying close
    * enough in lightness that the thread does not read as two disconnected halves.
    */
-  own: "#2E2447",
+  own: "#F2670C",
   /** Hairlines and input borders. Visible on dark, so lighter than a dark-theme default. */
   hairline: "#3A3358",
   /** Body text on a bubble. */
@@ -382,23 +382,25 @@ function MessageBubble({
        `break-words` stops one unbroken token (a pasted URL, a long handle) from
        forcing horizontal overflow on a narrow phone. */
     <div
-      className={`w-fit max-w-[80%] break-words rounded-2xl px-3 py-2 text-sm leading-5 shadow-[0_1px_2px_rgba(15,23,42,0.05)] ${
+      className={`flex w-fit max-w-[80%] flex-col gap-1 break-words rounded-2xl px-3 pb-1.5 pt-2 text-sm leading-5 ${
         isMine ? "mr-1" : "ml-1"
       }`}
       style={{
-        backgroundColor: isMine ? THEME.own : THEME.surface,
+        backgroundColor: isMine ? THEME.own : "rgba(255, 255, 255, 0.08)",
+        border: isMine ? "none" : "1px solid rgba(255, 255, 255, 0.15)",
         color: THEME.ink,
         /* Tail pointing at the avatar: squared off on the corner nearest the
            sender, so incoming and outgoing read as two sides of one thread. */
         borderRadius: isMine ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
       }}
     >
-      {body}
+      <p className="whitespace-pre-wrap break-words text-sm leading-5">{body}</p>
+      <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>{formatClock(message.created_at)}</span>
     </div>
   );
 
   return (
-    <div className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"}`}>
+    <div className={`flex w-full items-end gap-2 ${isMine ? "justify-end pl-10" : "justify-start pr-10"}`}>
       {!isMine ? (
         <Avatar name={participantName} src={avatarUrl} size="sm" className="shrink-0" />
       ) : null}
