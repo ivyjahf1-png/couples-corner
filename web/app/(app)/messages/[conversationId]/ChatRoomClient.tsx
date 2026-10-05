@@ -141,6 +141,17 @@ const THEME = {
 } as const;
 
 /**
+ * THE HEADER AND COMPOSER BARS — translucent, so the canvas gradient reads
+ * through them.
+ *
+ * Both were an OPAQUE `THEME.surface`. Now that the column behind them carries
+ * the profile's gradient, an opaque bar cut the screen into three stacked bands
+ * with hard seams at the top and bottom edges. At 62% alpha the bars still
+ * separate from the thread behind them (they carry a hairline for that) while
+ * the ramp stays continuous through the whole viewport.
+ */
+const GLASS_BAR = "rgba(31, 26, 50, 0.62)";
+/**
  * ORANGE ACCENT — declared once so the Next button, the send button and the focus
  * rings cannot drift to different oranges.
  */
@@ -422,12 +433,12 @@ function ChatRoomHeader({
   return (
     <header
       className="flex shrink-0 items-center gap-2 border-b px-3 py-2.5"
-      style={{ backgroundColor: THEME.surface, borderColor: THEME.hairline }}
+      style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
     >
       <Link
         href="/messages"
         aria-label="Back to messages"
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
       >
         <ArrowLeft className="h-5 w-5" aria-hidden />
       </Link>
@@ -436,12 +447,12 @@ function ChatRoomHeader({
         <p className="flex items-center justify-center gap-1 truncate text-sm font-bold text-white">
           <span className="truncate">{summary?.name ?? "Conversation"}</span>
         </p>
-        <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-slate-300">
+        <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-[#C9C2E4]">
           {/* Colour alone is not the only cue — the word is right there, so the
               state does not depend on distinguishing two greens. */}
           <span
             aria-hidden
-            className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-slate-500"}`}
+            className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-[#B8B2D1]"}`}
           />
           {online ? "Online" : "Offline"}
         </p>
@@ -450,7 +461,7 @@ function ChatRoomHeader({
       <Link
         href={`/u/${summary?.id ?? ""}`}
         aria-label={`View ${summary?.name ?? "profile"}`}
-        className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
+        className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
       >
         <Avatar name={summary?.name ?? "?"} src={summary?.avatarUrl ?? null} size="sm" />
       </Link>
@@ -622,13 +633,69 @@ export default function ChatRoomClient({
     }
     return -1;
   }, [messages, currentUserId]);
-return (
-    /* The locked viewport column: header / thread / composer, exactly one
-       scroller. The app shell drops its <main> padding and hides the tab bar on
-       this route, so the composer inherits the reclaimed height. */
+/* THE LOCKED VIEWPORT COLUMN.
+
+   `h-full max-h-[100dvh]`, NOT a bare `h-[100dvh]`.
+
+   `100dvh` is the height of the WHOLE viewport, but this column is not the root of
+   the page. It sits inside `<body>` -> `AppShell` -> the middle row -> `<main>` ->
+   the `(app)` layout's `<section>`, and every one of those ancestors is already
+   measuring the space that is actually LEFT. Declaring the full viewport height
+   again here ignores that space, so the column is too tall by exactly the height
+   the shell has already spent above it. Because every ancestor is
+   `overflow-hidden`, that overflow is not a scrollbar - it is a silent CROP at the
+   bottom edge, and the composer (the last child) is what vanishes. That is the
+   "input box and bottom bar cut short" symptom, and it is why the source looked
+   correct while the screen failed.
+
+   The shell spends real height above this column in ordinary cases:
+     - the demo banner (`shrink-0` in AppShell, ~2.5rem),
+     - `MobileBackHeader` on any route where it is not suppressed,
+     - mobile browser chrome, which `dvh` already excludes.
+
+   `h-full` fills the parent's measured box, so the column can never exceed the
+   space it was given. `max-h-[100dvh]` is the belt-and-braces half: it still
+   clamps to the VISUAL viewport, which preserves the keyboard behaviour this file
+   documents at the top - when a mobile browser shrinks the visual viewport for the
+   on-screen keyboard, the column shrinks with it and the composer rides up instead
+   of hiding behind the keyboard.
+
+   THE THREE REGIONS, and why each is what it is:
+     header   `shrink-0`  - never scrolls, so it is sticky by construction rather
+                            than by `position: sticky` inside the scroller.
+     thread   `flex-1 min-h-0 overflow-y-auto` - the ONLY scroll region. `min-h-0`
+                            is load-bearing: a flex item's default `min-height:auto`
+                            refuses to shrink below its content, so without it a long
+                            thread pushes the composer off the bottom instead of
+                            scrolling.
+     composer `shrink-0`  - a flex SIBLING of the thread, so it is always on screen
+                            and never scrolls away.
+
+   The app shell drops its `<main>` padding and hides the tab bar on this route
+   (`isActiveConversationPath`), so the composer inherits the full height. */
+  return (
     <div
-      className="relative flex h-[100dvh] w-full flex-col overflow-hidden"
-      style={{ backgroundColor: THEME.canvas }}
+      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden"
+      style={{
+        /* THE CANVAS GRADIENT, not the flat `THEME.canvas`.
+           `THEME.canvas` (`#0F0C1B`) is still the base colour below it, but the
+           surface the thread sits on is the SAME vertical ramp plus two radial
+           blooms that `app/(app)/profile/page.tsx` and the inbox both use, so
+           moving between Profile -> Inbox -> Thread is one continuous surface
+           rather than three different dark screens. */
+        backgroundColor: THEME.canvas,
+        backgroundImage: [
+          "radial-gradient(90% 45% at 50% 100%, rgba(255,138,46,0.20) 0%, rgba(255,122,0,0.07) 42%, rgba(255,122,0,0) 74%)",
+          "radial-gradient(120% 50% at 50% 62%, rgba(122,92,178,0.18) 0%, rgba(122,92,178,0.05) 45%, rgba(122,92,178,0) 75%)",
+          "linear-gradient(180deg, #0F0C1B 0%, #0F0C1B 10%, #1B1636 36%, #2C1B41 64%, #402340 86%, #55303A 100%)",
+        ].join(", "),
+        /* Fixed, so the ramp is sized to the VIEWPORT. This column is
+           `h-[100dvh] overflow-hidden` and the THREAD scrolls inside it, so an
+           ordinary gradient would be sized to this box (correct) — but `fixed`
+           guarantees the warm foot stays at the bottom of the screen however the
+           message column grows, instead of stretching with the content. */
+        backgroundAttachment: "fixed",
+      }}
     >
       <ChatRoomHeader summary={summary} online={online} />
 
@@ -656,7 +723,7 @@ return (
            overflows its box ignores `justify-end` and simply scrolls. */
         <div className="mt-3 flex flex-col justify-end gap-2.5">
           {messages.length === 0 ? (
-            <p className="py-8 text-center text-xs text-slate-400">No messages yet — say hello.</p>
+            <p className="py-8 text-center text-xs text-[#B8B2D1]">No messages yet — say hello.</p>
           ) : null}
 
           {messages.map((message, index) => {
@@ -670,11 +737,11 @@ return (
 
             return (
               <div key={message.id} className="flex flex-col gap-2.5">
-                {/* TIMESTAMPS. `text-slate-300`, not `slate-400` and not `slate-500`: this is one
+                {/* TIMESTAMPS. `text-[#C9C2E4]`, not `slate-400` and not `slate-500`: this is one
                     of the two places the old ramp dropped below AA, and a 10px
                     caption on `#0F0C1B` is exactly the case that needs the lift. */}
                 {showStamp ? (
-                  <p className="text-center text-[10px] font-medium text-slate-300">
+                  <p className="text-center text-[10px] font-medium text-[#C9C2E4]">
                     {formatClock(message.created_at)}
                   </p>
                 ) : null}
@@ -707,7 +774,7 @@ return (
           keyboard — see the note at the top of this file. */}
       <div
         className="w-full self-stretch shrink-0 border-t px-2 pb-2 pt-2"
-        style={{ backgroundColor: THEME.surface, borderColor: THEME.hairline }}
+        style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six
            short pills `flex-wrap` shows every one of them without a swipe, which
@@ -742,7 +809,7 @@ return (
                 setDraft(reply);
                 setEditingId(null);
               }}
-              className="shrink-0 rounded-full border border-orange-500/60 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+              className="shrink-0 rounded-full border border-orange-500/60 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
             >
               {reply}
             </button>
@@ -753,7 +820,7 @@ return (
             type="button"
             aria-label="Record a voice message"
             title="Voice message"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
           >
             <Mic className="h-5 w-5" aria-hidden />
           </button>
@@ -770,7 +837,7 @@ return (
             rows={1}
             placeholder={editingId ? "Edit your message..." : "Type a message..."}
             aria-label="Message"
-            className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-orange-500"
+            className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-sm text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00]"
             style={{ borderColor: THEME.hairline }}
           />
 
@@ -778,7 +845,7 @@ return (
             type="button"
             aria-label="Insert emoji"
             title="Emoji"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
           >
             <Smile className="h-5 w-5" aria-hidden />
           </button>
@@ -798,7 +865,7 @@ return (
                legibility. It now uses the accent, which is what the design asks
                for and what distinguishes it from the four grey utility icons
                beside it. */
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFA040]"
             style={{ backgroundColor: ORANGE }}
           >
             <Send className="h-4 w-4" aria-hidden />
@@ -818,7 +885,7 @@ return (
             title="Gift"
             aria-expanded={giftOpen}
             aria-haspopup="dialog"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
           >
             <Gift className="h-5 w-5" aria-hidden />
           </button>
@@ -831,7 +898,7 @@ return (
                 href={action.href}
                 aria-label={action.label}
                 title={action.label}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
               >
                 <Icon className="h-5 w-5" aria-hidden />
                 {action.isNew ? (

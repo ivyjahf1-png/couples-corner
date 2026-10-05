@@ -105,6 +105,22 @@ export async function signInWithEmail(email: string, password: string): Promise<
   });
   if (error) throw error;
   if (!data.user) throw new Error("Sign-in failed");
+
+  /* GUARD THE SESSION BEFORE THE EXCHANGE.
+
+     `data.session` is null whenever the account exists but has NOT confirmed its
+     email yet - a first sign-in on a fresh signup. The old line read
+     `data.session.access_token` unguarded, so that case threw a raw
+     `TypeError: Cannot read properties of null`, which is reported as a client
+     crash rather than as "confirm your email". `exchangeSessionCookie` also
+     validates now, but reaching it with a null token is a distinct, expected
+     state that deserves its own message. */
+  if (!data.session?.access_token) {
+    throw new Error(
+      "Your account is not confirmed yet. Please check your email for the confirmation link."
+    );
+  }
+
   await exchangeSessionCookie(data.session.access_token);
   return data.user;
 }
@@ -263,60 +279,116 @@ export function observeAuthState(callback: (user: User | null) => void): () => v
   return () => subscription.unsubscribe();
 }
 
-/** Exchange the current access token for an httpOnly session cookie (server trust). */
+/**
+ * Exchange the current access token for an httpOnly session cookie (server trust).
+ *
+ * THE 401 BRANCH THIS FUNCTION USED TO BE MISSING.
+ *
+ * `/api/auth/session` answers a token GoTrue refused with `401` +
+ * `code: "invalid_token"`, and a server fault with `500` + `code: "server_error"`.
+ * The old branch chain handled 403, 400 and >=500 - but NOT 401. So the single most
+ * common failure of this function fell straight through to the generic fallback,
+ * which interpolated the route's raw internal label:
+ *
+ *     "Sign-in failed - Invalid session request. Please try again."
+ *
+ * That is the console error this function was reported for, and it was unhelpful
+ * twice over: "Invalid session request" is an internal string rather than a
+ * member-facing sentence, and "please try again" invites a retry at a request
+ * that cannot succeed on a retry.
+ *
+ * WHY A 401 IS POSSIBLE AFTER A SUCCESSFUL `signInWithPassword`. The token the
+ * browser holds and the token the server verifies must be issued by the SAME
+ * Supabase project and signed by the same JWT secret. They diverge when the client
+ * and server point at different projects, or when one side has a newer JWT secret.
+ * In development the usual cause is a STALE `.next` build: Next inlines
+ * `NEXT_PUBLIC_*` variables at build time, so a browser bundle built before the
+ * env changed keeps talking to the old project while the server has moved.
+ */
 export async function exchangeSessionCookie(accessToken: string): Promise<void> {
-  const response = await fetch("/api/auth/session", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ accessToken }),
-  });
-  if (!response.ok) {
-    /* READ THE STATUS CODE, NOT JUST THE BODY.
+  /* VALIDATE BEFORE THE ROUND TRIP.
 
-       This used to branch on `detail === "Invalid session request"`, but the
-       route returned that literal string for EVERY failure — a 500 from a missing
-       SUPABASE_SERVICE_ROLE_KEY and a 403 for a suspended account produced the
-       same bytes. So the one branch that existed was nearly dead code, and
-       everything that fell through was rendered as "check your connection",
-       which is actively wrong advice for a server fault or a policy refusal: it
-       sends the member to check a network that was never the problem.
+     Callers have historically been trusted to hand us a real string, and being
+     wrong costs a confusing 400 from the route that reads like a server fault.
+     `signInWithPassword` can legitimately resolve with `session: null` when an
+     account exists but has not confirmed its email, so a null token is an
+     EXPECTED state rather than a programming error - it gets a named error the
+     caller can act on, instead of an opaque HTTP round trip. */
+  if (typeof accessToken !== "string" || accessToken.trim().length === 0) {
+    console.error("[auth] exchangeSessionCookie called without an access token", {
+      received: typeof accessToken,
+    });
+    throw new Error("Sign-in failed - no session was returned. Please sign in again.");
+  }
 
-       The route now returns a `code` alongside `error`, so each case can say
-       something true. Status alone is also checked because a proxy or platform
-       can produce a non-JSON body, and `response.status` is the one signal that
-       survives that. */
-    let detail = "";
-    let code = "";
-    const status = response.status;
-    try {
-      const body = (await response.json()) as { error?: string; code?: string };
-      detail = body.error ?? "";
-      code = body.code ?? "";
-    } catch {
-      // Non-JSON body (proxy error page, platform 5xx). Status is all we have.
-    }
+  /* THE FETCH IS GUARDED.
 
-    // Logged client-side too: the server log carries the stack, but this records
-    // that the member is hitting it and how often.
-    console.error("[auth] session cookie exchange failed", { status, code, detail });
-
-    if (code === "account_inactive" || status === 403) {
-      // A deliberate policy decision, not a failure to retry. Retrying would
-      // never succeed, so the copy must not invite it.
-      throw new Error("This account is not active. Contact support for help.");
-    }
-    if (status === 400) {
-      throw new Error("Sign-in failed — the session token was missing or malformed.");
-    }
-    if (status >= 500) {
-      throw new Error(
-        "Sign-in couldn't be completed because of a server error. Please try again shortly."
-      );
-    }
+     `fetch` rejects on a network drop, an offline device or a CORS failure, and
+     an unguarded rejection escapes as a bare `TypeError: Failed to fetch` with no
+     `[auth]` marker - which is how a client-side connectivity blip gets reported
+     as a server-side session bug. It is converted here into a message that names
+     the real cause. */
+  let response: Response;
+  try {
+    response = await fetch("/api/auth/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accessToken }),
+    });
+  } catch (networkError) {
+    console.error("[auth] session cookie exchange could not reach the server", {
+      message: networkError instanceof Error ? networkError.message : String(networkError),
+    });
     throw new Error(
-      detail
-        ? `Sign-in failed — ${detail}. Please try again.`
-        : "Sign-in could not be completed. Please check your connection and try again."
+      "Couldn't reach the server to complete sign-in. Please check your connection and try again."
     );
   }
+
+  if (response.ok) return;
+
+  /* READ THE STATUS CODE, NOT JUST THE BODY.
+
+     A proxy or platform can produce a non-JSON body, and `response.status` is the
+     one signal that survives that; `code` narrows it further when the route does
+     answer with JSON. */
+  let detail = "";
+  let code = "";
+  const status = response.status;
+  try {
+    const body = (await response.json()) as { error?: string; code?: string };
+    detail = body.error ?? "";
+    code = body.code ?? "";
+  } catch {
+    // Non-JSON body (proxy error page, platform 5xx). Status is all we have.
+  }
+
+  console.error("[auth] session cookie exchange failed", { status, code, detail });
+
+  if (code === "account_inactive" || status === 403) {
+    /* A deliberate policy decision, not a failure to retry: the password is
+       correct and the account is suspended. The copy must not invite a retry. */
+    throw new Error("This account is not active. Contact support for help.");
+  }
+
+  if (status === 401) {
+    /* THE CASE THIS FUNCTION PREVIOUSLY FELL THROUGH. The token REACHED the
+       server and was refused there, so it is not missing and not malformed in
+       transit - this is a verification mismatch. The 400 branch's "malformed"
+       copy would be wrong, and so would "try again": a retry re-sends the same
+       unverifiable token. `detail` is deliberately NOT interpolated - the route's
+       string is an internal label, not a sentence for a member. */
+    throw new Error("Sign-in failed - your session could not be verified. Please sign in again.");
+  }
+
+  if (status === 400) {
+    throw new Error("Sign-in failed - the session token was missing or malformed.");
+  }
+
+  if (status >= 500) {
+    throw new Error(
+      "Sign-in couldn't be completed because of a server error. Please try again shortly."
+    );
+  }
+
+  throw new Error(detail ? `Sign-in failed - ${detail}.` : "Sign-in could not be completed.");
 }

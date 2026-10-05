@@ -61,22 +61,61 @@ export function LoginForm() {
         return;
       }
 
-      // Exchange the access token for an httpOnly session cookie so the server
-      // recognizes the user as authenticated on the landing screen.
-      if (data.session?.access_token) {
-        await exchangeSessionCookie(data.session.access_token);
+      /* VERIFY THE SESSION BEFORE EXCHANGING IT.
+
+         `signInWithPassword` resolves with `session: null` when the account exists
+         but has not confirmed its email. The old code guarded the exchange with
+         `if (data.session?.access_token)`, so that case SILENTLY SKIPPED the cookie
+         step and then navigated to /discover anyway - the member landed on a
+         protected route with no session cookie and was bounced straight back to
+         /login with no explanation. Verifying here turns it into an explicit,
+         actionable message, and keeps the navigation below honest: we only navigate
+         once a cookie actually exists. */
+      const accessToken = data.session?.access_token;
+      if (!accessToken) {
+        console.error("[Login] sign-in returned no session", {
+          email,
+          hasUser: Boolean(data.user),
+          emailConfirmedAt: data.user?.email_confirmed_at ?? null,
+        });
+        setError(
+          data.user
+            ? "Your account is not confirmed yet. Please check your email for the confirmation link."
+            : "Sign-in failed. Please try again."
+        );
+        setLoading(false);
+        return;
       }
 
-      // Land on EXPLORE, not the dashboard.
-      //
-      // Explore is the first tab and the product's core loop — it is where a
-      // member actually meets people. Sending a returning member to the moment
-      // feed on sign-in meant they opened the app to a wall of other people's
-      // clips instead of the thing they came back for. This also matches
-      // post-signup, which has always finished on /discover via OnboardingFlow.
-      router.push("/discover");
+      /* Exchange the access token for an httpOnly session cookie so the server
+         recognizes the user as authenticated on the landing screen.
+
+         This AWAITS the cookie before navigating. Navigation used to be a separate
+         statement after this block, and because the throw-on-failure happened inside
+         the surrounding try, a failed exchange could still run `router.push` - firing
+         a navigation to a screen the server considers signed out, which is what
+         surfaced as a premature router navigation. Now the redirect below is
+         reachable only on success. */
+      await exchangeSessionCookie(accessToken);
+
+      /* Land on EXPLORE, not the dashboard.
+
+         Explore is the first tab and the product's core loop - it is where a member
+         actually meets people. Sending a returning member to the moment feed on
+         sign-in meant they opened the app to a wall of other people's clips instead
+         of the thing they came back for. This also matches post-signup, which has
+         always finished on /discover via OnboardingFlow.
+
+         `replace`, not `push`: sign-in is a transition BETWEEN two states of the same
+         session, so the login screen should not stay in history. Left there, a back
+         press after signing in returns to a form the member already completed.
+
+         `refresh()` follows the navigation rather than racing it. Called in the same
+         tick it can refetch the login route's server components before the new route
+         commits; after an awaited push the transition is scheduled with the cookie
+         already in place, so the server components it renders see a real session. */
+      router.replace("/discover");
       router.refresh();
-      setLoading(false);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to sign in. Please try again.";
       console.error("[Login] Unexpected error:", err);

@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
@@ -70,9 +70,11 @@ interface MenuRow {
   statusTone?: "warn" | "ok";
 }
 
+/* A status tone that reads as a LABEL, not an alarm: the old `text-rose-600` is
+   a mid-red that disappears against the dark purple card. */
 const STATUS_TONE_CLASS: Record<NonNullable<MenuRow["statusTone"]>, string> = {
-  warn: "text-rose-600",
-  ok: "text-emerald-600",
+  warn: "text-[#FFA040]",
+  ok: "text-emerald-400",
 };
 
 const MENU_ROWS: MenuRow[] = [
@@ -219,6 +221,18 @@ interface QuickAction {
   icon: ProfileIconName;
 }
 
+/**
+ * THE MENU-ROW / QUICK-ACTION ICON CHIP.
+ *
+ * One token, so the chips down the whole card cannot drift apart. It is a
+ * TRANSLUCENT white tile with a near-white glyph rather than a solid orange
+ * square: orange is reserved on this screen for the coin glyph, the Invite
+ * button and the focus ring, and a column of solid orange chips was turning the
+ * accent into the screen's general texture instead of a highlight.
+ */
+const ICON_CHIP =
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.08] text-white";
+
 /** Tasks Â· Income Â· Store Â· Aristocracy. Every href is a real route. */
 const QUICK_ACTIONS: QuickAction[] = [
   { label: "Tasks", href: "/task", icon: "tasks" },
@@ -291,7 +305,7 @@ const GAMES: GameTile[] = FEATURED_GAME_IDS.map((id) => {
  */
 export function ProfileHeader({ name }: { name: string }) {
   return (
-    <div className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]">
+    <div className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md">
       <h1 className="truncate px-4 text-base font-bold text-white">{name}</h1>
       <Link
         href="/settings"
@@ -424,42 +438,63 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * separation, so they read as a pair rather than two cards.
        * ================================================================ */}
       <div className="grid grid-cols-2 gap-2">
-        {/* Coin balance. The brand orange with a near-black glyph â€” the loudest
-            element on the screen, which is why the number is 2xl.
-            `hover:brightness-110` rather than a separate darker hex: the tile is
-            a large flat fill, so a brightness step reads as the same colour
-            pressed rather than as a different colour, and it cannot drift out of
-            step with the accent the way a second hex can. */}
+        {/* Coin balance. GLASS like every other surface, with the brand orange
+            reserved for the coin DISC alone — so the balance reads as white
+            primary type with an accent beside it, and the page gradient still
+            shows through the tile.
+
+            `hover:bg-[#332B45]/65` rather than `brightness`: the fill is
+            translucent, and `brightness` would brighten the gradient behind it
+            too, which flickered against the ramp as it scrolled. */}
         <Link
           href="/store"
           aria-label={`Coin balance ${data.coinBalance}. Open store`}
-          className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl px-3.5 transition hover:brightness-110 ${FOCUS}`}
-          style={{ backgroundColor: ORANGE }}
+          className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-3.5 transition hover:bg-[#332B45]/65 ${FOCUS}`}
+          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/15 text-[#0F0C1B]">
-            <ProfileIcon name="coin" className="h-5 w-5" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: ORANGE }}>
+            <ProfileIcon name="coin" className="h-5 w-5 text-[#0F0C1B]" />
           </span>
-          <span className="text-2xl font-bold tabular-nums text-[#0F0C1B]">
-            {data.coinBalance}
+          <span className="flex min-w-0 flex-col">
+            <span className="text-2xl font-bold tabular-nums leading-none text-white">
+              {data.coinBalance}
+            </span>
+            <span className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-[#A09AB0]">
+              Coins
+            </span>
           </span>
         </Link>
 
-        {/* VIP tier. Same orange, one step deeper, with the gem bleeding off the
-            right edge; `overflow-hidden` is what clips it, so the gem reads as
-            part of the artwork rather than a floating icon.
+        {/* VIP tier. The same GLASS as the coin tile rather than a second solid
+            orange block: two saturated fills side by side is what made this pair
+            read as two loud buttons rather than one wallet strip. The accent is
+            now a low-alpha wash and the tier name is white, so the tile stays
+            legible and the gradient still shows through. The gem bleeds off the
+            right edge; `overflow-hidden` is what clips it, so it reads as part of
+            the artwork rather than a floating icon.
 
             The gem is white at 85% rather than the pale gold it was: a warm
-            highlight ON the orange would have been the same hue as its own
-            background and disappeared. White separates from orange by hue, not
-            just by lightness. */}
+            highlight ON the purple glass would have been too close to the card's
+            own hue and disappeared. White separates by hue, not just lightness. */}
         <Link
           href="/subscription"
           aria-label={vip ? `${vip} membership. Manage subscription` : "Upgrade to VIP"}
-          className={`relative flex h-[88px] items-center overflow-hidden rounded-2xl bg-gradient-to-br px-3.5 transition hover:brightness-110 ${FOCUS}`}
-          style={{ backgroundImage: `linear-gradient(135deg, ${ORANGE} 0%, ${ORANGE_DEEP} 100%)` }}
+          className={`relative flex h-[88px] items-center overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-3.5 transition hover:bg-[#332B45]/65 ${FOCUS}`}
+          style={{
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
+            /* An orange WASH at low alpha, not a solid fill: the tile keeps the
+               glass surface and only carries a hint of the accent, so the coin
+               glyph stays the loudest element on the pair. */
+            backgroundImage: `linear-gradient(135deg, ${ORANGE}22 0%, ${ORANGE_DEEP}33 100%)`,
+          }}
         >
-          <span className="relative z-10 text-sm font-bold text-white">
-            {vip ?? "Upgrade"}
+          <span className="relative z-10 flex min-w-0 flex-col">
+            <span className="text-base font-bold leading-none text-white">
+              {vip ?? "Upgrade"}
+            </span>
+            <span className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-[#A09AB0]">
+              {vip ? "Membership" : "Go VIP"}
+            </span>
           </span>
           <span
             aria-hidden
@@ -480,7 +515,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * ================================================================ */}
       <section
         aria-label="Friend relationship"
-        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-4 py-3.5"
+        className={`${SURFACE} relative flex items-center justify-between gap-3 px-4 py-3.5`}
       >
         <div className="relative z-10 min-w-0">
           <p className="text-sm font-bold text-white">
@@ -514,7 +549,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </span>
         </span>
       </section>
-{/* ================================================================ *
+       {/* ================================================================ *
        * SURFACE 4 â€” games, quick actions and the two list rows, ONE card.
        *
        * This is where the "lonely boxes" were worst: six separately-bordered
@@ -531,7 +566,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * between them anywhere.
        * ================================================================ */}
       <section aria-label="Games and features" className={SURFACE}>
-{/* Band 1 - Recommended Games. A 4-up grid, not a scroll rail: with exactly
+        {/* Band 1 — Recommended Games. A 4-up grid, not a scroll rail: with
             four titles a rail would clip the fourth and imply content that does
             not exist.
             The tiles are real catalogue entries with real routes (see GAMES),
@@ -617,17 +652,19 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             ))}
           </ul>
         </div>
-
-        {/* Band 2 â€” quick actions. Bold black outlines, yellow icon chips, on
-            the shared surface rather than in their own floating card. */}
-        <div className="grid grid-cols-4 gap-2 border-t border-white/[0.08] px-4 py-4">
-          {QUICK_ACTIONS.map((action) => (
+        {/* Band 2 — quick actions. Four-up on phone, three-up from `sm`, which is
+            what keeps the rows the same visual weight as the game tiles above.
+            Hairline-bordered translucent tiles on the shared surface rather than in
+            their own floating card, and the chip colour comes from `ICON_CHIP` so
+            these match the menu rows below. */}
+        <div className="grid grid-cols-4 gap-2 border-t border-white/[0.08] px-4 py-4 sm:grid-cols-3">
+        {QUICK_ACTIONS.map((action) => (
             <Link
               key={action.label}
               href={action.href}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border-2 border-white/15 bg-white/[0.06] px-1 py-2.5 transition hover:bg-[#FF7A00]/10 ${FOCUS}`}
+              className={`flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-1 py-2.5 transition hover:bg-[#FF7A00]/10 ${FOCUS}`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
+              <span className={`${ICON_CHIP} h-8 w-8 rounded-lg`}>
                 <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
               </span>
               <span className="text-[11px] font-bold text-white">{action.label}</span>
@@ -644,13 +681,13 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href="/store"
               className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
+              <span className={ICON_CHIP}>
                 <ProfileIcon name="bag" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold text-white">
                 Bag
               </span>
-              <span className="shrink-0 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white">
+              <span className="shrink-0 rounded-full bg-[#FF7A00]/15 px-2 py-0.5 text-[10px] font-bold text-[#FFA040]">
                 Game
               </span>
               <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
@@ -662,7 +699,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href="/task"
               className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
+              <span className={ICON_CHIP}>
                 <ProfileIcon name="level" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold text-white">
@@ -686,12 +723,12 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             `SURFACE` above carries the radius and `overflow-hidden`, so every row
             added to this list is automatically clipped by the card's own radius.
 
-            THE ICON TILE. Shares the `ORANGE` constant with the wallet tile above, so the
-            column of orange tiles reads as one system down the whole card rather
-            than as "the first two rows are styled and the rest are not". Each
-            row reuses the identical markup via the shared `MENU_ROWS` map below
-            rather than five hand-copied blocks â€” which is what previously let a
-            row drift out of step with its neighbours. */}
+            THE ICON TILE. Every chip comes from the single `ICON_CHIP` token above, so
+            the column of chips reads as one system down the whole card rather than as
+            "the first two rows are styled and the rest are not". Each row reuses the
+            identical markup via the shared `MENU_ROWS` map below rather than five
+            hand-copied blocks — which is what previously let a row drift out of step
+            with its neighbours. */}
         <ul className="mt-0">
           {MENU_ROWS.map((row) => (
             <li key={row.label} className="border-t border-white/[0.08]">
@@ -699,7 +736,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href={row.href}
               className={`flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0 ${FOCUS}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
+              <span className={ICON_CHIP}>
                 <ProfileIcon name={row.icon} className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">

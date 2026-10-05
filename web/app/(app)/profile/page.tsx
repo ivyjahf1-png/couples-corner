@@ -111,22 +111,24 @@ export default async function ProfilePage() {
 
        THE GRADIENT, NOT A FLAT FIELD. The page previously painted one flat
        `#0F0C1B`, which is exactly the "dead flat field" the glass cards cannot
-       catch anything on. It is now a vertical ramp through three named zones and
-       a warm bloom at the foot:
+       catch anything on. It is now a vertical ramp through five named zones and
+       two blooms:
 
          0%#0F0C1B   midnight navy — the deep top
-        38%         #1B1636   deep purple — where the identity and stats card sits
-        72%         #33203C   plum      — the middle cards
-       100%         #4A2A2E   warm plum, warming toward orange
+         34%         #1B1636   deep purple - where the identity and stats card sits
+         62%         #2C1B41   plum      - the middle cards
+         84%         #402340   deep mauve
+        100%         #55303A   warm plum, warming toward orange
 
-       The warm end is deliberately MUTED (#4A2A2E, not a saturated orange). A
-       bright orange foot on a screen whose accent is already `#FF7A00` would put
-       two oranges in the same viewport and make the coin tile stop being the
-       loudest thing on it. This warms the bottom without competing.
+        The warm end is deliberately MUTED (#55303A, not a saturated orange). A
+        bright orange foot on a screen whose accent is already #FF7A00 would put
+        two oranges in the same viewport and make the coin tile stop being the
+        loudest thing on it. This warms the bottom without competing.
 
-       The radial bloom sits UNDER the ramp in the layer stack and is what stops
-       the bottom corner reading as a flat band of plum; `page-lock` has no
-       background of its own, so this is the page's canvas.
+        TWO RADIAL BLOOMS sit UNDER the ramp. The warm one at the foot is what
+        stops the bottom corner reading as a flat band of plum; the plum one
+        through the middle gives the mid-screen cards a tone to sit on rather
+        than on a straight interpolation between two flat ends.
 
        `PageLock` renders a `<div class="page-lock">` with no background, so this
        page previously inherited whatever the app shell painted behind it — which
@@ -144,12 +146,19 @@ export default async function ProfilePage() {
     <PageLock
       style={{
         backgroundImage: [
-          /* Warm bloom, bottom-centre. */
-          "radial-gradient(120% 60% at 50% 108%, rgba(255,122,0,0.16) 0%, rgba(255,122,0,0.06) 38%, rgba(255,122,0,0) 70%)",
+          "radial-gradient(90% 45% at 50% 100%, rgba(255,138,46,0.22) 0%, rgba(255,122,0,0.08) 42%, rgba(255,122,0,0) 74%)",
+          /* A plum bloom through the middle, so the mid-screen cards sit on a
+             tone rather than on a straight ramp between two flat ends. */
+          "radial-gradient(120% 50% at 50% 62%, rgba(122,92,178,0.18) 0%, rgba(122,92,178,0.05) 45%, rgba(122,92,178,0) 75%)",
           /* The vertical ramp. */
-          "linear-gradient(180deg, #0F0C1B 0%, #0F0C1B 6%, #1B1636 38%, #33203C 72%, #4A2A2E 100%)",
+          "linear-gradient(180deg, #0F0C1B 0%, #0F0C1B 6%, #1B1636 34%, #2C1B41 62%, #402340 84%, #55303A 100%)",
         ].join(", "),
         backgroundColor: "#0F0C1B",
+        /* The canvas is painted on the PageLock ROOT, which never scrolls. Without
+           this the ramp is sized to the root's box, so the warm foot lands at the
+           bottom of the CONTENT rather than the bottom of the screen and the
+           visible area shifts tone as the member scrolls. */
+        backgroundAttachment: "fixed",
       }}
       head={<ProfileHeader name={name} />}
       /* `pt-2`, not `pt-4`. The bar above is a fixed 56px tall and the hero's own

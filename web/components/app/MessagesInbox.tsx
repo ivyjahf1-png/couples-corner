@@ -10,8 +10,8 @@
  * arrives here as plain serialisable rows — nothing in this file queries Supabase
  * or re-reads the session.
  *
- * â”€â”€ THE LIGHT THEME MATCHES THE PROFILE SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * `components/profile/ProfileScreen.tsx` declares the same slate/amber ramp, so
+ * â”€â”€ THE THEME MATCHES THE PROFILE SCREEN â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * `components/profile/ProfileScreen.tsx` declares the same purple ramp, so
  * the two read as one app. The ramp is stated inline rather than through a theme
  * token because the app's `--background` is still the old dark navy, and
  * retinting it would repaint every route in the product.
@@ -104,13 +104,45 @@ interface ChatRow {
 
 type InboxRow = SystemRow | ChatRow;
 
-/** Soft card shadow shared by every white surface, matching the profile screen. */
+/**
+ * THE GLASS CARD - every surface on this screen, and the exact token
+ * `components/profile/ProfileScreen.tsx` uses.
+ *
+ * This was `bg-white`. The profile's surfaces are translucent purple, so an
+ * opaque white card here was the one thing that made the inbox read as a
+ * different app from the page you reach it from. The shadow is the profile's
+ * too - a dark one, because a shadow tuned for white cards is invisible on a
+ * dark canvas.
+ */
 const CARD =
-  "rounded-2xl bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-12px_rgba(15,23,42,0.12)]";
+  "rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_30px_-14px_rgba(0,0,0,0.75)]";
 
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400";
+/**
+ * THE PAGE CANVAS - the SAME gradient as `app/(app)/profile/page.tsx`.
+ *
+ * Declared here rather than in `globals.css` for the reason the profile page
+ * gives: the app's `--background` token is still the old navy and retinting it
+ * would repaint every route in the product. Two radial blooms sit UNDER the
+ * vertical ramp - a warm one at the foot, a plum one through the middle - so the
+ * list does not sit on a flat interpolation between two flat ends.
+ *
+ * `backgroundAttachment: "fixed"` pins the ramp to the VIEWPORT rather than the
+ * scroll box, so the warm foot stays at the bottom of the screen while the list
+ * scrolls under it.
+ */
+const CANVAS: React.CSSProperties = {
+  backgroundColor: "#0F0C1B",
+  backgroundImage: [
+    "radial-gradient(90% 45% at 50% 100%, rgba(255,138,46,0.22) 0%, rgba(255,122,0,0.08) 42%, rgba(255,122,0,0) 74%)",
+    "radial-gradient(120% 50% at 50% 62%, rgba(122,92,178,0.18) 0%, rgba(122,92,178,0.05) 45%, rgba(122,92,178,0) 75%)",
+    "linear-gradient(180deg, #0F0C1B 0%, #0F0C1B 6%, #1B1636 34%, #2C1B41 62%, #402340 84%, #55303A 100%)",
+  ].join(", "),
+  backgroundAttachment: "fixed",
+};
 
-const ROW_FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-amber-400";
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]";
+
+const ROW_FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00]";
 /**
  * "2026-10-02T20:35:00Z" â†’ "10-02 20:35".
  *
@@ -159,9 +191,9 @@ function MessagesHeader({
   ];
 
   return (
-    <header className="shrink-0 border-b border-slate-200 bg-white px-4 pt-3">
+    <header className="shrink-0 border-b border-white/[0.08] bg-[#0F0C1B]/70 px-4 pt-3 backdrop-blur-md">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-bold text-slate-900">Messages</h1>
+        <h1 className="text-lg font-bold text-white">Messages</h1>
         {/* The filter control is `hidden sm:flex`: on the narrowest phones three
             icons plus a title crowds the row and wraps. Search and Settings
             survive at every width. */}
@@ -169,21 +201,21 @@ function MessagesHeader({
           <button
             type="button"
             aria-label="Search messages"
-            className={`flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/[0.08] hover:text-white ${FOCUS}`}
           >
             <Search className="h-[18px] w-[18px]" aria-hidden />
           </button>
           <button
             type="button"
             aria-label="Filter messages"
-            className={`hidden h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 sm:flex ${FOCUS}`}
+            className={`hidden h-9 w-9 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/[0.08] hover:text-white sm:flex ${FOCUS}`}
           >
             <SlidersHorizontal className="h-[18px] w-[18px]" aria-hidden />
           </button>
           <button
             type="button"
             aria-label="Message settings"
-            className={`flex h-9 w-9 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 ${FOCUS}`}
+            className={`flex h-9 w-9 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/[0.08] hover:text-white ${FOCUS}`}
           >
             <Settings2 className="h-[18px] w-[18px]" aria-hidden />
           </button>
@@ -208,8 +240,8 @@ function MessagesHeader({
                 "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-bold transition",
                 FOCUS,
                 selected
-                  ? "bg-amber-400 text-slate-900 shadow-[0_2px_10px_-2px_rgba(245,158,11,0.5)]"
-                  : "bg-slate-100 text-slate-500 hover:bg-slate-200",
+                  ? "bg-[#FF7A00] text-white shadow-[0_2px_10px_-2px_rgba(255,122,0,0.45)]"
+                  : "bg-white/[0.08] text-[#A09AB0] hover:bg-white/[0.12]",
               ].join(" ")}
             >
               <Icon className="h-4 w-4" aria-hidden />
@@ -235,9 +267,11 @@ function MessagesHeader({
  *
  * THIS REPLACES a faint grey "Fake Coin Offers" line of text. That line was
  * announced to a screen reader on every inbox load while carrying almost no
- * visual weight — the worst of both worlds. It is now a real, dismissible banner
- * in the pastel peach/amber the reference specifies, with the decorative glyphs
- * hidden from assistive tech so only the sentence is announced.
+ * visual weight — the worst of both worlds. It is now a real, dismissible banner,
+ * painted as a DARK amber card. The original was pastel peach, which is correct
+ * only against a white inbox: on this canvas it was the brightest block on the
+ * screen and pulled the eye off the message list. Decorative glyphs stay hidden
+ * from assistive tech so only the sentence is announced.
  *
  * The copy is deliberately blunt and uppercase, matching the reference. This is
  * the one place in the product where shouting is correct: it is a fraud warning
@@ -252,7 +286,7 @@ function ScamWarningBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div
       role="status"
-      className="flex items-center gap-3 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-100 via-orange-100 to-amber-100 p-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+      className="flex items-center gap-3 rounded-2xl border border-[#FF7A00]/30 bg-[#2A1F0E]/70 p-3 shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
     >
       {/* Decorative ghost + sunflower, per the reference. `aria-hidden` because they
           carry no information the sentence does not. */}
@@ -260,7 +294,7 @@ function ScamWarningBanner({ onDismiss }: { onDismiss: () => void }) {
         ðŸ‘»<span className="-ml-1 text-base">ðŸŒ»</span>
       </span>
 
-      <p className="min-w-0 flex-1 text-[13px] font-extrabold uppercase leading-tight tracking-wide text-amber-900">
+      <p className="min-w-0 flex-1 text-[13px] font-extrabold uppercase leading-tight tracking-wide text-[#FFC98A]">
         Scam Warning!! Don&apos;t fall for fake coin offers
       </p>
 
@@ -268,7 +302,7 @@ function ScamWarningBanner({ onDismiss }: { onDismiss: () => void }) {
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss scam warning"
-        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-amber-700 transition hover:bg-amber-200/60 ${FOCUS}`}
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#FFA040] transition hover:bg-[#FF7A00]/25 ${FOCUS}`}
       >
         <X className="h-4 w-4" aria-hidden />
       </button>
@@ -359,7 +393,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
           {row.iconBadge ? (
             <span
               aria-hidden
-              className="absolute -bottom-0.5 -right-1 rounded-full bg-amber-400 px-1.5 py-px text-[9px] font-bold leading-none text-slate-900 ring-2 ring-white"
+              className="absolute -bottom-0.5 -right-1 rounded-full bg-[#FF7A00] px-1.5 py-px text-[9px] font-bold leading-none text-white ring-2 ring-white"
             >
               {row.iconBadge}
             </span>
@@ -368,7 +402,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
 
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-bold text-slate-900">{row.title}</span>
+            <span className="truncate text-sm font-bold text-white">{row.title}</span>
             {/* The lips glyph on the Official Team row. `aria-hidden`: it is a
                 decorative echo of the row's meaning, which the title already
                 carries. */}
@@ -378,7 +412,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
               </span>
             ) : null}
           </span>
-          <span className="mt-0.5 block truncate text-xs text-slate-500">{row.subtitle}</span>
+          <span className="mt-0.5 block truncate text-xs text-[#A09AB0]">{row.subtitle}</span>
         </span>
 
         {/* Numeric counters only. `shrink-0` keeps the chip pinned right even when
@@ -396,7 +430,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
         {row.href ? (
           <Link
             href={row.href}
-            className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}
+            className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${ROW_FOCUS}`}
           >
             {body}
           </Link>
@@ -416,7 +450,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
     <li>
       <Link
         href={chat.href}
-        className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-slate-50 ${ROW_FOCUS}`}
+        className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${ROW_FOCUS}`}
       >
         <InboxAvatar chat={chat} />
 
@@ -425,7 +459,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
               the right edge even when the name is long enough to ellipsize. */}
           <span className="flex items-baseline gap-2">
             <span className="flex min-w-0 items-baseline gap-1">
-              <span className="truncate text-sm font-bold text-slate-900">{chat.name}</span>
+              <span className="truncate text-sm font-bold text-white">{chat.name}</span>
               {chat.emoji ? (
                 <span aria-hidden className="shrink-0 text-xs leading-none">
                   {chat.emoji}
@@ -433,10 +467,10 @@ function InboxRowItem({ row }: { row: InboxRow }) {
               ) : null}
             </span>
             {stamp ? (
-              <span className="shrink-0 text-[10px] tabular-nums text-slate-400">{stamp}</span>
+              <span className="shrink-0 text-[10px] tabular-nums text-[#A09AB0]">{stamp}</span>
             ) : null}
           </span>
-          <span className="mt-0.5 block truncate text-xs text-slate-500">{chat.preview}</span>
+          <span className="mt-0.5 block truncate text-xs text-[#A09AB0]">{chat.preview}</span>
         </span>
 
         {/* Hidden at zero — a grey "0" chip on every read thread is noise, and the
@@ -538,11 +572,12 @@ export function MessagesInbox({
        from bouncing. `head` holds the pinned header; `pb-24` reserves the nav's
        height so the last row is never stranded behind it.
 
-       `bg-slate-50` on the root is explicit on purpose: an inherited background
-       let whatever the shell painted show straight through the white rows. */
+       THE CANVAS. The `CANVAS` gradient is declared on the PageLock ROOT, not on
+       the body: the body is the single `overflow-y-auto` region, so a gradient
+       there would scroll away with the content and leave a flat void above it. */
     <PageLock
       flush
-      className="bg-slate-50"
+      style={CANVAS}
       head={<MessagesHeader tab={tab} onTabChange={setTab} unread={totalUnread} />}
       bodyClassName="flex flex-col gap-3 px-4 py-3 pb-24"
     >
@@ -558,14 +593,14 @@ export function MessagesInbox({
              `EmptyState` is deliberately not used: it hardcodes the old dark
              palette and would render as a black slab on this light screen. */
           <div className={`flex flex-col items-center gap-2 px-6 py-12 text-center ${CARD}`}>
-            <MessageCircle className="h-8 w-8 text-slate-300" aria-hidden />
-            <p className="text-sm font-bold text-slate-900">No messages yet</p>
-            <p className="max-w-xs text-xs leading-5 text-slate-500">
+            <MessageCircle className="h-8 w-8 text-[#A09AB0]" aria-hidden />
+            <p className="text-sm font-bold text-white">No messages yet</p>
+            <p className="max-w-xs text-xs leading-5 text-[#A09AB0]">
               Once you connect with someone, you can start a private chat from their profile.
             </p>
             <Link
               href="/discover"
-              className={`mt-1 rounded-full bg-amber-400 px-4 py-1.5 text-xs font-bold text-slate-900 transition hover:bg-amber-500 ${FOCUS}`}
+              className={`mt-1 rounded-full bg-[#FF7A00] px-4 py-1.5 text-xs font-bold text-white transition hover:bg-[#FF9500] ${FOCUS}`}
             >
               Discover people
             </Link>
@@ -574,7 +609,7 @@ export function MessagesInbox({
           /* ONE card, `divide-y` between rows. Giving each row its own card draws a
              border above and below every line, which reads as a stack of boxes
              rather than one list. */
-          <ul className={`divide-y divide-slate-100 overflow-hidden ${CARD}`}>
+          <ul className={`divide-y divide-white/[0.06] overflow-hidden ${CARD}`}>
             {rows.map((row) => (
               <InboxRowItem key={row.key} row={row} />
             ))}
@@ -585,9 +620,9 @@ export function MessagesInbox({
            rather than fake entries this states plainly that the feature has no
            history to show yet. */
         <div className={`flex flex-col items-center gap-2 px-6 py-12 text-center ${CARD}`}>
-          <Phone className="h-8 w-8 text-slate-300" aria-hidden />
-          <p className="text-sm font-bold text-slate-900">No call history</p>
-          <p className="max-w-xs text-xs leading-5 text-slate-500">
+          <Phone className="h-8 w-8 text-[#A09AB0]" aria-hidden />
+          <p className="text-sm font-bold text-white">No call history</p>
+          <p className="max-w-xs text-xs leading-5 text-[#A09AB0]">
             Calls you make and receive will show up here.
           </p>
         </div>
@@ -601,7 +636,7 @@ export function MessagesInbox({
       {showChats && chats.length > 0 ? (
         <p
           aria-hidden
-          className="flex items-center justify-center gap-1.5 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-400"
+          className="flex items-center justify-center gap-1.5 py-1 text-[10px] font-bold uppercase tracking-widest text-[#A09AB0]"
         >
           <ShieldCheck className="h-3 w-3" aria-hidden />
           Stay safe · never share your password
