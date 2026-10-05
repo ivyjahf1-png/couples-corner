@@ -78,7 +78,7 @@ export function MobileBackHeader() {
   // once the two 44px controls are gone.
   const isBareHeader = segment === "explore";
 
-  const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
+  const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat", "level", "badge", "support", "feedback"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
 
   function goBack() {

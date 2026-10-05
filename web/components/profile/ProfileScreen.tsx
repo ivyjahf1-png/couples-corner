@@ -78,10 +78,11 @@ const STATUS_TONE_CLASS: Record<NonNullable<MenuRow["statusTone"]>, string> = {
 };
 
 const MENU_ROWS: MenuRow[] = [
-  /* Achievements/badges. `/aristocracy` is the existing rank-and-badge screen â€”
-     the same destination the desktop sidebar links to for the same concept, so
-     the two entry points cannot drift apart. */
-  { label: "Badge", href: "/aristocracy", icon: "badge" },
+  /* Achievements/badges. `/badge` is the profile’s own badge manager:
+     the equipped frame, the badge slots and the owned-badge tray in one
+     place. `/aristocracy` stays the rank ladder, so the two concepts no
+     longer share a single destination. */
+  { label: "Badge", href: "/badge", icon: "badge" },
   /* Certification. The status is hardcoded because there is no certification
      column in `profiles` to read yet: claiming a state the database cannot
      support would be a lie. When a real column lands, this becomes a prop on
@@ -93,10 +94,10 @@ const MENU_ROWS: MenuRow[] = [
     status: "Uncertified",
     statusTone: "warn",
   },
-  /* No support route exists in this app. Rather than link to something that is
-     not support, this row opens the member's own mail client addressed to the
-     account address â€” a real, working destination that needs no new backend. */
-  { label: "Customer service", href: "mailto:support@couplescorner.app", icon: "support" },
+  /* `/support` is the dedicated customer-service chat screen — a real,
+     routed destination, replacing the mailto: fallback this row used to
+     carry. */
+  { label: "Customer service", href: "/support", icon: "support" },
   /* `/feedback` is a real screen in this app. */
   { label: "User feedback", href: "/feedback", icon: "feedback" },
   { label: "Settings", href: "/settings", icon: "settings" },
@@ -679,7 +680,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           <li>
             <Link
               href="/store"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
+              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
             >
               <span className={ICON_CHIP}>
                 <ProfileIcon name="bag" className="h-5 w-5" />
@@ -696,8 +697,8 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
           <li>
             <Link
-              href="/task"
-              className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
+              href="/level"
+              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
             >
               <span className={ICON_CHIP}>
                 <ProfileIcon name="level" className="h-5 w-5" />
