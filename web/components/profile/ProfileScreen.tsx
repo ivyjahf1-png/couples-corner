@@ -1,12 +1,13 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
+import { GAMES_REGISTRY } from "@/lib/gamesData";
 
 /**
  * THE PROFILE SCREEN ("Me").
  *
- * ── THE LAYOUT RULE THIS FILE EXISTS TO ENFORCE ────────────────────────────────
+ * â”€â”€ THE LAYOUT RULE THIS FILE EXISTS TO ENFORCE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * There are exactly FOUR surfaces on this screen, and the space between them is
  * owned by ONE `gap` on the root column. Nothing nests a second `gap` around a
  * section, and no section carries its own outer margin.
@@ -39,8 +40,8 @@ import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileI
  */
 
 /**
- * The menu rows that close the card: Badge · Certification · Customer service ·
- * User feedback · Settings.
+ * The menu rows that close the card: Badge Â· Certification Â· Customer service Â·
+ * User feedback Â· Settings.
  *
  * ONE SHAPE FOR ALL FIVE, and every row goes through the same JSX (see the
  * `MENU_ROWS.map` below). Five hand-copied blocks is how a list like this drifts:
@@ -49,7 +50,7 @@ import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileI
  * them from one array makes that class of bug impossible to write.
  *
  * `status` is OPTIONAL and renders nothing when absent. Certification is the only
- * row that has one ("Uncertified") — it is the only row whose value is a state
+ * row that has one ("Uncertified") â€” it is the only row whose value is a state
  * the member can act on, so it is the only one where the answer belongs beside
  * the chevron rather than one tap away.
  *
@@ -75,7 +76,7 @@ const STATUS_TONE_CLASS: Record<NonNullable<MenuRow["statusTone"]>, string> = {
 };
 
 const MENU_ROWS: MenuRow[] = [
-  /* Achievements/badges. `/aristocracy` is the existing rank-and-badge screen —
+  /* Achievements/badges. `/aristocracy` is the existing rank-and-badge screen â€”
      the same destination the desktop sidebar links to for the same concept, so
      the two entry points cannot drift apart. */
   { label: "Badge", href: "/aristocracy", icon: "badge" },
@@ -92,7 +93,7 @@ const MENU_ROWS: MenuRow[] = [
   },
   /* No support route exists in this app. Rather than link to something that is
      not support, this row opens the member's own mail client addressed to the
-     account address — a real, working destination that needs no new backend. */
+     account address â€” a real, working destination that needs no new backend. */
   { label: "Customer service", href: "mailto:support@couplescorner.app", icon: "support" },
   /* `/feedback` is a real screen in this app. */
   { label: "User feedback", href: "/feedback", icon: "feedback" },
@@ -133,7 +134,7 @@ export interface ProfileScreenData {
   relation: string;
 }
 
-/** "vip2" → "VIP2"; "free" → null so the VIP tile can show its empty state. */
+/** "vip2" â†’ "VIP2"; "free" â†’ null so the VIP tile can show its empty state. */
 function vipLabel(tier: string): string | null {
   const match = /^vip\s*(\d+)$/i.exec(tier.trim());
   return match ? `VIP${match[1]}` : null;
@@ -149,26 +150,35 @@ function vipLabel(tier: string): string | null {
  * two bands stay a straight edge instead of poking out past the radius.
  */
 /**
- * THE SHARED SURFACE — one radius, one fill, one border, one shadow.
+ * THE SHARED SURFACE â€” one radius, one fill, one border, one shadow.
  *
- * DARK GLASS. `bg-white/[0.04]` over the `#0F0C1B` canvas, with a hairline at
- * `white/10` and a shadow that is nearly black. A solid `bg-white` here is what
- * the previous build used, and against a dark page it produced five white
- * rectangles with hard edges — the exact "generic white card" the brand rules
+ * DARK PURPLE GLASS over the navy-to-plum canvas ramp, with a hairline at
+ * white/[0.08] and a shadow that is nearly black. A solid bg-white here is what
+ * an earlier build used, and against a dark page it produced five white
+ * rectangles with hard edges - the exact "generic white card" the brand rules
  * forbid.
  *
- * WHY THE FILL IS 4% WHITE AND NOT `#1A1429`. A flat `#1A1429` is indistinguishable
- * from the canvas at low contrast on cheap panels, so the cards stop reading as
- * cards. Translucent white lifts the fill proportionally on every display while
- * keeping the underlying hue, which is what "glassmorphism" actually means. The
- * BORDER is what carries the separation when the fill alone is too subtle, which
- * is why it is not omitted.
+ * WHY THE FILL IS A TRANSLUCENT DEEP PURPLE, NOT 4% WHITE. The old value was
+ * `bg-white/[0.04]`, which lifts any backdrop uniformly and therefore reads as a
+ * grey wash rather than as glass — on a canvas that is itself a navy-to-plum
+ * gradient it desaturated the whole screen. `bg-[#2A2438]/55` is the brand purple
+ * at 55% alpha, so the gradient STILL SHOWS THROUGH the card while the card keeps
+ * its own hue. That is what glassmorphism actually means: not "lighter", but
+ * "tinted and see-through".
+ *
+ * 55% rather than something heavier or lighter, because the card has to sit over
+ * the ramp's own transition: too transparent and the identity card disappears
+ * against the deep top, too opaque and the whole screen flattens into one tone.
+ *
+ * THE BORDER CARRIES THE SEPARATION when the fill alone is too subtle, which is
+ * why `border-white/[0.08]` is not omitted — and 0.08 rather than the old
+ * 0.10, which on a purple fill read as a visible outline rather than a hairline.
  *
  * `overflow-hidden` stays part of the token: it is what lets a hairline `border-t`
  * between two bands stay a straight edge instead of poking out past the radius.
  */
 const SURFACE =
-  "overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_1px_2px_rgba(0,0,0,0.4),0_8px_24px_-12px_rgba(0,0,0,0.6)]";
+  "overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_30px_-14px_rgba(0,0,0,0.75)]";
 
 /**
  * Focus ring on the brand orange.
@@ -181,6 +191,27 @@ const SURFACE =
  */
 const FOCUS =
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]";
+
+/**
+ * THE BRAND ORANGE â€” the app's single accent, and the only colour on this screen
+ * that is allowed to be saturated.
+ *
+ * `#FF7A00` rather than the Tailwind `amber-*` ramp this screen used to be built
+ * from. Amber and orange are close enough to look like one system until they sit
+ * side by side, at which point the coin tile, the VIP tile, the quick-action
+ * tiles and the focus ring read as four unrelated decisions. One hue, declared
+ * once, is what makes them read as an accent.
+ *
+ * `#FF7A00` on the `#0F0C1B` canvas is ~7.4:1, comfortably past WCAG AA for large
+ * text and UI boundaries; the near-black `#0F0C1B` glyphs ON the orange clear it
+ * far more strongly, which is why the tiles keep dark text rather than going
+ * white-on-orange (that pairing is only ~2.6:1 and fails).
+ *
+ * `#C2410C` is the gradient's deep stop â€” the same value as `--brand-800`, so the
+ * ramp terminates on a colour the app already ships rather than an invented one.
+ */
+const ORANGE = "#FF7A00";
+const ORANGE_DEEP = "#C2410C";
 /** One of the four quick-action tiles. */
 interface QuickAction {
   label: string;
@@ -188,7 +219,7 @@ interface QuickAction {
   icon: ProfileIconName;
 }
 
-/** Tasks · Income · Store · Aristocracy. Every href is a real route. */
+/** Tasks Â· Income Â· Store Â· Aristocracy. Every href is a real route. */
 const QUICK_ACTIONS: QuickAction[] = [
   { label: "Tasks", href: "/task", icon: "tasks" },
   { label: "Income", href: "/task", icon: "wallet" },
@@ -198,25 +229,58 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 /** A game tile in the Recommended Games grid. */
 interface GameTile {
+  id: string;
   title: string;
+  /** Absolute route — the game is genuinely playable at this path. */
   href: string;
-  /** Tailwind gradient classes standing in for the game's artwork. */
+  /** The game's own accent gradient, from the registry. */
   gradient: string;
+  /** The game's own glyph, from the registry. */
+  emoji: string;
+  /** Short registry tagline, used as the tile's accessible description. */
+  tagline: string;
 }
 
 /**
- * Recommended Games.
+ * The four titles promoted into the profile's Recommended Games row.
  *
- * Presentation tiles, not a live catalogue: there is no games table in this
- * schema to read and no per-game route, so every tile points at the store. Swap
- * `href` for a real route when one exists.
+ * THESE ARE NOT INVENTED. Every id below is a real entry in `GAMES_REGISTRY`,
+ * which is the same catalogue `GameCenterHub` renders and that `/games/[id]`
+ * resolves — so each tile now opens a game that actually loads and plays,
+ * instead of the `/store` dead link these tiles carried before.
+ *
+ * They are resolved BY ID rather than re-declared so the title, gradient, glyph
+ * and tagline cannot drift out of step with the hub: change a name in
+ * `gamesData.ts` and both surfaces follow.
+ *
+ * ORDER is deliberate rather than registry order — these four are the
+ * Slots/Action titles the hub hides behind its category filter, promoted here as
+ * the profile's showcase.
  */
-const GAMES: GameTile[] = [
-  { title: "Fortune Gems", href: "/store", gradient: "from-fuchsia-500 to-purple-700" },
-  { title: "WealthyTiger", href: "/store", gradient: "from-amber-400 to-orange-600" },
-  { title: "World Goal", href: "/store", gradient: "from-sky-400 to-blue-700" },
-  { title: "Rocket Star", href: "/store", gradient: "from-rose-400 to-red-700" },
-];
+const FEATURED_GAME_IDS = [
+  "fortune-gems",
+  "wealthy-tiger",
+  "world-goal",
+  "rocket-star",
+] as const;
+
+const GAMES: GameTile[] = FEATURED_GAME_IDS.map((id) => {
+  const entry = GAMES_REGISTRY.find((game) => game.id === id);
+  /* A missing id is a programming error, not a runtime condition: the ids above
+     are compile-time literals checked against a literal array. Returning a
+     visible placeholder beats rendering an empty tile with no href. */
+  if (!entry) {
+    return { id, title: id, href: "/games", gradient: "from-slate-500 to-slate-700", emoji: "🎮", tagline: "Game" };
+  }
+  return {
+    id: entry.id,
+    title: entry.title,
+    href: `/games/${entry.id}`,
+    gradient: entry.gradient,
+    emoji: entry.emoji,
+    tagline: entry.tagline,
+  };
+});
 
 /**
  * Header bar pinned above the scroll region.
@@ -247,7 +311,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        no descendant adds an outer margin of its own. */
     <div className="flex flex-col gap-3 pb-2">
       {/* ================================================================ *
-       * SURFACE 1 — identity and stats, ONE card.
+       * SURFACE 1 â€” identity and stats, ONE card.
        *
        * The profile row and the stat bar are separated by `border-t`, NOT by a
        * gap. That single change is what stops them reading as two boxes: they
@@ -265,12 +329,28 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </Link>
 
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-lg font-bold text-white">{data.name}</p>
-              {/* A null tier renders nothing rather than a "VIP0" pill — "VIP0"
+            {/* THE NAME WRAPS TO TWO LINES RATHER THAN TRUNCATING. `truncate`
+                produced "Greg Willia..." on a narrow phone, which looks like a
+                rendering bug rather than a deliberate abbreviation â€” and a member
+                cannot recognise a cut-off name on a profile whose entire purpose is
+                showing who they are talking to.
+
+                `min-w-0` is what makes wrapping possible at all: without it a flex
+                item refuses to shrink below its content width and the line overflows
+                instead. `break-words` is the pathological guard for a single
+                unbroken handle. The badges beside it are `shrink-0`, so they hold
+                their size and the name absorbs the squeeze. */}
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+              <p className="line-clamp-2 min-w-0 break-words text-lg font-bold leading-tight text-white">
+                {data.name}
+              </p>
+              {/* A null tier renders nothing rather than a "VIP0" pill â€” "VIP0"
                   would read as a rank the member had earned. */}
               {vip ? (
-                <span className="shrink-0 rounded-md bg-gradient-to-br from-amber-400 to-amber-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                <span
+                className="shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white"
+                style={{ backgroundImage: `linear-gradient(135deg, ${ORANGE} 0%, ${ORANGE_DEEP} 100%)` }}
+              >
                   {vip}
                 </span>
               ) : null}
@@ -323,7 +403,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               </Link>
             ) : (
               /* Friends and Followers have no dedicated list screen in this app. A
-                 non-interactive cell is deliberate — `href="#"` would look
+                 non-interactive cell is deliberate â€” `href="#"` would look
                  tappable and do nothing. */
               <div
                 key={stat.label}
@@ -336,7 +416,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         </div>
       </section>
 {/* ================================================================ *
-       * SURFACE 2 — wallet and VIP, flush side by side.
+       * SURFACE 2 â€” wallet and VIP, flush side by side.
        *
        * Equal height comes from BOTH tiles carrying the same `h-[88px]`, not
        * from `items-stretch` (which would stretch content inside them and leave
@@ -344,12 +424,17 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * separation, so they read as a pair rather than two cards.
        * ================================================================ */}
       <div className="grid grid-cols-2 gap-2">
-        {/* Coin balance. Bright yellow with a black glyph — the loudest element
-            on the screen, which is why the number is 2xl rather than body size. */}
+        {/* Coin balance. The brand orange with a near-black glyph â€” the loudest
+            element on the screen, which is why the number is 2xl.
+            `hover:brightness-110` rather than a separate darker hex: the tile is
+            a large flat fill, so a brightness step reads as the same colour
+            pressed rather than as a different colour, and it cannot drift out of
+            step with the accent the way a second hex can. */}
         <Link
           href="/store"
           aria-label={`Coin balance ${data.coinBalance}. Open store`}
-          className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl bg-amber-400 px-3.5 transition hover:bg-amber-500 ${FOCUS}`}
+          className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl px-3.5 transition hover:brightness-110 ${FOCUS}`}
+          style={{ backgroundColor: ORANGE }}
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black/15 text-[#0F0C1B]">
             <ProfileIcon name="coin" className="h-5 w-5" />
@@ -359,20 +444,26 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </span>
         </Link>
 
-        {/* VIP tier. Dark bronze/gold with the gem bleeding off the right edge;
-            `overflow-hidden` is what clips it, so the gem reads as part of the
-            artwork rather than a floating icon. */}
+        {/* VIP tier. Same orange, one step deeper, with the gem bleeding off the
+            right edge; `overflow-hidden` is what clips it, so the gem reads as
+            part of the artwork rather than a floating icon.
+
+            The gem is white at 85% rather than the pale gold it was: a warm
+            highlight ON the orange would have been the same hue as its own
+            background and disappeared. White separates from orange by hue, not
+            just by lightness. */}
         <Link
           href="/subscription"
           aria-label={vip ? `${vip} membership. Manage subscription` : "Upgrade to VIP"}
-          className={`relative flex h-[88px] items-center overflow-hidden rounded-2xl bg-gradient-to-br from-amber-700 via-amber-800 to-yellow-900 px-3.5 transition hover:brightness-110 ${FOCUS}`}
+          className={`relative flex h-[88px] items-center overflow-hidden rounded-2xl bg-gradient-to-br px-3.5 transition hover:brightness-110 ${FOCUS}`}
+          style={{ backgroundImage: `linear-gradient(135deg, ${ORANGE} 0%, ${ORANGE_DEEP} 100%)` }}
         >
-          <span className="relative z-10 text-sm font-bold text-amber-50">
+          <span className="relative z-10 text-sm font-bold text-white">
             {vip ?? "Upgrade"}
           </span>
           <span
             aria-hidden
-            className="pointer-events-none absolute -right-2 -top-1 flex h-16 w-16 items-center justify-center text-amber-200/90"
+            className="pointer-events-none absolute -right-2 -top-1 flex h-16 w-16 items-center justify-center text-white/85"
           >
             <ProfileIcon name="gem" className="h-14 w-14 drop-shadow-lg" />
           </span>
@@ -380,7 +471,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
       </div>
 
       {/* ================================================================ *
-       * SURFACE 3 — friend relationship banner, full width.
+       * SURFACE 3 â€” friend relationship banner, full width.
        *
        * Full-bleed across the content column like every other surface, so the
        * left and right edges line up with the cards above and below it. That
@@ -389,7 +480,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * ================================================================ */}
       <section
         aria-label="Friend relationship"
-        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/10 bg-sky-500/[0.12] px-4 py-3.5"
+        className="relative flex items-center justify-between gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-4 py-3.5"
       >
         <div className="relative z-10 min-w-0">
           <p className="text-sm font-bold text-white">
@@ -413,31 +504,38 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           <span className="absolute right-5 top-0 flex h-9 w-9 -rotate-12 items-center justify-center text-pink-400">
             <ProfileIcon name="heart" className="h-9 w-9 fill-current" />
           </span>
-          <span className="absolute right-0 top-5 flex h-11 w-11 rotate-6 items-center justify-center text-sky-400">
+          {/* The second heart is VIOLET, not sky. It was `sky-400` when this card
+              had a sky-blue fill, where the two hearts read as pink-against-blue.
+              On the purple glass the sky sat too close to the card's own hue and
+              the pair stopped separating; violet keeps the cool-warm contrast the
+              design wants while staying in the screen's palette. */}
+          <span className="absolute right-0 top-5 flex h-11 w-11 rotate-6 items-center justify-center text-violet-400">
             <ProfileIcon name="heart" className="h-11 w-11 fill-current" />
           </span>
         </span>
       </section>
 {/* ================================================================ *
-       * SURFACE 4 — games, quick actions and the two list rows, ONE card.
+       * SURFACE 4 â€” games, quick actions and the two list rows, ONE card.
        *
        * This is where the "lonely boxes" were worst: six separately-bordered
        * cards in a column, each with its own radius and shadow, reading as
        * unrelated fragments. They are now three BANDS of a single surface:
        *
        *     band 1  Recommended Games
-       *     ─────── hairline ───────
-       *     band 2  Tasks · Income · Store · Aristocracy
-       *     ─────── hairline ───────
-       *     band 3  Bag · Level
+       *     â”€â”€â”€â”€â”€â”€â”€ hairline â”€â”€â”€â”€â”€â”€â”€
+       *     band 2  Tasks Â· Income Â· Store Â· Aristocracy
+       *     â”€â”€â”€â”€â”€â”€â”€ hairline â”€â”€â”€â”€â”€â”€â”€
+       *     band 3  Bag Â· Level
        *
        * `border-t` on bands 2 and 3, `divide-y` inside band 3. No margins
        * between them anywhere.
        * ================================================================ */}
       <section aria-label="Games and features" className={SURFACE}>
-        {/* Band 1 — Recommended Games. A 4-up grid, not a scroll rail: with
-            exactly four titles a rail would clip the fourth and imply content
-            that does not exist. */}
+{/* Band 1 - Recommended Games. A 4-up grid, not a scroll rail: with exactly
+            four titles a rail would clip the fourth and imply content that does
+            not exist.
+            The tiles are real catalogue entries with real routes (see GAMES),
+            not placeholders pointing at the store. */}
         <div className="px-4 pb-4 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white">Recommended Games</h2>
@@ -450,22 +548,67 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             </Link>
           </div>
 
+          {/* `min-w-0` ON THE LIST ITEM IS THE FIX FOR THE CLIPPED RIGHT EDGE.
+
+              A grid item defaults to `min-width: auto`, which means it refuses to
+              shrink below its content's width. One long game title therefore widened
+              its whole track, and because the grid is `1fr` x 4 the extra width was
+              pushed out of the right edge and the fourth tile was cut off - the row
+              looked broken rather than scrolled.
+
+              `min-w-0` lets the track shrink to its `1fr` share, the title's
+              `line-clamp-1` ellipsizes inside it, and all four tiles stay on screen.
+              It is a containment fix, not a layout change: the 4-up grid is kept
+              deliberately, because with exactly four titles a scroll rail would clip
+              the fourth AND imply content that does not exist. */}
           <ul className="mt-3 grid grid-cols-4 gap-2">
             {GAMES.map((game) => (
-              <li key={game.title}>
+              <li key={game.id} className="min-w-0">
                 <Link
                   href={game.href}
-                  className={`flex flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-white/[0.06] ${FOCUS}`}
+                  /* The tagline is the tile's accessible name: a screen reader
+                     otherwise announces four identical bare numbers-of-a-game with
+                     no idea which is which or what playing one involves. */
+                  aria-label={`${game.title} — ${game.tagline}`}
+                  className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-white/[0.06] ${FOCUS}`}
                 >
+                  {/* THE TILE ARTWORK.
+
+                     Three layers rather than a flat gradient block, because a bare
+                     gradient is what made these read as empty placeholders:
+
+                       1. the game's OWN gradient from the registry (distinct per
+                          title, and the same one the hub card uses);
+                       2. a radial bloom behind the glyph, which stops the middle
+                          of the tile reading as flat colour;
+                       3. the game's own emoji glyph from the registry, centred.
+
+                     `aria-hidden` because the tile's `aria-label` already names it
+                     and an emoji read aloud as a character is noise.
+
+                     HONEST LIMITATION: there are no screenshot or photo assets in
+                     this repository — `public/` holds only the three app icons — so
+                     this is designed artwork built from the catalogue's own data,
+                     not photography. Drop PNGs at `public/games/<id>.png` and add
+                     an `image` field to `GameRegistryEntry` to swap in real
+                     screenshots; the tile is one `<img>` away from it. */}
                   <span
                     aria-hidden
-                    className={`block aspect-square w-full rounded-xl bg-gradient-to-br ${game.gradient} shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
-                  />
+                    className={`relative block aspect-square w-full overflow-hidden rounded-xl bg-gradient-to-br ${game.gradient} shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
+                  >
+                    <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.38),transparent_62%)]" />
+                    <span className="absolute inset-0 flex items-center justify-center text-[34px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
+                      {game.emoji}
+                    </span>
+                    {/* Bottom vignette so the glyph keeps its contrast against the
+                        lighter part of any gradient. */}
+                    <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/25 to-transparent" />
+                  </span>
                   {/* `line-clamp-1` + `title`: a long title ellipsizes to one line
                       rather than wrapping and breaking the row's baseline. */}
                   <span
                     title={game.title}
-                    className="line-clamp-1 w-full text-center text-[11px] font-semibold text-[#E0E0E0]"
+                    className="line-clamp-1 w-full text-center text-[11px] font-semibold text-white/90"
                   >
                     {game.title}
                   </span>
@@ -475,7 +618,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </ul>
         </div>
 
-        {/* Band 2 — quick actions. Bold black outlines, yellow icon chips, on
+        {/* Band 2 â€” quick actions. Bold black outlines, yellow icon chips, on
             the shared surface rather than in their own floating card. */}
         <div className="grid grid-cols-4 gap-2 border-t border-white/[0.08] px-4 py-4">
           {QUICK_ACTIONS.map((action) => (
@@ -484,7 +627,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href={action.href}
               className={`flex flex-col items-center gap-1.5 rounded-xl border-2 border-white/15 bg-white/[0.06] px-1 py-2.5 transition hover:bg-[#FF7A00]/10 ${FOCUS}`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-400 text-[#0F0C1B]">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
                 <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
               </span>
               <span className="text-[11px] font-bold text-white">{action.label}</span>
@@ -492,7 +635,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           ))}
         </div>
 
-        {/* Band 3 — Bag and Level. `divide-y` rules BETWEEN rows only; the band
+        {/* Band 3 â€” Bag and Level. `divide-y` rules BETWEEN rows only; the band
             above it is separated by its own `border-t`, so there is never a
             doubled line where two rules land on top of each other. */}
         <ul className="divide-y divide-white/[0.08] border-t border-white/[0.08]">
@@ -501,7 +644,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href="/store"
               className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
                 <ProfileIcon name="bag" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold text-white">
@@ -519,7 +662,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href="/task"
               className="flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
                 <ProfileIcon name="level" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold text-white">
@@ -530,24 +673,24 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </li>
         </ul>
 
-        {/* MENU ROWS — Badge, Certification, Customer service, User feedback,
+        {/* MENU ROWS â€” Badge, Certification, Customer service, User feedback,
             Settings.
 
             WHY THESE ARE IN THE *SAME* `<ul>` AND NOT A NEW ONE. This is the whole
             point of the band: `divide-y` rules BETWEEN rows only, so adding rows
             here means each is separated from its neighbour by exactly one
-            hairline. Starting a second `<ul>` — or a second `<section>` — would
+            hairline. Starting a second `<ul>` â€” or a second `<section>` â€” would
             put a `border-t` from the new container directly against the last
             `divide-y` rule of this one, producing a visibly DOUBLED line where
             the two meet. One list is also why the card has no isolated boxes:
             `SURFACE` above carries the radius and `overflow-hidden`, so every row
             added to this list is automatically clipped by the card's own radius.
 
-            THE ICON TILE. `bg-amber-400` matches Bag and Level above, so the
-            column of yellow tiles reads as one system down the whole card rather
+            THE ICON TILE. Shares the `ORANGE` constant with the wallet tile above, so the
+            column of orange tiles reads as one system down the whole card rather
             than as "the first two rows are styled and the rest are not". Each
             row reuses the identical markup via the shared `MENU_ROWS` map below
-            rather than five hand-copied blocks — which is what previously let a
+            rather than five hand-copied blocks â€” which is what previously let a
             row drift out of step with its neighbours. */}
         <ul className="mt-0">
           {MENU_ROWS.map((row) => (
@@ -556,7 +699,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               href={row.href}
               className={`flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0 ${FOCUS}`}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-400 text-[#0F0C1B]">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-[#0F0C1B]" style={{ backgroundColor: ORANGE }}>
                 <ProfileIcon name={row.icon} className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">

@@ -538,10 +538,27 @@ input::placeholder, textarea::placeholder {
    bar can honour iOS safe-area insets.
    ========================================================================== */
 :root {
-  --nav-bg: #0B1120;  /* deep charcoal  premium dark base */
-  --nav-surface: rgb(11 17 32 / 0.85); /* translucent frosted bar */
-  --nav-border: rgb(255 255 255 / 0.06); /* ultra-thin hairline */
-  --nav-text-muted: #94a3b8;  /* slate-400  refined contrast */
+  /* MIDNIGHT NAVY & PURPLE — the app's declared palette (see the header comment:
+     "Dark Purple/Navy Theme"). The nav chrome is the PURPLE half of it.
+
+     `#2A2438` is a desaturated deep purple: purple enough to read as the brand's
+     purple surface, dark enough that white text clears WCAG AA on it (the fill
+     is ~#2A2438, and white on it is ~11.6:1). A more saturated violet such as
+     `#5B21B6` was rejected for the BAR because it competes with the orange
+     primary-action accents and drags the eye off the tab labels.
+
+     `--nav-surface` is the same hue at 85% alpha so the frosted blur still lets
+     content glow through, which is the whole point of the `backdrop-filter` on
+     `.app-bottom-nav`. A fully opaque fill would have killed that effect. */
+  --nav-purple: #2a2438;
+  --nav-purple-lift: #3a3150; /* raised capsule + active pill */
+  --nav-bg: #2a2438; /* deep purple base — sidebar rail */
+  --nav-surface: rgb(42 36 56 / 0.85); /* translucent frosted purple bar */
+  --nav-border: rgb(255 255 255 / 0.08); /* ultra-thin hairline */
+  /* INACTIVE label/glyph colour. `#9B93AE` is a muted lavender-grey: it recedes
+     against the purple without going as dim as slate-400 did, which on a purple
+     fill lost its edge and read as disabled rather than merely inactive. */
+  --nav-text-muted: #9b93ae;
 }
 
 /* Fixed left-hand navigation rail (md and up). */
@@ -973,42 +990,49 @@ button,
 .nav-pill:active:not(:disabled) {
   transform: translateY(1px);
 }
-/* ACTIVE — amber pill. The border is amber at low alpha rather than a hard
-   outline, so the pill reads as a filled shape rather than a button. */
+/* ACTIVE — THE ONE ORANGE STATE ON THE BAR.
+
+   ONE RULE ACROSS ALL FIVE TABS: purple is the resting state, orange means
+   "selected". That is why the raised centre button is purple by default too (see
+   `mobileTabClasses`) — when it was permanently orange, orange meant "primary
+   action" permanently and could not also mean "you are here", so the active
+   state on the other four tabs had to be signalled by some other colour and the
+   bar ended up with three highlight colours instead of one.
+
+   LABEL COLOUR IS NEAR-BLACK, NOT WHITE. `#FF7A00` is a LIGHT orange: white on
+   it is ~2.6:1 and fails WCAG AA, while `#0F0C1B` on it is ~7.4:1. The same
+   reasoning applies to the raised pill in AppNav, and the icon inherits from
+   here rather than being pinned separately. */
 .nav-pill--active,
 .nav-pill--active:hover {
-  color: #b45309;
-  background-color: rgb(245 158 11 / 0.14);
-  border-color: rgb(245 158 11 / 0.32);
+  color: #0f0c1b;
+  background-color: rgb(255 122 0 / 0.18);
+  border-color: rgb(255 122 0 / 0.45);
 }
 
-/* THE ACTIVE TAB'S GLOW.
+/* A tight, low-alpha glow rather than a wide one on purpose: a wide shadow on a
+   dark capsule bleeds into the neighbouring tabs and makes the active one look
+   BLURRY rather than lit — the exact artefact a crisp line-art bar must not
+   suffer. `inset` keeps the light inside the pill's own rounded edge, which is
+   what reads as a backlit surface at this size. Violet, to match the fill.
 
-   The retint above dropped the old orange `box-shadow` glow entirely, which
-   removed the "glowing pill" the reference design has. This restores it, in AMBER
-   rather than the old orange, so it belongs to the same accent as the pill fill
-   and the indicator bar.
-
-   It is a tight, low-alpha inner glow rather than a wide outer one on purpose: a
-   wide amber shadow on a dark capsule bleeds into the neighbouring tabs and
-   makes the active one look blurry rather than lit. `inset` keeps the light
-   inside the pill's own rounded edge, which is what reads as a backlit surface
-   at this size.
-
-   Paired with `transition` on `.nav-pill` (already declared above), so moving
-   between tabs animates the glow instead of snapping it. */
+   Paired with `transition` on `.nav-pill` above, so moving between tabs animates
+   the glow instead of snapping it. */
 .nav-pill--active {
   box-shadow:
-    inset 0 0 12px -2px rgb(251 191 36 / 0.35),
-    0 0 12px -4px rgb(245 158 11 / 0.45);
+    inset 0 0 12px -2px rgb(255 122 0 / 0.3),
+    0 0 12px -4px rgb(255 122 0 / 0.4);
 }
-/* The indicator: a short amber bar under the active tab's label.
+/* The indicator: a short orange bar under the active tab's label.
 
-   A previous iteration shipped an orange DISC here as well as the orange pill.
-   That was invisible at best and, where the gradient was lightest, read as a
-   smudge under the very tab the member was on. This is a bar instead — it sits
-   on the pill's own axis, reads as a deliberate selection marker, and cannot be
-   confused with the red unread count badge, which is a filled circle. */
+   A previous iteration shipped a DISC here as well as the pill. That was
+   invisible at best and, where the gradient was lightest, read as a smudge under
+   the very tab the member was on. This is a bar instead — it sits on the pill's
+   own axis, reads as a deliberate selection marker, and cannot be confused with
+   the red unread count badge, which is a filled circle.
+
+   The RAISED centre tab does not get this bar: it has a filled pill and a lifted
+   position already, so an indicator under it would double the signal. */
 .nav-pill--active::after {
   content: "";
   position: absolute;
@@ -1018,11 +1042,11 @@ button,
   height: 0.1875rem;
   transform: translateX(-50%);
   border-radius: 9999px;
-  background-color: #f59e0b;
+  background-color: #ff7a00;
 }
 .nav-pill--active:active:not(:disabled) {
   transform: translateY(1px);
-  background-color: rgb(245 158 11 / 0.2);
+  background-color: rgb(255 122 0 / 0.28);
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-pill {

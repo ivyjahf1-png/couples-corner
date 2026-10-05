@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/landing/Icon";
+import { NavIcon, type NavIconName } from "@/components/app/NavIcons";
 import { Avatar } from "@/components/app/Avatar";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
@@ -11,11 +12,11 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
  * Couples Corner — app navigation (VISUAL SHELL ONLY).
  *
  * Layout contract:
- *   • Mobile (<768px): a 5-item bottom bar — Explore | Moment | Likes |
+ *   — Mobile (<768px): a 5-item bottom bar — Explore | Moment | Likes |
  *     Messages | Me, in that order. Explore leads (see `mobileTabs` for why)
  *     and is also the post-auth landing screen. The "Menu" drawer (opened from
  *     the top bar) holds the secondary destinations + sign out.
- *   • Tablet + desktop (≥768px): one fixed left-hand navy (#0F172A) sidebar
+ *   — Tablet + desktop (=768px): one fixed left-hand navy (#0F172A) sidebar
  *     carrying the complete navigation.
  *
  * PRESERVATION CONSTRAINT: this module renders links and drawer state only.
@@ -28,7 +29,7 @@ export interface AppNavItem {
   href: string;
   label: string;
   icon: IconName;
-  /** Extra path prefixes that also mark this entry active (Matches ⇄ Messages). */
+  /** Extra path prefixes that also mark this entry active (Matches ? Messages). */
   alsoActiveFor?: string[];
 }
 
@@ -170,51 +171,67 @@ interface AppMobileNavProps {
 
 /** One tab in the mobile bottom bar. */
 interface MobileTab extends AppNavItem {
+  /**
+   * The line-art glyph for THIS tab, from `NavIcons`.
+   *
+   * Separate from `icon` on purpose. `icon` still feeds the desktop sidebar and
+   * the "Menu" drawer, which keep the hand-drawn `Icon` set; the bottom bar uses
+   * the stroke-only set. One union type per surface means neither is forced to
+   * compromise, and changing a tab's nav glyph cannot silently change its
+   * sidebar glyph.
+   */
+  navIcon: NavIconName;
   /** Renders the unread-messages badge on this tab (Messages). */
   showBadge?: boolean;
+  /**
+   * THE RAISED CENTRE BUTTON. `true` on the Feed tab only.
+   *
+   * It is a normal entry in this array and a normal link — it is NOT a floating
+   * button layered over the bar. The reference shows a raised pill, not a separate
+   * widget, and a `position: fixed` centre button is exactly the class of thing
+   * that ends up overlapping the composer or sitting under the tab bar once a
+   * safe-area inset appears. Raising it INSIDE the row keeps it on the same
+   * baseline maths as its neighbours and lets it scroll with the bar.
+   */
+  raised?: boolean;
 }
 
 /**
- * Mobile bottom-bar tabs — the exact 4-tab sequence:
- * Home · Moment · Chat · Me.
+/**
+ * Mobile bottom-bar tabs - the exact 5-tab sequence:
+ *   Explore - Moment - Feed (raised centre) - Messages - Me
  *
- * ── WHY THIS IS NOW FOUR TABS AND NOT FIVE ────────────────────────────────────
- * The reference design shows four, with Chat carrying the red unread badge and
- * Me carrying the active amber treatment. `Explore` and `Likes` are no longer
- * tabs.
+ * -- WHY FIVE TABS AGAIN -------------------------------------------------------
+ * This bar previously carried four (Home - Moment - Chat - Me) after an earlier
+ * request, and five before that (Explore - Moment - Likes - Messages - Me). The
+ * reference this now matches has five, with a RAISED centre Feed button. That is
+ * what is built here.
  *
- * That is not a deletion, and it is the reason this comment is long. Explore
- * (`/discover`) is the product's core loop — the route a member lands on after
- * signing in — and dropping it from the bar with nowhere else to reach it would
- * strand the single most important screen on mobile. So BOTH removed
- * destinations were moved into the "Menu" drawer, which is rendered by the same
- * component and is already the home for secondary destinations on a phone.
- * Neither route was deleted, and neither becomes unreachable:
+ * The two changes worth understanding, because both are reversible by editing only
+ * this array and the `grid-cols-5` below:
  *
- *   • Explore → drawer (and the "Explore · Find your people" page header still
- *     links out to the /explore grid, so the surface stays threaded through the
- *     app even though it is no longer a tab).
- *   • Likes   → drawer.
+ *   1. EXPLORE IS BACK as the first tab, pointing at `/discover` ? the product's core
+ *      loop and the route a member lands on after signing in. It had been demoted to
+ *      the drawer when the bar shrank to four.
  *
- * If Explore is ever promoted back to a tab, the bar goes back to five entries
- * and `grid-cols-4` becomes `grid-cols-5` in `AppMobileNav` — the grid column
- * count and this array MUST be changed together or the tabs will not spread
- * evenly across the capsule.
- *
- * "Home" points at "/", the immersive feed, with `alsoActiveFor` covering
- * `/dashboard` so it lights up on the nested route too. Moment points at `/feed`,
- * which is the other feed surface; they are separate tabs because the reference
- * shows them as separate, and `moments` vs `home` glyphs keep them legible.
- *
- * `showBadge` stays on Chat: it is the only tab that can carry an unread count,
- * and the count comes from the real `unreadCount` prop (`getUnreadCountAction`
- * in `AppShell`), never a hardcoded number.
+ *   2. FEED IS ITS OWN TAB (`/feed`) AND MOMENT IS ITS OWN TAB (`/moments`). These
+ *      were ONE tab serving two very different surfaces: `/moments` redirected to
+ *      `/feed`, which itself toggled between an immersive video player and a blog
+ *      timeline. A member tapping "Moment" for videos could land on a blog with no
+ *      indication that anything had been substituted. They are now genuinely
+ *      separate routes with their own headers.
+
+ * THE GRID BELOW MUST MATCH THIS LENGTH. `grid-cols-5` with six entries squeezes
+ * every tab; four entries leave a dead gap. Change them together.
+
+ * `showBadge` is on Messages only, and the count is the real `unreadCount` prop.
  */
 const mobileTabs: MobileTab[] = [
-  { href: "/", icon: "home", label: "Home", alsoActiveFor: ["/dashboard"] },
-  { href: "/feed", icon: "moments", label: "Moment" },
-  { href: "/messages", icon: "chat", label: "Chat", showBadge: true },
-  { href: "/profile", icon: "profile", label: "Me" },
+  { href: "/discover", icon: "compass", navIcon: "explore", label: "Explore", alsoActiveFor: ["/explore"] },
+  { href: "/moments", icon: "moments", navIcon: "moment", label: "Moment" },
+  { href: "/feed", icon: "sparkle", navIcon: "feed", label: "Feed", raised: true },
+  { href: "/messages", icon: "chat", navIcon: "messages", label: "Messages", showBadge: true },
+  { href: "/profile", icon: "profile", navIcon: "me", label: "Me" },
 ];
 
 /**
@@ -227,13 +244,59 @@ const mobileTabs: MobileTab[] = [
  * old mid-grey was the same value it had when the bar behind it was near-black.
  * Hover moves to amber so the affordance is still discoverable.
  */
-function mobileTabClasses(active: boolean) {
+/**
+ * Shared tab styling.
+ *
+ * `raised` switches on the FEED tab''s centre-button treatment. See the comment
+ * inside for why it is a separate branch and not a modifier on the amber pill.
+ */
+function mobileTabClasses(active: boolean, raised = false) {
+  if (raised) {
+    /* THE RAISED CENTRE TAB.
+
+       `-mt-4` lifts the pill out of the row so it reads as elevated. It has to be a
+       NEGATIVE MARGIN, not extra bottom padding: padding would only make the pill
+       taller, it would not move it up.
+
+       COLOUR IS NOW STATEFUL, WHICH IS THE WHOLE POINT OF THIS CHANGE.
+
+       It used to be a PERMANENTLY orange fill, on the reasoning that the centre
+       button is the primary action and should look lit at all times. That made
+       "orange" mean "primary action" on this bar permanently, so orange could no
+       longer mean "the tab you are on" anywhere — the two signals collided, and
+       the active state on the other four tabs had to be carried by a different
+       colour entirely.
+
+       Now: DEEP PURPLE by default, ORANGE only while the member is actually on
+       `/feed`. One rule across all five tabs — purple is the resting state,
+       orange is "selected" — so the highlight means the same thing everywhere and
+       means nothing at all until it is earned.
+
+       Text is near-black on the orange, not white: `#FF7A00` is a LIGHT orange
+       and white on it is ~2.6:1, which fails WCAG AA. `#0F0C1B` on it is ~7.4:1.
+
+       `h-full` is deliberately absent: the negative margin needs the box to take its
+       natural height, and `h-full` would re-expand it to the row and cancel the
+       lift out entirely. */
+    return [
+      "nav-pill--tab",
+      "flex w-full flex-col items-center justify-center gap-0.5",
+      "-mb-1 -mt-4 rounded-full px-4 pt-2.5 pb-2 transition",
+      /* THE ACTIVE BRANCH IS WHAT CHANGES COLOUR — the resting branch is the deep
+         purple. Both carry the same elevation shadow, lifted slightly on active. */
+      active
+        ? "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_22px_-6px_rgba(255,122,0,0.85)]"
+        : "bg-[#3A3150] text-white shadow-[0_8px_20px_-8px_rgba(122,106,160,0.6)] hover:bg-[#463A5F]",
+      "text-[11px] font-bold leading-none whitespace-nowrap",
+    ].join(" ");
+  }
+
   return [
     "nav-pill nav-pill--tab",
     active ? "nav-pill--active font-semibold" : "",
     "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
     "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active ? "" : "text-slate-400 hover:text-amber-600",
+    active ? "" : "text-[#9B93AE] hover:text-[#C4B5E4]",
   ]
     .filter(Boolean)
     .join(" ");
@@ -340,8 +403,30 @@ export function AppMain({ children }: { children: React.ReactNode }) {
      Matched with `startsWith` rather than `===` because this is a DYNAMIC route:
      `/profile` itself is the own-profile page and keeps its normal document
      gutters, so an exact match would opt the wrong screen in or out. */
+  /* THE FULL-BLEED LIST IS ABOUT THE PAGE'S OWN BACKGROUND REACHING THE BEZEL,
+     not about content width.
+
+     `<main>` carries `px-4` for prose pages. When a page paints its own full-bleed
+     background inside that padding, the shell's background shows down both sides ?
+     which is exactly the "dark gutter" framing: /messages painted a light inbox
+     inset 16px inside a dark shell, and /profile painted its dark canvas inset
+     inside the same. The padding is not wrong on its own; it is wrong for a route
+     that owns the background.
+
+     These routes therefore take `p-0` and MUST reserve the fixed tab bar's height
+     themselves. Every one of them already does (`pb-24` on the inbox and the store,
+     `pb-28` on the profile), so nothing is stranded behind the bar.
+
+     `/messages` and `/profile` are matched EXACTLY on purpose: `/profile/<uid>` is a
+     different, already-full-bleed surface, and `/profile` is the member's own hub. */
   const isFullBleedSurface =
-    pathname === "/feed" || pathname === "/" || pathname === "/discover" || pathname?.startsWith("/profile/");
+    pathname === "/feed" ||
+    pathname === "/" ||
+    pathname === "/discover" ||
+    pathname === "/messages" ||
+    pathname === "/profile" ||
+    pathname === "/store" ||
+    pathname?.startsWith("/profile/");
 
   return (
     <main
@@ -351,7 +436,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
          the bottom fifth of the feed off-screen. See globals.css LANDSCAPE. */
       className={[
         "app-main min-h-0 min-w-0 flex-1",
-        /* ── PAGE-LEVEL SCROLL IS FORBIDDEN ON LOCKED SURFACES ──────────────────
+        /* -- PAGE-LEVEL SCROLL IS FORBIDDEN ON LOCKED SURFACES ------------------
            These routes are self-contained viewport-locked screens: each owns its
            own single inner scroll region (the community panel's `overflow-y-auto`,
            the media feed's snap scroller, the discover deck's card region), and
@@ -446,7 +531,7 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 }
 
 /**
- * Mobile chrome: a 4-item bottom bar (Home · Moment · Chat · Me) rendered as
+ * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me) rendered as
  * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
  * `md` up, where the fixed sidebar takes over. The "Menu" drawer holds every
  * destination that is not a tab.
@@ -490,14 +575,14 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav shrink-0 border-t border-slate-800/50 bg-slate-950/90 backdrop-blur-md"
+        className="app-bottom-nav shrink-0 border-t border-white/10 bg-[#2A2438]/90 backdrop-blur-md"
       >
-        <div className="mx-auto max-w-lg rounded-[28px] border border-white/10 bg-slate-900/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,87,34,0.08),inset_0_1px_0_rgba(255,255,255,0.04)]">
-          {/* `grid-cols-4` MATCHES THE LENGTH OF `mobileTabs` (4). These two MUST
+        <div className="mx-auto max-w-lg rounded-[28px] border border-white/12 bg-[#3A3150]/85 p-2 backdrop-blur-xl shadow-[0_20px_40px_-12px_rgba(24,16,40,0.75),0_0_0_1px_rgba(122,106,160,0.35),inset_0_1px_0_rgba(255,255,255,0.06)]">
+          {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch
               them across an empty fifth, which is the more obvious bug. */}
-          <ul className="mx-auto grid max-w-md grid-cols-4">
+          <ul className="mx-auto grid max-w-md grid-cols-5">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
               return (
@@ -506,7 +591,7 @@ function MobileNavigation({
                     href={item.href}
                     aria-current={active ? "page" : undefined}
                     aria-label={item.label}
-                    className={mobileTabClasses(active)}
+                    className={mobileTabClasses(active, item.raised)}
                   >
                     {/* THE BADGE'S POSITIONED ANCESTOR.
 
@@ -517,20 +602,38 @@ function MobileNavigation({
 
     `w-6` is wider than the 20px icon on purpose: it is the positioning box that
     lets the badge sit slightly outside the glyph without shifting the icon. */}
-                    {/* THE ICON EXPLICITLY, NOT BY INHERITANCE.
+                    {/* THE LINE-ART GLYPH, AND WHY ITS COLOUR IS PINNED.
 
-    The active tab's text colour is `#b45309` — a DARK amber chosen to stay
-    legible as label text. Inheriting that into the glyph gave a muddy brown
-    chat/home mark, which is not the "signature yellow icon highlight" the
-    reference shows. So the active icon is pinned to `text-amber-400`
-    (`#fbbf24`), the same value as the Chat pill and the amber indicator bar, and
-    the INACTIVE icon is pinned to slate explicitly too — otherwise it would
-    inherit the pill's text colour and lose its own contrast once the
-    `.nav-pill` background changes. */}
+    `NavIcon` is stroke-only and inherits `currentColor`, so the active state
+    could simply be inherited from the pill. It is NOT: the pill's active text
+    colour is a dark amber chosen for LABEL legibility, and inheriting that into
+    the glyph produced a muddy brown mark rather than the bright accent the
+    reference shows. So active pins to the brand orange and inactive pins to
+    slate — explicitly both ways, because the inactive icon would otherwise
+    inherit the pill's colour and lose its own contrast once the pill's
+    background changes.
+
+    Size is passed as a prop (20) rather than left to `h-5 w-5`, so the SVG box
+    and the glyph stay in step. The RAISED Feed tab is given 18px: it sits in a
+    filled pill whose label is bold, and a 20px stroke-only glyph beside that
+    weight reads heavier than its neighbours. */}
                     <span className="relative flex h-5 w-6 items-center justify-center">
-                      <Icon
-                        name={item.icon}
-                        className={`h-5 w-5 ${active ? "text-amber-400" : "text-slate-400"}`}
+                      <NavIcon
+                        name={item.navIcon}
+                        size={item.raised ? 18 : 20}
+                        className={
+                          /* The RAISED tab flips this: purple resting means WHITE
+                             glyph, orange active means the same near-black as its
+                             label. So the icon and its caption are always the same
+                             colour and the tab reads as one lit unit. */
+                          item.raised
+                            ? active
+                              ? "text-[#0F0C1B]"
+                              : "text-white"
+                            : active
+                              ? "text-[#0F0C1B]"
+                              : "text-[#9B93AE]"
+                        }
                       />
                       {item.showBadge && unreadCount > 0 ? (
                         <UnreadBadge count={unreadCount} />

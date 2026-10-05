@@ -90,32 +90,43 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
      *      and the deck inside it is `flex-1 min-h-0`, so the card absorbs the
      *      leftover height rather than setting it. Nothing on this route is
      *      allowed to contribute intrinsic height. */
-    /* HEADER HEIGHT.
-       This column is viewport-locked (see the note above), so every pixel the
-       header spends is a pixel the profile card loses — and the card is the
-       whole point of this screen. Three things were trimmed:
+    /* ONE HEADER, AND IT IS THIS ONE.
 
-         1. `pt-1` → `pt-0.5`, and the `sm:` lift to `sm:pt-1`.
-         2. `pb-1` → `pb-0`. The header row's own line-height already provides the
-            gap to the search field; the padding was adding to it twice.
-         3. The title drops from `text-lg` to `text-[15px] sm:text-base` via
-            `titleClassName`, which `PageHeader` applies last so it overrides the
-            `compact` default instead of competing with it.
+       This screen used to show TWO. `MobileBackHeader` rendered a bare centred
+       "Discover" bar directly above this block, which renders the page title —
+       so the route opened with "Discover" and then, a few pixels lower,
+       "Discover: Find your people". The outer bar repeated the inner one's first
+       word, carried no action of its own, and cost a 4rem spacer on a
+       viewport-locked column whose card absorbs every spare pixel.
 
-       Search spacing is now `mt-2.5` (sm:`mt-3`) rather than the old `mt-2`:
-       with the header padding trimmed the gap read as a cramped band squeezed
-       between two tight elements, so it is opened back up in proportion.
-       `shrink-0` stays — it is what stops the search field taking height from
-       the card. */
+       `MobileBackHeader` now returns `null` for `/discover`, so this is the only
+       header and it is promoted accordingly:
+
+         • The eyebrow is GONE. In `compact` mode `PageHeader` renders
+           `"{eyebrow}: {title}"` inside the single `<h1>`, so the eyebrow was
+           never a separate chip — it was the first half of the title. Removing it
+           and writing the full string as `title` produces the same reading but
+           as ONE deliberate heading rather than a label plus a title, and it stops
+           the two halves being editable independently (someone can shorten the
+           title without accidentally deleting the product name, or vice versa).
+         • `titleClassName` is DROPPED, so the title falls back to `compact`'s
+           `text-lg`. It had been shrunk to `text-[15px]` to buy height while two
+           headers were competing; with one header that shrinking is exactly
+           backwards, and "prominent" is the requirement now.
+         • Top padding returns to `pt-1.5` for the same reason. The height this
+           spends is paid back several times over by the header that is no longer
+           being rendered above it.
+
+       "Browse grid" stays beside the title. It is the same control the member
+       had, it is the route's only exit to the grid view, and it costs nothing
+       vertically — `compact` renders the title and the action on one flex row. */
     <div className="relative flex h-full min-h-0 w-full flex-col overflow-hidden">
       {/* No `env(safe-area-inset-top)` here — see note 1 above. The inset is a
           screen-edge concern and `MobileBackHeader` already owns it. */}
-      <div className="shrink-0 px-4 pt-0.5 sm:px-6 sm:pt-1">
+      <div className="shrink-0 px-4 pt-1.5 sm:px-6 sm:pt-2">
         <PageHeader
           compact
-          eyebrow="Discover"
-          title="Find your people"
-          titleClassName="text-[15px] sm:text-base"
+          title="Discover: Find your people"
           actions={<Button href="/explore" variant="ghost">Browse grid</Button>}
         />
 

@@ -52,7 +52,7 @@ export function CopyIdButton({
       onClick={copy}
       aria-label={`Copy profile ID ${value}`}
       title="Copy ID"
-      className="inline-flex max-w-full items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-[#A09AB0] transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
+      className="inline-flex max-w-full items-center gap-1 rounded-lg px-1.5 py-1 text-xs font-medium text-[#A09AB0] transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
     >
       <span className="truncate tabular-nums">{label ?? `ID:${value}`}</span>
       {copied ? (

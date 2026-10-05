@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -15,13 +15,13 @@ import { ProfileDetailSheet } from "@/components/app/ProfileDetailSheet";
 import { GameCenterBadge } from "@/components/app/GameCenterButton";
 
 /**
- * Discover — swipe-deck style profile card stack (VISUAL MIGRATION ONLY).
+ * Discover â€” swipe-deck style profile card stack (VISUAL MIGRATION ONLY).
  *
- * • Left/right halves of the card navigate the deck (currentIndex ± 1).
- * • The 5-icon action bar: Rewind · Pass · Super Like · Like · First Impressions.
- * • Super Like opens the "Get Super Likes" price-tier modal.
- * • First Impressions opens the direct-message overlay (free while the coin
- *   system is off — see lib/hooks/useCoinGate.ts). Once live, sending routes
+ * â€¢ Left/right halves of the card navigate the deck (currentIndex Â± 1).
+ * â€¢ The 5-icon action bar: Rewind Â· Pass Â· Super Like Â· Like Â· First Impressions.
+ * â€¢ Super Like opens the "Get Super Likes" price-tier modal.
+ * â€¢ First Impressions opens the direct-message overlay (free while the coin
+ *   system is off â€” see lib/hooks/useCoinGate.ts). Once live, sending routes
  *   to the coin purchase modal instead.
  *
  * No Supabase tables, migrations or API endpoints are touched. All profile
@@ -58,7 +58,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
   // Half-page bottom sheet with the full profile (center tap / View full profile).
   const [detailOpen, setDetailOpen] = useState(false);
 
-  // Never index out of range — clamp on every render.
+  // Never index out of range â€” clamp on every render.
   const total = Array.isArray(profiles) ? profiles.length : 0;
   const safeIndex = total > 0 ? Math.min(Math.max(currentIndex, 0), total - 1) : 0;
   const current: ProfileCardView | null | undefined = total > 0 ? profiles?.[safeIndex] : null;
@@ -72,7 +72,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
     setCurrentIndex(safeIndex + 1);
   }
 
-  // Keyboard support: ← prev, → next.
+  // Keyboard support: â† prev, â†’ next.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (superLikeModal || impressionsModal || coinModalOpen) return;
@@ -97,11 +97,11 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
         router.refresh();
       } else {
         /* The server's message is passed straight through, NOT wrapped in
-           `result.error || "Couldn't send your like…"`.
+           `result.error || "Couldn't send your likeâ€¦"`.
 
            That `||` was the reason this button looked broken. `failureMessage`
            only understood `Error` objects, so the string it was handed was read
-           as an empty message and replaced by the fallback — which means every
+           as an empty message and replaced by the fallback â€” which means every
            distinct failure (already connected, already requested, blocked,
            rate-limited, a PostgREST or RLS rejection) surfaced as the same
            generic sentence, and the real cause was never displayed anywhere.
@@ -186,7 +186,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
       /* `min-h-0 flex-1`: the deck now FILLS whatever height the page hands it
          instead of being sized by its own content. Without `min-h-0` this flex
          child refuses to shrink below the card's intrinsic height and pushes
-         the action dock out of the locked column — which is exactly the
+         the action dock out of the locked column â€” which is exactly the
          overflow being fixed.
 
          `max-w-md` is kept for the card's proportions, not as a height cap: the
@@ -206,7 +206,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
         <div className="flex w-full flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-6 text-center shadow-card sm:p-10">
           <Icon name="heart" className="h-10 w-10 text-orange-400" />
           <p className="text-lg font-semibold text-white">You&apos;re all caught up</p>
-          <p className="text-sm text-ink-300">No more profiles right now — check back soon.</p>
+          <p className="text-sm text-ink-300">No more profiles right now â€” check back soon.</p>
         </div>
       ) : (
         <>
@@ -218,7 +218,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
             `aspect-[3/4]` is a WIDTH-driven size. At 358px wide the card is
             477px tall, and added to the header, the gutters and the 64px dock
-            that exceeds a phone viewport — which is what pushed the dock below
+            that exceeds a phone viewport â€” which is what pushed the dock below
             the fold. From `sm` up there is room to spare and the fixed
             3:4 portrait ratio is the better look, so it is kept there. The
             breakpoint is the small-screen ceiling (~640px), not a device
@@ -227,7 +227,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             `sm:max-h-full` is the correction, and without it that ratio is an
             overflow bug. `sm:flex-none` takes the card out of flex sizing
             entirely, so `aspect-[3/4]` sizes it from its WIDTH and nothing
-            constrains the resulting height. Fine on a tall screen — but `sm` is a
+            constrains the resulting height. Fine on a tall screen â€” but `sm` is a
             WIDTH test, and a phone in landscape is wide. An iPhone SE rotated is
             667px across, comfortably over the 640px threshold, so the ratio
             applied at ~448px of card width and demanded ~597px of height inside a
@@ -236,36 +236,46 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
             `max-h-full` caps the box at the height its flex parent actually has.
             The photo underneath is `object-cover`, so when the cap binds the card
-            is slightly wider than 3:4 rather than running off the screen — the
+            is slightly wider than 3:4 rather than running off the screen â€” the
             correct trade, since a cropped photo is recoverable and an unreachable
             button is not.
 
-            ── TALLER CARD, SO PORTRAIT PHOTOS ARE NOT CROPPED ──────────────────
-            `sm:aspect-[3/4]` is now `sm:aspect-[4/5]`. A phone photo is commonly
-            3:4 itself, so the card matching that ratio exactly meant any taller or
-            wider portrait got its top and bottom sliced off by `object-cover` — a
-            face cropped at the forehead reads as a broken card, not as a design
-            choice.
+            -- TALLER CARD: sm:aspect-[2/3] -------------------------------------
+            Previously 4/5. Now 2:3 (0.667 against 0.800), so for the same width the
+            card is about 20% TALLER. Two changes bought that height, and neither
+            is this ratio alone:
 
-            The ratio moves the OTHER way on purpose (3:4 = 0.75, 4:5 = 0.80, so the
-            card is now relatively taller for its width) because a slightly taller
-            box absorbs far more of a portrait shot than a wider one would, and a
-            wider card would push the 5-icon dock toward the edges. `object-cover`
-            is KEPT rather than switched to `object-contain`: contain would letterbox
-            a landscape photo inside a portrait card with dead bars top and bottom,
-            which looks worse than the crop it fixes and breaks the card's own dark
-            gradient. The taller box reduces the cropping; contain would introduce a
-            new class of visual defect.
+              a. MobileBackHeader no longer renders on /discover, so a whole bare
+                 header bar plus its 4rem spacer came off the top of a viewport-
+                 locked column. On a 667px-tall phone that is roughly a fifth of the
+                 screen handed back to the card.
+              b. This ratio, which converts that reclaimed height into card area from
+                 sm up.
 
-            On phones the card is still `flex-1 min-h-0` and takes whatever height
-            the locked column leaves, so this ratio applies from `sm` up only — the
-            same breakpoint as before, and the `sm:max-h-full` cap above still
-            prevents the landscape-phone overflow that the 3/4 ratio once caused. */}
-        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[4/5] sm:max-h-full sm:flex-none">
+            The ratio alone would not be safe at this height without the cap already
+            present: sm:max-h-full bounds the box to what its flex parent actually
+            has, and the photo underneath is object-cover, so when the cap binds the
+            card is slightly WIDER than 2:3 rather than running off the screen. That
+            cap is also what stops this reintroducing the landscape-phone overflow
+            described above, because sm is a WIDTH test and a rotated phone clears it.
+
+            object-cover is KEPT, not switched to object-contain: contain would
+            letterbox a landscape photo inside this portrait card with dead bars top
+            and bottom, which looks worse than the crop it fixes and breaks the card's
+            own dark gradient.
+
+            The summary overlay is absolute bottom-0 with max-h-[80%], so the tags and
+            the "View full profile" link grow into the extra room rather than being
+            pushed past the card edge: the overlay can only ever occupy the bottom
+            80% of a box that is now taller.
+
+            On phones the card is still flex-1 min-h-0 and simply takes whatever the
+            locked column leaves it. */}
+        <div className="relative min-h-0 w-full flex-1 select-none overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-[#1E293B] to-[#0F172A] shadow-card sm:aspect-[2/3] sm:max-h-full sm:flex-none">
             {/* Photo, or a designed fallback when there is none.
                 The old fallback dropped a plain avatar onto the bare card
                 gradient, leaving a large flat expanse of near-black with a
-                small disc in the middle — the card read as "failed to load"
+                small disc in the middle â€” the card read as "failed to load"
                 rather than "no photo yet". The fallback now fills the frame
                 with a member-themed gradient plus a soft bloom, so the card
                 looks deliberate at every state and the initials stay the
@@ -306,7 +316,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             {/* Center tap opens the full-profile bottom sheet. */}
             <button
               type="button"
-              aria-label={`View full profile — ${name}`}
+              aria-label={`View full profile â€” ${name}`}
               onClick={() => setDetailOpen(true)}
               className="absolute inset-y-0 left-1/3 z-10 w-1/3 cursor-pointer"
             />
@@ -320,20 +330,20 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             {/* THE GAME BADGE NO LONGER SITS HERE.
                 It used to be `absolute right-4 top-4`, over the photo's top-right
                 corner. On a card this tall the top corner is a long way from
-                anything the eye lands on — the name, the bio and the tags all sit
-                at the BOTTOM — so the badge read as floating chrome parked on the
+                anything the eye lands on â€” the name, the bio and the tags all sit
+                at the BOTTOM â€” so the badge read as floating chrome parked on the
                 picture rather than as part of the card's content. It is now in
                 the summary overlay, on the same row as the interest chips, where
                 it is actually seen and where it cannot cover the member's photo.
 
                 The deck counter keeps this corner to itself. */}
 
-            {/* Profile summary — COMPACT ON MOBILE.
+            {/* Profile summary â€” COMPACT ON MOBILE.
 
-                This block is `absolute … bottom-0` INSIDE the card, so it never
+                This block is `absolute â€¦ bottom-0` INSIDE the card, so it never
                 pushes the page taller: whatever height it needs comes straight out
                 of the photo. That makes it the safe place to trim, and on a phone
-                it has to be trimmed — on a 667px-tall screen the card is only
+                it has to be trimmed â€” on a 667px-tall screen the card is only
                 ~350px tall, and a 20px-padded block carrying a 2rem name, a
                 two-line bio at `leading-6`, four chips and a link was taller than
                 the card itself, so the scrim covered most of the photo and the
@@ -348,7 +358,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                 `max-h-[80%]` + `overflow-y-auto` is the last-resort guard, not the
                 primary mechanism. Without it, a long bio plus four wide chips on a
                 very short screen would paint the summary past the top of the card.
-                It scrolls internally instead — so the CARD and the PAGE both still
+                It scrolls internally instead â€” so the CARD and the PAGE both still
                 fit, and the overflow is contained by the one element that caused
                 it rather than sliding the whole screen. `sm:max-h-none
                 sm:overflow-visible` restores the desktop behaviour. */}
@@ -359,18 +369,18 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   <p className="truncate text-xs text-ink-300 sm:text-sm">
                     {/* Age and location are independent, so a member with no
                         location used to render the bare literal "Location not
-                        shared" — which reads as an error string rather than a
+                        shared" â€” which reads as an error string rather than a
                         missing field. An en dash with the same grey carries the
                         same information without looking like a failure, and the
                         age still stands alone when location is absent. */}
                     {current?.age != null ? `${current.age}` : null}
                     {current?.location?.trim() ? (
                       <>
-                        {current?.age != null ? " · " : null}
+                        {current?.age != null ? " Â· " : null}
                         {current.location.trim()}
                       </>
                     ) : current?.age != null ? (
-                      " · Location private"
+                      " Â· Location private"
                     ) : null}
                   </p>
                 </div>
@@ -437,7 +447,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
 
               A FLOATING CONTAINER, not a bare row. The buttons used to sit
               directly on the card's bottom edge with nothing around them, so the
-              row read as a continuation of the photo rather than as controls —
+              row read as a continuation of the photo rather than as controls â€”
               and with five buttons of three different sizes (48/56/64px) on a
               358px-wide phone, the only thing keeping them apart was a 8px gap.
 
@@ -453,7 +463,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               reserve, so this only covers the gesture bar on devices that have
               one.
 
-              `shrink-0` is load-bearing — without it the flex parent compresses
+              `shrink-0` is load-bearing â€” without it the flex parent compresses
               this row when the card wants more height, and compressed buttons
               drop below the 44px touch-target minimum. */}
           <nav
@@ -466,12 +476,12 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               <Icon name="rewind" className="h-5 w-5" />
             </button>
             {/* Pass */}
-            <button type="button" onClick={goNext} disabled={safeIndex >= total - 1} aria-label="Pass — next profile" title="Pass"
+            <button type="button" onClick={goNext} disabled={safeIndex >= total - 1} aria-label="Pass â€” next profile" title="Pass"
               className="deck-btn deck-btn--pass h-14 w-14">
               <Icon name="close" className="h-6 w-6" />
             </button>
-            {/* Super Like — opens the Get Super Likes tier modal */}
-            <button type="button" onClick={openSuperLikes} aria-label="Super Like — get Super Likes" title="Super Like"
+            {/* Super Like â€” opens the Get Super Likes tier modal */}
+            <button type="button" onClick={openSuperLikes} aria-label="Super Like â€” get Super Likes" title="Super Like"
               className="deck-btn deck-btn--star h-14 w-14">
               <Icon name="star" className="h-6 w-6" />
             </button>
@@ -480,7 +490,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               className={`deck-btn deck-btn--like h-16 w-16 ${liked ? "is-liked" : ""}`}>
               <Icon name="heart" className="h-7 w-7" filled={liked} />
             </button>
-            {/* First Impressions — opens the message overlay */}
+            {/* First Impressions â€” opens the message overlay */}
             <button type="button" onClick={() => { setImpressionsSent(false); setImpressionsModal(true); }} aria-label="Send First Impressions" title="First Impressions"
               className="deck-btn deck-btn--send h-12 w-12">
               <Icon name="send" className="h-5 w-5" />
@@ -499,7 +509,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300"><Icon name="star" className="h-6 w-6" /></span>
               <div>
                 <h2 className="text-lg font-semibold text-white">Get Super Likes</h2>
-                <p className="text-xs text-ink-300">Stand out — your like jumps to the top of their deck.</p>
+                <p className="text-xs text-ink-300">Stand out â€” your like jumps to the top of their deck.</p>
               </div>
               <button type="button" onClick={() => setSuperLikeModal(false)} aria-label="Close" className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white hover:bg-white/10">
                 <Icon name="close" className="h-4 w-4" />
@@ -515,13 +525,13 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                       <span className="font-semibold text-white">{tier.amount} Super Likes</span>
                       {tier.tag ? <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-300">{tier.tag}</span> : null}
                     </span>
-                    <span className="text-sm font-semibold text-orange-300">🪙 {tier.coins}</span>
+                    <span className="text-sm font-semibold text-orange-300">ðŸª™ {tier.coins}</span>
                   </button>
                 </li>
               ))}
             </ul>
             <p className="mt-4 text-center text-xs text-ink-400">
-              Purchases use your Couples Corner coin wallet. Coins are coming soon — Super Likes are in preview.
+              Purchases use your Couples Corner coin wallet. Coins are coming soon â€” Super Likes are in preview.
             </p>
           </div>
         </div>
@@ -576,7 +586,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                     rows={3}
                     value={impressionsText}
                     onChange={(event) => setImpressionsText(event.target.value)}
-                    placeholder={`Say something unforgettable to ${name}…`}
+                    placeholder={`Say something unforgettable to ${name}â€¦`}
                     maxLength={500}
                     className="w-full resize-none rounded-2xl border border-ink-700 bg-white/[0.04] py-2.5 pl-3.5 pr-14 text-sm leading-6 text-white placeholder:text-ink-400 focus:border-brand-500/60 focus:outline-none"
                     onKeyDown={(event) => {
@@ -607,7 +617,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   >
                     {/* Stays the send glyph while in flight - swapping to a tick
                         would read as "delivered" before the request has returned.
-                        The disabled styling and the "Sending…" label carry the
+                        The disabled styling and the "Sendingâ€¦" label carry the
                         state instead. */}
                     <Icon name="send" className="h-4 w-4" aria-hidden />
                   </button>
@@ -616,7 +626,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                     the only thing announcing what it does. */}
                 <div className="mt-2 flex items-center justify-between px-1">
                   <span className="text-[11px] text-ink-400">
-                    {impressionsBusy ? "Sending…" : "Enter to send · Shift+Enter for a new line"}
+                    {impressionsBusy ? "Sendingâ€¦" : "Enter to send Â· Shift+Enter for a new line"}
                   </span>
                   <span className="text-[11px] tabular-nums text-ink-400">{impressionsText.length}/500</span>
                 </div>
@@ -648,7 +658,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
                   <button type="button" onClick={() => setCoinModalOpen(false)}
                     className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-orange-400/40 hover:bg-orange-500/10">
                     <span className="flex items-center gap-2">
-                      <span className="font-semibold text-white">🪙 {pack.coins} coins</span>
+                      <span className="font-semibold text-white">ðŸª™ {pack.coins} coins</span>
                       {pack.bonus ? <span className="rounded-full bg-orange-500/15 px-2 py-0.5 text-[10px] font-semibold text-orange-300">{pack.bonus}</span> : null}
                     </span>
                     <span className="text-sm font-semibold text-orange-300">${pack.priceUsd.toFixed(2)}</span>

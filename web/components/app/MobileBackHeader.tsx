@@ -1,20 +1,14 @@
 "use client";
 
-import { useSyncExternalStore, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { isActiveConversationPath } from "@/components/app/AppNav";
-import {
-  getMomentViewServerSnapshot,
-  getMomentViewSnapshot,
-  momentViewFromSearch,
-  momentViewToggleHref,
-  subscribeToMomentView,
-} from "@/lib/momentView";
 
 const titles: Record<string, string> = {
   discover: "Discover", explore: "Explore", matches: "Matches", messages: "Messages",
-  notifications: "Alerts", feed: "Moment", profile: "Profile", settings: "Settings",
+  notifications: "Alerts", feed: "Feed", moments: "Moment", profile: "Profile",
+  settings: "Settings",
   subscription: "VIP Membership", onboarding: "Get started", couple: "Your couple",
   u: "Member profile", chat: "Chat", community: "Community", events: "Events",
   insights: "Insights", about: "About us", login: "Sign in", register: "Create account",
@@ -52,28 +46,6 @@ export function MobileBackHeader() {
      announcement lands before this listener could possibly be attached. The
      label would be wrong on arrival and stay wrong until the member navigated
      twice. `useSyncExternalStore` reads its snapshot DURING render, so it is
-     right on the first paint no matter the effect ordering, and re-renders only
-     when the query genuinely changes.
-
-     Before this, the label was frozen for the whole session: the old effect ran
-     on mount and on pathname changes, and a `?view=` change alters neither. The
-     toggle kept saying "feed-view" and kept pointing at the community view even
-     once the member was already there, so the second tap navigated to the
-     place they were standing.
-
-     `useSearchParams` is deliberately NOT used: this component is mounted on
-     essentially every route via `AppShell`, so opting into it would force a
-     Suspense boundary app-wide purely to relabel one button.
-
-     Placed ABOVE the early returns below, because a hook must run on every
-     render of the component, and those returns would otherwise skip it. */
-  const viewSearch = useSyncExternalStore(
-    subscribeToMomentView,
-    getMomentViewSnapshot,
-    getMomentViewServerSnapshot,
-  );
-  const communityActive =
-    segment === "feed" && momentViewFromSearch(viewSearch) === "community";
 
   if (!segment || pathname === "/dashboard") return null;
 
@@ -124,17 +96,34 @@ export function MobileBackHeader() {
      and the bottom nav already provide. Same rule as /profile and /messages. */
   if (pathname === "/likes") return null;
 
-  // ── BARE HEADER ON DISCOVER / EXPLORE ───────────────────────────────────
-  // These two routes render ONLY the centred title: no back arrow on the left,
-  // no "Home" link on the right. They are top-level destinations in the bottom
-  // nav ("Discover" is its own tab), so a back arrow implied somewhere more
-  // important exists, and the "Home" link pointed at a route the member could
-  // already reach from the nav directly beneath it.
+    /* `/discover` NOW OWNS ITS HEADER TOO.
+
+     This used to be the one app route that kept a BARE header — a centred title
+     and nothing else — directly above the page's own `PageHeader`, which renders
+     "Discover: Find your people". That stacked two headers, the outer one
+     repeating the inner one's first word, and it cost a full 4rem spacer plus the
+     bar itself on a viewport-locked screen whose card absorbs every spare pixel.
+
+     The route has exactly one header now — the page's own, which carries the full
+     "Discover: Find your people" title and the "Browse grid" action. Same rule and
+     same reason as `/profile`, `/messages`, `/likes` and `/profile/<uid>` above:
+     a screen that draws its own header gets this one to step aside.
+
+     `/explore` is deliberately NOT changed here. It is the same bare-header case,
+     but it was not in scope for this fix, and suppressing its bar is a one-line
+     follow-up if it is wanted for consistency. */
+  if (segment === "discover") return null;
+
+  // ── BARE HEADER ON /explore ───────────────────────────────────────────────
+  // `/explore` renders ONLY the centred title: no back arrow on the left, no
+  // "Home" link on the right. It is a top-level destination in the bottom nav, so
+  // a back arrow implied somewhere more important exists, and the "Home" link
+  // pointed at a route the member could already reach from the nav beneath it.
   //
   // The title is centred with a matching empty slot on each side rather than
   // `text-center` alone, so it sits optically centred instead of drifting left
   // once the two 44px controls are gone.
-  const isBareHeader = segment === "discover" || segment === "explore";
+  const isBareHeader = segment === "explore";
 
   const isAppPage = ["discover", "explore", "matches", "messages", "notifications", "feed", "profile", "settings", "subscription", "onboarding", "couple", "u", "chat"].includes(segment);
   const fallback = (isAppPage ? "/dashboard" : "/") as never;
@@ -271,96 +260,23 @@ export function MobileBackHeader() {
               The remaining typography is unchanged: `text-[15px] font-normal
               text-slate-300` on this route, `text-base font-semibold text-white`
               elsewhere. */}
-          {segment === "feed" ? (
-            <Link
-              href="/feed"
-              aria-label="Moment — show the video reels"
-              aria-current={communityActive ? undefined : "page"}
-              className="flex min-h-11 min-w-0 flex-1 items-center rounded-lg px-1 text-[15px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-            >
-              {/* VIEW-AWARE TITLE. The route segment is "feed", but the two panels
-                  it serves are different products — the reels player is "Moment"
-                  and the community timeline is "Feed". Hardcoding `titles[segment]`
-                  labelled the timeline "Moment", which is the exact word the bottom
-                  nav uses for the OTHER view, so the screen a member was reading
-                  contradicted the tab they thought they were on.
-
-                  `communityActive` is derived from the URL through the same
-                  external store the toggle below uses, so the title and the toggle
-                  can never disagree about which panel is showing. The reels keep
-                  their existing title, which is why this is a substitution rather
-                  than an edit to the shared `titles` map. */}
-              <span className="truncate">
-                {communityActive ? "Feed" : (titles[segment] ?? "Couple’s Corner")}
-              </span>
-            </Link>
-          ) : (
-            <p className="min-w-0 flex-1 truncate text-base font-semibold text-white">
-              {titles[segment] ?? "Couple’s Corner"}
-            </p>
-          )}
-          {/* ── THE "feed-view" TOGGLE ───────────────────────────────────────────
-              Navigates to the community timeline by CHANGING THE URL to
-              `/feed?view=community`, which the feed page reads into
-              `defaultTab` and `MomentFeed` renders.
-
-              THE DESTINATION: `/feed?view=community`, NOT `/community`. Both
-              exist and they are different products. `/community` is a
-              separate, mostly static Q&A forum page with its own desktop-width
-              layout and three hard-coded questions — it is not this timeline
-              and it sits outside the mobile app shell. The community FEED that
-              this control means is the chronological post timeline, which is a
-              PANEL of the Moment screen, so it is reached by switching this
-              screen's view rather than by leaving the screen.
-
-              A plain <Link> is used instead of router.push: both panels stay
-              mounted, and a full navigation would discard the scroll position
-              of the view being left.
-
-              The href and label are both derived from `communityActive`, so they
-              can never disagree — and the label says what tapping will DO, which
-              is what makes the round trip discoverable now that the in-page pill
-              switcher has been removed and this is the only control between the
-              two views.
-
-              Typography is unchanged: `text-[13px] font-normal text-slate-300` —
-              quiet, unbolded and compact, so it reads as a control rather than
-              competing with the title.
-
-              ── WHY THE TAP TARGET IS `min-h-11`, NOT `min-h-9` ─────────────────────
-              It was `min-h-9` (36px), sized to the 13px text rather than to a
-              finger. 36px is under the 44px minimum, and it is right beside the
-              screen's largest — and tappest — control, so a slightly low or fast
-              tap lands on nothing. `min-h-11` makes the hit area match the back
-              arrow and the title, so all three targets on the bar are the same
-              size and the whole row is usable rather than just its centre.
-
-              The flex `gap-3` absorbs the extra height, so the bar's own `min-h-16`
-              and every other screen's layout are untouched.
-
-              `aria-current="page"` when this toggle points AWAY from the view
-              showing — i.e. it is a control, not a link to here — so the state is
-              exposed rather than only implied by the label's wording. */}
+          {/* `/feed` and `/moments` now own a tab each, so there is NO view switcher
+             here any more. The link that used to move between them via a query param
+             would now offer a way to leave the tab a member tapped and land on a
+             screen the bottom bar does not highlight - the exact ambiguity the split
+             exists to remove. */}
           {isBareHeader ? (
-            /* Nothing at all, not an empty 44px button. A transparent tap target
-               is worse than no target: it eats the row's right gutter and
-               swallows taps with no visible affordance. */
+            /* Nothing at all, not an empty 44px button. A transparent tap target is
+               worse than no target: it eats the row's right gutter and swallows taps
+               with no visible affordance. */
             <span aria-hidden className="h-11 w-11 shrink-0" />
-          ) : segment === "feed" ? (
-            <Link
-              href={momentViewToggleHref(communityActive ? "community" : "videos")}
-              aria-label={
-                communityActive
-                  ? "Switch to the video player view"
-                  : "Switch to the community feed view"
-              }
-              aria-current={communityActive ? undefined : "page"}
-              className="flex min-h-11 shrink-0 items-center rounded-lg px-2.5 text-[13px] font-normal text-slate-300 transition hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
-            >
-              {communityActive ? "player-view" : "feed-view"}
-            </Link>
           ) : (
-            <Link href={fallback} className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white">Home</Link>
+            <Link
+              href={fallback}
+              className="flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-slate-200 hover:bg-white/10 hover:text-white"
+            >
+              Home
+            </Link>
           )}
         </nav>
       </header>

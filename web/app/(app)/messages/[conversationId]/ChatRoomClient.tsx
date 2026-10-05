@@ -1,4 +1,4 @@
-// ChatRoomClient.tsx â€” the individual conversation surface.
+// ChatRoomClient.tsx — the individual conversation surface.
 //
 // ONE CLIENT COMPONENT, NOT FOUR. The pinned profile card, the message stream,
 // the quick replies and the composer are pieces of ONE control surface: tapping a
@@ -10,19 +10,19 @@
 // wholesale, but three of its behaviours are load-bearing and are re-implemented
 // here rather than dropped:
 //
-//   Ã¢â‚¬Â¢ REALTIME. `useRealtimeMessages` still backs the stream, so a message sent
+//   • REALTIME. `useRealtimeMessages` still backs the stream, so a message sent
 //     on another device appears without a refresh. Initial history and live
 //     inserts are merged and de-duplicated by id.
-//   Ã¢â‚¬Â¢ EDIT / DELETE. Own bubbles are still wrapped in `MessageActionsMenu` and
+//   • EDIT / DELETE. Own bubbles are still wrapped in `MessageActionsMenu` and
 //     still call the same server actions. Removing those would have silently
 //     taken away a feature members rely on.
-//   Ã¢â‚¬Â¢ MARK-READ. Still fired from a mount effect, never from the server render â€”
+//   • MARK-READ. Still fired from a mount effect, never from the server render —
 //     `markConversationReadAction` calls `revalidatePath`, which Next.js rejects
 //     outside a mutation, and a render must not perform a write anyway.
 //
 // NO KEYBOARDAVOIDINGVIEW, AND THAT IS NOT AN OMISSION. `KeyboardAvoidingView` is
 // a React Native primitive with no web equivalent; this app is Next.js. The
-// equivalent guarantee here is the locked `h-[100dvh]` column â€” `dvh` tracks the
+// equivalent guarantee here is the locked `h-[100dvh]` column — `dvh` tracks the
 // *visual* viewport, so when a mobile browser shrinks for the on-screen keyboard
 // the whole column shrinks with it and the composer rides up. That is the
 // behaviour the RN primitive was being asked for.
@@ -76,7 +76,7 @@ import {
 import type { ConversationParticipantSummary } from "@/lib/feature/types";
 
 /**
- * THE DESIGN'S PALETTE â€” Midnight Navy / Purple with Vibrant Orange.
+ * THE DESIGN'S PALETTE — Midnight Navy / Purple with Vibrant Orange.
  *
  * WHY A RETINT RATHER THAN A REWRITE. This file is ~700 lines and three of its
  * behaviours are load-bearing and unrelated to colour: realtime via
@@ -86,7 +86,7 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
  * this one object, so changing it here re-themes the entire surface at once and
  * cannot desynchronise two halves painted from different values.
  *
- * Ã¢â€â‚¬Ã¢â€â‚¬ THE CONTRAST RULE, WHICH IS THE ACTUAL POINT OF THIS BLOCK Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * ── THE CONTRAST RULE, WHICH IS THE ACTUAL POINT OF THIS BLOCK ────────────────
  * Every foreground here is checked against its own background, not against the
  * page. The previous ramp failed exactly there: `inkMuted: "#6B7280"` on a
  * `#F4F5F7` canvas is fine, but the same grey was reused for text sitting on a
@@ -94,9 +94,9 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
  * equivalent mistake is using a mid-grey that looks reasonable in isolation and
  * then disappears against `#1F1A32`. So:
  *
- *   Ã¢â‚¬Â¢ PRIMARY TEXT   `#FFFFFF` on `#1F1A32`  Ã¢â€°Ë† 15.9:1  (WCAG AAA)
- *   Ã¢â‚¬Â¢ SECONDARY TEXT `#B8B2D1` on `#0F0C1B`  Ã¢â€°Ë†  8.6:1  (comfortably AA for body)
- *   Ã¢â‚¬Â¢ TERTIARY TEXT  `#8B85A8` on `#0F0C1B`  Ã¢â€°Ë†  5.3:1  (AA for the small caps
+ *   • PRIMARY TEXT   `#FFFFFF` on `#1F1A32`  ≈ 15.9:1  (WCAG AAA)
+ *   • SECONDARY TEXT `#B8B2D1` on `#0F0C1B`  ≈  8.6:1  (comfortably AA for body)
+ *   • TERTIARY TEXT  `#8B85A8` on `#0F0C1B`  ≈  5.3:1  (AA for the small caps
  *     and timestamps it is used on, and never for anything below 11px)
  *
  * Nothing structural is carried in tertiary. Timestamps and meta labels are the
@@ -104,7 +104,7 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
  * definition; message bodies and the member's NAME are never anything but
  * `#FFFFFF`.
  *
- * ORANGE `#FF7A00` is reserved for interactive surfaces only â€” the Next button,
+ * ORANGE `#FF7A00` is reserved for interactive surfaces only — the Next button,
  * the send button, focus rings and the quick-reply accent. It is never used for
  * body text: `#FF7A00` on `#1F1A32` is about 5.1:1, which clears AA for large
  * bold type but is not strong enough for a message body, and orange text on a
@@ -112,7 +112,7 @@ import type { ConversationParticipantSummary } from "@/lib/feature/types";
  * remove.
  */
 const THEME = {
-  /** Page canvas â€” the Midnight Navy the whole screen sits on. */
+  /** Page canvas — the Midnight Navy the whole screen sits on. */
   canvas: "#0F0C1B",
   /**
    * Bubble fill AND the composer input. One value, not two: the input reading as
@@ -120,7 +120,7 @@ const THEME = {
    * screen look assembled rather than designed.
    */
   surface: "#1F1A32",
-  /** The pinned profile card â€” a deep amber that stays legible under white text. */
+  /** The pinned profile card — a deep amber that stays legible under white text. */
   yellow: "#2A1F0E",
   /** Pressed/hover step for the pinned card's chips. */
   yellowDeep: "#3A2A12",
@@ -128,7 +128,7 @@ const THEME = {
   warning: "#2A1520",
   /**
    * Own (right-hand) bubbles. `#2E2447` is the purple-leaning step above `surface`
-   * â€” enough separation to tell who is speaking at a glance, while staying close
+   * — enough separation to tell who is speaking at a glance, while staying close
    * enough in lightness that the thread does not read as two disconnected halves.
    */
   own: "#2E2447",
@@ -141,7 +141,7 @@ const THEME = {
 } as const;
 
 /**
- * ORANGE ACCENT â€” declared once so the Next button, the send button and the focus
+ * ORANGE ACCENT — declared once so the Next button, the send button and the focus
  * rings cannot drift to different oranges.
  */
 const ORANGE = "#FF7A00";
@@ -165,7 +165,7 @@ export interface ChatMessage {
 /**
  * Quick replies.
  *
- * OPENERS, not claims â€” each invites a reply and asserts nothing about the other
+ * OPENERS, not claims — each invites a reply and asserts nothing about the other
  * person. These are messages read by strangers, so a pill that complimented
  * someone's looks or assumed a shared interest would be inventing a relationship
  * the two people do not have.
@@ -182,7 +182,7 @@ const QUICK_REPLIES = [
   "What's something you love doing?",
 ] as const;
 
-/** "14:02" â€” 24-hour, matching the design's timestamp header. */
+/** "14:02" — 24-hour, matching the design's timestamp header. */
 function formatClock(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
@@ -206,15 +206,15 @@ function PinnedBadge({
 }
 
 /**
- * The pinned profile summary â€” the yellow card at the top of the thread.
+ * The pinned profile summary — the yellow card at the top of the thread.
  *
- * Ã¢â€â‚¬Ã¢â€â‚¬ WHAT IS RENDERED AND WHY Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+ * ── WHAT IS RENDERED AND WHY ──────────────────────────────────────────────────
  * Age and location come from `summary`, lifestyle tags from `summary.lifestyleTags`
  * and the photos from `summary.photos`. All real.
  *
  * `personalitySimilarity` renders ONLY when the server actually sent it. The
  * field is documented as optional-and-currently-never-set, and it was previously
- * a hardcoded 78 printed as "78% match" â€” a fabricated score about a real
+ * a hardcoded 78 printed as "78% match" — a fabricated score about a real
  * person. Printing a placeholder "88%" here would reintroduce exactly that lie,
  * so the line is absent until a genuine engine populates the field.
  *
@@ -301,7 +301,7 @@ function PinnedProfileCard({ summary }: { summary: ConversationParticipantSummar
  *
  * Placed there rather than at the top of the thread because that is where it can
  * do its job: a member reads it immediately after reading something from a
- * stranger. Rendered ONCE per thread â€” repeating it under every incoming bubble
+ * stranger. Rendered ONCE per thread — repeating it under every incoming bubble
  * turns a caution into noise, and noise is what members scroll past.
  */
 function ScamWarning() {
@@ -408,7 +408,7 @@ function MessageBubble({
  *
  * NO UNREAD BADGE. The design shows one beside the back arrow, but a member only
  * reaches this route BY tapping that thread, and `ConversationClient` marked the
- * conversation read on mount â€” so a number here would always read zero. There is
+ * conversation read on mount — so a number here would always read zero. There is
  * no unread-for-this-conversation figure in `ConversationParticipantSummary` to
  * source it from, and inventing one would print a permanent lie.
  */
@@ -437,7 +437,7 @@ function ChatRoomHeader({
           <span className="truncate">{summary?.name ?? "Conversation"}</span>
         </p>
         <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-slate-300">
-          {/* Colour alone is not the only cue â€” the word is right there, so the
+          {/* Colour alone is not the only cue — the word is right there, so the
               state does not depend on distinguishing two greens. */}
           <span
             aria-hidden
@@ -508,7 +508,7 @@ export default function ChatRoomClient({
   /* Initial history and live inserts MERGED, de-duplicated by id and sorted by
      time. The seed alone would miss anything sent while the page was open; the
      live list alone would be empty on first paint. The de-dup is not
-     belt-and-braces â€” the sender's own message comes back over the realtime
+     belt-and-braces — the sender's own message comes back over the realtime
      channel as well, so without this every sent message would render twice. */
   const messages = useMemo(() => {
     const byId = new Map<string, ChatMessage>();
@@ -535,7 +535,7 @@ export default function ChatRoomClient({
         try {
           await navigator.clipboard.writeText(text);
         } catch {
-          /* denied â€” the text is already on screen to read longhand */
+          /* denied — the text is already on screen to read longhand */
         }
         return;
       }
@@ -553,7 +553,7 @@ export default function ChatRoomClient({
           const existing = messages.find((m) => m.id === messageId)?.body ?? "";
           setDraft(existing);
           setEditingId(messageId);
-          setError("Editing â€” press Send to save.");
+          setError("Editing — press Send to save.");
         }
       } finally {
         setBusy(false);
@@ -632,7 +632,7 @@ return (
     >
       <ChatRoomHeader summary={summary} online={online} />
 
-      {/* THREAD. `px-3` is the 12px edge padding from the spec â€” applied HERE rather
+      {/* THREAD. `px-3` is the 12px edge padding from the spec — applied HERE rather
           than on the root column, because the root also holds the header and the
           composer, which must stay edge-to-edge. Padding the root instead would
           inset those two bars, which is the opposite of what is wanted.
@@ -651,12 +651,12 @@ return (
         /* `justify-end` IS THE `flexGrow: 1` EQUIVALENT. It pushes a SHORT thread down
            against the composer so the newest message sits nearest the input, the way
            every chat app behaves. Without it a two-message conversation floats at the
-           top of a tall screen with a large void beneath it â€” the "floating too far
+           top of a tall screen with a large void beneath it — the "floating too far
            inward" symptom. It is safe on a long thread because a column that
            overflows its box ignores `justify-end` and simply scrolls. */
         <div className="mt-3 flex flex-col justify-end gap-2.5">
           {messages.length === 0 ? (
-            <p className="py-8 text-center text-xs text-slate-400">No messages yet â€” say hello.</p>
+            <p className="py-8 text-center text-xs text-slate-400">No messages yet — say hello.</p>
           ) : null}
 
           {messages.map((message, index) => {
@@ -711,9 +711,9 @@ return (
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six
            short pills `flex-wrap` shows every one of them without a swipe, which
-           is strictly better on a phone â€” and each pill is a real button, so the
+           is strictly better on a phone — and each pill is a real button, so the
            set stays keyboard-reachable. */}
-        /* QUICK REPLIES.
+        {/* QUICK REPLIES.
              Horizontal SCROLL, not wrap. `flex-wrap` showed all six at once but
              pushed the composer below the fold on a short phone, which is the one
              thing a chat composer must never do. `overflow-x-auto` +
@@ -723,7 +723,13 @@ return (
 
              The ORANGE is a border + text, not a fill: `#FF7A00` as a background
              would make six saturated chips fight the single orange Send button for
-             attention, and the Send button is the one the member actually uses. */
+             attention, and the Send button is the one the member actually uses.
+
+             THIS COMMENT IS INSIDE `{}` AND THAT IS LOAD-BEARING. It used to sit
+             here as a BARE block comment, and in a JSX CHILDREN position a bare
+             block comment is not a comment to React at all — it is a literal text
+             node, so the whole paragraph rendered on screen above the pills. Every
+             JSX comment must be braced. */}
         <div className="scrollbar-none mb-1 flex gap-1.5 overflow-x-auto px-1 py-1.5">
           {QUICK_REPLIES.map((reply) => (
             <button
@@ -762,7 +768,7 @@ return (
             }}
             onKeyDown={onKeyDown}
             rows={1}
-            placeholder={editingId ? "Edit your messageÃ¢â‚¬Â¦" : "MessageÃ¢â‚¬Â¦"}
+            placeholder={editingId ? "Edit your message..." : "Type a message..."}
             aria-label="Message"
             className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-sm text-white outline-none placeholder:text-slate-400 focus:border-orange-500"
             style={{ borderColor: THEME.hairline }}
@@ -784,7 +790,7 @@ return (
             title="Send"
             /* THE SEND BUTTON IS ORANGE, NOT WHITE.
 
-               `THEME.ink` is now `#FFFFFF` â€” it is the BODY TEXT colour, and the
+               `THEME.ink` is now `#FFFFFF` — it is the BODY TEXT colour, and the
                old code reused it as this button's fill because on a light theme
                the send button happened to be dark. Left alone, the retint would
                have produced a white button that reads as the brightest, most

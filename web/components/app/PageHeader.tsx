@@ -55,6 +55,7 @@ export function PageLock({
   className = "",
   bodyClassName = "",
   bodyStyle,
+  style,
 }: {
   /** The scrollable region. Everything here scrolls; nothing above it does. */
   children: ReactNode;
@@ -63,12 +64,30 @@ export function PageLock({
   /** Take the full 100dvh (routes with no mobile back header). */
   flush?: boolean;
   className?: string;
+  /**
+   * Inline styles for the ROOT (the viewport-locked column).
+   *
+   * Separate from `bodyStyle` because those are two different problems: this one
+   * paints the page CANVAS, which must not scroll, while `bodyStyle` styles the
+   * scrolling region. A page that needs a fixed background gradient has to put it
+   * here — on the body it would scroll away and leave a flat void above the
+   * content once the member scrolled down.
+   *
+   * Tailwind arbitrary values cover most cases, but a multi-stop gradient with a
+   * layered radial bloom is clearer and safer inline than as a
+   * `bg-[linear-gradient(...)]` utility, where commas and nested parens have to be
+   * escaped and are easy to get subtly wrong.
+   */
+  style?: React.CSSProperties;
   bodyClassName?: string;
   /** Escape hatch for pages that need extra bottom padding (e.g. fixed nav). */
   bodyStyle?: React.CSSProperties;
 }) {
   return (
-    <div className={["page-lock", flush ? "page-lock--flush" : "", className].filter(Boolean).join(" ")}>
+    <div
+      className={["page-lock", flush ? "page-lock--flush" : "", className].filter(Boolean).join(" ")}
+      style={style}
+    >
       {head ? <div className="page-lock__head">{head}</div> : null}
       <div className={["page-lock__body", bodyClassName].filter(Boolean).join(" ")} style={bodyStyle}>
         {children}
