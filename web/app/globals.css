@@ -575,8 +575,8 @@ input::placeholder, textarea::placeholder {
 
    `.app-bottom-nav` is DELIBERATELY NOT IN THIS RULE. It used to be grouped here,
    which meant this rule won over the bar's own Tailwind classes and re-imposed a
-   translucent purple fill plus a `backdrop-filter` on what is now a solid white
-   capsule — a stylesheet silently overriding the component it is meant to style.
+   translucent purple fill plus a `backdrop-filter` on the bottom bar itself - a
+   stylesheet silently overriding the component it is meant to style.
    The bar now paints itself (see `.app-bottom-nav` below) and this rule covers
    only the top bar. */
 .app-top-bar {
@@ -589,9 +589,11 @@ input::placeholder, textarea::placeholder {
 
 /* THE BOTTOM BAR — SOLID, OPAQUE, NO BLUR.
 
-   This is the one surface in the app that is deliberately NOT glassmorphic. The
-   capsule is pure `#FFFFFF` and the strip behind it is opaque deep purple, which
-   gives it a hard, crisp edge against the theme instead of a frosted one.
+   This is the one surface in the app that is deliberately NOT glassmorphic. Each
+   tab is now its OWN pure-`#FFFFFF` pill (the `<li>` in AppNav.tsx) standing on
+   the opaque deep-purple strip, so every button gets a hard, crisp edge of its
+   own with a dark gutter between neighbours - instead of one merged white slab,
+   and instead of a frosted one.
 
    WHY IT MATTERS ENOUGH TO ASSERT EXPLICITLY. A `backdrop-filter` on a bar that
    sits directly over scrolling content does not read as "premium depth" on a

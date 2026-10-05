@@ -528,10 +528,13 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 }
 
 /**
- * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me) rendered as
- * a floating frosted-glass capsule with a purple-to-orange glow. Hidden from
- * `md` up, where the fixed sidebar takes over. The "Menu" drawer holds every
- * destination that is not a tab.
+ * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me)
+ * rendered as FIVE SEPARATE PILLS - one independent card per tab, each with its
+ * own white fill, margin, ring and shadow, laid out with a dark gutter between
+ * neighbours. It is deliberately NOT one shared capsule any more: a single
+ * background behind transparent tabs merged them into one unbroken block.
+ * Hidden from `md` up, where the fixed sidebar takes over. The "Menu" drawer
+ * holds every destination that is not a tab.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -574,16 +577,49 @@ function MobileNavigation({
         aria-label="Primary"
         className="app-bottom-nav shrink-0 bg-[#1B1636]"
       >
-        <div className="mx-auto max-w-lg rounded-[32px] border border-black/[0.06] bg-[#FFFFFF] p-2 shadow-[0_18px_38px_-14px_rgba(15,10,30,0.55),0_2px_6px_rgba(15,10,30,0.12)]">
+        {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
+
+            This element used to paint ONE solid white rounded capsule (fill +
+            hairline border + drop shadow) behind all five tabs. Because every
+            resting tab is transparent, that single white slab is exactly what
+            made the buttons "leak" into each other: there was no visible
+            boundary between neighbours, so the row read as one merged block
+            instead of five controls.
+
+            All of that chrome is gone. The wrapper now contributes only its max
+            width and gutters; the dark `.app-bottom-nav` strip shows through the
+            `gap-1` on the list and around each pill, and every tab paints its
+            OWN background on its `<li>` below. Do not reintroduce a fill here -
+            this shared background is the thing the fix exists to remove. */}
+        <div className="mx-auto max-w-lg p-2">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch
-              them across an empty fifth, which is the more obvious bug. */}
-          <ul className="mx-auto grid max-w-md grid-cols-5">
+              them across an empty fifth, which is the more obvious bug.
+
+              `gap-1` is the EXPLICIT CHANNEL between the pills. It is small on
+              purpose: together with each `<li>`'s `mx-1` it opens an ~12px dark
+              gutter between neighbours (clearly separating the buttons) without
+              eating the width the `whitespace-nowrap` "Messages" label needs on
+              a narrow phone. */}
+          <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
+              /* EACH TAB'S OWN CONTAINER.
+
+                 The `<li>` is now the independent pill: it owns the white fill,
+                 hairline ring and shadow that the shared capsule used to provide
+                 for the whole row, and `mx-1` gives every button margin so no two
+                 pills can touch even before the list's `gap-1` is counted.
+                 `relative` is kept as the positioning context for anything
+                 absolutely placed inside a tab, and there is deliberately NO
+                 `overflow-hidden` - the unread badge overflows its icon box and
+                 clipping would cut it off. */
               return (
-                <li key={item.href} className="relative">
+                <li
+                  key={item.href}
+                  className="relative mx-1 rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,10,30,0.55)] ring-1 ring-black/[0.06]"
+                >
                   <Link
                     href={item.href}
                     aria-current={active ? "page" : undefined}
