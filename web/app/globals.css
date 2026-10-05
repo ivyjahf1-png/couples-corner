@@ -1794,6 +1794,13 @@ button,
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+/* Emoji picker drawer (chat composer): rises out of the input row when the
+   smiley toggles it. Decorative only — content never depends on it. The
+   reduced-motion block below drops it along with every other cc-* animation. */
+@keyframes cc-emoji-panel-up {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
 /* Safety net: any cc-* decorative animation is dropped under reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-[cc-"] {

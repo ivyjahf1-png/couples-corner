@@ -58,6 +58,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
+import { EMOJI_PICKER_PANEL_ID, EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
 import { GiftDrawer } from "@/components/app/GiftDrawer";
 import {
   COPY_ONLY_ACTIONS,
@@ -515,6 +516,45 @@ function ChatRoomHeader({
     </header>
   );
 }
+/**
+ * Delete the whole grapheme immediately before `index`, not just one UTF-16
+ * code unit.
+ *
+ * A naive `text.slice(0, index - 1)` splits surrogate pairs (😀 is TWO code
+ * units) and breaks apart ZWJ clusters (👨‍👩‍👧, flag sequences), leaving a
+ * half-rendered glyph in the draft. `Intl.Segmenter` with `granularity:
+ * "grapheme"` gives real user-perceived characters where the runtime has it;
+ * the code-point spread below is the fallback for one that does not. Typed
+ * through a local constructor alias so the build never depends on whether the
+ * ambient lib happens to declare `Intl.Segmenter`.
+ */
+function stripPreviousGrapheme(text: string, index: number): { text: string; caret: number } {
+  if (index <= 0) return { text, caret: 0 };
+  const head = text.slice(0, index);
+  const Segmenter = (
+    Intl as unknown as {
+      Segmenter?: new (
+        locales?: string | string[],
+        options?: { granularity?: "grapheme" | "word" | "sentence" },
+      ) => { segment(input: string): Iterable<{ index: number }> };
+    }
+  ).Segmenter;
+  if (Segmenter) {
+    const segmenter = new Segmenter(undefined, { granularity: "grapheme" });
+    /* Every segment inside `head` reports its START; the last one is where the
+       cut goes, because everything from there to `index` is one grapheme. */
+    let cut = 0;
+    for (const part of segmenter.segment(head)) cut = part.index;
+    return { text: text.slice(0, cut) + text.slice(index), caret: cut };
+  }
+  /* Fallback: spreading by code point keeps a surrogate pair whole, which is
+     the common case (a lone astral emoji) even without ZWJ clustering. */
+  const chars = [...head];
+  const last = chars.pop() ?? "";
+  const cut = head.length - last.length;
+  return { text: text.slice(0, cut) + text.slice(index), caret: cut };
+}
+
 export default function ChatRoomClient({
   conversationId,
   currentUserId,
@@ -547,6 +587,24 @@ export default function ChatRoomClient({
   /* Gift drawer visibility. It is a local modal, so its state belongs here rather
      than in the composer or the server - the page has no reason to know about it. */
   const [giftOpen, setGiftOpen] = useState(false);
+
+  /* THE EMOJI PICKER IS A DISCLOSURE, NOT A MODAL.
+
+     Toggled by the smiley button in the input row. While it is open the field
+     is BLURRED so the system keyboard drops and the drawer takes its place —
+     the WhatsApp behaviour this mirrors. It renders inside the composer bar,
+     so the locked column gives it height from the thread instead of letting
+     it cover anything. */
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
+  /* The textarea itself, so insertion and the drawer's backspace can honour
+     the caret rather than always appending at the end. */
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  /* Whether the field has ever been focused. Before that, `selectionStart` is
+     0 rather than "end of text", which would make the first emoji tap insert
+     at the FRONT of a draft a quick reply just filled in. Once set it stays
+     set: browsers preserve the stored selection across blur, which is exactly
+     the range the drawer needs while the keyboard is dismissed. */
+  const inputFocusedRef = useRef(false);
 
   /* Mark read on mount, never from the server render. See the file header. */
   useEffect(() => {
@@ -679,6 +737,57 @@ export default function ChatRoomClient({
     [send],
   );
 
+  /* INSERT AT THE CARET, NOT AT THE END.
+
+     The draft is controlled, so the only source of truth for "where" is the
+     textarea's own selection — read it, splice the emoji in, and put the
+     caret back after it once React has written the new value to the DOM. The
+     `hasCaret` gate falls back to appending when the field has never been
+     focused (see `inputFocusedRef`). */
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      const el = inputRef.current;
+      const hasCaret = inputFocusedRef.current && el !== null;
+      const start = hasCaret ? (el.selectionStart ?? draft.length) : draft.length;
+      const end = hasCaret ? (el.selectionEnd ?? draft.length) : draft.length;
+      const next = draft.slice(0, start) + emoji + draft.slice(end);
+      /* `send` slices to MAX_LENGTH and the server enforces the same cap;
+         refuse the tap rather than let the draft grow past it. */
+      if (next.length > MAX_LENGTH) return;
+      setDraft(next);
+      /* The DOM value lands on re-render; park the caret after the inserted
+         emoji once it has. The field is deliberately NOT re-focused — that
+         would raise the keyboard the open drawer just dismissed. */
+      requestAnimationFrame(() => {
+        const caret = start + emoji.length;
+        el?.setSelectionRange(caret, caret);
+      });
+    },
+    [draft],
+  );
+
+  /* The drawer's backspace. Removes a SELECTION when one exists, otherwise the
+     whole grapheme before the caret — one tap, one user-perceived character. */
+  const deletePreviousEmoji = useCallback(() => {
+    const el = inputRef.current;
+    const hasCaret = inputFocusedRef.current && el !== null;
+    const start = hasCaret ? (el.selectionStart ?? draft.length) : draft.length;
+    const end = hasCaret ? (el.selectionEnd ?? draft.length) : draft.length;
+    let next: string;
+    let caret: number;
+    if (start !== end) {
+      next = draft.slice(0, start) + draft.slice(end);
+      caret = start;
+    } else {
+      const stripped = stripPreviousGrapheme(draft, start);
+      next = stripped.text;
+      caret = stripped.caret;
+    }
+    if (next === draft) return;
+    setDraft(next);
+    requestAnimationFrame(() => el?.setSelectionRange(caret, caret));
+  }, [draft]);
+
   /* Gift is NOT in this list any more: it opens `GiftDrawer` in place rather than
      navigating to `/store`. A member sending a gift to the person they are
      talking to should not lose the conversation to get there, so it is rendered
@@ -779,12 +888,6 @@ export default function ChatRoomClient({
       >
         <PinnedProfileCard summary={summary} />
 
-        /* `justify-end` IS THE `flexGrow: 1` EQUIVALENT. It pushes a SHORT thread down
-           against the composer so the newest message sits nearest the input, the way
-           every chat app behaves. Without it a two-message conversation floats at the
-           top of a tall screen with a large void beneath it — the "floating too far
-           inward" symptom. It is safe on a long thread because a column that
-           overflows its box ignores `justify-end` and simply scrolls. */
         <div className="mt-3 flex flex-col justify-end gap-2.5">
           {messages.length === 0 ? (
             <p className="py-8 text-center text-xs text-[#B8B2D1]">No messages yet — say hello.</p>
@@ -879,6 +982,19 @@ export default function ChatRoomClient({
             </button>
           ))}
         </div>
+
+        {/* The emoji drawer sits between the quick replies and the input row,
+            so its bottom tab bar lands directly above the field WhatsApp-style
+            and, being in flow, it takes height from the thread rather than
+            covering anything. */}
+        {isEmojiPickerOpen ? (
+          <EmojiPickerDrawer
+            onPick={insertEmoji}
+            onBackspace={deletePreviousEmoji}
+            onClose={() => setIsEmojiPickerOpen(false)}
+          />
+        ) : null}
+
 <form onSubmit={onSubmit} className="flex items-center gap-2">
           <button
             type="button"
@@ -890,7 +1006,11 @@ export default function ChatRoomClient({
           </button>
 
           <textarea
+            ref={inputRef}
             value={draft}
+            onFocus={() => {
+              inputFocusedRef.current = true;
+            }}
             onChange={(event) => {
               setDraft(event.target.value);
               /* Typing during an edit means the member has moved on; drop back to
@@ -908,8 +1028,26 @@ export default function ChatRoomClient({
           <button
             type="button"
             aria-label="Insert emoji"
+            aria-expanded={isEmojiPickerOpen}
+            aria-controls={isEmojiPickerOpen ? EMOJI_PICKER_PANEL_ID : undefined}
             title="Emoji"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+            onClick={() => {
+              const opening = !isEmojiPickerOpen;
+              setIsEmojiPickerOpen(opening);
+              /* OPENING DISMISSES THE SYSTEM KEYBOARD. A blur is the only
+                 thing a web page can ask a phone to hide its keyboard with;
+                 the drawer stands in for it until the member taps the field
+                 again. Closing does NOT re-focus, for the same reason in
+                 reverse — the member decides when typing resumes. */
+              if (opening) inputRef.current?.blur();
+            }}
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]",
+              isEmojiPickerOpen
+                ? "bg-white/10 text-[#FF7A00]"
+                : "text-[#C9C2E4] hover:bg-white/10",
+            ].join(" ")}
           >
             <Smile className="h-5 w-5" aria-hidden />
           </button>
