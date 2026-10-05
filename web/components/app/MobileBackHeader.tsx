@@ -3,7 +3,6 @@
 import { type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { isActiveConversationPath } from "@/components/app/AppNav";
 
 const titles: Record<string, string> = {
   discover: "Discover", explore: "Explore", matches: "Matches", messages: "Messages",
@@ -29,90 +28,44 @@ export function MobileBackHeader() {
   const router = useRouter();
   const segment = pathname?.split("/").filter(Boolean)[0] ?? "";
 
-  /* Which view of the Moment screen is showing, read from the URL.
+  /* ── ROUTES THAT OWN THEIR OWN HEADER, AND SO SUPPRESS THIS ONE ──────────────
 
-     ── WHY `useSyncExternalStore` ────────────────────────────────────────────
-     `MomentFeed` — a CHILD of this header — is what renders the panels, and it
-     writes the active view into the address bar with `history.replaceState`.
-     That call re-renders nothing by design, because routing instead would
-     remount both panels and discard the scroll positions that keeping them
-     mounted exists to preserve. So this header has no render of its own to hang
-     a label update on, and it reads the same external truth the panels do: the
-     URL.
+     Every route listed here builds a header of its own — `/messages` through
+     `PageLock`'s `head` slot, `/profile` through `ProfileHeader`, an active
+     conversation through the chat's own top bar. Rendering this global bar as
+     well stacks two chrome rows on top of each other.
 
-     A `useState` + `useEffect` pair is wrong here twice over. Seeding state in
-     an effect is a cascading render React warns against, and — decisively —
-     child effects run BEFORE parent effects, so the child's very first
-     announcement lands before this listener could possibly be attached. The
-     label would be wrong on arrival and stay wrong until the member navigated
-     twice. `useSyncExternalStore` reads its snapshot DURING render, so it is
+     WHY THIS IS NOW A SINGLE LIST RATHER THAN A CHAIN OF EXACT-MATCH `if`s.
+     The suppression used to be scattered through the function as a series of
+     `if (pathname === "/x") return null;` statements, and the `/messages` one
+     never executed: the duplicate bar was still in the served DOM. The cause
+     was not the comparison but the COMMENT above it — an unterminated block
+     comment (the stale `useSyncExternalStore` note, describing code that no
+     longer lives in this file) ran on into the guards below, so they compiled
+     as comment text instead of statements. The guards after that comment's
+     accidental closing sequence (`/profile`, `/likes`, `/discover`) kept
+     working, which is why only `/messages` showed the double header.
+
+     Listing the routes in one place means there is a single decision to audit,
+     and adding a self-headered route no longer means finding the right `if`
+     among a dozen of them. The paths are matched on the SEGMENT, so `/messages`
+     and `/messages/<id>` are both covered by one entry and cannot drift apart. */
+  const SELF_HEADERED = new Set([
+    "messages", // inbox + active conversation
+    "profile", // own profile + /profile/<uid>
+    "likes",
+    "discover",
+    /* `/explore` is NOT in this list even though it suppresses the back arrow and
+       the "Home" link: it renders THIS bar in its bare form — centred title only —
+       so it must keep reaching the markup below. */
+  ]);
 
   if (!segment || pathname === "/dashboard") return null;
 
-  // Inside an ACTIVE conversation the chat's own ChatHeader is the visible
-  // header: it already carries the back arrow, avatar, name/status and call
-  // buttons, and it is laid out inside the page's 100dvh column. Rendering the
-  // global header here as well would stack two bars, and its fixed positioning
-  // plus 4rem spacer would push that 100dvh column past the viewport.
-  if (isActiveConversationPath(pathname)) return null;
-
-  // `/messages` (the INBOX) builds its own header too: a title, a search icon
-  // and a three-dot menu, all inside the inbox's own `PageLock` head, with the
-  // conversation list as the single scroll region beneath it.
-  //
-  // This global bar used to render above that as well, giving the screen two
-  // headers stacked on top of each other — the outer one reading "Messages ·
-  // Home" and the inner one reading "Messages". Two bars, one of them repeating
-  // the other's title, is pure chrome: the member gains nothing from the second
-  // back arrow and loses the height that separates the two.
-  if (pathname === "/messages") return null;
-
-  /* `/profile` builds its OWN header inside `PageLock`'s `head` slot
-     (`ProfileHeader`: back arrow, "Profile" title, settings gear). That bar is
-     rendered at EVERY breakpoint, whereas this one is `md:hidden` — so keeping
-     both would stack two bars on phones and leave the profile's own header as the
-     only one on desktop anyway. Returning `null` leaves exactly one header
-     everywhere. Same rule, same reason, as `/messages` above. */
-  if (pathname === "/profile") return null;
-
-  /* `/profile/<uid>` — the EXTERNAL profile screen — is an immersive surface:
-     a full-bleed photo header with its OWN back chevron and overflow menu drawn
-     over the image (`PublicProfileScreen`).
-
-     This global bar would render directly above it, so the screen would open
-     with two stacked headers: a navy "Profile · Home" bar, then the photo's own
-     chrome immediately under it. It would also add the 4rem header spacer, which
-     on a viewport-locked immersive surface is pure dead height.
-
-     Same rule, same reason, as `/profile`, `/messages` and `/likes` above: the
-     screen owns its header, so this one steps aside. Matched with `startsWith`
-     because `/profile` itself is already handled on the line above. */
-  if (pathname?.startsWith("/profile/")) return null;
-
-  /* `/likes` builds its own pinned title bar in `PageLock`'s `head` slot ("Who
-     liked you"). This global bar would otherwise sit directly above it, giving
-     the screen two stacked headers — the outer one carrying a back arrow, a
-     "Likes" label and a "Home" link, all of which duplicate what the inner bar
-     and the bottom nav already provide. Same rule as /profile and /messages. */
-  if (pathname === "/likes") return null;
-
-    /* `/discover` NOW OWNS ITS HEADER TOO.
-
-     This used to be the one app route that kept a BARE header — a centred title
-     and nothing else — directly above the page's own `PageHeader`, which renders
-     "Discover: Find your people". That stacked two headers, the outer one
-     repeating the inner one's first word, and it cost a full 4rem spacer plus the
-     bar itself on a viewport-locked screen whose card absorbs every spare pixel.
-
-     The route has exactly one header now — the page's own, which carries the full
-     "Discover: Find your people" title and the "Browse grid" action. Same rule and
-     same reason as `/profile`, `/messages`, `/likes` and `/profile/<uid>` above:
-     a screen that draws its own header gets this one to step aside.
-
-     `/explore` is deliberately NOT changed here. It is the same bare-header case,
-     but it was not in scope for this fix, and suppressing its bar is a one-line
-     follow-up if it is wanted for consistency. */
-  if (segment === "discover") return null;
+  /* One decision, before anything else: if this route draws its own header,
+     this bar must not render at all. Placed immediately after the null-path
+     guard so no later code path can reach the markup on these routes. */
+  if (SELF_HEADERED.has(segment)) return null;
 
   // ── BARE HEADER ON /explore ───────────────────────────────────────────────
   // `/explore` renders ONLY the centred title: no back arrow on the left, no
