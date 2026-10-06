@@ -340,6 +340,10 @@ html {
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   padding-bottom: env(safe-area-inset-bottom);
+  /* Composite the scroll region on the GPU so touch/wheel momentum never
+     janks behind repaint work on large phones. */
+  transform: translateZ(0);
+  will-change: scroll-position;
 }
 
 /* ----------------------------------------------------------------------------

@@ -116,7 +116,7 @@ type InboxRow = SystemRow | ChatRow;
  * dark canvas.
  */
 const CARD =
-  "rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_30px_-14px_rgba(0,0,0,0.75)]";
+  "rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45)] [contain:layout_style]";
 
 /**
  * THE PAGE CANVAS - the SAME gradient as `app/(app)/profile/page.tsx`.
@@ -138,7 +138,6 @@ const CANVAS: React.CSSProperties = {
     "radial-gradient(120% 50% at 50% 62%, rgba(122,92,178,0.18) 0%, rgba(122,92,178,0.05) 45%, rgba(122,92,178,0) 75%)",
     "linear-gradient(180deg, #0F0C1B 0%, #0F0C1B 6%, #1B1636 34%, #2C1B41 62%, #402340 84%, #55303A 100%)",
   ].join(", "),
-  backgroundAttachment: "fixed",
 };
 
 const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]";
@@ -617,7 +616,6 @@ export function MessagesInbox({
        the body: the body is the single `overflow-y-auto` region, so a gradient
        there would scroll away with the content and leave a flat void above it. */
     <PageLock
-      flush
       style={CANVAS}
       head={
         <MessagesHeader
@@ -628,7 +626,7 @@ export function MessagesInbox({
         />
       }
       bodyRef={collapseRef}
-      bodyClassName="flex flex-col gap-3 px-4 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8"
+      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

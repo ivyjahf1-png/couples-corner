@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, MoreHorizontal, Copy, Play, CheckCircle2 } from "lucide-react";
 import { ProfileChatButton, ProfileFollowButton } from "@/components/profile/PublicProfileActions";
@@ -28,16 +28,28 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
   const router = useRouter();
   const [tab, setTab] = useState<"About Me" | "Honor" | "Relation">("About Me");
   const [copied, setCopied] = useState(false);
-  const { online } = usePresence(view.uid, view.initialOnline);
-  const isOnline = isPresenceOnline({ online });
+  // Array form, memoised: usePresence(ids[]) takes an ARRAY — a bare string
+  // would iterate its characters as ids and spam the presence action once per
+  // character, hanging the profile. `useMemo` keeps the array identity stable
+  // so the hook's refetch effect does not re-fire every render.
+  const watchIds = useMemo(() => (view.uid ? [view.uid] : []), [view.uid]);
+  const { presence } = usePresence(watchIds, Boolean(view.uid));
+  const entry = view.uid ? presence[view.uid] : undefined;
+  const isOnline = entry ? entry.online : view.initialOnline;
   const photos = view.photos.map((p) => p.src).filter((s): s is string => Boolean(s));
   const cover = photos[0] ?? null;
   const hobbies = [...view.interests, ...view.lifestyle].map((label, i) => ({ label, icon: hobbyIcon(label), tone: TONES[i % TONES.length] }));
   function goBack() { if (window.history.length > 1) router.back(); else router.replace("/discover"); }
   async function copyId() { try { await navigator.clipboard.writeText(view.uid); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); } }
   return (
-    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-md flex-1 flex-col overflow-y-auto bg-slate-950 text-white overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
-      <div className="relative h-[55vh] min-h-[380px] w-full shrink-0 bg-slate-900">
+    /* LOCKED COLUMN: outer box never scrolls; the sheet below is the single
+       `overflow-y-auto` region. A `sticky` action bar INSIDE the scroller traps
+       wheel/touch momentum at the seam on large phones — as a `shrink-0`
+       sibling it stays pinned without intercepting the scroll gesture. */
+    <div className="relative mx-auto flex h-full min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-slate-950 text-white">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto]">
+      {/* Cover: capped height + layout containment so it never forces the sheet. */}
+      <div className="relative h-[52vh] max-h-[480px] min-h-[340px] w-full shrink-0 bg-slate-900 [contain:layout_style]">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt={view.name} className="h-full w-full object-cover" />
@@ -68,7 +80,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
         ) : null}
       </div>
 
-      <div className="relative z-30 -mt-16 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-6 shadow-2xl md:pb-8">
+      <div className="relative z-30 -mt-16 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 pb-6 pt-6 md:pb-8 [contain:layout_style]">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold text-white">{view.name}</h1>
           <span className="flex items-center text-emerald-400" title="Verified member"><CheckCircle2 className="h-5 w-5 fill-emerald-500 text-slate-950" /></span>
@@ -148,8 +160,9 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
           </div>
         )}
       </div>
+      </div>
       {!view.isSelf ? (
-        <div className="sticky bottom-0 z-40 mx-auto flex w-full max-w-md items-center gap-3 border-t border-white/10 bg-slate-950/90 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-xl">
+        <div className="z-40 mx-auto flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/95 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="flex-1"><ProfileChatButton recipientId={view.uid} recipientName={view.name} /></div>
           <div className="flex-1"><ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} /></div>
         </div>
