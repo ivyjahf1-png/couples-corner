@@ -6,10 +6,10 @@ import { getPresenceForUsers } from "@/lib/server/presence";
 import { haversineKm } from "@/lib/server/nearby";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  PublicProfileScreen,
+  UserProfileView,
   type PublicProfilePhoto,
   type PublicProfileView,
-} from "@/components/profile/PublicProfileScreen";
+} from "@/components/profile/UserProfileView";
 import type { ProfilePhoto } from "@/lib/models/user";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +20,10 @@ export const dynamic = "force-dynamic";
  * This route was rewritten from scratch. The previous version rendered a column
  * of dark `<Card>` sections (identity, About, Interests, a media gallery, a
  * relationship block, and four inline action buttons) down an ordinary
- * scrolling document. It is replaced entirely by `PublicProfileScreen`, an
- * immersive light surface: full-bleed photo header, overlapping white sheet,
- * tabs, and a pinned two-button action bar. None of the old markup survives —
+ * scrolling document. It is replaced entirely by `UserProfileView`, a
+ * dark immersive surface: full-bleed photo header, thumbnail switcher,
+ * overlapping sheet, About/Honor/Relation tabs, hobby pills, and a pinned
+ * Chat + Follow action bar. None of the old markup survives —
  * there is deliberately no "legacy" version left to fall back to.
  *
  * â”€â”€ THIS PAGE IS A SERVER COMPONENT, ON PURPOSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -218,7 +219,7 @@ export default async function PublicProfilePage({
     relation,
   };
 
-  return <PublicProfileScreen view={view} />;
+  return <UserProfileView view={view} />;
 }
 
 /**
