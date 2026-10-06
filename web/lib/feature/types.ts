@@ -43,13 +43,22 @@ export interface ProfileCardView {
   location: string;
   bio: string;
   interests: string[];
-  /** Count of interests shared with the signed-in user (computed server-side later). */
+  /** Count of interests shared with the signed-in member (computed server-side). */
   sharedInterests?: number;
+  /**
+   * Interest overlap with the signed-in member as a percentage: shared ÷ their
+   * listed interests, rounded. Computed server-side from real tags — the card
+   * renders its glowing ring only when this is present, and omits the ring
+   * entirely when there is no overlap rather than showing a fabricated score.
+   */
+  matchPercent?: number;
   connection: ConnectionState;
   /** Firestore request/connection doc id when an action (accept/decline/cancel/remove) is applicable. */
   requestId?: string;
   href?: string;
   age?: number;
+  /** Self-reported country name, verbatim (e.g. "Nigeria") — drives the flag badge. */
+  country?: string | null;
   /** Profile photo / avatar URL. */
   avatarUrl?: string | null;
   /** Whether the signed-in user has blocked this person (drives action enablement). */

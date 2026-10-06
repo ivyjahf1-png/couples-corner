@@ -5,6 +5,7 @@ import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { mapProfileRow, profileSelectList } from "@/lib/server/profiles";
 import { publicDisplayName } from "@/lib/utils/display-name";
 import type { UserProfile } from "@/lib/models/user";
+import { ageFromDateOfBirth } from "@/lib/feature/types";
 
 /**
  * "Near me" service (server-side) — geolocation-aware profile suggestions.
@@ -23,6 +24,10 @@ export interface NearbyProfileView {
   location: string;
   avatarUrl: string | null;
   distanceKm: number | null;
+  /** Age in whole years from date_of_birth — undefined when not shared. */
+  age?: number;
+  /** Self-reported country name, verbatim — drives the Explore flag badge. */
+  country?: string | null;
 }
 
 const NEARBY_LIMIT = 12;
@@ -118,7 +123,11 @@ export async function getNearbyProfiles(
     }
 
     const mapped = ((profilesResult.data ?? []) as unknown as Array<Record<string, unknown>>)
-      .map((row) => {
+      /* Explicit return annotation (not just `satisfies`) so the type predicate
+         on the following `.filter` narrows correctly — `satisfies` alone makes
+         `age`/`country` REQUIRED in the inferred literal type, which the
+         optional fields on NearbyProfileView then fail to satisfy. */
+      .map((row): NearbyProfileView | null => {
         const profile: UserProfile | null = mapProfileRow(row);
         if (!profile) return null;
         const locRow = locById.get(profile.userId);
@@ -141,6 +150,8 @@ export async function getNearbyProfiles(
           location: profile.location ?? "",
           avatarUrl,
           distanceKm,
+          age: ageFromDateOfBirth(profile.dateOfBirth) ?? undefined,
+          country: profile.country,
         } satisfies NearbyProfileView;
       })
       .filter((v): v is NearbyProfileView => Boolean(v?.id));

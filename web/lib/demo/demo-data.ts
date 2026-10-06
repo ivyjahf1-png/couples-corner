@@ -148,6 +148,10 @@ export const demoProfileViews: ProfileCardView[] = demoSuggested.map((p) => ({
   bio: p.bio,
   interests: p.interests,
   sharedInterests: p.sharedInterests,
+  matchPercent:
+    p.sharedInterests && p.interests.length > 0
+      ? Math.min(100, Math.round((p.sharedInterests / p.interests.length) * 100))
+      : undefined,
   connection: connectionByStatus[p.status],
   href: p.kind === "couple" ? `/couple/${p.id}` : `/u/${p.id}`,
 }));

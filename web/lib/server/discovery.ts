@@ -328,7 +328,9 @@ export async function getDiscoverProfiles(
   }
   const accountsById = new Map((accounts ?? []).map((account) => [account.id, account]));
   const profiles = profileRowsTyped.flatMap((row) => {
-    const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id));
+    /* `user_id` was validated by isDiscoveryUserId above, but that guard does
+       not narrow the array element type — cast for the Map key lookup. */
+    const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id as string));
     return hydrated ? [dbToUserProfile(hydrated)] : [];
   });
 
@@ -376,23 +378,37 @@ export async function getDiscoverProfiles(
     }))
     .sort((a, b) => b.overlap - a.overlap);
 
-  return scored.map(({ profile: p }) => ({
-    id: p.userId,
-    /* Discovery cards are public: an address-shaped display_name renders as its
-       prefix, never the full address. */
-    name: safePublicDisplayName(p.displayName) || "Member",
-    kind: p.profileType === "coupled" ? "couple" : "person",
-    location: p.location ?? "",
-    bio: p.bio ?? "",
-    interests: p.interests,
-    sharedInterests: p.interests.filter((i: string) => viewerInterests.includes(i)).length,
-    connection: stateFor(p.userId, viewerUid, connectedIds, outgoingIds, incomingIds),
-    ...(outgoingMap.has(p.userId) && { requestId: outgoingMap.get(p.userId) }),
-    ...(incomingMap.has(p.userId) && { requestId: incomingMap.get(p.userId) }),
-    href: `/profile/${p.userId}`,
-    age: ageFromDob(p.dateOfBirth) ?? undefined,
-    avatarUrl: profilePhotoUrl(p),
-  }));
+  return scored.map(({ profile: p }) => {
+    /* Shared-interest overlap, computed ONCE: it feeds both the badge count and
+       the match percentage (shared ÷ their listed interests, rounded). A
+       percentage derived from real tags is data; a percentage the product
+       invents would be a fabrication — so matchPercent is only emitted when
+       there is genuine overlap, and is undefined otherwise (the card then
+       renders no ring at all). */
+    const shared = p.interests.filter((i: string) => viewerInterests.includes(i)).length;
+    return {
+      id: p.userId,
+      /* Discovery cards are public: an address-shaped display_name renders as its
+         prefix, never the full address. */
+      name: safePublicDisplayName(p.displayName) || "Member",
+      kind: p.profileType === "coupled" ? "couple" : "person",
+      location: p.location ?? "",
+      bio: p.bio ?? "",
+      interests: p.interests,
+      sharedInterests: shared,
+      matchPercent:
+        shared > 0 && p.interests.length > 0
+          ? Math.round((shared / p.interests.length) * 100)
+          : undefined,
+      connection: stateFor(p.userId, viewerUid, connectedIds, outgoingIds, incomingIds),
+      ...(outgoingMap.has(p.userId) && { requestId: outgoingMap.get(p.userId) }),
+      ...(incomingMap.has(p.userId) && { requestId: incomingMap.get(p.userId) }),
+      href: `/profile/${p.userId}`,
+      age: ageFromDob(p.dateOfBirth) ?? undefined,
+      country: p.country ?? undefined,
+      avatarUrl: profilePhotoUrl(p),
+    };
+  });
 }
 
 /* ------------------------------------------------------------------ */

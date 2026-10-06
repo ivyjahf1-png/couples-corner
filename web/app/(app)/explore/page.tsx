@@ -36,6 +36,8 @@ function toNearbyCard(p: NearbyProfileView): ProfileCardView {
     bio: "",
     interests: [],
     connection: "none",
+    age: p.age,
+    country: p.country,
   };
 }
 

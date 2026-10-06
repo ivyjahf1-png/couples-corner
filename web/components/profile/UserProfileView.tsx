@@ -42,11 +42,11 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
   function goBack() { if (window.history.length > 1) router.back(); else router.replace("/discover"); }
   async function copyId() { try { await navigator.clipboard.writeText(view.uid); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); } }
   return (
-    /* LOCKED COLUMN: outer box never scrolls; the sheet below is the single
-       `overflow-y-auto` region. A `sticky` action bar INSIDE the scroller traps
-       wheel/touch momentum at the seam on large phones — as a `shrink-0`
-       sibling it stays pinned without intercepting the scroll gesture. */
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-slate-950 text-white">
+      {/* LOCKED COLUMN: outer box never scrolls; the sheet below is the single
+         overflow-y-auto region. A sticky action bar INSIDE the scroller traps
+         wheel/touch momentum on large phones — as a shrink-0 sibling it stays
+         pinned without intercepting the scroll gesture. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto]">
       {/* Cover: capped height + layout containment so it never forces the sheet. */}
       <div className="relative h-[52vh] max-h-[480px] min-h-[340px] w-full shrink-0 bg-slate-900 [contain:layout_style]">

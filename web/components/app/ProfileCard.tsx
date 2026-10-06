@@ -11,6 +11,7 @@ import { ConnectionButton } from "@/components/app/ConnectionButton";
 import { Chip } from "@/components/ui/Chip";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
 import type { ProfileCardView } from "@/lib/feature/types";
+import { countryFlag } from "@/lib/utils/country-flag";
 
 /**
  * Profile card used in Discover and dashboard suggestions. Consumes the
@@ -45,6 +46,15 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
   // Guard: no valid target id → nothing to connect to. Render read-only.
   const hasTargetId = typeof profile?.id === "string" && (profile?.id ?? "").trim().length > 0;
   const name = profile?.name?.trim() || "Community member";
+  const flag = countryFlag(profile.country);
+  /* 0, negative, non-integer or absent overlap → null → no ring. The ring must
+     never render a number the server did not actually compute. */
+  const matchPercent =
+    typeof profile.matchPercent === "number" &&
+    profile.matchPercent > 0 &&
+    profile.matchPercent <= 100
+      ? Math.round(profile.matchPercent)
+      : null;
 
   async function connect() {
     const targetId = profile?.id?.trim();
@@ -93,6 +103,15 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
           )}
           <div className="min-w-0">
             <h3 className="truncate font-semibold text-white">{name}</h3>
+            {/* Age/country badge — "28 🇳🇬". Both halves are optional: no DOB or
+                no mapped country renders whichever exists, and neither renders
+                the row at all rather than a placeholder value. */}
+            {profile.age != null || flag ? (
+              <span className="mt-1 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.06] px-2 py-0.5 text-[11px] font-semibold text-white">
+                {profile.age != null ? <span>{profile.age}</span> : null}
+                {flag ? <span>{flag}</span> : null}
+              </span>
+            ) : null}
             <p className="truncate text-sm text-ink-300">{profile.location?.trim() || "Location not shared"}</p>
           </div>
         </div>
@@ -101,13 +120,20 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
         </Chip>
       </div>
 
-      {profile.bio?.trim() ? (
-        <p className="text-sm leading-6 text-ink-300">{profile.bio.trim()}</p>
-      ) : (
-        <p className="text-sm italic leading-6 text-ink-400">
-          A quiet presence — this member is keeping their story unwritten for now.
-        </p>
-      )}
+      {/* Bio + match ring. The ring sits beside the bio/interest tags and only
+          exists when the server computed a real overlap — see MatchRing below. */}
+      <div className="flex items-center gap-3">
+        <div className="min-w-0 flex-1">
+          {profile.bio?.trim() ? (
+            <p className="text-sm leading-6 text-ink-300">{profile.bio.trim()}</p>
+          ) : (
+            <p className="text-sm italic leading-6 text-ink-400">
+              A quiet presence — this member is keeping their story unwritten for now.
+            </p>
+          )}
+        </div>
+        {matchPercent !== null ? <MatchRing percent={matchPercent} /> : null}
+      </div>
 
       {profile.interests.length > 0 ? (
         <ul className="flex flex-wrap gap-1.5" aria-label="Interests">
@@ -153,5 +179,65 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
       </div>
       {error ? <p role="alert" className="text-sm text-danger-300">{error}</p> : null}
     </Link>
+  );
+}
+
+/* ── MATCH RING ───────────────────────────────────────────────────────────────
+   A glowing orange progress ring for ProfileCardView.matchPercent — the REAL
+   shared-interest overlap (shared ÷ their listed interests) computed in
+   lib/server/discovery.ts, not a fabricated compatibility score. When the
+   server has no genuine overlap the field is undefined, `matchPercent` above
+   resolves to null, and no ring renders at all — the same "omit rather than
+   invent a number" rule the conversation summary cards follow.
+
+   The glow is an inline drop-shadow (not a Tailwind class) so it works
+   regardless of the purge/content config, matching the Moment follow-ring
+   treatment. The ring is decorative: the accessible label carries the value. */
+const RING_RADIUS = 21;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+function MatchRing({ percent }: { percent: number }) {
+  const offset = RING_CIRCUMFERENCE * (1 - percent / 100);
+  return (
+    <div
+      role="img"
+      aria-label={`${percent}% interest match`}
+      className="flex shrink-0 flex-col items-center"
+    >
+      <svg
+        width="54"
+        height="54"
+        viewBox="0 0 54 54"
+        style={{ filter: "drop-shadow(0 0 6px rgba(249, 115, 22, 0.65))" }}
+      >
+        {/* Track */}
+        <circle cx="27" cy="27" r={RING_RADIUS} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
+        {/* Progress arc, drawn clockwise from 12 o'clock */}
+        <circle
+          cx="27"
+          cy="27"
+          r={RING_RADIUS}
+          fill="none"
+          stroke="#F97316"
+          strokeWidth="4"
+          strokeLinecap="round"
+          strokeDasharray={RING_CIRCUMFERENCE}
+          strokeDashoffset={offset}
+          transform="rotate(-90 27 27)"
+        />
+        <text
+          x="27"
+          y="27"
+          textAnchor="middle"
+          dominantBaseline="central"
+          className="fill-white text-[11px] font-bold"
+        >
+          {percent}%
+        </text>
+      </svg>
+      <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-300">
+        Match
+      </span>
+    </div>
   );
 }
