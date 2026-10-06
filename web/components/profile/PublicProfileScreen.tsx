@@ -505,7 +505,7 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
           `pt-12` inside puts the name back below the sheet's rounded corner so it
           can never collide with the photo's bottom edge. */}
       <div className="relative z-10 -mt-10 flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-12">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-12 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
           <ProfileIdentity view={view} online={online} />
 
           {/* TABS. A real `tablist` with `aria-selected`, so the active state is

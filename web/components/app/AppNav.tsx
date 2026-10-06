@@ -455,7 +455,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
            `overflow-x-hidden` is retained unconditionally: nothing in this app
            scrolls horizontally, and a stray wide child must never produce a
            sideways page scroll. */
-        inActiveConversation || isFullBleedSurface
+        inActiveConversation || (isFullBleedSurface && !pathname?.startsWith("/profile/"))
           ? "overflow-hidden"
           /* -webkit-overflow-scrolling: touch is the iOS momentum-scroll flag.
              Without it, Safari scrolls this region with the OLD non-composited
@@ -464,7 +464,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
              won't scroll smoothly on my phone" always turns out to be. It cannot
              be expressed as a real Tailwind utility because it is a vendor-
              prefixed property, so it is written as an arbitrary property. */
-          : "overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]",
+          : "overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]",
         inActiveConversation || isFullBleedSurface
           ? "p-0"
           : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.

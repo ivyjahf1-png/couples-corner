@@ -338,6 +338,8 @@ html {
   overflow-x: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ----------------------------------------------------------------------------

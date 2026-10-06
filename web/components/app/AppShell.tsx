@@ -4,7 +4,7 @@ import { AppSidebar, AppMain, BottomNavRegion } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { getCurrentSessionUser } from "@/lib/server/session";
-import { displayNameFromEmail, publicDisplayName } from "@/lib/utils/display-name";
+import { displayNameFromEmail, safePublicDisplayName } from "@/lib/utils/display-name";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { BannerAd } from "@/components/ads/BannerAd";
@@ -45,8 +45,11 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
      The full address is shown in exactly one place — /settings. Everywhere else
      (this rail, the mobile drawer) the chip prints `publicDisplayName`, so
      "ivyjahf1@gmail.com" reads as "ivyjahf1". The raw `user.email` is untouched
-     underneath, so nothing that needs the real value (sign-in, settings) breaks. */
-  const displayEmail = publicDisplayName(user?.email) || "demo@couplescorner";
+     underneath, so nothing that needs the real value (sign-in, settings) breaks.
+     `safePublicDisplayName` (not the bare `publicDisplayName`) so a Turbopack
+     RSC binding race degrades to a plain string instead of throwing
+     `TypeError: publicDisplayName is not a function`. */
+  const displayEmail = safePublicDisplayName(user?.email) || "demo@couplescorner";
 
   return (
     // `min-h-0 flex-1`, NOT `h-[100dvh]`.
@@ -60,13 +63,20 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     //
     // The shell now fills exactly what the header leaves (`flex-1`), with
     // `min-h-0` so it may shrink below its content's intrinsic height. The viewport
-    // is measured ONCE, by `<html class="h-full">` + `<body class="min-h-full">`;
+    // is measured ONCE, by `<html class="h-full">` + `<body class="min-h-dvh">`;
     // every route below just divides the space it is given.
     //
     // `overflow-hidden` is load-bearing: it makes containment STRUCTURAL. Without
     // it a child that overflows its box silently promotes the shell into a
     // scroller and the page starts drifting again.
-    <div className="app-canvas relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-950 select-none text-foreground">
+    //
+    // `h-dvh` (NOT `min-h-0 flex-1`): the shell must be a BOUNDED box so inner
+    // `flex-1 min-h-0` scroll regions resolve against a real height on mobile.
+    // `min-h-dvh` let content height stretch the shell past the viewport, which
+    // collapsed every `height:100%` child (PageLock, profile column) to zero and
+    // is exactly why Profile/Messages could not scroll on phones. Subtract the
+    // ~4rem mobile header sibling above so the shell + header equal one viewport.
+    <div className="app-canvas relative flex h-[calc(100dvh-4rem)] w-full flex-col overflow-hidden bg-slate-950 text-foreground md:h-dvh">
       {/* Demo banner — shrink-0 so it never collapses or scrolls away. */}
       {isDemo && (
         <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">

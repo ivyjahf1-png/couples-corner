@@ -628,7 +628,7 @@ export function MessagesInbox({
         />
       }
       bodyRef={collapseRef}
-      bodyClassName="flex flex-col gap-3 px-4 py-3 pb-24"
+      bodyClassName="flex flex-col gap-3 px-4 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

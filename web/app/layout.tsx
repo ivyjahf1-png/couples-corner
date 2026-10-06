@@ -151,7 +151,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <style dangerouslySetInnerHTML={{ __html: CRITICAL_CSS }} />
       </head>
-      <body className="app-canvas flex min-h-full flex-col overflow-x-hidden overscroll-y-none text-foreground">
+      <body className="app-canvas flex min-h-dvh flex-col overflow-x-hidden text-foreground">
         <ThemeColorSync />
         <FailureToasts />
         <AuthModalProvider />
