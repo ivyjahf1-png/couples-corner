@@ -1058,26 +1058,19 @@ export function MediaFeed({
 
             So the top padding here is a plain, even `0.75rem`: this overlay sits
             below the header and just needs breathing room. */}
-        {/* THE LOCATION PILL IS THE `order-1` ITEM, SO IT LEADS THE ROW.
-
-           It used to be handed in through `topRightSlot`, which put it on the
-           RIGHT of the search field with the options dots. The reference puts the
-           discovery tag on the LEFT as the row's leading element, with only the
-           options dots on the right — so the pill now leads and
-           `topRightSlot` is reserved for genuinely secondary controls (games,
-           whatever a host passes later).
-
-           When a host DOES pass `searchSlot`, the pill still leads: on phones
-           `flex-wrap` puts the search field on its own full-width line beneath
-           this row, so there is no competition for the leading position, and from
-           `sm` up the pill keeps the left edge and the search takes the remaining
-            width. Previously the order was the reverse of this. */}
-        <div className="pointer-events-auto flex flex-wrap items-center gap-2 px-3 pt-3 sm:flex-nowrap sm:gap-3 sm:px-5 sm:pt-4">
+        {/* FLOATING LOCATION PILL — centered near the top, per the reference.
+            Dark translucent pill with pin icon: "Discover Nearby, Austin, TX".
+            `justify-center` centers it in the row; the options menu stays right
+            via absolute positioning. `pointer-events-auto` only on the pill itself. */}
+        <div className="pointer-events-none flex items-center justify-center gap-2 px-16 pt-3 sm:pt-4">
           {topRightSlot ? (
-            <div className="order-1 flex shrink-0 items-center gap-2">{topRightSlot}</div>
-          ) : null}
-          {searchSlot ? <div className="order-2 min-w-0 flex-1 basis-full sm:basis-auto">{searchSlot}</div> : null}
-          <div className="order-3 ml-auto flex shrink-0 items-center gap-2">
+            <div className="pointer-events-auto absolute left-3 top-3 sm:left-5 sm:top-4">{topRightSlot}</div>
+          ) : (
+            <div className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/60 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-xl">
+              <span aria-hidden className="text-orange-400">📍</span> Discover Nearby, Austin, TX
+            </div>
+          )}
+          <div className="pointer-events-auto absolute right-3 top-3 sm:right-5 sm:top-4">
           {/* Per-card options menu (copy link / report). */}
           {current ? (
             <div className="relative shrink-0">
@@ -1240,8 +1233,12 @@ export function MediaFeed({
              This is the TOP-anchored summary ("who posted this"), not the bottom
              caption block — those are different elements with different anchors,
              and only this one needed the extra clearance. */}
+        {/* BOTTOM-LEFT CREATOR CARD — frosted glass, per the reference.
+            Avatar + name + timestamp + orange-ringed Connect pill, pinned above
+            the message bar (bottom ~11rem clears bar + nav). Was top-anchored;
+            the reference puts identity bottom-left over the media. */}
         {current ? (
-          <div className="pointer-events-auto mt-4 w-fit max-w-[min(20rem,72vw)] rounded-2xl border border-white/15 bg-slate-950/45 p-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:mt-5">
+          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(11.5rem+env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
           <div className="flex items-center gap-2.5">
             <Link
               href={current.isMine ? "/profile" : `/profile/${current.userId}`}
@@ -1654,7 +1651,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(15rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3.5 sm:bottom-[calc(16rem+env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(15rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3 sm:bottom-[calc(16rem+env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1688,6 +1685,7 @@ export function MediaFeed({
                   disabled={!viewerId || followBusy}
                   onClick={toggleFollow}
                 >
+                  <span className={!amFollowingAuthor && viewerId ? "rounded-full ring-2 ring-orange-400 ring-offset-2 ring-offset-transparent drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" : "contents"}>
                   {amFollowingAuthor ? (
                     <svg
                       viewBox="0 0 24 24"
@@ -1704,6 +1702,7 @@ export function MediaFeed({
                   ) : (
                     <Plus className="h-6 w-6" />
                   )}
+                  </span>
                 </ActionButton>
               ) : null}
             </RailItem>
@@ -1870,6 +1869,12 @@ export function MediaFeed({
             </p>
           ) : null}
 
+          {/* PAGINATION INDICATOR (1/1) — sits directly above the message bar,
+              per the reference. Real position/total of this author's media. */}
+          <p className="pointer-events-none mb-2 text-center text-xs font-semibold tabular-nums text-white/80">
+            {nav.position}/{nav.total}
+          </p>
+
           {/* Quick reactions - one tap to react to THIS moment.
 
               Left-aligned rather than centred: the row now sits directly above
@@ -1968,7 +1973,11 @@ export function MediaFeed({
                   >
                     <Send className="h-4 w-4" />
                   </button>
-                ) : null}
+                ) : (
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-orange-300" aria-hidden>
+                    <Send className="h-4 w-4" />
+                  </span>
+                )}
               </>
             ) : (
               <p className="flex flex-1 items-center justify-center gap-2 px-2 py-1.5 text-sm text-white/80">
