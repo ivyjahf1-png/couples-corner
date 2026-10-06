@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getSessionUser } from "@/lib/auth/authorization";
 import { getVisibleProfile, photoStoragePathToApiUrl } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import { getPresenceForUsers } from "@/lib/server/presence";
 import { haversineKm } from "@/lib/server/nearby";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
@@ -187,7 +188,10 @@ export default async function PublicProfilePage({
 
   const view: PublicProfileView = {
     uid: userId,
-    name: profile.displayName?.trim() || "Member",
+    /* Prefix only: this is the PUBLIC profile's displayed name. An
+       address-shaped display_name renders as its local part ("ivyjahf1"), never
+       the full address — /settings is the only surface that shows that. */
+    name: publicDisplayName(profile.displayName) || "Member",
     photos,
     age,
     gender: profile.gender?.trim() || null,

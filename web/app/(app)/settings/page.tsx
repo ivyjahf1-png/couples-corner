@@ -101,7 +101,11 @@ export default async function SettingsPage() {
         <Section id="account" title="Account" description="Your core identity on Couples Corner.">
           <Card padding="none" className="divide-y divide-ink-700">
             <Row label="Email" hint="Used for sign-in and notifications.">
-              <span className="text-sm text-ink-200">demo@couplescorner.app</span>
+              {/* THE ONE PLACE THE FULL ADDRESS IS SHOWN. Every public/profile
+                  surface renders `publicDisplayName`, which strips the domain —
+                  account settings is where the member must see the real value
+                  they sign in with. */}
+              <span className="text-sm text-ink-200">{user?.email ?? "demo@couplescorner.app"}</span>
             </Row>
             <Row label="Display name" hint="Shown on your profile and messages.">
               <input className={inputClasses} defaultValue="Demo User" aria-label="Display name" />

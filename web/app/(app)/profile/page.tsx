@@ -3,6 +3,7 @@ import { ProfileScreen, ProfileHeader } from "@/components/profile/ProfileScreen
 import { GameCenterButton } from "@/components/app/GameCenterButton";
 
 import { getSessionUser } from "@/lib/auth/authorization";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import { getOwnProfile } from "@/lib/server/profiles";
 import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
@@ -74,7 +75,12 @@ export default async function ProfilePage() {
     getMembership(session.uid),
   ]);
 
-  const name = profile?.displayName || user?.displayName || "Your name";
+  /* Strip an address-shaped name down to its prefix ("ivyjahf1", not
+     "ivyjahf1@gmail.com"): signup seeds display_name from the email, and this is
+     a PUBLIC surface — the header above the whole profile. The full address stays
+     in /settings, which renders `user.email` directly. */
+  const name =
+    publicDisplayName(profile?.displayName || user?.displayName) || "Your name";
 
   /* Visitors is the one stat with somewhere to go, so it is the one link in the
      row; Following points at discovery. Friends and Followers have no dedicated

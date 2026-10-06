@@ -4,6 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserProfile } from "@/lib/models/user";
 import type { ConnectionRowView, ProfileCardView } from "@/lib/feature/types";
 import { mapProfileCardRow, mapProfileRow, publicProfileSelectList, profilePhotoUrl } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import { hydrateDiscoveryProfile, isDiscoveryUserId } from "@/lib/utils/discovery-profile";
 import { normalizeInviteCode } from "@/lib/utils/invite";
 
@@ -296,7 +297,9 @@ export async function getDiscoverProfiles(
 
   return scored.map(({ profile: p }) => ({
     id: p.userId,
-    name: p.displayName,
+    /* Discovery cards are public: an address-shaped display_name renders as its
+       prefix, never the full address. */
+    name: publicDisplayName(p.displayName) || "Member",
     kind: p.profileType === "coupled" ? "couple" : "person",
     location: p.location ?? "",
     bio: p.bio ?? "",

@@ -4,7 +4,7 @@ import { AppSidebar, AppMain, BottomNavRegion } from "@/components/app/AppNav";
 import { Avatar } from "@/components/app/Avatar";
 import { Logo } from "@/components/ui/Logo";
 import { getCurrentSessionUser } from "@/lib/server/session";
-import { displayNameFromEmail } from "@/lib/utils/display-name";
+import { displayNameFromEmail, publicDisplayName } from "@/lib/utils/display-name";
 import { getUnreadCountAction } from "@/lib/actions/messaging";
 import { NotificationBell } from "@/components/app/NotificationBell";
 import { BannerAd } from "@/components/ads/BannerAd";
@@ -40,7 +40,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
      the fallback for an account with no email at all, which must still render
      something rather than an empty avatar. */
   const displayName = displayNameFromEmail(user?.email) || "User";
-  const displayEmail = user?.email ?? "demo@couplescorner.app";
+  /* THE ACCOUNT CHIP'S SUBTITLE, PREFIXED FOR DISPLAY ONLY.
+
+     The full address is shown in exactly one place — /settings. Everywhere else
+     (this rail, the mobile drawer) the chip prints `publicDisplayName`, so
+     "ivyjahf1@gmail.com" reads as "ivyjahf1". The raw `user.email` is untouched
+     underneath, so nothing that needs the real value (sign-in, settings) breaks. */
+  const displayEmail = publicDisplayName(user?.email) || "demo@couplescorner";
 
   return (
     // `min-h-0 flex-1`, NOT `h-[100dvh]`.

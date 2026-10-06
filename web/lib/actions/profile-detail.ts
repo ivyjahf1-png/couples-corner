@@ -4,6 +4,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { mapProfileRow, profileSelectList } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import { getSessionUser } from "@/lib/auth/authorization";
 
 /**
@@ -45,7 +46,7 @@ export async function getProfileDetailAction(userId: string): Promise<ProfileDet
 
     return {
       id: profile.userId,
-      name: profile.displayName?.trim() || "Community member",
+      name: publicDisplayName(profile.displayName) || "Community member",
       kind: profile.kind,
       bio: profile.bio ?? null,
       location: profile.location?.trim() || "Location not shared",

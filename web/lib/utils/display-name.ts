@@ -58,6 +58,25 @@ export function displayNameFromEmail(email: string | null | undefined): string {
 }
 
 /**
+ * A name that is safe to show ANYWHERE public: feed, inbox, thread, profile.
+ *
+ * Signup seeds `profiles.display_name` from the email address, so a raw value
+ * like "ivyjahf1@gmail.com" can reach the UI. Showing the domain in public
+ * views leaks half an email address and reads as machine output, so when the
+ * stored value looks like an email address only the prefix before "@" is
+ * returned ("ivyjahf1"). A value that is already a chosen name is returned
+ * untouched. Full addresses stay ONLY in account settings, which renders
+ * `user.email` directly and never calls this.
+ */
+export function publicDisplayName(value: string | null | undefined): string {
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  if (!isLikelyEmailAddress(raw)) return raw;
+  return raw.slice(0, raw.indexOf("@"));
+}
+
+/**
  * Does this string look like an email address rather than a chosen name?
  *
  * WHY A SEPARATE PREDICATE, AND WHY NOT JUST CALL `displayNameFromEmail`

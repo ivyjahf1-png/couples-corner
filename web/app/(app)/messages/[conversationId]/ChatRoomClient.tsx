@@ -456,7 +456,7 @@ function ChatRoomHeader({
      how tall the bar is - no reflow of the thread below, no scroll-position jump. */
   return (
     <header
-      className="flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2.5"
+      className="relative flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2.5"
       style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
       /* The title is announced as a page heading for assistive tech regardless of
          which visual state is showing. */
@@ -470,10 +470,19 @@ function ChatRoomHeader({
         <ArrowLeft className="h-5 w-5" aria-hidden />
       </Link>
 
-      {/* EXPANDED: centred identity with the presence line under the name. */}
+      {/* EXPANDED: centred identity with the presence line under the name.
+
+          PINNED TO THE HEADER'S CENTRE LINE, NOT TO THE LEFT FLEX SLOT. This block
+          used to be `min-w-0 flex-1 text-center`, and the bar also renders a
+          collapsed block that takes a second `flex-1` — so the name centred inside
+          the LEFT HALF of the bar, not the bar itself, and shifted whenever the
+          back button or avatar changed width. Absolute centring measures it from
+          the header alone, so the title stays dead-centre at every width and
+          cannot drift during scroll. `max-w` + `truncate` keeps a long name off
+          the back button and avatar. */}
       <div
-        className={`min-w-0 flex-1 text-center transition-opacity duration-150 ${
-          collapsed ? "pointer-events-none opacity-0" : "opacity-100"
+        className={`pointer-events-none absolute left-1/2 top-1/2 w-full max-w-[55%] -translate-x-1/2 -translate-y-1/2 text-center transition-opacity duration-150 ${
+          collapsed ? "opacity-0" : "opacity-100"
         }`}
         /* Removed from the accessibility tree when collapsed, because the same
            name is rendered by the compact row below and a screen reader would
@@ -608,6 +617,16 @@ export default function ChatRoomClient({
      the range the drawer needs while the keyboard is dismissed. */
   const inputFocusedRef = useRef(false);
 
+  /* SENT MESSAGES, HELD LOCALLY SO THEY RENDER BEFORE THE BROADCAST ARRIVES.
+
+     The action returns the persisted row (same id the database assigned), so the
+     sender's bubble can be drawn the instant the insert resolves instead of
+     waiting 100-300ms for Supabase Realtime to echo the INSERT back. The merge
+     below de-duplicates by id, so when the broadcast does land — or when
+     `revalidatePath("/messages")` eventually refreshes the seed — the copy
+     collapses into the existing bubble rather than rendering a second one. */
+  const [sent, setSent] = useState<ChatMessage[]>([]);
+
   /* Mark read on mount, never from the server render. See the file header. */
   useEffect(() => {
     void markConversationReadAction(conversationId);
@@ -623,19 +642,22 @@ export default function ChatRoomClient({
 
   const { messages: live } = useRealtimeMessages({ conversationId, enabled: true });
 
-  /* Initial history and live inserts MERGED, de-duplicated by id and sorted by
-     time. The seed alone would miss anything sent while the page was open; the
-     live list alone would be empty on first paint. The de-dup is not
-     belt-and-braces — the sender's own message comes back over the realtime
-     channel as well, so without this every sent message would render twice. */
+  /* Initial history, live inserts and locally-sent rows MERGED, de-duplicated by
+     id and sorted by time. The seed alone would miss anything sent while the
+     page was open; the live list alone would be empty on first paint. The de-dup
+     is not belt-and-braces — the sender's own message comes back over the
+     realtime channel as well, so without this every sent message would render
+     twice. `sent` is applied LAST so the returned row wins the map slot for its
+     id, which is what lets a bubble appear before the broadcast catches up. */
   const messages = useMemo(() => {
     const byId = new Map<string, ChatMessage>();
     for (const m of initialMessages) byId.set(m.id, m);
     for (const m of live) byId.set(m.id, m as ChatMessage);
+    for (const m of sent) byId.set(m.id, m);
     return [...byId.values()].sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
-  }, [initialMessages, live]);
+  }, [initialMessages, live, sent]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -710,6 +732,13 @@ export default function ChatRoomClient({
       if (!result.ok) {
         setError(result.error ?? "That message could not be sent.");
         return;
+      }
+      /* Paint the sender's own bubble NOW, from the returned row, rather than
+         after the realtime echo. `result.message` is absent only if Supabase
+         returned no row (legacy path), in which case the broadcast still
+         delivers it — we simply lose the head start, never the message. */
+      if (!editingId && result.message) {
+        setSent((prev) => [...prev, result.message as ChatMessage]);
       }
       setDraft("");
       setEditingId(null);
@@ -886,7 +915,22 @@ export default function ChatRoomClient({
           is done by `justify-end` on the inner message column, added below. */}
       <div
         ref={attachThread}
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden px-3 pb-3 pt-3"
+        /* THE THREAD IS THE CONVERSATION'S OWN SCROLL REGION, and it needs the
+           full mobile triad or phones misbehave in three distinct ways:
+             `flex-1 min-h-0`    - without min-height:0 a flex item refuses to
+                                   shrink below its content, so a long thread
+                                   would push the composer off-screen instead of
+                                   scrolling;
+             `overflow-y-auto`   - it is genuinely scrollable, and the ONLY thing
+                                   that scrolls in this locked column;
+             `-webkit-overflow-scrolling: touch` - the iOS momentum flag, without
+                                   which Safari drags the whole page with jerky
+                                   non-inertial scrolling;
+             `overscroll-contain` - reaching the top of the thread must not pull
+                                   the page behind it into a rubber-band.
+           `touch-pan-y` keeps the browser from claiming horizontal gestures, so
+           side-swipe back still works on iOS even though the axis is vertical. */
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y px-3 pb-3 pt-3 [-webkit-overflow-scrolling:touch]"
       >
         <PinnedProfileCard summary={summary} />
 
@@ -1076,8 +1120,12 @@ export default function ChatRoomClient({
           </button>
         </form>
 
-        {/* Quick action row under the input. */}
-        <div className="mt-2 flex items-center justify-between">
+        {/* Quick action row under the input. `gap-2` is the EXPLICIT channel
+            between buttons; each button paints its own solid muted slate fill
+            (`#241E44`, the same non-white tone the bottom nav pills use) plus a
+            hairline ring, so no two controls can visually merge into one bar and
+            nothing here glows bright white against the dark composer. */}
+        <div className="mt-2 flex items-center justify-between gap-2">
           {/* THE GIFT BUTTON. A `<button>`, not a `<Link>`: it opens an overlay in
               place, so it must not navigate and must not be a link for assistive
               tech. `aria-expanded` tells a screen reader the drawer is a region it
@@ -1089,7 +1137,7 @@ export default function ChatRoomClient({
             title="Gift"
             aria-expanded={giftOpen}
             aria-haspopup="dialog"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#241E44] text-[#C9C2E4] ring-1 ring-white/10 transition hover:bg-[#2E2752] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
           >
             <Gift className="h-5 w-5" aria-hidden />
           </button>
@@ -1102,7 +1150,7 @@ export default function ChatRoomClient({
                 href={action.href}
                 aria-label={action.label}
                 title={action.label}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#241E44] text-[#C9C2E4] ring-1 ring-white/10 transition hover:bg-[#2E2752] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
               >
                 <Icon className="h-5 w-5" aria-hidden />
                 {action.isNew ? (

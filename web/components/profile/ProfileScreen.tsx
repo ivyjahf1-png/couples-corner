@@ -306,12 +306,19 @@ const GAMES: GameTile[] = FEATURED_GAME_IDS.map((id) => {
  */
 export function ProfileHeader({ name }: { name: string }) {
   return (
-    <div className="flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md">
-      <h1 className="truncate px-4 text-base font-bold text-white">{name}</h1>
+    <div className="relative flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md">
+      {/* The username is pinned to the row's centre line rather than laid out in
+          flow. In flow it sat left of centre (nothing on the left, the settings
+          button on the right), so it read as a stray label and re-centred itself
+          against whatever width the right-hand action happened to be. Absolute
+          centring measures it from the bar alone — it cannot shift during scroll
+          or when an action appears. The settings link carries `ml-auto` because
+          it is now the only in-flow child. */}
+      <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[55%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold text-white">{name}</h1>
       <Link
         href="/settings"
         aria-label="Settings"
-        className={`mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
+        className={`ml-auto mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
       >
         <ProfileIcon name="settings" className="h-5 w-5" />
       </Link>

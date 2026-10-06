@@ -5,6 +5,7 @@ import type { Conversation, Message } from "@/lib/models";
 import { buildMessageInsert } from "@/lib/utils/message-payload";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import { getPresenceForUsers } from "@/lib/server/presence";
 import type { ProfilePhoto } from "@/lib/models/user";
 import { ageFromDateOfBirth, type ConversationParticipantSummary } from "@/lib/feature/types";
@@ -202,7 +203,9 @@ function mapCallPeer(
   const photos = (row.photos as ProfilePhoto[] | null) ?? [];
   return {
     id: peerId,
-    name: (row.display_name as string | null)?.trim() || "Member",
+    /* Address-shaped names are reduced to their prefix — this lands in the chat
+       header and on every incoming bubble as the participant name. */
+    name: publicDisplayName(row.display_name as string | null) || "Member",
     kind: ((row.profile_type as string | null) === "coupled" ? "couple" : "person") as
       | "person"
       | "couple",
@@ -596,7 +599,11 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
       const photos = profile.photos ?? [];
       const primary = photos.find((p) => p?.isPrimary) ?? photos[0] ?? null;
       profileById.set(profile.userId, {
-        name: profile.displayName?.trim() || "Member",
+        /* `publicDisplayName` first: signup seeds display_name from the address,
+           so a raw value can be "ivyjahf1@gmail.com" — and this string is printed
+           in the INBOX next to every preview. Only the prefix is public; the full
+           address is rendered exclusively by /settings. */
+        name: publicDisplayName(profile.displayName) || "Member",
         kind: profile.kind,
         /* Null for anyone who has not set a DOB or whose value is unparseable —
            the card then renders the name alone rather than a placeholder age. */

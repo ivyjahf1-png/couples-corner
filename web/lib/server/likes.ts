@@ -3,6 +3,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { mapProfileRow, profileSelectList } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 
 /**
  * Likes service (server-side) — reads the profile_likes table created by
@@ -177,6 +178,9 @@ export async function getLikesForUser(userId: string): Promise<LikeView[]> {
             : typeof personaName === "string" && personaName.trim()
               ? personaName
               : "Someone special";
+        /* Likes are a public surface: an address-shaped name drops its domain
+           before it is rendered. */
+        const publicName = publicDisplayName(displayName) || displayName;
         const location =
           typeof likerLoc === "string" && likerLoc
             ? likerLoc
@@ -186,7 +190,7 @@ export async function getLikesForUser(userId: string): Promise<LikeView[]> {
         const personaAvatar = typeof personaAvatarRaw === "string" ? personaAvatarRaw : null;
         return {
           id: row.id,
-          name: displayName,
+          name: publicName,
           kind: kind,
           location,
           avatarUrl: primary?.publicUrl ?? photoStoragePathToUrl(primary?.storagePath ?? null) ?? personaAvatar,

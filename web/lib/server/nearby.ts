@@ -3,6 +3,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { mapProfileRow, profileSelectList } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import type { UserProfile } from "@/lib/models/user";
 
 /**
@@ -135,7 +136,7 @@ export async function getNearbyProfiles(
             : null;
         return {
           id: profile.userId,
-          name: profile.displayName?.trim() || "Member",
+          name: publicDisplayName(profile.displayName) || "Member",
           kind: profile.kind,
           location: profile.location ?? "",
           avatarUrl,

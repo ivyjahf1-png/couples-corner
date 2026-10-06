@@ -252,7 +252,7 @@ const mobileTabs: MobileTab[] = [
  */
 function mobileTabClasses(active: boolean, raised = false) {
     /* THE RAISED CENTRE TAB - NO RESTING CONTAINER.
-      
+
        This button previously carried a permanent filled pill (`#F1EDFA` at rest,
        deep purple when active) plus a `-mt-4` lift, which made the "Feed" tab a
        solid white block sitting in the middle of the bar. It read as a permanent
@@ -275,29 +275,30 @@ function mobileTabClasses(active: boolean, raised = false) {
        overflow, so they would leave the icon floating above the row. */
     return [
       "nav-pill nav-pill--tab",
+      /* THE ACTIVE CLASS IS WHAT RETINTS THE PILL. `.nav-pill` in globals.css is
+         UNLAYERED CSS, so it beats Tailwind's layered utilities in the cascade —
+         its resting `color` would otherwise paint every label in the muted base
+         tone, orange fill or not. `.nav-pill--active` (same specificity, same
+         origin) is the one rule allowed to override it, which is why the active
+         state must carry the class rather than only the utility pair. */
+      active ? "nav-pill--active" : "",
       "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-4 pt-2.5 pb-2 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
-        ? /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
+        /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
              wash; this one is the primary destination and the reference calls for the
              vibrant orange accent. Near-black label on orange clears 7.4:1, so the text
              stays legible instead of going orange-on-orange. */
-          "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.75)]"
-        : "bg-transparent text-[#5B6478] hover:bg-[#2A2438]/[0.06] hover:text-[#2A2438]",
+          ? "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.75)]"
+          /* RESTING LABEL, RE-CHOSEN FOR THE MUTED SLATE PILL. `#5B6478` was tuned
+             for the old WHITE fill and drops to ~2:1 on `#241E44` — invisible.
+             `#9B93AE` clears 4.6:1 there; hover lifts to white so the affordance
+             stays discoverable without a second bright surface appearing. */
+          : "text-[#9B93AE] hover:bg-white/10 hover:text-white",
     ]
       .filter(Boolean)
       .join(" ");
-
-  return [
-    "nav-pill nav-pill--tab",
-    active ? "nav-pill--active font-semibold" : "",
-    "flex h-full w-full flex-col items-center justify-center gap-0.5 px-1 pt-2.5 pb-2",
-    "text-[11px] font-medium leading-none whitespace-nowrap transition-colors",
-    active ? "" : "text-[#5B6478] hover:text-[#2A2438]",
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
+  }
 
 /* The active dot is GONE, deliberately.
 
@@ -456,7 +457,14 @@ export function AppMain({ children }: { children: React.ReactNode }) {
            sideways page scroll. */
         inActiveConversation || isFullBleedSurface
           ? "overflow-hidden"
-          : "overflow-y-auto overflow-x-hidden",
+          /* -webkit-overflow-scrolling: touch is the iOS momentum-scroll flag.
+             Without it, Safari scrolls this region with the OLD non-composited
+             path: no momentum, no rubber-band, and — worst — the entire page
+             behind it janks instead of the region itself, which is what "this
+             won't scroll smoothly on my phone" always turns out to be. It cannot
+             be expressed as a real Tailwind utility because it is a vendor-
+             prefixed property, so it is written as an arbitrary property. */
+          : "overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]",
         inActiveConversation || isFullBleedSurface
           ? "p-0"
           : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.
@@ -530,11 +538,12 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 /**
  * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me)
  * rendered as FIVE SEPARATE PILLS - one independent card per tab, each with its
- * own white fill, margin, ring and shadow, laid out with a dark gutter between
- * neighbours. It is deliberately NOT one shared capsule any more: a single
- * background behind transparent tabs merged them into one unbroken block.
- * Hidden from `md` up, where the fixed sidebar takes over. The "Menu" drawer
- * holds every destination that is not a tab.
+ * own solid muted-slate fill, margin, ring and shadow, laid out with a dark
+ * gutter between neighbours. It is deliberately NOT one shared capsule, and
+ * deliberately NOT bright white: a single background behind transparent tabs
+ * merged them into one block, and five white slabs on the navy bar out-shouted
+ * the content above. Hidden from `md` up, where the fixed sidebar takes over.
+ * The "Menu" drawer holds every destination that is not a tab.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -607,10 +616,11 @@ function MobileNavigation({
               const active = isActive(pathname, item);
               /* EACH TAB'S OWN CONTAINER.
 
-                 The `<li>` is now the independent pill: it owns the white fill,
-                 hairline ring and shadow that the shared capsule used to provide
-                 for the whole row, and `mx-1` gives every button margin so no two
-                 pills can touch even before the list's `gap-1` is counted.
+                 The `<li>` is the independent pill: it owns the solid muted
+                 slate fill, hairline ring and shadow that the shared capsule
+                 used to provide for the whole row, and `mx-1` gives every
+                 button margin so no two pills can touch even before the list's
+                 `gap-1` is counted.
                  `relative` is kept as the positioning context for anything
                  absolutely placed inside a tab, and there is deliberately NO
                  `overflow-hidden` - the unread badge overflows its icon box and
@@ -618,7 +628,18 @@ function MobileNavigation({
               return (
                 <li
                   key={item.href}
-                  className="relative mx-1 rounded-full bg-white shadow-[0_6px_16px_-8px_rgba(15,10,30,0.55)] ring-1 ring-black/[0.06]"
+                  /* EACH TAB'S OWN SOLID, MUTED CONTAINER — NO BRIGHT WHITE.
+
+                     `#241E44` is an opaque slate lifted just above the bar's own
+                     `#1B1636`: dark enough to stay calm under the orange accent,
+                     light enough that the hairline ring reads as an edge rather
+                     than a smudge. `bg-white` here produced five glowing slabs on
+                     a navy bar — the buttons stopped reading as one restrained
+                     row of controls and started competing with the content above.
+                     The `ring-white/[0.08]` + shadow draw the boundary that the
+                     fill alone no longer provides, so neighbours still cannot
+                     merge. */
+                  className="relative mx-1 rounded-full bg-[#241E44] shadow-[0_6px_16px_-8px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.08]"
                 >
                   <Link
                     href={item.href}
@@ -655,17 +676,14 @@ function MobileNavigation({
                         name={item.navIcon}
                         size={item.raised ? 18 : 20}
                         className={
-                          /* The RAISED tab flips this: purple resting means WHITE
-                             glyph, orange active means the same near-black as its
-                             label. So the icon and its caption are always the same
-                             colour and the tab reads as one lit unit. */
-                          item.raised
-                            ? active
-                              ? "text-[#0F0C1B]"
-                              : "text-white"
-                            : active
-                              ? "text-[#0F0C1B]"
-                              : "text-[#9B93AE]"
+                          /* Icon colour tracks the LABEL colour in both states, on
+                             every tab. The raised Feed tab used to rest white
+                             because its pill was a different (purple) surface
+                             from its neighbours; it now shares the same muted
+                             slate fill, so its glyph uses the same `#9B93AE` the
+                             caption renders in — icon and caption stay one lit
+                             unit instead of drifting two tones apart. */
+                          active ? "text-[#0F0C1B]" : "text-[#9B93AE]"
                         }
                       />
                       {item.showBadge && unreadCount > 0 ? (

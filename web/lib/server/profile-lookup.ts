@@ -32,6 +32,7 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { photoStoragePathToApiUrl } from "@/lib/server/profiles";
+import { publicDisplayName } from "@/lib/utils/display-name";
 
 export interface AuthorInfo {
   displayName: string | null;
@@ -106,7 +107,9 @@ export async function fetchAuthors(userIds: string[]): Promise<Map<string, Autho
     }>) {
       if (!raw.user_id) continue;
       byId.set(raw.user_id, {
-        displayName: raw.display_name ?? null,
+        /* Author names on the FEED. Prefix only — an address-shaped
+           display_name must not print "ivyjahf1@gmail.com" beside a post. */
+        displayName: publicDisplayName(raw.display_name) || null,
         avatarUrl: resolveAvatar(raw.photos),
       });
     }

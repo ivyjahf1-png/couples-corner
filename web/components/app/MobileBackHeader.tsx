@@ -134,8 +134,21 @@ export function MobileBackHeader() {
             the 300ms double-tap-zoom delay while leaving pinch-zoom intact. */}
         <nav
           aria-label="Page navigation"
-          className="flex min-h-16 touch-manipulation items-center gap-3 px-4 py-2"
+          className="relative flex min-h-16 touch-manipulation items-center gap-3 px-4 py-2"
         >
+          {/* ── CENTERED TITLE, ABSOLUTE SO SCROLL NEVER MOVES IT ──────────────
+              Rendered FIRST and pinned with absolute centering (`left-1/2
+              -translate-x-1/2`) rather than `flex-1 text-center`: flex centering
+              drifts whenever the left control (44px back arrow) and the right
+              control ("Home" link) differ in width, and it shifts again if one
+              side hides on scroll. An absolutely-centred title is measured from
+              the bar itself, so it stays put on every screen and during scroll.
+              `pointer-events-none` so taps pass through to content; the Moment
+              route keeps its link behaviour via the inner element. `max-w-[50%]`
+              + `truncate` keeps a long title from colliding with either side. */}
+          <p className="pointer-events-none absolute left-1/2 top-1/2 w-full max-w-[50%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-semibold text-white">
+            {titles[segment] ?? "Couples Corner"}
+          </p>
           {/* ── BACK ARROW, HIDDEN ON THE MOMENT SCREEN ──────────────────────
               Moment is a PRIMARY tab, not a page drilled into. A back arrow on a
               top-level destination implies there is somewhere more important to

@@ -14,11 +14,13 @@ import {
   countUnreadMessages,
   updateMessage,
   deleteMessage,
+  type MessageRow,
 } from "@/lib/server/messaging";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
 import { rethrowIfNavigation } from "@/lib/utils/errors";
+import { publicDisplayName } from "@/lib/utils/display-name";
 import type { ConversationParticipantSummary, ChatStarter } from "@/lib/feature/types";
 import { ageFromDateOfBirth } from "@/lib/feature/types";
 
@@ -26,6 +28,17 @@ import { ageFromDateOfBirth } from "@/lib/feature/types";
 export interface ActionResult {
   ok: boolean;
   error?: string;
+  /**
+   * The persisted row, on a successful send.
+   *
+   * Returning it is what makes the sender's own bubble appear with the SAME id
+   * the database assigned: the client renders this row immediately instead of
+   * waiting for the realtime INSERT to round-trip back, and the dedupe-by-id
+   * merge collapses the two into one the moment the broadcast lands. Without
+   * it the member stares at a sent-but-invisible message for 100-300ms — the
+   * classic "my message didn't send" double-tap.
+   */
+  message?: MessageRow;
 }
 
 /** Fetch all conversations for the current user. */
@@ -53,14 +66,24 @@ export async function sendMessageAction(params: {
 }): Promise<ActionResult> {
   const user = await requireUser();
   try {
-    await sendMessage({
+    const message = await sendMessage({
       conversationId: params.conversationId,
       senderId: user.uid,
       body: params.body,
       type: "text",
     });
-    revalidatePath(`/messages/${params.conversationId}`);
-    return { ok: true };
+    /* The INBOX is revalidated, the thread is NOT — and that split is what makes
+       sends feel instant.
+
+       The thread client already holds this row (returned below) plus its realtime
+       subscription, so re-rendering the route the member is looking at bought
+       nothing but a server round trip on every single send: the composer blocked
+       on `busy` until the RSC stream came back. `/messages` is the surface that
+       genuinely goes stale — its preview and unread badge now show the wrong
+       thing — so that is the one path invalidated. Same reasoning as
+       `markConversationReadAction` above. */
+    revalidatePath("/messages");
+    return { ok: true, message: message ?? undefined };
   } catch (error) {
     rethrowIfNavigation(error);
     return {
@@ -350,7 +373,9 @@ export async function getConversationChatDataAction(
     otherProfile
       ? {
           id: otherProfile.userId,
-          name: otherProfile.displayName,
+          /* Prefix only — this name is the chat header and the label on every
+             incoming bubble, both public. Full addresses stay in /settings. */
+          name: publicDisplayName(otherProfile.displayName) || "Member",
           kind: otherProfile.kind,
           // `profilePhotoUrl`, NOT an inline `photos.find(isPrimary)?.publicUrl`.
           //

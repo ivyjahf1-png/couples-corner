@@ -196,8 +196,19 @@ function MessagesHeader({
 
   return (
     <header className="shrink-0 border-b border-white/[0.08] bg-[#0F0C1B]/70 px-4 pt-3 backdrop-blur-md">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-lg font-bold text-white">Messages</h1>
+      <div className="relative flex items-center justify-between gap-3">
+        {/* The title is pinned to the row's CENTRE line, not laid out in flow. In
+            flow it shared the row with the search/filter/settings cluster, so its
+            position depended on that cluster's width — three 36px buttons plus
+            gaps pushed the title left of centre, and it moved again when the
+            `sm:`-gated filter button appeared. Absolute centring measures it from
+            the bar itself, so it cannot drift left/right at any width or during
+            scroll. `pointer-events-none` keeps it from stealing taps from the
+            controls it overlays; `max-w` + `truncate` stops a long title from
+            colliding with either side. */}
+        <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[45%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-lg font-bold text-white">
+          Messages
+        </h1>
         {/* The filter control is `hidden sm:flex`: on the narrowest phones three
             icons plus a title crowds the row and wraps. Search and Settings
             survive at every width. */}
