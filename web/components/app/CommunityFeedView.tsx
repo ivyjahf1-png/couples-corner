@@ -162,7 +162,7 @@ export function CommunityFeedView({
             body="When members share a status or a photo it will show up here. Be the first."
           />
         ) : (
-          <ul className="flex flex-col gap-4">
+          <ul className="flex flex-col gap-3">
             {visible.map((post) => (
               <li key={post.id}>
                 <PostCard post={post} />
@@ -171,6 +171,17 @@ export function CommunityFeedView({
           </ul>
         )}
       </div>
+
+      {/* Floating yellow "+" composer shortcut, fixed bottom-right above nav. */}
+      {canPost ? (
+        <a
+          href="/feed?compose=1"
+          aria-label="Create a post"
+          className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-amber-300 text-2xl font-black text-slate-950 shadow-[0_8px_24px_rgba(252,211,77,0.45)] transition hover:bg-amber-200 active:scale-95"
+        >
+          +
+        </a>
+      ) : null}
 
       {/* THE FLOATING "+" LAUNCHER IS GONE.
 

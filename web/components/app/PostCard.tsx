@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/app/Avatar";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
-import { GlassActionButton } from "@/components/app/GlassActions";
 import { Icon } from "@/components/landing/Icon";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { togglePostLikeAction } from "@/lib/actions/profile";
@@ -98,22 +97,24 @@ function HiButton({ recipientId, authorName }: { recipientId: string; authorName
  * An unparseable input returns it unchanged: a visibly odd row is better than a
  * blank timestamp that looks like a rendering bug.
  */
-function formatRelativeTime(iso: string): string {
+function formatFeedTime(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return iso;
-  // Seconds are not worth showing at this granularity, and a sub-second age would
-  // render as "now" flickering to "1m" on its own.
-  const seconds = Math.floor((Date.now() - then) / 1000);
-  if (seconds < 60) return "now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  const then2 = new Date(then);
-  const month = then2.toLocaleString("en", { month: "short", timeZone: "UTC" });
-  return `${month} ${then2.getUTCDate()}`;
+  const d = new Date(then);
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return `Today ${hm}`;
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  if (d.getFullYear() === y.getFullYear() && d.getMonth() === y.getMonth() && d.getDate() === y.getDate()) {
+    return `Yesterday ${hm}`;
+  }
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`;
 }
 
 /* Hydration-safe "am I on the client yet", WITHOUT a mount effect.
@@ -246,42 +247,21 @@ export function PostCard({ post }: { post: FeedPostView }) {
      delimiters inline, and that literal sequence terminated the block comment
      early and broke the file. */
   return (
-    <article className="overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-card transition-colors hover:border-white/20">
-      {/* ── HEADER ───────────────────────────────────────────────────────────
-          Avatar, name, verified tick and timestamp on one baseline, exactly as
-          the reference card reads. `items-center` (was `items-start`) so the
-          avatar, name, badge and time share a centre line — with `items-start`
-          the timestamp sat under the name while the 44px avatar ran past both,
-          which is what made the block look misaligned rather than designed.
-
-          The whole header is a single flex row with the menu pinned right, so
-          the name truncates rather than pushing the overflow control off the
-          card on a long display name. */}
-      <div className="flex items-center gap-3 px-4 pb-3 pt-4">
-        {/* `src` was never passed, so every member's photo was fetched by the
-            feed query and then thrown away in favour of initials. The query
-            selects `authorAvatar` specifically for this. */}
-        <Avatar name={post.authorName} kind={post.authorKind} src={post.authorAvatar} />
+    <article className="overflow-hidden bg-surface shadow-card">
+      <div className="flex items-center gap-2.5 px-4 pb-2.5 pt-3">
+        <a href={post.authorHref ?? "#"} aria-label={`View ${post.authorName}`} className="relative shrink-0">
+          <Avatar name={post.authorName} kind={post.authorKind} src={post.authorAvatar} />
+          <span aria-hidden className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-emerald-400" />
+        </a>
         <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-1.5">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <a href={post.authorHref ?? "#"} className="truncate text-sm font-semibold text-white hover:text-brand-300">{post.authorName}</a>
             {post.verified ? <span title="Verified creator" className="shrink-0 text-xs text-sky-300">✓</span> : null}
-            {post.vip ? <span className="shrink-0 rounded-full border border-amber-300/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-200">VIP</span> : null}
+            {post.vip ? <span className="shrink-0 rounded border border-amber-300/50 bg-amber-400/15 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-200">VIP</span> : null}
+            <span className="shrink-0 rounded border border-violet-400/40 bg-violet-500/15 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-violet-200">Lv 5</span>
           </div>
-          {/* `post.at` is a raw ISO string from the database, so it was printing
-              as "2026-09-29T18:04:11.204Z" under the name — machine output in the
-              one place the card is meant to feel human. `formatRelativeTime`
-              turns it into "2h"; the full timestamp stays in `title` so the
-              exact time is still available on hover/long-press.
-
-              Falls back to the raw value if the string is unparseable, which
-              keeps a bad row visible rather than rendering a blank. */}
-          <time
-            dateTime={post.at}
-            title={post.at}
-            className="mt-0.5 block text-xs text-slate-400"
-          >
-            {mounted ? formatRelativeTime(post.at) : post.at}
+          <time dateTime={post.at} title={post.at} className="mt-0.5 block text-[11px] text-slate-400">
+            {mounted ? formatFeedTime(post.at) : post.at}
           </time>
         </div>
 
@@ -329,103 +309,37 @@ export function PostCard({ post }: { post: FeedPostView }) {
       </div>
 
       {/* Body */}
-      <div className="px-4 pb-3">
-        <p className="whitespace-pre-line text-sm leading-6 text-slate-100">{post.body}</p>
-        {post.mediaUrls?.length ? (
-          /* Rounded, clipped media box with a FIXED aspect ratio on every tile.
-
-             The fixed ratio is the point: without it a tall portrait photo would
-             push that card's actions far below the fold while its neighbours
-             stayed put, and the timeline read as broken rather than varied.
-             `object-cover` inside a fixed-ratio box is safe for exactly that
-             reason — it crops, it never distorts. `overflow-hidden` on the
-             parent clips the tiles to ONE outer radius, so the grid reads as a
-             single clean rounded rectangle instead of several independently
-             rounded squares with gaps showing through.
-
-             4:3 -> 3:4. Portrait tiles, per the layout brief.
-
-             THE TRADE THIS MAKES, because it is not free: 3:4 is 33% TALLER per
-             tile than 4:3. A single full-width photo on a 375px phone goes from
-             ~250px to ~340px, and a 2x2 grid goes from ~274px to ~490px — more
-             than a full screen for one post. That is a deliberate choice for a
-             dating feed, where the photo IS the content and a large image reads
-             as more intentional than a letterboxed one.
-
-             If density matters more than presence, `aspect-[4/5]` sits between
-             the two and is what most dating apps use; it is a one-token change
-             here and in both media elements below.
-
-             MediaGrid is deliberately NOT touched. It renders the PROFILE gallery
-             grids (UserMediaGallery, PublicMediaGallery), not the Moment feed,
-             and its uniform `aspect-square` exists precisely so a 4:5 phone snap
-             and a 16:9 video line up in the same row. Changing it would alter
-             profile pages, which is not what this brief asked for.
-
-             ── REDESIGN: THE RATIO MOVED ONTO THIS CONTAINER ──────────────────
-             The ratio used to sit on each tile, which meant a 2-up grid sized
-             itself from whichever tile loaded first. It now lives here, so every
-             tile in a grid is guaranteed the same box and the parent clips to ONE
-             radius.
-
-             A SINGLE photo is `aspect-[4/5]` on a phone — taller than the old 3:4 —
-             because the redesign asks for the media to feel "grand and immersive"
-             rather than merely present, and 4:5 is what dating feeds standardise on
-             for that. `sm:aspect-[3/4]` restores the previous ratio from `sm` up,
-             where the column is narrower and a full 4:5 tile would dominate the
-             viewport.
-
-             A MULTI-photo grid deliberately KEEPS the old ratio: two 4:5 tiles side
-             by side produce a grid taller than one screen, which pushes the post's
-             own actions below the fold. The grid case wants density; the single
-             case wants presence. Different goals, so different ratios. */
-          <div
-            className={`mt-3 grid gap-1 overflow-hidden rounded-2xl ${
-              post.mediaUrls.length > 1
-                ? "grid-cols-2 aspect-[3/4]"
-                : "grid-cols-1 aspect-[4/5] sm:aspect-[3/4]"
-            }`}
-          >
-            {post.mediaUrls.slice(0, 4).map((url, i) => {
-              /* A tile that failed keeps its box and shows a quiet label rather
-                 than collapsing. Collapsing is the worse outcome: the grid is a
-                 fixed aspect ratio, so a broken tile used to leave a hole in the
-                 middle of a photo post, and the browser's own broken-image glyph
-                 in that hole reads as a broken app rather than a missing file. */
-              if (brokenMedia.includes(url)) {
-                return (
-                  <div
-                    key={`${url}-${i}`}
-                    className="flex h-full w-full items-center justify-center bg-surface-muted text-[11px] text-ink-400"
-                  >
-                    Photo unavailable
-                  </div>
-                );
-              }
-
-              return url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
-                <video key={`${url}-${i}`} src={url} controls playsInline className="h-full w-full bg-black object-cover" />
-              ) : (
-                <img
-                  key={`${url}-${i}`}
-                  src={url}
-                  alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
-                  loading="lazy"
-                  decoding="async"
-                  onError={() =>
-                    setBrokenMedia((current) =>
-                      current.includes(url) ? current : [...current, url]
-                    )
-                  }
-                  className="h-full w-full bg-surface-muted object-cover"
-                />
-              );
-            })}
-          </div>
-        ) : post.mediaCount ? (
-          <div className="mt-3 flex aspect-video items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400">Creator media preview</div>
-        ) : null}
+      <div className="px-4 pb-2.5">
+        {post.body ? <p className="whitespace-pre-line text-sm leading-6 text-slate-100">{post.body}</p> : null}
       </div>
+      {post.mediaUrls?.length ? (
+        <div className="w-full overflow-hidden bg-black">
+          {post.mediaUrls.slice(0, 4).map((url, i) => {
+            if (brokenMedia.includes(url)) {
+              return (
+                <div key={`${url}-${i}`} className="flex aspect-[4/5] w-full items-center justify-center bg-surface-muted text-[11px] text-ink-400">
+                  Photo unavailable
+                </div>
+              );
+            }
+            return url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
+              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[4/5] w-full bg-black object-cover" />
+            ) : (
+              <img
+                key={`${url}-${i}`}
+                src={url}
+                alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
+                loading="lazy"
+                decoding="async"
+                onError={() => setBrokenMedia((current) => (current.includes(url) ? current : [...current, url]))}
+                className="aspect-[4/5] w-full bg-surface-muted object-cover"
+              />
+            );
+          })}
+        </div>
+      ) : post.mediaCount ? (
+        <div className="mx-4 mb-3 flex aspect-video items-center justify-center rounded-xl bg-surface-muted text-xs text-ink-400">Creator media preview</div>
+      ) : null}
 
       {/* ── ACTION BAR ────────────────────────────────────────────────────────────
           Like, comment and Follow on the left, "Hi" in the corner — the
@@ -439,97 +353,53 @@ export function PostCard({ post }: { post: FeedPostView }) {
 
           The like error is rendered here rather than silently dropped: a like
           that fails to save must not leave a filled heart claiming otherwise. */}
-      <div className="flex items-center gap-1 border-t border-white/[0.08] px-2 py-1">
-        <GlassActionButton
-          icon="heart"
-          label={likeCount === 1 ? "like" : "likes"}
-          count={likeCount}
-          variant="like"
-          size="sm"
-          active={liked}
+      <div className="flex items-center gap-4 px-4 py-2.5">
+        <button
+          type="button"
           onClick={toggleLike}
-          ariaLabel={liked ? "Remove your like" : "Like this post"}
-        />
-        <GlassActionButton
-          icon="chat"
-          label={post.commentCount === 1 ? "comment" : "comments"}
-          count={post.commentCount}
-          variant="comment"
-          size="sm"
-          active={commentsOpen}
+          aria-label={liked ? "Remove your like" : "Like this post"}
+          aria-pressed={liked}
+          className="flex min-h-11 items-center gap-1.5 text-slate-300 transition hover:text-rose-300 active:scale-95"
+        >
+          <Icon name="heart" filled={liked} className={`h-6 w-6 ${liked ? "text-rose-400" : ""}`} />
+          <span className="text-xs font-semibold tabular-nums">{likeCount}</span>
+        </button>
+        <button
+          type="button"
           onClick={() => setCommentsOpen((v) => !v)}
-          ariaLabel={commentsOpen ? "Hide comments" : "Show comments"}
-        />
-        {/* ── FOLLOW — NOW PERSISTED, NOT LOCAL-ONLY STATE ─────────────────────
-            This was `useState(false)` + a toggle, so following was purely visual:
-            it vanished on refresh and wrote nothing to the database. `setFollowAction`
-            already exists and is already used by the moment cards, so this card now
-            calls the same Server Action.
+          aria-label={commentsOpen ? "Hide comments" : "Show comments"}
+          aria-expanded={commentsOpen}
+          className="flex min-h-11 items-center gap-1.5 text-slate-300 transition hover:text-sky-300 active:scale-95"
+        >
+          <Icon name="chat" className="h-6 w-6" />
+          <span className="text-xs font-semibold tabular-nums">{post.commentCount}</span>
+        </button>
+        <a href="/games" aria-label="Play games" className="flex min-h-11 items-center justify-center text-slate-300 transition hover:text-amber-200 active:scale-95">
+          <Icon name="star" className="h-6 w-6" />
+        </a>
+        <div className="ml-auto flex items-center gap-2">
+          {post.authorId && !post.isOwn ? (
+            <button
+              type="button"
+              onClick={toggleFollow}
+              disabled={followPending}
+              aria-pressed={following}
+              aria-label={following ? `Unfollow ${post.authorName}` : `Follow ${post.authorName}`}
+              className={`min-h-9 shrink-0 rounded-full px-4 text-xs font-bold transition disabled:opacity-50 ${following ? "bg-orange-500/15 text-orange-200" : "bg-orange-500 text-white hover:bg-orange-400 active:scale-95"}`}
+            >
+              {following ? "Following" : "Follow"}
+            </button>
+          ) : null}
 
-            Optimistic first, then reconciled against the server's `following` and
-            follower count — the same shape as `toggleLike` above, so a slow network
-            cannot leave the button claiming a relationship that did not save.
-
-            NOT RENDERED ON YOUR OWN POST: offering to follow yourself is a dead
-            control, and `post.isOwn` is computed server-side in mapFeedPosts for
-            exactly this reason. `authorId` is undefined for a post whose author row
-            is missing, which also hides the button rather than firing an action
-            with an empty target.
-
-            ORANGE, per the design. The previous `bg-brand-500/15` tint was too weak
-            to read as a primary action next to the amber "Hi" shortcut, so the two
-            competing rather than one leading. */}
-        {post.authorId && !post.isOwn ? (
-          <button
-            type="button"
-            onClick={toggleFollow}
-            disabled={followPending}
-            aria-pressed={following}
-            aria-label={following ? `Unfollow ${post.authorName}` : `Follow ${post.authorName}`}
-            className={`min-h-11 shrink-0 rounded-full px-4 text-xs font-bold transition disabled:opacity-50 ${
-              following
-                ? "bg-orange-500/15 text-orange-200"
-                : "bg-orange-500 text-white shadow-lg shadow-orange-950/40 hover:bg-orange-400 active:scale-95"
-            }`}
-          >
-            {following ? "Following" : "Follow"}
-          </button>
-        ) : null}
-
-        {/* A failed like is announced in place, where the member is looking, and
-            is not a modal — a transient warning about a reaction must not
-            interrupt reading the timeline. */}
         {likeError || followError ? (
-          <span role="alert" className="ml-1 truncate text-[11px] text-rose-300">
+          <span role="alert" className="truncate text-[11px] text-rose-300">
             {likeError ?? followError}
           </span>
         ) : null}
-
-        {/* ── "Hi" — the direct-chat shortcut ─────────────────────────────────
-            Bright yellow and pushed to the far right, immediately after
-            Follow. It is the one control here that starts a CONVERSATION
-            rather than reacting in place, so it earns the strongest colour on
-            the card: a member scrolling the timeline should be able to
-            recognise "this is how I talk to this person" without reading.
-
-            `ml-auto` moved to Follow above, so this one is last in the row and
-            sits in the corner — the position the eye finishes at.
-
-            HIDDEN when there is no recipient (`authorId`) or when the post is
-            the member's own. Both cases would render a button that either does
-            nothing or offers to message yourself. A visible "Hi" that silently
-            fails is worse than no button, because it reads as "message sent"
-            when nothing was. The server rejects self-sends regardless, but
-            hiding the control is clearer than letting it be tapped. */}
         {post.authorId && !post.isOwn ? (
-          // `ml-auto` pins this to the far right now that Follow no longer carries
-          // it — the reference layout puts the primary conversation action alone
-          // in the corner, so it must push past the whole left group rather than
-          // sitting immediately after Follow.
-          <div className="ml-auto">
-            <HiButton recipientId={post.authorId} authorName={post.authorName} />
-          </div>
+          <HiButton recipientId={post.authorId} authorName={post.authorName} />
         ) : null}
+        </div>
       </div>
 
       {/* Comments */}

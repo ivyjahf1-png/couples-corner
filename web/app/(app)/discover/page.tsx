@@ -27,9 +27,19 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
     profiles = await getDiscoverProfiles(session.uid, filters);
   } catch (error) {
     if (isRedirectOrNotFoundError(error)) throw error;
-    console.error("[discover] Fetch failed", {
-      message: error instanceof Error ? error.message : "Unexpected discovery fetch error",
-    });
+    // Single-string log: Next.js forwards server console.error to the browser
+    // overlay by serializing extra args — a second-arg object renders as `{}`.
+    // Stringifying here keeps message + cause visible in both places.
+    const cause = error instanceof Error ? (error as { cause?: unknown }).cause : undefined;
+    const causeText =
+      cause && typeof cause === "object"
+        ? ` code=${String((cause as { code?: unknown }).code ?? "n/a")} causeMessage=${String((cause as { message?: unknown }).message ?? "n/a")} details=${String((cause as { details?: unknown }).details ?? "n/a")} hint=${String((cause as { hint?: unknown }).hint ?? "n/a")}`
+        : cause !== undefined
+          ? ` cause=${String(cause)}`
+          : "";
+    const message = error instanceof Error ? error.message : "Unexpected discovery fetch error";
+    const stack = error instanceof Error && error.stack ? ` stack=${error.stack.slice(0, 800)}` : "";
+    console.error(`[discover] Fetch failed: ${message}${causeText}${stack}`);
     failed = true;
   }
 

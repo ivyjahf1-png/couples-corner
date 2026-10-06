@@ -111,3 +111,34 @@ export function isLikelyEmailAddress(value: string | null | undefined): boolean 
   if (dot <= 0) return false;
   return domain.length - dot - 1 >= 2;
 }
+
+/**
+ * Runtime-safe wrapper around {@link publicDisplayName}.
+ *
+ * WHY THIS EXISTS: Turbopack's RSC chunking has intermittently bound the
+ * `publicDisplayName` import to `undefined` in some routes, surfacing as
+ * `TypeError: publicDisplayName is not a function` (AppShell ~line 49,
+ * discovery ~line 378). Calling through this guard makes that bundler race
+ * a degraded display string instead of a hard crash. Direct named imports
+ * keep working; this is the defensive path for shell-level components.
+ */
+export function safePublicDisplayName(value: string | null | undefined): string {
+  try {
+    if (typeof publicDisplayName === "function") return publicDisplayName(value);
+  } catch {
+    // Fall through to the inline rule below.
+  }
+  if (!value) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const at = raw.indexOf("@");
+  if (at === -1) return raw;
+  const domain = raw.slice(at + 1);
+  if (!/^[^\s@]+\.[^\s@]{2,}$/.test(domain)) return raw;
+  return raw.slice(0, at);
+}
+
+// Default export for callers using interop/default-import style. Keeps
+// `import publicDisplayName from ...` and `require(...)` working alongside
+// the named export so a mismatched import style can never be `undefined`.
+export default { displayNameFromEmail, publicDisplayName, isLikelyEmailAddress, safePublicDisplayName };

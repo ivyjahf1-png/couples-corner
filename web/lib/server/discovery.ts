@@ -3,23 +3,56 @@ import "server-only";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { UserProfile } from "@/lib/models/user";
 import type { ConnectionRowView, ProfileCardView } from "@/lib/feature/types";
-import { mapProfileCardRow, mapProfileRow, publicProfileSelectList, profilePhotoUrl } from "@/lib/server/profiles";
-import { publicDisplayName } from "@/lib/utils/display-name";
+import { mapProfileCardRow, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
 import { hydrateDiscoveryProfile, isDiscoveryUserId } from "@/lib/utils/discovery-profile";
+import { safePublicDisplayName } from "@/lib/utils/display-name";
 import { normalizeInviteCode } from "@/lib/utils/invite";
+
+// `safePublicDisplayName` is imported from the shared util AND is itself
+// bundler-race-safe: if Turbopack ever binds the inner `publicDisplayName`
+// to undefined it falls back to the inline prefix rule instead of throwing
+// `(0, ...publicDisplayName) is not a function`.
 
 // Keep discovery independent of unrelated profile-editing columns.
 const DISCOVERY_PROFILE_FIELDS = "user_id, display_name, bio, interests, location, country, date_of_birth, relationship_status, profile_type, photos";
 
 type DiscoveryDatabaseError = { code?: string; message: string; details?: string | null; hint?: string | null };
 
+function discoveryErrorDetails(error: DiscoveryDatabaseError | null): Record<string, unknown> {
+  if (!error) return {};
+  const cause = (error as { cause?: unknown }).cause as { code?: string; message?: string; details?: string | null; hint?: string | null } | undefined;
+  return {
+    code: error.code ?? cause?.code ?? "unknown",
+    message: error.message ?? cause?.message ?? "Unknown database error",
+    details: error.details ?? cause?.details ?? null,
+    hint: error.hint ?? cause?.hint ?? null,
+  };
+}
+
+function isMissingColumnOrTable(error: DiscoveryDatabaseError | null): boolean {
+  const code = error?.code ?? (error as { cause?: { code?: string } } | null)?.cause?.code;
+  // PostgREST: 42703 undefined_column, 42P01 undefined_table, PGRST204/205 schema cache misses.
+  if (code === "42703" || code === "42P01" || code === "PGRST204" || code === "PGRST205") return true;
+  const text = `${error?.message ?? ""} ${error?.details ?? ""} ${error?.hint ?? ""}`.toLowerCase();
+  return (
+    text.includes("does not exist") ||
+    text.includes("undefined_column") ||
+    text.includes("undefined_table") ||
+    text.includes("schema cache") ||
+    text.includes("could not find the") ||
+    text.includes("column")
+  );
+}
+
 function assertDiscoveryQuery(stage: string, error: DiscoveryDatabaseError | null): void {
   if (!error) return;
   // Server logs only: no credentials, query parameters, or returned account records.
   console.error("[discover] Database query failed", {
-    stage, code: error.code, message: error.message, details: error.details, hint: error.hint,
+    stage,
+    ...discoveryErrorDetails(error),
   });
-  throw new Error(`Discover query failed: ${stage} (${error.code ?? "unknown"})`, { cause: error });
+  const details = discoveryErrorDetails(error);
+  throw new Error(`Discover query failed: ${stage} (${details.code})`, { cause: error });
 }
 
 
@@ -139,29 +172,47 @@ export async function getDiscoverProfiles(
   const codeTerm = normalizeInviteCode(searchTerm);
 
   // Legacy profiles may have no owner. Never pass null IDs to users.id IN (...).
-  let candidatesQuery = supabase
-    .from("profiles")
-    .select(DISCOVERY_PROFILE_FIELDS)
-    .not("user_id", "is", null)
-    .neq("user_id", viewerUid)
-    .eq("discoverable", true)
-    .eq("visibility", "public");
+  // NOTE: `user_code` only exists after migration 030/032. When the deployed DB
+  // predates it, the `user_code.eq.…` predicate fails the whole query with a
+  // schema-cache error — so retry search by display_name only instead of failing
+  // the entire feed.
+  const buildCandidatesQuery = (includeCode: boolean) => {
+    let query = supabase
+      .from("profiles")
+      .select(DISCOVERY_PROFILE_FIELDS)
+      .not("user_id", "is", null)
+      .neq("user_id", viewerUid)
+      .eq("discoverable", true)
+      .eq("visibility", "public");
 
-  if (safeName || codeTerm) {
-    const predicates: string[] = [];
-    if (safeName) predicates.push(`display_name.ilike.%${safeName}%`);
-    if (codeTerm) predicates.push(`user_code.eq.${codeTerm}`);
-    // `.or()` ANDs against the other filters, so `discoverable` and `visibility`
-    // above still apply. This narrows the candidate set; it does not widen it.
-    candidatesQuery = candidatesQuery.or(predicates.join(","));
+    if (safeName || (codeTerm && includeCode)) {
+      const predicates: string[] = [];
+      if (safeName) predicates.push(`display_name.ilike.%${safeName}%`);
+      if (codeTerm && includeCode) predicates.push(`user_code.eq.${codeTerm}`);
+      // `.or()` ANDs against the other filters, so `discoverable` and `visibility`
+      // above still apply. This narrows the candidate set; it does not widen it.
+      if (predicates.length) query = query.or(predicates.join(","));
+    }
+    return query;
+  };
+
+  let profileRows: Record<string, unknown>[] | null = null;
+  {
+    const first = await buildCandidatesQuery(true).limit(DISCOVERY_LIMIT);
+    if (first.error && codeTerm && isMissingColumnOrTable(first.error)) {
+      console.warn("[discover] user_code column missing; retrying search by name only", {
+        ...discoveryErrorDetails(first.error),
+      });
+      const retry = await buildCandidatesQuery(false).limit(DISCOVERY_LIMIT);
+      assertDiscoveryQuery("profiles.candidates", retry.error);
+      profileRows = (retry.data ?? []) as Record<string, unknown>[];
+    } else {
+      assertDiscoveryQuery("profiles.candidates", first.error);
+      profileRows = (first.data ?? []) as Record<string, unknown>[];
+    }
   }
-
-  const { data: profileRows, error: profilesError } = await candidatesQuery.limit(
-    DISCOVERY_LIMIT
-  );
-  assertDiscoveryQuery("profiles.candidates", profilesError);
   const profileRowsTyped = (profileRows ?? []).filter(
-    (row) => isDiscoveryUserId(row.user_id)
+    (row) => isDiscoveryUserId((row as { user_id?: unknown }).user_id)
   );
   if (profileRowsTyped.length !== (profileRows?.length ?? 0)) {
     console.warn("[discover] Skipped profiles with invalid owner IDs");
@@ -199,16 +250,26 @@ export async function getDiscoverProfiles(
     ]);
 
   // Fail closed: silently treating a failed block query as empty is unsafe.
-  const relatedQueries = [
+  // Missing-table errors on connections/requests degrade to empty (no badges),
+  // but blocks must still throw — otherwise a missing table would silently
+  // unblock everyone.
+  assertDiscoveryQuery("blocks.by_viewer", blocksByMeResult.error);
+  assertDiscoveryQuery("blocks.on_viewer", blocksOnMeResult.error);
+  const optionalRelated: (readonly [string, { error: DiscoveryDatabaseError | null; data: unknown }])[] = [
     ["connection_requests.outgoing", outgoingResult],
     ["connection_requests.incoming", incomingResult],
     ["connections.user1", conn1Result],
     ["connections.user2", conn2Result],
-    ["blocks.by_viewer", blocksByMeResult],
-    ["blocks.on_viewer", blocksOnMeResult],
-  ] as const;
-  for (const [stage, result] of relatedQueries) {
-    assertDiscoveryQuery(stage, result.error);
+  ];
+  for (const [stage, result] of optionalRelated) {
+    if (result.error && isMissingColumnOrTable(result.error)) {
+      console.warn(`[discover] Optional table missing; degrading ${stage} to empty`, {
+        ...discoveryErrorDetails(result.error),
+      });
+      (result as { data: unknown }).data = [];
+    } else {
+      assertDiscoveryQuery(stage, result.error);
+    }
   }
 
   // Build Sets for filtering
@@ -239,12 +300,32 @@ export async function getDiscoverProfiles(
 
   // Account display fields are provisioned separately from profile details.
   // Only fetch public display fields for this bounded set of candidates.
-  const { data: accounts, error: accountsError } = await supabase
-    .from("users")
-    .select("id, display_name, username, avatar_url, country, status")
-    .in("id", profileRowsTyped.map((row) => row.user_id))
-    .eq("status", "active");
-  assertDiscoveryQuery("users.public_display_fields", accountsError);
+  // Older databases may lack `username`/`avatar_url` — retry minimal so one
+  // missing column can't empty the whole feed.
+  const candidateIds = profileRowsTyped.map((row) => row.user_id);
+  let accounts: { id: string }[] | null = null;
+  {
+    const first = await supabase
+      .from("users")
+      .select("id, display_name, username, avatar_url, country, status")
+      .in("id", candidateIds)
+      .eq("status", "active");
+    if (first.error && isMissingColumnOrTable(first.error)) {
+      console.warn(
+        `[discover] users.public_display_fields degraded, retrying minimal: ${(first.error as { code?: string }).code ?? "unknown"}`
+      );
+      const retry = await supabase
+        .from("users")
+        .select("id, status")
+        .in("id", candidateIds)
+        .eq("status", "active");
+      assertDiscoveryQuery("users.public_display_fields", retry.error);
+      accounts = (retry.data ?? []) as { id: string }[];
+    } else {
+      assertDiscoveryQuery("users.public_display_fields", first.error);
+      accounts = (first.data ?? []) as { id: string }[];
+    }
+  }
   const accountsById = new Map((accounts ?? []).map((account) => [account.id, account]));
   const profiles = profileRowsTyped.flatMap((row) => {
     const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id));
@@ -299,7 +380,7 @@ export async function getDiscoverProfiles(
     id: p.userId,
     /* Discovery cards are public: an address-shaped display_name renders as its
        prefix, never the full address. */
-    name: publicDisplayName(p.displayName) || "Member",
+    name: safePublicDisplayName(p.displayName) || "Member",
     kind: p.profileType === "coupled" ? "couple" : "person",
     location: p.location ?? "",
     bio: p.bio ?? "",
@@ -329,10 +410,18 @@ async function displayNamesFor(
   const supabase = getSupabaseServerClient();
   if (!supabase) return map;
 
-  const { data: profileRows } = await supabase
+  const { data: profileRows, error: namesError } = await supabase
     .from("profiles")
-    .select(publicProfileSelectList())
+    .select("user_id, display_name, profile_type")
     .in("user_id", uids);
+
+  if (namesError) {
+    // Names are labels only — a schema miss here must not fail the feed.
+    console.warn(
+      `[discover] displayNamesFor degraded: ${(namesError as { code?: string }).code ?? "unknown"} ${(namesError as { message?: string }).message ?? ""}`.slice(0, 300)
+    );
+    return map;
+  }
 
   for (const row of profileRows ?? []) {
     const card = mapProfileCardRow(row);
