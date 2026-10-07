@@ -6,10 +6,10 @@ import { getPresenceForUsers } from "@/lib/server/presence";
 import { haversineKm } from "@/lib/server/nearby";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  UserProfileView,
+  PublicProfileScreen,
   type PublicProfilePhoto,
   type PublicProfileView,
-} from "@/components/profile/UserProfileView";
+} from "@/components/profile/PublicProfileScreen";
 import type { ProfilePhoto } from "@/lib/models/user";
 
 export const dynamic = "force-dynamic";
@@ -20,9 +20,9 @@ export const dynamic = "force-dynamic";
  * This route was rewritten from scratch. The previous version rendered a column
  * of dark `<Card>` sections (identity, About, Interests, a media gallery, a
  * relationship block, and four inline action buttons) down an ordinary
- * scrolling document. It is replaced entirely by `UserProfileView`, a
- * dark immersive surface: full-bleed photo header, thumbnail switcher,
- * overlapping sheet, About/Honor/Relation tabs, hobby pills, and a pinned
+ * scrolling document. It is replaced entirely by `PublicProfileScreen`, an
+ * immersive surface: full-bleed photo header with a thumbnail switcher, an
+ * overlapping white sheet, About/Honor/Relation tabs, tag pills, and a pinned
  * Chat + Follow action bar. None of the old markup survives —
  * there is deliberately no "legacy" version left to fall back to.
  *
@@ -35,13 +35,14 @@ export const dynamic = "force-dynamic";
  * ── WHAT STOPPED BEING IMPORTED, AND WHAT WAS DELETED ─────────────────
  * `PageHeader`, `Card`, `Chip`, `ReportDialog` and `BlockDialog` are no longer
  * used HERE but are still imported elsewhere in the app, so they were kept.
- * The legacy widgets this redesign replaced were deleted: `PublicProfileScreen`
- * (superseded by `UserProfileView`, which now owns the `PublicProfileView` /
- * `PublicProfilePhoto` types), `ProfileConnectionActions` and
+ * `PublicProfileScreen` is the view this route renders again (restored from the
+ * earlier immersive redesign), and it owns the `PublicProfileView` /
+ * `PublicProfilePhoto` types this page annotates with. `UserProfileView`, which
+ * had superseded it, is no longer imported HERE. The other legacy widgets the
+ * redesign replaced remain deleted: `ProfileConnectionActions` and
  * `MessageProfileButton` (superseded by `ProfileChatButton` /
  * `ProfileFollowButton`), and `PublicMediaGallery` plus `ProfilePresenceAvatar`
- * (superseded by this view's gallery header and online pill). All five had
- * zero importers.
+ * (superseded by the screen's gallery header and online pill).
  */
 
 /**
@@ -206,12 +207,6 @@ export default async function PublicProfilePage({
        their status line, which is why the Status section can otherwise read
        "No status yet." — and why nothing is duplicated into a fake field. */
     status: profile.bio?.trim() || null,
-    /* NO VOICE STATUS COLUMN EXISTS IN THE SCHEMA, so this is deliberately
-       null rather than a fabricated clip or duration. The audio pill in
-       `UserProfileView` renders the written status (or its empty state) until
-       a column and recording path exist; wiring one in means resolving a URL
-       here and nothing else. */
-    statusAudio: null,
     initialOnline: presence[userId]?.online ?? false,
     isSelf,
     viewerUid: session?.uid ?? null,
@@ -229,7 +224,7 @@ export default async function PublicProfilePage({
     relation,
   };
 
-  return <UserProfileView view={view} />;
+  return <PublicProfileScreen view={view} />;
 }
 
 /**
