@@ -26,18 +26,22 @@ export const dynamic = "force-dynamic";
  * Chat + Follow action bar. None of the old markup survives —
  * there is deliberately no "legacy" version left to fall back to.
  *
- * â”€â”€ THIS PAGE IS A SERVER COMPONENT, ON PURPOSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ── THIS PAGE IS A SERVER COMPONENT, ON PURPOSE ──────────────────────────────
  * All reading happens here: the profile, its privacy and block checks,
  * presence, and the viewer's own coordinates. The client component receives a
  * flat, pre-derived `PublicProfileView` and fetches nothing on mount except
  * presence polling — the same split the rest of this app uses.
  *
- * â”€â”€ WHAT STOPPED BEING IMPORTED, AND WHY NOTHING WAS DELETED â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * `PageHeader`, `Card`, `Chip`, `ProfilePresenceAvatar`, `PublicMediaGallery`,
- * `ProfileConnectionActions`, `MessageProfileButton`, `ReportDialog` and
- * `BlockDialog` are no longer used HERE. Every one of them is still used
- * elsewhere in the app — the discover deck's detail sheet and the own-profile
- * page — so no component was deleted, only this page's usage of them.
+ * ── WHAT STOPPED BEING IMPORTED, AND WHAT WAS DELETED ─────────────────
+ * `PageHeader`, `Card`, `Chip`, `ReportDialog` and `BlockDialog` are no longer
+ * used HERE but are still imported elsewhere in the app, so they were kept.
+ * The legacy widgets this redesign replaced were deleted: `PublicProfileScreen`
+ * (superseded by `UserProfileView`, which now owns the `PublicProfileView` /
+ * `PublicProfilePhoto` types), `ProfileConnectionActions` and
+ * `MessageProfileButton` (superseded by `ProfileChatButton` /
+ * `ProfileFollowButton`), and `PublicMediaGallery` plus `ProfilePresenceAvatar`
+ * (superseded by this view's gallery header and online pill). All five had
+ * zero importers.
  */
 
 /**
@@ -47,7 +51,7 @@ export const dynamic = "force-dynamic";
  * member gets older, and there is no cache to invalidate.
  *
  * Guarded rather than assumed. An absent or unparseable date yields null, and so
- * does an age outside 18â€“120 — a child or an implausible year renders NOTHING
+ * does an age outside 18–120 — a child or an implausible year renders NOTHING
  * rather than a nonsensical number. The caller omits the whole pill in that case.
  */
 function deriveAge(dateOfBirth: string | null): number | null {
@@ -154,7 +158,7 @@ export default async function PublicProfilePage({
      order. Rows that resolve to no URL are dropped, so the carousel can never
      select a frame that renders as a broken image.
 
-     `key` falls back through id â†’ storagePath â†’ index. A stable, unique key is
+     `key` falls back through id → storagePath → index. A stable, unique key is
      what lets React move the active border between thumbnails correctly; an
      index-only key would make every dot and thumbnail look "changed" when the
      list is reordered. */
@@ -202,6 +206,12 @@ export default async function PublicProfilePage({
        their status line, which is why the Status section can otherwise read
        "No status yet." — and why nothing is duplicated into a fake field. */
     status: profile.bio?.trim() || null,
+    /* NO VOICE STATUS COLUMN EXISTS IN THE SCHEMA, so this is deliberately
+       null rather than a fabricated clip or duration. The audio pill in
+       `UserProfileView` renders the written status (or its empty state) until
+       a column and recording path exist; wiring one in means resolving a URL
+       here and nothing else. */
+    statusAudio: null,
     initialOnline: presence[userId]?.online ?? false,
     isSelf,
     viewerUid: session?.uid ?? null,

@@ -15,24 +15,22 @@ import { SHEET_BACKDROP, SHEET_PANEL_RELATIVE, SHEET_SHELL } from "@/components/
 import type { ConnectionState } from "@/lib/feature/types";
 
 /**
- * THE TWO BOTTOM-BAR ACTIONS ON A PUBLIC PROFILE.
+ * THE TWO BOTTOM-BAR ACTIONS ON A PUBLIC PROFILE — Chat and Follow.
  *
- * These live in their own file rather than inside `PublicProfileScreen` so the
- * screen stays a pure presentation component: everything that talks to the
- * network (the connection state machine, the first-message composer) is here.
+ * These live in their own file rather than inside `UserProfileView` so the view
+ * stays a pure presentation component: everything that talks to the network
+ * (the connection state machine, the first-message composer) is here.
  *
  * ── WHY NOT `ProfileConnectionActions` / `MessageProfileButton` ───────────────
- * Those two widgets are correct and are still used by the discover deck's detail
- * sheet. They are DARK-surface components though: their triggers are
- * `bg-white/[0.06]` on the navy shell and their composer sheet is `#0F172A`.
- * This screen is a LIGHT surface — a white bottom sheet over a photo — so those
- * triggers would render as near-invisible ghosts on white.
- *
- * What is reused is the DATA PATH, which is the part that must never fork:
+ * Those two widgets were the first attempt at this same bar. They had ZERO
+ * importers — the discover deck's detail sheet uses `ProfileDetailSheet` with
+ * its own actions — so they were deleted rather than left to fork the data
+ * path. What survives is the DATA PATH itself, which is the part that must
+ * never fork:
  *
  *   • Follow → `getConnectionStateAction` / `sendConnectionAction` /
- *              `cancelRequestAction`. Identical to the discover deck, so the two
- *              entry points can never disagree about the connection state.
+ *              `cancelRequestAction`. Same server actions the rest of the app
+ *              uses, so entry points can never disagree about connection state.
  *   • Chat   → `sendFirstImpressionAction`. It is find-or-creates, so a thread
  *              started here is the same inbox row a message started from
  *              discover would create.

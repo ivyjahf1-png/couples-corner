@@ -391,12 +391,12 @@ export function AppMain({ children }: { children: React.ReactNode }) {
      are the same player (`ImmersiveFeed`), so matching on the two paths is
      enough and cannot drift out of sync with the feed's internals. */
   /* `/profile/<uid>` is IMMERSIVE, like the feed and the discover deck: a
-     full-bleed photo occupies the top half of the screen and the white profile
-     sheet overlaps it edge to edge. `<main>`'s `px-4` and `pt-6` would frame
-     that photo inside a gutter — grey bands down both sides, which is the one
-     thing an immersive header must not have. The page reserves the tab bar's
-     height itself (see the action bar in `PublicProfileScreen`), so dropping the
-     `pb-20` compensation here strands nothing.
+     full-bleed photo header with the dark profile sheet overlapping it edge to
+     edge. `<main>`'s `px-4` and `pt-6` would frame that photo inside a gutter —
+     grey bands down both sides, which is the one thing an immersive header must
+     not have. The page reserves the tab bar's height itself (see the fixed
+     Chat/Follow action bar in `UserProfileView`), so dropping the `pb-20`
+     compensation here strands nothing.
 
      Matched with `startsWith` rather than `===` because this is a DYNAMIC route:
      `/profile` itself is the own-profile page and keeps its normal document

@@ -330,7 +330,7 @@ export async function getDiscoverProfiles(
   const profiles = profileRowsTyped.flatMap((row) => {
     /* `user_id` was validated by isDiscoveryUserId above, but that guard does
        not narrow the array element type — cast for the Map key lookup. */
-    const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id as string));
+    const hydrated = hydrateDiscoveryProfile(row, accountsById.get(row.user_id as string) as Record<string, unknown> | undefined);
     return hydrated ? [dbToUserProfile(hydrated)] : [];
   });
 
