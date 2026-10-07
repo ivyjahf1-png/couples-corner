@@ -231,10 +231,18 @@ export function MobileBackHeader() {
              would now offer a way to leave the tab a member tapped and land on a
              screen the bottom bar does not highlight - the exact ambiguity the split
              exists to remove. */}
-          {isBareHeader ? (
+          {isBareHeader || segment === "moments" ? (
             /* Nothing at all, not an empty 44px button. A transparent tap target is
                worse than no target: it eats the row's right gutter and swallows taps
-               with no visible affordance. */
+               with no visible affordance.
+
+               `/moments` joins this branch for the HEADER CLEANUP: the Moment
+               screen shows only the back button and the "Moment" title. The
+               right-hand "Home" link was a breadcrumb to a destination the
+               bottom nav already exposes — redundant chrome on an immersive
+               full-screen player, and half of what made the bar read as a
+               breadcrumb trail rather than a screen label. The spacer keeps the
+               absolutely-centred title on the same x as every other screen. */
             <span aria-hidden className="h-11 w-11 shrink-0" />
           ) : (
             <Link

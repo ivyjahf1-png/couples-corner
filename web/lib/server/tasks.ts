@@ -740,7 +740,10 @@ export async function getRecentMoments(
       id: row.id,
       userId: row.user_id,
       content: row.content,
-      mediaUrl: row.media_url,
+      // Run through the URL mapper (bare storage keys, host-less /storage
+      // paths and bucket-prefixed keys all land here from legacy rows) —
+      // see resolveStoredMediaUrl below.
+      mediaUrl: resolveStoredMediaUrl(supabase, row.media_url),
       mediaType: row.media_type,
       authorName: author?.displayName ?? null,
       authorAvatarUrl: author?.avatarUrl ?? null,
@@ -759,6 +762,56 @@ export async function getRecentMoments(
   });
 }
 type SupabaseServer = NonNullable<ReturnType<typeof getSupabaseServerClient>>;
+
+/**
+ * Map a stored `moments.media_url` onto a URL the browser can actually load.
+ *
+ * Publish time stores a full public URL (`publishMomentFromStorage` writes
+ * `getPublicUrl(path)`), but three other shapes still turn up in the column,
+ * and every one of them renders as a "missing upload" — a video card with a
+ * src the browser 404s or cannot resolve at all:
+ *
+ *   1. A BARE STORAGE KEY (`<uid>/<uuid>_clip.mp4`): what the pre-URL
+ *      `publishMoment` callers wrote. Rebuilt through the same `user-media`
+ *      bucket the object lives in.
+ *   2. A SUPABASE-ORIGIN PATH (`/storage/v1/object/public/user-media/...`):
+ *      a URL saved without its host. Served from OUR origin that path 404s,
+ *      so the bucket and key are extracted and re-expanded to a public URL.
+ *   3. A BUCKET-PREFIXED KEY (`user-media/<key>`): the bucket segment is
+ *      stripped, because `from(bucket).getPublicUrl()` takes the KEY only —
+ *      keeping it would double the segment and produce an unreachable URL.
+ *
+ * Absolute URLs (https:, blob:, data:) and app-rooted routes (`/api/...`)
+ * pass through untouched: they already resolve from wherever they are served.
+ *
+ * Resolved HERE, once, so every consumer of `getRecentMoments` — the video
+ * feed (`MediaFeed` / `ImmersiveFeed`) and the Moment screen — receives the
+ * same working URL without each renderer re-implementing the mapping.
+ */
+function resolveStoredMediaUrl(
+  supabase: SupabaseServer,
+  raw: string | null | undefined
+): string {
+  const value = (raw ?? "").trim();
+  if (!value) return "";
+  // Absolute (https:, blob:, data:, ...) — nothing to map.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(value)) return value;
+  // App-rooted route, not a storage URL — leave it alone.
+  if (value.startsWith("/") && !value.startsWith("/storage/v1/")) return value;
+
+  let path = value;
+  if (path.startsWith("/storage/v1/")) {
+    const marker = "/object/public/";
+    const at = path.indexOf(marker);
+    // Signed or non-public storage URLs cannot be rebuilt as public ones.
+    if (at === -1) return value;
+    path = path.slice(at + marker.length);
+  }
+  if (path.startsWith("user-media/")) path = path.slice("user-media/".length);
+
+  const { data } = supabase.storage.from("user-media").getPublicUrl(path);
+  return data?.publicUrl || value;
+}
 
 /** Toggle the viewer's reaction on a moment. Returns the resulting state. */
 export async function toggleMomentReaction(
