@@ -443,32 +443,52 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
             onClose={() => setDetailOpen(false)}
           />
 
-          {/* THE ACTION BAR.
+          {/* THE ACTION BAR — VIEWPORT-ANCHORED, SITTING ON THE TAB BAR.
 
-              A FLOATING CONTAINER, not a bare row. The buttons used to sit
-              directly on the card's bottom edge with nothing around them, so the
-              row read as a continuation of the photo rather than as controls â€”
-              and with five buttons of three different sizes (48/56/64px) on a
-              358px-wide phone, the only thing keeping them apart was a 8px gap.
+              It used to be in-flow (`relative z-20`) at the bottom of the deck,
+              relying on the page's dock reserve to keep it clear of the fixed
+              tab bar. That reserve is measured from the SHELL's bottom edge —
+              but on /discover `MobileBackHeader` returns null (discover is in
+              SELF_HEADERED) while the shell still claims
+              `h-[calc(100dvh-4rem)]`, so 4rem of dead body sits BELOW the
+              shell. The row therefore landed 64px (dead band) + 80px (reserve)
+              = 144px above the viewport bottom: a ~75px gap floating over the
+              tab bar instead of resting on it (measured, not guessed).
 
-              `w-full max-w-md` + `justify-center` + `gap-4`/`sm:gap-5` gives the
-              row real rhythm and, critically, a guaranteed centre: the buttons
-              cannot drift left or get pushed off the right edge, because the
-              container is the full width of the deck and centres its content
-              inside it. `px-1` is the smallest gutter that still keeps the
-              outermost buttons off the bezel.
+              FIXED, INSET FROM THE VIEWPORT. The bottom offset is the tab
+              bar's height — 69px (`p-2` 8px + tab pill 53px + `p-2` 8px, see
+              `.nav-pill--tab`), rounded up to the 5rem the whole app already
+              reserves (`pb-20`, `.app-dock-reserve`) — plus the
+              home-indicator inset `.app-bottom-nav` pads itself with, written
+              as a calc over safe-area-inset-bottom. That
+              lands the row 11px clear of the tab bar's top edge on every
+              device: flush "right on top of" it, never under it and never
+              overlapping it. A bare `bottom-20` would tuck 23px UNDER the bar
+              on notched phones, where the inset makes the bar taller than
+              5rem; anchoring to the viewport also makes the row immune to the
+              4rem dead band above.
 
-              `pb-[env(safe-area-inset-bottom)]` is additive, not a substitute:
-              the deck already sits above the tab bar via the page's dock
-              reserve, so this only covers the gesture bar on devices that have
-              one.
+              `z-40`: above the card's chrome (tap zones z-10, counter z-20),
+              BELOW the tab bar's z-50 (this row can never paint over the nav)
+              and below the modals' z-200.
 
-              `shrink-0` is load-bearing â€” without it the flex parent compresses
-              this row when the card wants more height, and compressed buttons
-              drop below the 44px touch-target minimum. */}
+              THE SPACER keeps the row's old flow footprint (`h-16` = the
+              tallest button), so the card holds exactly the height budget it
+              had when the row was in-flow, and the fixed row floats over the
+              reserve zone directly beneath the spacer's bottom edge.
+              `md:hidden` on the spacer + `md:static` on the row restore the
+              original in-flow arrangement at md+, where the tab bar is
+              `md:hidden`; the LANDSCAPE block in globals.css releases both on
+              short phones, in the same media query that drops
+              `.app-dock-reserve`.
+
+              `inset-x-0 mx-auto max-w-md` centres the row on the same axis the
+              deck centres its card, and `justify-center` centres the buttons
+              inside it — the horizontal centring the row always had. */}
+          <div aria-hidden className="deck-dock-spacer h-16 shrink-0 md:hidden" />
           <nav
             aria-label="Profile actions"
-            className="relative z-20 flex w-full max-w-md shrink-0 items-center justify-center gap-4 px-1 pb-[env(safe-area-inset-bottom)] sm:gap-5"
+            className="deck-dock fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto flex w-full max-w-md items-center justify-center gap-4 px-1 sm:gap-5 md:static md:pb-[env(safe-area-inset-bottom)]"
           >
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"

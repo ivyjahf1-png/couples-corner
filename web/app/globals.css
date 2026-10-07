@@ -2202,6 +2202,20 @@ button,
     padding-bottom: 0 !important;
   }
 
+  /* THE DECK'S ACTION DOCK is viewport-fixed on phones (see the ACTION BAR
+     note in DiscoverCardStack). Releasing the reserve without releasing the
+     dock would leave the row hovering 5rem above a viewport with no bar
+     beneath it — the exact dead-space bug this media block exists to kill.
+     Static puts the row back in flow at the deck's foot, where it sat before
+     the dock went fixed, and the spacer that held its flow footprint hides
+     with it. */
+  .deck-dock {
+    position: static !important;
+  }
+  .deck-dock-spacer {
+    display: none !important;
+  }
+
   /* The width cap (`max-w-[88rem]`) and horizontal gutters are a desktop
      reading-width constraint. On a short landscape phone they only create the
      blank side columns around the video. */
