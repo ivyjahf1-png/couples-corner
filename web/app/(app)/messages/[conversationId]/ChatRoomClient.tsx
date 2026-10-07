@@ -400,7 +400,7 @@ function MessageBubble({
   );
 
   return (
-    <div className={`flex w-full items-end gap-2 ${isMine ? "justify-end pl-10" : "justify-start pr-10"}`}>
+    <div className={`flex w-full items-end gap-2 ${isMine ? "flex-row-reverse justify-start pl-10" : "flex-row justify-start pr-10"}`}>
       {!isMine ? (
         <Avatar name={participantName} src={avatarUrl} size="sm" className="shrink-0" />
       ) : null}
@@ -879,7 +879,7 @@ export default function ChatRoomClient({
    (`isActiveConversationPath`), so the composer inherits the full height. */
   return (
     <div
-      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden"
+      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-col justify-between overflow-hidden"
       style={{
         /* THE CANVAS GRADIENT, not the flat `THEME.canvas`.
            `THEME.canvas` (`#0F0C1B`) is still the base colour below it, but the
@@ -986,7 +986,7 @@ export default function ChatRoomClient({
           minimum touch target. `dvh` is what makes it ride up with the on-screen
           keyboard — see the note at the top of this file. */}
       <div
-        className="w-full self-stretch shrink-0 border-t px-2 pb-2 pt-2"
+        className="sticky bottom-0 w-full self-stretch shrink-0 border-t px-2 pb-[calc(0.5rem_+_env(safe-area-inset-bottom,0px))] pt-2"
         style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six

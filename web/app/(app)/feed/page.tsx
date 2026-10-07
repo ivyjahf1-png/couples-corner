@@ -118,5 +118,19 @@ export default async function FeedPage({
      `/moments` renders the player and `/feed` renders the timeline. Rendering both
      here and hiding one behind `?view=` would recreate the exact ambiguity this split
      exists to remove - a member tapping "Moment" must never get a blog. */
-  return <CommunityFeedView posts={posts} canPost={Boolean(user)} userId={user.uid} />;
+  // LOCKED COLUMN, NOT A PAGE SCROLL. `h-full` + `max-h-[100dvh]` chained off
+  // each flex parent (see `AppMain`'s `h-full` inner wrapper), so the timeline
+  // measures the padded box and shrinks to clear the fixed bottom nav rather
+  // than hiding under it. `overflow-hidden` here + `overflow-y-auto` on the
+  // inner region = ONE scroll surface: body-scroll conflicts gone, no
+  // lockups, momentum scrolling on iOS via the touch flags. `pb-28`
+  // reserves the 5rem fixed tab bar + 2rem breathing room (dropped at
+  // `md:` where the sidebar rail takes over).
+  return (
+    <div className="flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain pb-28 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:pb-8">
+        <CommunityFeedView posts={posts} canPost={Boolean(user)} userId={user.uid} />
+      </div>
+    </div>
+  );
 }

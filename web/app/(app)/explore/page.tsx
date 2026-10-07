@@ -17,12 +17,10 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-/** Human-readable distance label ("850 m" / "12 km"). */
 function distanceLabel(km: number): string {
   return km < 1 ? `${Math.round(km * 1000)} m` : `${Math.round(km)} km`;
 }
 
-/** Map a NearbyProfileView onto the shared ProfileCard shape, surfacing distance. */
 function toNearbyCard(p: NearbyProfileView): ProfileCardView {
   const bits = [
     p.location?.trim() || "",
@@ -41,40 +39,9 @@ function toNearbyCard(p: NearbyProfileView): ProfileCardView {
   };
 }
 
-/**
- * Explore / Discovery re-layout (item 2).
- *
- * Structured card-grid alternative to the /discover swipe deck:
- *   1. Suggested connections — discoverable profiles (demo fallback signed out).
- *   2. Near you — distance-ranked members from shared locations.
- * Server Component: all queries run server-side; ProfileCard handles actions.
- *
- * ── WHY THIS PAGE STILL SCROLLS, AND /discover DOES NOT ─────────────────────
- * These two routes were reported together as "must fit on a phone without
- * scrolling", but they are different surfaces and only one of them can honour
- * that.
- *
- * `/discover` is the swipe deck: ONE card, a bounded set of five action buttons
- * and a progress counter. That has a natural fit — lock the column to the
- * viewport and let the card absorb the leftover height. It is now
- * viewport-locked; see that page and `AppMain`'s `isFullBleedSurface`.
- *
- * `/explore` is a BROWSING LIST. It renders up to nine suggested profiles plus
- * up to nine nearby ones, each a full card with an avatar, name, bio, interests
- * and its own connect actions. Eighteen of those cannot be shown on a phone at
- * a readable size without either scrolling or shrinking them past use. Removing
- * the scroll would mean hiding results the member asked to see, or rendering
- * cards roughly 40px tall — both worse than the scroll it would fix.
- *
- * So this page keeps `AppMain`'s single scroll region, and what it does instead
- * is tighten the mobile rhythm: smaller section and grid gaps below `sm`, so
- * more cards are reachable per swipe. That is the honest part of the request;
- * the non-scrolling part is not available on this surface.
- */
 export default async function ExplorePage() {
   const session = await getSessionUser();
 
-  // Suggested connections — live discovery, falling back to design-review demos.
   let suggestions: ProfileCardView[] = demoProfileViews;
   let usingDemo = true;
   if (session) {
@@ -84,12 +51,9 @@ export default async function ExplorePage() {
         suggestions = live;
         usingDemo = false;
       }
-    } catch {
-      // Fail soft — demo grid below keeps the page presentable.
-    }
+    } catch {}
   }
 
-  // Near you — distance-ranked (degrades to recently-active worldwide).
   let nearby: ProfileCardView[] = [];
   if (session) {
     try {
@@ -99,30 +63,42 @@ export default async function ExplorePage() {
     }
   }
 
+  // `/explore` is a BROWSING LIST and stays scrollable in `AppMain`'s own
+  // scroll region. Tighter mobile rhythm so more cards are reachable per
+  // swipe without changing what the page shows.
   return (
-    /* `/explore` is a BROWSING LIST and stays scrollable — see the note below.
-       What is tightened here is the mobile rhythm, so more cards are reachable
-       per swipe without changing what the page shows. */
-    <div className="flex flex-col gap-6 pb-28 sm:gap-8 md:pb-8">
-      {/* `pb-28` reserves room for the fixed bottom nav AND the floating Game
-          button above it. `AppMain` already applies a `pb-20` for the nav on
-          non-full-bleed routes, but that is measured to the nav alone — without
-          the extra reserve here the button covers the bottom-right corner of the
-          last profile card, which is exactly where its own Connect action sits.
-          `md:pb-8` drops both once the nav is `md:hidden`. */}
+    <div className="flex w-full flex-col gap-4 pb-28 sm:gap-6 md:pb-8">
+      {/* Header title, directly above the search row */}
       <PageHeader
         eyebrow="Explore"
-        title="Discover people"
-        subtitle="Browse suggested connections and members near you — then start a conversation."
+        title="Discover: Find your people"
+        subtitle=""
       />
 
-      {/* ------------------------------------------------ Suggested connections */}
-      <section aria-labelledby="explore-suggested-heading" className="flex flex-col gap-4">
+      {/* Search engine shifted up immediately below header, with Browse grid beside it */}
+      <div className="flex items-center gap-3 w-full">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search by 6-letter ID or username"
+            className="w-full h-12 bg-white/[0.04] border border-white/10 rounded-2xl px-4 text-sm text-ink-100 placeholder:text-ink-400 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+        <Button href="/discover" size="sm" variant="secondary" className="shrink-0 rounded-2xl border-white/10 bg-white/[0.05] text-ink-100 hover:bg-white/10 px-4 py-3 h-12">
+          Browse grid
+        </Button>
+      </div>
+
+      {/* Suggested connections with taller, immersive full-bleed photo cards.
+          The grid stretches (`flex-1`) so the cards absorb the remaining
+          viewport height above the fixed tab bar; each card holds at least
+          420px and grows from there instead of clipping. */}
+      <section aria-labelledby="explore-suggested-heading" className="flex min-h-0 flex-1 flex-col gap-4">
         <div className="flex items-center justify-between">
-          <h2 id="explore-suggested-heading" className="font-semibold text-ink-100">
+          <h2 id="explore-suggested-heading" className="font-semibold text-ink-100 text-sm uppercase tracking-wider text-amber-400/90">
             Suggested connections
           </h2>
-          <Button href="/discover" size="sm" variant="ghost">
+          <Button href="/discover" size="sm" variant="ghost" className="text-xs text-ink-300">
             Swipe deck →
           </Button>
         </div>
@@ -133,19 +109,31 @@ export default async function ExplorePage() {
           </p>
         ) : null}
 
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
-          {suggestions.slice(0, 9).map((profile) => (
-            <li key={profile.id} className="min-w-0">
-              <ProfileCard profile={profile} />
-            </li>
-          ))}
-        </ul>
+        {/* HERO + GRID. The first profile is the main photo card: it stretches
+            vertically (tall immersive card) to fill the remaining space above
+            the fixed bottom nav, while the rest flow in the responsive grid. */}
+        {suggestions.length > 0 ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="min-w-0 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>div]:h-full [&>div]:min-h-[480px] sm:[&>div]:min-h-[540px]">
+              <ProfileCard profile={suggestions[0]} />
+            </div>
+            {suggestions.length > 1 ? (
+              <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {suggestions.slice(1, 9).map((profile) => (
+                  <li key={profile.id} className="min-w-0 [&>div]:h-full [&>div]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
+                    <ProfileCard profile={profile} />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
-      {/* ------------------------------------------------------------ Near you */}
-      <section aria-labelledby="explore-nearby-heading" className="flex flex-col gap-4">
+      {/* Near you section */}
+      <section aria-labelledby="explore-nearby-heading" className="flex flex-col gap-4 pt-2">
         <div className="flex items-center justify-between">
-          <h2 id="explore-nearby-heading" className="font-semibold text-ink-100">
+          <h2 id="explore-nearby-heading" className="font-semibold text-ink-100 text-sm uppercase tracking-wider text-amber-400/90">
             Near you
           </h2>
           {nearby.length > 0 ? (
@@ -154,9 +142,9 @@ export default async function ExplorePage() {
         </div>
 
         {nearby.length > 0 ? (
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {nearby.slice(0, 9).map((profile) => (
-              <li key={`nearby-${profile.id}`} className="min-w-0">
+              <li key={`nearby-${profile.id}`} className="min-w-0 [&>div]:h-full [&>div]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
                 <ProfileCard profile={profile} />
               </li>
             ))}
@@ -175,27 +163,6 @@ export default async function ExplorePage() {
         )}
       </section>
 
-      {/* ── FLOATING ACTION ───────────────────────────────────────────────
-          This browsing list had NO floating button at all, which left the
-          Game Center reachable only from the bottom nav — an extra tap on a
-          page whose whole purpose is browsing, and unreachable entirely if the
-          member is mid-scroll with a thumb over that corner.
-
-          IT IS THE GAME HUB BUTTON, reused via its existing `bottomOffset`
-          prop rather than a second near-identical component. Two round
-          floating buttons on one screen would fight for the same corner.
-
-          NOTE IT IS NOT THE "SWIPE DECK" ROUTE. That stays the "Swipe deck →"
-          ghost button inside the first section; this control goes to /games,
-          matching what the same button does on /discover.
-
-          `bottom-28` (112px) clears the 5rem (80px) nav by 32px. This page
-          stacks no action row or bottom bar beneath the nav — unlike /discover,
-          which clears an 84px card dock and passes `bottom-44` for that reason,
-          and unlike the feed, whose reaction bar reaches 164px. Copying either
-          of those larger values here would float the button oddly high for no
-          obstacle. `md:bottom-24` drops the extra lift where the nav is
-          `md:hidden` and the sidebar rail takes over. */}
       <GameCenterButton
         bottomOffset="bottom-28 md:bottom-24"
         label="Game"

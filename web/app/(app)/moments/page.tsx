@@ -29,8 +29,6 @@ export default async function MomentsPage() {
         authorName: latest.authorName?.trim() || "Member",
         timeAgo: relativeTime(latest.createdAt),
         mediaUrl: latest.mediaUrl,
-        // Drives <video> vs <img> vs embed in the card — a video upload MUST
-        // reach the renderer as type "video" or it falls back to an <img>.
         mediaType: latest.mediaType,
         avatarUrl: latest.authorAvatarUrl ?? undefined,
         likesCount: latest.reactionCount,
@@ -38,16 +36,22 @@ export default async function MomentsPage() {
       }
     : undefined;
 
-  return <MomentViewerCard moment={moment} />;
+  // DYNAMIC VIEWPORT LOCK. `h-[100dvh]` (not `100vh`) so the column tracks the
+  // VISUAL viewport: when a mobile browser shrinks, the column shrinks with
+  // it instead of overflowing. Bottom-anchored (`min-h-0` + `max-h-[100dvh]`)
+  // as a flex child of `AppMain`'s padded box, so the player fills the
+  // remaining space exactly. `overflow-hidden` keeps containment structural:
+  // this screen owns no page scroll (the card is a locked reel), so any
+  // future overflow fails inside the child rather than double-scrolling.
+  return (
+    <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-black/40">
+      <div className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
+        <MomentViewerCard moment={moment} />
+      </div>
+    </div>
+  );
 }
 
-/**
- * Compact relative timestamp for the author pill ("5m ago", "3d ago").
- *
- * Derived from the row's `created_at` at render time — there is no stored
- * label to go stale, and the pill is short by design, so anything past a
- * week collapses to whole weeks instead of growing a date.
- */
 function relativeTime(iso: string): string {
   const parsed = Date.parse(iso);
   if (Number.isNaN(parsed)) return "";
