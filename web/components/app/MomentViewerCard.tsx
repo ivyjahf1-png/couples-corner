@@ -9,8 +9,14 @@ import {
   Plus,
   Send,
   Share2,
+  Upload,
   Volume2,
+  X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { publishMomentAction } from "@/lib/actions/tasks";
+import { uploadMediaDirect } from "@/lib/utils/direct-upload";
+import { validateMediaFile } from "@/lib/utils/media-upload";
 
 /** Media kinds this player knows how to render. Mirrors `MomentMediaType`
     from `lib/moments.ts` (the server view model) as a local union so the
@@ -40,6 +46,8 @@ export interface MomentData {
 interface MomentViewerCardProps {
   /** Overrides the built-in demo moment when provided. */
   moment?: MomentData;
+  /** Signed-in uid for direct-to-storage uploads; supplied by `/moments`. */
+  uploadingTo?: string;
   onOpenProfile?: () => void;
 }
 
@@ -67,6 +75,7 @@ const DEMO_MOMENT: MomentData = {
  */
 export function MomentViewerCard({
   moment = DEMO_MOMENT,
+  uploadingTo,
   onOpenProfile,
 }: MomentViewerCardProps) {
   const [liked, setLiked] = useState(false);
@@ -74,10 +83,23 @@ export function MomentViewerCard({
   const [comment, setComment] = useState("");
   const [isFollowing, setIsFollowing] = useState(false);
 
+  /* UPLOAD FLOW — a staged pick plus its description, the byte transfer, and
+     the overlay's result surface (error/success both keep the overlay up so
+     they are actually readable — hiding the overlay on `isUploading === false`
+     alone would swallow every message). */
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [caption, setCaption] = useState("");
+
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   /* Whether the media surface is mostly on screen. Starts TRUE: the card IS
      the screen on mount, and an observer that never fires (older engines,
      server render) must not leave playback stuck off. */
@@ -119,6 +141,100 @@ export function MomentViewerCard({
     else video.pause();
   }, [inView, moment.id, moment.mediaUrl]);
 
+  /** Dismiss the upload overlay and reset every piece of its state. */
+  function cancelUpload() {
+    setIsUploading(false);
+    setUploadError(null);
+    setUploadSuccess(null);
+    setSelectedFile(null);
+    setUploadProgress(0);
+    setCaption("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  /** Open the OS file picker with a clean slate (what the `+` rail button calls). */
+  function browse() {
+    cancelUpload();
+    fileInputRef.current?.click();
+  }
+
+  /**
+   * Step 1 of the picker flow: validate and STAGE the file for review.
+   *
+   * The native input's value is cleared immediately so re-picking the SAME
+   * file fires `change` again — otherwise the second attempt is a silent no-op.
+   */
+  function handleFileSelected(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const validationError = validateMediaFile({ size: file.size, type: file.type });
+    if (validationError) {
+      // Deliberately NOT staged: retrying an invalid file can only fail again,
+      // so the overlay offers "Choose file" instead of a Publish button.
+      setSelectedFile(null);
+      setUploadError(validationError);
+      return;
+    }
+
+    setUploadError(null);
+    setUploadSuccess(null);
+    setSelectedFile(file);
+    setUploadProgress(0);
+  }
+
+  /**
+   * Step 2: bytes browser -> Supabase Storage (`uploadMediaDirect`), then the
+   * small JSON publish (`publishMomentAction`). Never sends the File itself to
+   * the server — see the header of lib/actions/tasks.ts for the 413 that
+   * approach provokes on Vercel.
+   *
+   * The description is required: `publishMomentFromStorage` rejects empty
+   * content with "Add a description to your moment.", so Publish stays
+   * disabled until `caption` holds real text.
+   */
+  async function confirmUpload() {
+    const file = selectedFile;
+    const text = caption.trim();
+    if (!file || isUploading || !text) return;
+
+    setUploadError(null);
+    setUploadSuccess(null);
+    setUploadProgress(0);
+    setIsUploading(true);
+
+    const result = await uploadMediaDirect(uploadingTo ?? "", file, (p) =>
+      setUploadProgress(p)
+    );
+    if (!result.ok) {
+      // The staged file and caption are kept, so the member can retry.
+      setUploadError(result.error);
+      setIsUploading(false);
+      return;
+    }
+
+    const publish = await publishMomentAction({
+      storagePath: result.storagePath,
+      content: text,
+      mediaType: result.mediaType,
+    });
+    if (!publish.ok) {
+      setUploadError(publish.error ?? "Publish failed");
+      setIsUploading(false);
+      return;
+    }
+
+    setUploadSuccess("Video published!");
+    setSelectedFile(null);
+    setCaption("");
+    setIsUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    // Surface the new moment immediately: `/moments` is dynamic, so a refresh
+    // re-runs getRecentMoments and the card remounts on the just-published row.
+    router.refresh();
+  }
+
   /** Local like toggle: flip the heart and move the count with it. */
   function toggleLike() {
     const next = !liked;
@@ -152,6 +268,11 @@ export function MomentViewerCard({
     moment.mediaType ??
     (/\.(mp4|m4v|mov|webm|ogv)(\?|#|$)/i.test(moment.mediaUrl) ? "video" : "image");
 
+  /* The overlay is the flow's single surface: it opens for a staged pick,
+     stays through the transfer, and remains to report the result. */
+  const showUpload =
+    isUploading || selectedFile !== null || uploadError !== null || uploadSuccess !== null;
+
   return (
     /* LOCKED COLUMN: `h-full min-h-0 overflow-hidden` — the card equals the
        region AppMain hands it and never scrolls itself. The old
@@ -160,6 +281,142 @@ export function MomentViewerCard({
        the comment bar pinned near it — sat below the fold, hidden behind the
        fixed tab bar. Height now flows from the viewport, not from a guess. */
     <div className="relative flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-950 text-white">
+      {/* HIDDEN FILE INPUT — summoned by the `+` action, never rendered. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/mp4,video/quicktime,video/webm,video/x-m4v,video/ogg,video/mpeg,video/x-msvideo,video/x-matroska,video/3gpp"
+        className="hidden"
+        aria-label="Upload a video"
+        onChange={handleFileSelected}
+      />
+
+      {/* UPLOAD OVERLAY — pick, review, progress and result surface for the
+          `+` flow. A backdrop click dismisses; clicks inside the card stop at
+          the card, so typing a description cannot close the modal. */}
+      {showUpload ? (
+        <div
+          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          onClick={cancelUpload}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-5 shadow-2xl backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-500/20">
+                <Upload className="h-5 w-6 text-amber-400" />
+              </div>
+              <h2 className="text-lg font-bold text-white">Upload a video</h2>
+              <button
+                type="button"
+                onClick={cancelUpload}
+                className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white"
+                aria-label="Cancel upload"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {uploadError ? (
+              <p role="alert" className="mt-3 rounded-lg bg-rose-500/10 p-3 text-sm text-rose-400">
+                {uploadError}
+              </p>
+            ) : null}
+
+            {selectedFile ? (
+              <div className="mt-3">
+                <p className="text-sm text-white/80">
+                  <span className="font-semibold text-white">{selectedFile.name}</span>
+                  <span className="text-white/50"> · {Math.round(uploadProgress)}%</span>
+                </p>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-amber-400 transition-[width] duration-200"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {!selectedFile && !uploadError ? (
+              <p className="mt-2 text-xs text-white/60">
+                Choose a file in MP4, MOV, or WebM (up to 250 MB).
+              </p>
+            ) : null}
+
+            {uploadSuccess ? (
+              <div className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-500/10 p-3 text-sm text-emerald-400">
+                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                <span>{uploadSuccess}</span>
+              </div>
+            ) : null}
+
+            {/* DESCRIPTION — required, not optional: publishMomentFromStorage
+                rejects empty content with "Add a description to your moment.",
+                so Publish stays disabled until this holds real text. The
+                2200-char server cap is mirrored here as maxLength. */}
+            {selectedFile ? (
+              <div className="mt-3">
+                <label htmlFor="moment-upload-caption" className="sr-only">
+                  Add a description
+                </label>
+                <textarea
+                  id="moment-upload-caption"
+                  value={caption}
+                  onChange={(e) => setCaption(e.target.value)}
+                  disabled={isUploading}
+                  rows={2}
+                  maxLength={2200}
+                  placeholder="Add a description to your moment..."
+                  className="w-full resize-none rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white placeholder-white/40 focus:border-white/30 focus:outline-none disabled:opacity-60"
+                />
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex gap-2">
+              {isUploading ? (
+                /* Only Cancel mid-transfer — a Publish button here would start
+                   a second, parallel upload of the same file. */
+                <button
+                  type="button"
+                  onClick={cancelUpload}
+                  className="flex flex-1 items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/20"
+                >
+                  Cancel
+                </button>
+              ) : selectedFile ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={cancelUpload}
+                    className="flex flex-1 items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white transition hover:bg-white/20"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmUpload}
+                    disabled={!caption.trim()}
+                    className="flex flex-1 items-center justify-center rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-400 disabled:opacity-40"
+                  >
+                    Publish
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={browse}
+                  className="flex flex-1 items-center justify-center rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-400"
+                >
+                  Choose file
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Main media asset (absolute background fill). `ref` is the
           IntersectionObserver target for the play/pause gate above. */}
       <div ref={mediaRef} className="absolute inset-0 z-0 bg-slate-900">
@@ -241,6 +498,7 @@ export function MomentViewerCard({
       <div className="absolute bottom-[calc(9rem_+_env(safe-area-inset-bottom,0px))] right-4 z-30 flex flex-col items-center gap-3.5">
         <button
           type="button"
+          onClick={browse}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Add"
         >
