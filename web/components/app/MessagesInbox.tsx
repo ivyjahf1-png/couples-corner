@@ -626,7 +626,7 @@ export function MessagesInbox({
         />
       }
       bodyRef={collapseRef}
-      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(6rem+env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
+      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

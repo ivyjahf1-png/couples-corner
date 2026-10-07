@@ -79,7 +79,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
      * caused it rather than sliding the whole page.
      *
      * The bottom tab bar is `fixed` (see `BottomNavRegion`), so it overlays this
-     * column. The inner region reserves its height with `pb-[calc(5rem+…)]`,
+     * column. The inner region reserves its height with bottom padding (5rem),
      * which is where `AppMain`'s `pb-20` went when this route joined
      * `isFullBleedSurface`. The two must agree — see the note in AppNav.
      *
@@ -156,7 +156,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
       {/* `min-h-0` is required, not decorative: without it this flex child
           refuses to shrink below its content and overflows the locked column,
           which is precisely how the dock ended up below the fold before.
-          `pb-[calc(5rem+env(safe-area-inset-bottom))]` keeps the deck clear of
+          5rem plus the home-indicator inset keeps the deck clear of
           the fixed tab bar; `md:pb-0` drops it where that bar is `md:hidden`
           and the sidebar rail takes over. */}
       {/* `app-dock-reserve` is released by the LANDSCAPE block in globals.css.
@@ -176,7 +176,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
 
           The class exists so the landscape block can drop the reserve by HEIGHT,
           which is the axis the block already tests. */}
-      <div className="app-dock-reserve flex min-h-0 flex-1 flex-col pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-0">
+      <div className="app-dock-reserve flex min-h-0 flex-1 flex-col pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-0">
         {profiles.length === 0 ? (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 sm:px-6">
             <EmptyState

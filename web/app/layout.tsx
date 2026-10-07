@@ -96,7 +96,7 @@ export const viewport: Viewport = {
      consequence is that all of these become decorative no-ops:
        • `MobileBackHeader`      `pt-[env(safe-area-inset-top)]`      (:147)
        • `.app-bottom-nav`       `padding-bottom: env(safe-area-inset-bottom)` (globals.css:569)
-       • `MediaFeed`             `bottom-[calc(5rem+env(safe-area-inset-bottom))]` etc.
+       • `MediaFeed`             `bottom-[calc(5rem_+_env(safe-area-inset-bottom))]` etc.
 
      So the feed's bottom bar, the caption, the action rail and the upload FAB are
      all positioned against 0px, while the OS draws the home indicator OVER them

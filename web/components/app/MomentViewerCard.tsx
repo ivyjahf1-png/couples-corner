@@ -233,12 +233,12 @@ export function MomentViewerCard({
       <div className="flex-1" />
 
       {/* Right-side action rail.
-          `bottom-[calc(9rem+env(safe-area-inset-bottom,0px))]` lifts the rail
+          `bottom-[calc(9rem_+_env(safe-area-inset-bottom,0px))]` lifts the rail
           clear of the bottom stack: 5rem of tab-bar reserve + the ~40px
           comment bar + a gap, scaling with the home-indicator inset. The old
           `bottom-24` assumed the bar sat at the viewport edge, which is no
           longer where the stack lands. */}
-      <div className="absolute bottom-[calc(9rem+env(safe-area-inset-bottom,0px))] right-4 z-30 flex flex-col items-center gap-3.5">
+      <div className="absolute bottom-[calc(9rem_+_env(safe-area-inset-bottom,0px))] right-4 z-30 flex flex-col items-center gap-3.5">
         <button
           type="button"
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"

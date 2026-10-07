@@ -76,7 +76,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     // collapsed every `height:100%` child (PageLock, profile column) to zero and
     // is exactly why Profile/Messages could not scroll on phones. Subtract the
     // ~4rem mobile header sibling above so the shell + header equal one viewport.
-    <div className="app-canvas relative flex h-[calc(100dvh-4rem)] w-full flex-col overflow-hidden bg-slate-950 text-foreground md:h-dvh">
+    <div className="app-canvas relative flex h-[calc(100dvh_-_4rem)] w-full flex-col overflow-hidden bg-slate-950 text-foreground md:h-dvh">
       {/* Demo banner — shrink-0 so it never collapses or scrolls away. */}
       {isDemo && (
         <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">

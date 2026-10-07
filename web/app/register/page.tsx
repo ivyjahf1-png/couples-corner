@@ -20,7 +20,7 @@ export default function RegisterPage() {
         </div>
       </nav>
 
-      <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center px-4 py-16 sm:px-6">
+      <section className="mx-auto flex min-h-[calc(100vh_-_4rem)] w-full max-w-md flex-col justify-center px-4 py-16 sm:px-6">
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl shadow-black/40">
           {/* Dynamic illustration — loads from the admin panel's "auth" placement. */}
           <AuthIllustration />

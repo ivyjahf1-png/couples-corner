@@ -1044,7 +1044,7 @@ export function MediaFeed({
             location badge.
 
             ── THE SAFE-AREA INSET IS DELIBERATELY ABSENT HERE ────────────────────
-            This used to be `pt-[calc(0.75rem+env(safe-area-inset-top))]`. Now that
+            This used to be `pt-[calc(0.75rem_+_env(safe-area-inset-top))]`. Now that
             the screen header above (`MobileBackHeader`) is the element at the top
             of this route, and it already applies `pt-[env(safe-area-inset-top)]`,
             repeating it here inset this overlay a SECOND time by the height of the
@@ -1238,7 +1238,7 @@ export function MediaFeed({
             the message bar (bottom ~11rem clears bar + nav). Was top-anchored;
             the reference puts identity bottom-left over the media. */}
         {current ? (
-          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(11.5rem+env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
+          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(11.5rem_+_env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
           <div className="flex items-center gap-2.5">
             <Link
               href={current.isMine ? "/profile" : `/profile/${current.userId}`}
@@ -1536,7 +1536,7 @@ export function MediaFeed({
               A caption anchored at 96px therefore printed straight through the
               quick reactions: the one screen the bar was lifted to save.
 
-              `bottom-[calc(11.5rem+...)]` (184px) clears that range with ~12px of
+              `bottom-[calc(11.5rem_+_...)]` (184px) clears that range with ~12px of
               breathing room. The safe-area term is ADDED to the offset, matching
               every other control here, so the clearance survives a home indicator.
 
@@ -1560,7 +1560,7 @@ export function MediaFeed({
               /* `z-30` for the same reason as the rail: the card's media stack is
                  `relative z-20`, and a tie resolved only by source order is not
                  a layering guarantee. */
-              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(13rem+env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
+              "landscape-hide-chrome pointer-events-none absolute inset-x-0 bottom-[calc(13rem_+_env(safe-area-inset-bottom))] z-40 px-4 pr-24 sm:px-6 sm:pr-28",
               chromeClass,
             ].join(" ")}
           >
@@ -1631,7 +1631,7 @@ export function MediaFeed({
 
                      nav            0   – 80px
                      bottom bar    80   – 164px   (reactions + message input)
-                     FAB          176   – 232px   (56px, bottom-[calc(11rem)])
+                     FAB          176   – 232px   (56px tall, 11rem offset)
                      this rail    240   – ~480px  (4 x 48px + gaps)
 
                  At its previous `11rem` (176px) the rail's bottom edge sat
@@ -1651,7 +1651,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(15rem+env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3 sm:bottom-[calc(16rem+env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(15rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3 sm:bottom-[calc(16rem_+_env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1815,7 +1815,7 @@ export function MediaFeed({
           // symptom is exactly what is now reported: 5.5rem (88px) put this
           // 56px button at 88-144px, which is INSIDE the bottom bar's band.
           //
-          // The bottom bar is `bottom-[calc(5rem+…)]` (80px) and stacks the
+          // The bottom bar is lifted 5rem plus the home-indicator inset (80px) and stacks the
           // reaction row, its `mb-2` and the message input above that pad —
           // roughly 84px of content, so it occupies ~80-164px. The FAB at
           // 88-144px sat squarely inside it, crowding the input that is the
@@ -1828,7 +1828,7 @@ export function MediaFeed({
           // The `sm:` variant is dropped for the same reason as everywhere else
           // in this file: the nav is `md:hidden`, so a second offset is one
           // more number to keep in step with nothing.
-          className="landscape-hide-chrome absolute bottom-[calc(11rem+env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
+          className="landscape-hide-chrome absolute bottom-[calc(11rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1849,7 +1849,7 @@ export function MediaFeed({
                the message input were half-covered on every phone, and the input
                is the one control that must always be reachable.
 
-               `bottom-[calc(5rem+env(safe-area-inset-bottom))]` clears the 5rem
+               `bottom-[calc(5rem_+_env(safe-area-inset-bottom))]` clears the 5rem
                (80px) tab bar and ADDS the home-indicator inset rather than
                swapping it in, so the clearance holds on an iPhone where the bar
                is taller than 5rem. The trailing `pb` shrinks to a small pad: the
@@ -1859,7 +1859,7 @@ export function MediaFeed({
                There is deliberately NO `sm:` variant. The bar is `md:hidden` and
                the sidebar rail takes over at md, so a second offset would only be
                another number to keep in step with the nav's height. */
-            "bottom-[calc(5rem+env(safe-area-inset-bottom))] px-3 pb-2 sm:px-5",
+            "bottom-[calc(5rem_+_env(safe-area-inset-bottom))] px-3 pb-2 sm:px-5",
             chromeClass,
           ].join(" ")}
         >
@@ -2106,7 +2106,7 @@ export function MediaFeed({
                 and in the iOS browser, where the home indicator otherwise sits
                 directly on top of the send button.
               */
-              <div className="shrink-0 border-t border-white/10 bg-[#0F172A] px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2.5">
+              <div className="shrink-0 border-t border-white/10 bg-[#0F172A] px-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2.5">
                 <div className="flex items-center gap-2">
                   <label htmlFor="moment-comment" className="sr-only">
                     Add a comment

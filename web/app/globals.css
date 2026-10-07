@@ -2183,7 +2183,7 @@ button,
   }
 
   /* The per-screen dock reserve. Discover adds
-     `pb-[calc(5rem+env(safe-area-inset-bottom))]` to hold content clear of the
+     5rem plus the home-indicator inset to hold content clear of the
      fixed bottom bar, and drops it with `md:pb-0` — which keys off WIDTH.
 
      That leaves a gap this rule closes: a small phone in landscape is SHORT but

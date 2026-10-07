@@ -450,7 +450,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               tab bar. That reserve is measured from the SHELL's bottom edge —
               but on /discover `MobileBackHeader` returns null (discover is in
               SELF_HEADERED) while the shell still claims
-              `h-[calc(100dvh-4rem)]`, so 4rem of dead body sits BELOW the
+              `h-[calc(100dvh_-_4rem)]`, so 4rem of dead body sits BELOW the
               shell. The row therefore landed 64px (dead band) + 80px (reserve)
               = 144px above the viewport bottom: a ~75px gap floating over the
               tab bar instead of resting on it (measured, not guessed).
@@ -488,7 +488,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
           <div aria-hidden className="deck-dock-spacer h-16 shrink-0 md:hidden" />
           <nav
             aria-label="Profile actions"
-            className="deck-dock fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto flex w-full max-w-md items-center justify-center gap-4 px-1 sm:gap-5 md:static md:pb-[env(safe-area-inset-bottom)]"
+            className="deck-dock fixed inset-x-0 bottom-[calc(5rem_+_env(safe-area-inset-bottom,0px))] z-40 mx-auto flex w-full max-w-md items-center justify-center gap-4 px-1 sm:gap-5 md:static md:pb-[env(safe-area-inset-bottom)]"
           >
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"

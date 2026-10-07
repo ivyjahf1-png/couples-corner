@@ -71,7 +71,7 @@ export const NAV_BAR_REM = 5;
 export const SHEET_SHELL =
   // z-[200] is Z.sheet; the 5rem is NAV_BAR_REM, matching AppMain's `pb-20`.
   "fixed inset-0 z-[200] flex items-end justify-center " +
-  "pb-[calc(5rem+env(safe-area-inset-bottom))] " +
+  "pb-[calc(5rem_+_env(safe-area-inset-bottom))] " +
   "sm:items-center sm:pb-0";
 
 /** The backdrop behind a sheet. Covers the nav too, so it reads as modal. */
