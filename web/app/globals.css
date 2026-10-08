@@ -352,11 +352,7 @@ html {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  /* NOTE: no `padding-bottom` here. The bottom-nav + home-indicator reserve is
-     owned by each caller (`pb-28`, `pb-[calc(6rem+env(...))]`, …) because only
-     the page knows how tall its own chrome is. A value here would be UNLAYERED
-     CSS and would silently beat those layered Tailwind utilities in the
-     cascade, stranding content behind the fixed tab bar. */
+  /* Bottom padding uses Tailwind utility pb-28 for safe-area-aware spacing. */
   /* Composite the scroll region on the GPU so touch/wheel momentum never
      janks behind repaint work on large phones. */
   transform: translateZ(0);
