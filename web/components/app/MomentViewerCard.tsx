@@ -9,12 +9,14 @@ import {
   Plus,
   Send,
   Share2,
+  Trash2,
   Upload,
   Volume2,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { publishMomentAction } from "@/lib/actions/tasks";
+import { openProfileView } from "@/components/profile/ProfileViewModal";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { validateMediaFile } from "@/lib/utils/media-upload";
 
@@ -38,6 +40,14 @@ export interface MomentData {
   mediaType?: MomentMediaKind;
   /** Portrait for the author pill; falls back to initials when absent. */
   avatarUrl?: string;
+  /**
+   * The AUTHOR'S USER ID — opens the global profile view modal when the pill
+   * is tapped. Optional because the built-in demo moment and hand-written
+   * callers have no real member behind them; when absent the tap falls back to
+   * the card's `onOpenProfile` callback (or does nothing), rather than opening
+   * a modal that has nothing to fetch.
+   */
+  authorId?: string;
   location?: string;
   likesCount?: number;
   isVerified?: boolean;
@@ -104,6 +114,14 @@ export function MomentViewerCard({
      the screen on mount, and an observer that never fires (older engines,
      server render) must not leave playback stuck off. */
   const [inView, setInView] = useState(true);
+
+  // ── top-right 3-dot menu ─────────────────────────────────────────────
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+
+  // ── right-side action rail buttons ───────────────────────────────────
+  const [isAudioMuted, setIsAudioMuted] = useState(true);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [isCommentOpen, setIsCommentOpen] = useState(false);
 
   /* SCROLL → VISIBILITY, feeding the play/pause driver below. The observer
      watches the media surface, so whenever this card sits inside anything
@@ -248,6 +266,72 @@ export function MomentViewerCard({
     if (!comment.trim()) return;
     setComment("");
     commentInputRef.current?.focus();
+  }
+
+
+  // ── top-right 3-dot menu ─────────────────────────────────────────────
+  function toggleMore() {
+    setIsMoreOpen((prev) => !prev);
+  }
+  function closeMore() {
+    setIsMoreOpen(false);
+  }
+
+
+  // ── right-side action rail buttons ───────────────────────────────────
+  function toggleAudio() {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsAudioMuted((prev) => !prev);
+  }
+
+  async function handleShare() {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Moment from Couple's Corner",
+          text: 'Check out this moment!',
+          url: window.location.href,
+        });
+      } else {
+        // Fallback: copy the URL to clipboard
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    } catch (err) {
+      // User cancelled the share dialog
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Share failed:', err);
+      }
+    }
+  }
+
+  function openShare() {
+    setIsShareOpen(true);
+  }
+
+  function closeShare() {
+    setIsShareOpen(false);
+  }
+
+  function openComment() {
+    setIsCommentOpen(true);
+    requestAnimationFrame(() => commentInputRef.current?.focus());
+  }
+
+  function closeComment() {
+    setIsCommentOpen(false);
+  }
+
+  function toggleComment() {
+    if (isCommentOpen) {
+      closeComment();
+    } else {
+      openComment();
+    }
   }
 
   /** Two-letter initials used when the moment carries no avatar image. */
@@ -481,6 +565,7 @@ export function MomentViewerCard({
           type="button"
           className="flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-black/50 text-white shadow-lg backdrop-blur-md"
           aria-label="More options"
+          onClick={toggleMore}
         >
           <MoreHorizontal className="h-5 w-5" />
         </button>
@@ -528,7 +613,7 @@ export function MomentViewerCard({
 
         <button
           type="button"
-          onClick={() => commentInputRef.current?.focus()}
+          onClick={toggleComment}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Jump to the comment box"
         >
@@ -537,6 +622,7 @@ export function MomentViewerCard({
 
         <button
           type="button"
+          onClick={openShare}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Share"
         >
@@ -545,10 +631,11 @@ export function MomentViewerCard({
 
         <button
           type="button"
+          onClick={toggleAudio}
           className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
-          aria-label="Audio settings"
+          aria-label={isAudioMuted ? "Unmute" : "Mute"}
         >
-          <Volume2 className="h-5 w-5" />
+          <Volume2 className={`h-5 w-5 ${isAudioMuted ? "" : "text-amber-400"}`} />
         </button>
       </div>
 
@@ -570,7 +657,16 @@ export function MomentViewerCard({
         <div className="flex items-center gap-3 self-start rounded-full border border-white/20 bg-black/50 p-2 pr-4 shadow-2xl backdrop-blur-md">
           <button
             type="button"
-            onClick={onOpenProfile}
+            onClick={() => {
+              /* THE GLOBAL PROFILE MODAL, with the legacy callback as fallback:
+                 real moments carry `authorId` and open the reference-design
+                 overlay in place; the demo moment (no uid behind it) still
+                 honours a caller-supplied `onOpenProfile` — e.g. the owner
+                 previewing their own surface — instead of opening a modal with
+                 nothing to fetch. */
+              if (moment.authorId) openProfileView(moment.authorId);
+              else onOpenProfile?.();
+            }}
             className="flex items-center gap-3 text-left"
           >
             <div className="h-9 w-9 overflow-hidden rounded-full border border-white/30 bg-slate-800">
@@ -646,8 +742,71 @@ export function MomentViewerCard({
             <Send className="h-5 w-5 rotate-45" />
           </button>
         </form>
-      </div>
+
+      {/* 3-dot menu dropdown — appears at top-right */}
+      {isMoreOpen ? (
+        <div className="absolute top-12 right-0 z-50 mt-2 w-48 rounded-xl border border-white/10 bg-black/80 shadow-2xl backdrop-blur-xl">
+          <div className="py-1">
+            <button
+              type="button"
+              className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
+              onClick={() => {
+                // Delete video only for the moment owner
+                if (moment?.mediaType === "video" && uploadingTo === "current_user") {
+                  if (confirm("Delete this video?")) {
+                    // TODO: implement delete API call when available
+                    alert("Delete would be implemented here.");
+                  }
+                }
+                closeMore();
+              }}
+            >
+              <Trash2 className="h-4 w-4 text-rose-400" />
+              Delete Video
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* Share modal — appears when share button is clicked */}
+      {isShareOpen ? (
+        <div className="absolute bottom-24 right-4 z-50 w-80 rounded-2xl border border-white/10 bg-black/80 shadow-2xl backdrop-blur-xl">
+          <div className="px-4 py-3">
+            <h3 className="text-sm font-semibold text-white">Share this moment</h3>
+            <p className="mt-1 text-xs text-white/60">
+              Tap to copy the link, or use your system share sheet.
+            </p>
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                value={window.location.href}
+                readOnly
+                className="flex-1 bg-white/10 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/90 focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  alert("Link copied!");
+                }}
+                className="px-3 py-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition text-xs font-semibold"
+              >
+                Copy
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={closeShare}
+              className="mt-2 w-full text-center text-xs text-white/60 hover:text-white/90 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
+
     </div>
-  );
+    </div>
+   );
 }
 

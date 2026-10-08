@@ -489,6 +489,15 @@ export interface InboxSummaryRow {
   name: string;
   kind: "person" | "couple";
   avatarUrl: string | null;
+  /**
+   * THE OTHER PARTICIPANT'S USER ID — not the conversation's.
+   *
+   * Added so the inbox avatar/name can open the global profile view modal
+   * (`openProfileView`) instead of only navigating to the thread. Null when the
+   * conversation has no other participant (a self-thread or an un-migrated row);
+   * the card then simply does not offer the profile view.
+   */
+  userId: string | null;
   preview: string;
   lastMessageAt: string | null;
   unread: number;
@@ -634,6 +643,10 @@ export async function getInboxSummaries(userId: string): Promise<InboxSummaryRow
           name: other?.name ?? "Chat",
           kind: other?.kind ?? (c.type === "couple" ? "couple" : "person"),
           avatarUrl: other?.avatarUrl ?? null,
+          /* The other participant's uid, resolved above for the presence lookup
+             too — one source for "who is this row about", used by the global
+             profile view modal on the avatar. Null for a self-thread. */
+          userId: otherId,
           preview,
           lastMessageAt: c.last_message_at ?? last?.created_at ?? null,
           unread: unreadByConv.get(c.id) ?? 0,

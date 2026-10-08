@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Video, Send } from "lucide-react";
+import { Video, Send, Link as LinkIcon, Trash2 } from "lucide-react";
+import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/lib/utils/video-embed";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { publishMomentAction } from "@/lib/actions/tasks";
+import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
 
 /**
  * MomentComposer — caption field + video upload button for the Moment screen.
@@ -25,16 +26,31 @@ import { publishMomentAction } from "@/lib/actions/tasks";
  */
 export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
   const [body, setBody] = useState("");
+  const [linkResult, setLinkResult] = useState<ParsedEmbedResult | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── link parse helper ───────────────────────────────────────────────
+  async function handleParseLink() {
+    const trimmed = body.trim();
+    if (!trimmed) {
+      setLinkResult({ ok: false, error: "Paste a link first." });
+      return;
+    }
+    const parsed = parseVideoEmbedUrl(trimmed);
+    setLinkResult(parsed);
+  }
+
+  // ── video upload path ───────────────────────────────────────────────
   async function handleVideoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    // Clear the native input so re-picking the SAME file fires `change` again.
     e.target.value = "";
     if (!file || uploading) return;
 
+    // A staged link cancels an in-flight video pick.
+    setLinkResult(null);
     setUploading(true);
     setError(null);
     try {
@@ -77,6 +93,49 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     }
   }
 
+  // ── submit (link or video) ──────────────────────────────────────────
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = body.trim();
+    if (!trimmed) return;
+
+    const parsed = parseVideoEmbedUrl(trimmed);
+    if (parsed.ok) {
+      // Link moment
+      setSubmitting(true);
+      setError(null);
+      try {
+        const { data: auth } = await getSupabaseClient().auth.getUser();
+        const uid = auth.user?.id;
+        if (!uid) {
+          setError("Please sign in again to publish.");
+          setSubmitting(false);
+          return;
+        }
+        const result = await publishLinkMomentAction({
+        url: parsed.embedUrl,
+        content: trimmed,
+      });
+      if (!result.ok) {
+          setError(result.error ?? "Could not publish your moment. Please try again.");
+          setSubmitting(false);
+          return;
+        }
+        setBody("");
+        setLinkResult(null);
+        onPublished?.();
+      } catch (err) {
+        console.error("[moments] composer link publish failed:", err);
+        setError("Failed to publish your moment. Please try again.");
+        setSubmitting(false);
+      }
+      return;
+    }
+
+    // Otherwise fall back to video pick
+    fileInputRef.current?.click();
+  }
+
   return (
     <div>
       <div className="flex items-center gap-2 border-t border-[#3A3358] p-3">
@@ -102,17 +161,40 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
         <input
           type="text"
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder={uploading ? "Uploading video..." : "Share a moment..."}
-          disabled={uploading}
-          aria-label="Moment caption"
+          onChange={(e) => {
+            setBody(e.target.value);
+            if (linkResult?.ok) setLinkResult(null);
+          }}
+          placeholder={uploading ? "Uploading video..." : "Share a moment... (YouTube / Instagram / TikTok)"}
+          disabled={uploading || submitting}
+          aria-label="Moment caption or link"
           className="flex-1 rounded-full bg-[#1F1A32] px-4 py-2 text-sm text-white placeholder-[#B8B2D1] focus:outline-none focus:ring-2 focus:ring-[#FF7A00]"
         />
 
-        <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FF7A00]/15">
-          <Send className="h-4 w-4 text-[#FF7A00]" />
+        <span
+          aria-hidden
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition ${linkResult?.ok ? "bg-emerald-500/20 text-emerald-400" : "bg-[#FF7A00]/15 text-[#FF7A00]"}`}
+        >
+          <Send className="h-4 w-4" />
         </span>
       </div>
+      <div aria-hidden="true" className="flex items-center gap-2 px-3 pb-1">
+        <button
+          type="submit"
+          disabled={!body.trim() || uploading || submitting}
+          className="flex h-9 items-center gap-2 rounded-full bg-[#FF7A00] px-4 text-sm font-semibold text-white transition hover:bg-[#FF6B00] disabled:opacity-40"
+        >
+          {submitting ? "Publishing..." : "Share"}
+        </button>
+      </div>
+    
+
+      {linkResult?.ok === false && body.trim() ? (
+        <p role="alert" className="px-4 pb-3 text-xs text-amber-300">
+          {linkResult.error} We only support YouTube, Instagram and TikTok links.
+        </p>
+      ) : null}
+
       {error ? (
         <p role="alert" className="px-4 pb-3 text-xs text-rose-300">
           {error}
@@ -121,3 +203,4 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     </div>
   );
 }
+

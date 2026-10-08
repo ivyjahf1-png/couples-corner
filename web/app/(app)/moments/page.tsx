@@ -27,6 +27,9 @@ export default async function MomentsPage() {
     ? {
         id: latest.id,
         authorName: latest.authorName?.trim() || "Member",
+        /* The author's uid, so the pill can open the global profile view modal.
+           `MomentView.userId` is the moment's `user_id` — always the author. */
+        authorId: latest.userId,
         timeAgo: relativeTime(latest.createdAt),
         mediaUrl: latest.mediaUrl,
         mediaType: latest.mediaType,
@@ -36,15 +39,17 @@ export default async function MomentsPage() {
       }
     : undefined;
 
-  // DYNAMIC VIEWPORT LOCK. `h-[100dvh]` (not `100vh`) so the column tracks the
-  // VISUAL viewport: when a mobile browser shrinks, the column shrinks with
-  // it instead of overflowing. Bottom-anchored (`min-h-0` + `max-h-[100dvh]`)
-  // as a flex child of `AppMain`'s padded box, so the player fills the
-  // remaining space exactly. `overflow-hidden` keeps containment structural:
-  // this screen owns no page scroll (the card is a locked reel), so any
-  // future overflow fails inside the child rather than double-scrolling.
+  // LOCKED COLUMN, NOT A SECOND VIEWPORT. `h-full` fills the bounded box
+  // `AppMain` hands down (see its `h-full` inner wrapper); a bare `h-[100dvh]`
+  // here would measure the viewport a SECOND time and overflow that box by the
+  // shell chrome, pushing the player's bottom controls under the fixed tab
+  // bar. `100dvh` survives only as `max-h`, the belt-and-braces cap the feed
+  // page uses. `overflow-hidden` keeps containment structural: this screen
+  // owns no page scroll (the card is a locked reel), so any future overflow
+  // fails inside the child rather than double-scrolling. `dvh` (not `vh`) so
+  // the cap tracks the VISUAL viewport when a mobile browser shrinks.
   return (
-    <div className="relative flex h-[100dvh] max-h-[100dvh] min-h-0 w-full flex-col overflow-hidden bg-black/40">
+    <div className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-black/40">
       <div className="relative flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden">
         <MomentViewerCard moment={moment} uploadingTo={session.uid} />
       </div>
