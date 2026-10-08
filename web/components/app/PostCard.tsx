@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/app/Avatar";
+import { profileViewClick } from "@/components/profile/ProfileViewModal";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
 import { Icon } from "@/components/landing/Icon";
@@ -249,13 +250,30 @@ export function PostCard({ post }: { post: FeedPostView }) {
   return (
     <article className="overflow-hidden bg-surface shadow-card">
       <div className="flex items-center gap-2.5 px-4 pb-2.5 pt-3">
-        <a href={post.authorHref ?? "#"} aria-label={`View ${post.authorName}`} className="relative shrink-0">
+        {/* AUTHOR IDENTITY — avatar and name open the global profile view modal
+            when the post carries a real author uid (`profileViewClick`
+            intercepts only plain left-clicks; modifiers keep the href's
+            new-tab/save behaviour). Demo and Discover-sourced posts have no
+            `authorId` and simply keep the old `authorHref` navigation — a
+            modal with nothing to fetch would be worse than the link. */}
+        <a
+          href={post.authorHref ?? "#"}
+          aria-label={`View ${post.authorName}`}
+          onClick={profileViewClick(post.authorId)}
+          className="relative shrink-0"
+        >
           <Avatar name={post.authorName} kind={post.authorKind} src={post.authorAvatar} />
           <span aria-hidden className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-surface bg-emerald-400" />
         </a>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-            <a href={post.authorHref ?? "#"} className="truncate text-sm font-semibold text-white hover:text-brand-300">{post.authorName}</a>
+            <a
+              href={post.authorHref ?? "#"}
+              onClick={profileViewClick(post.authorId)}
+              className="truncate text-sm font-semibold text-white hover:text-brand-300"
+            >
+              {post.authorName}
+            </a>
             {post.verified ? <span title="Verified creator" className="shrink-0 text-xs text-sky-300">✓</span> : null}
             {post.vip ? <span className="shrink-0 rounded border border-amber-300/50 bg-amber-400/15 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-amber-200">VIP</span> : null}
             <span className="shrink-0 rounded border border-violet-400/40 bg-violet-500/15 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-violet-200">Lv 5</span>

@@ -9,7 +9,7 @@ export function uploadWithProgress(
   return new Promise((resolve, reject) => {
     const request = new XMLHttpRequest();
     request.open(method, url);
-    request.timeout = 30 * 60 * 1000;
+    request.timeout = 4 * 60 * 60 * 1000; // 4 hours — large videos need far more time
     for (const [name, value] of Object.entries(headers)) request.setRequestHeader(name, value);
     request.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100));

@@ -114,8 +114,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         </MobileHomeHeader>
       </div>
 
-      {/* Middle segment: sidebar (md+) + the single content scroll region. */}
-      <div className="flex min-h-0 w-full flex-1">
+      {/* Middle segment: sidebar (md+) + the single content scroll region. `min-w-0`
+          so a wide child inside <main> can never force this row past the
+          viewport width and create a sideways page scroll. */}
+      <div className="flex min-h-0 w-full min-w-0 flex-1">
         {/* Left-hand navy rail (tablet + desktop).
             In-flow rather than `fixed`: the shell owns the viewport, so a
             fixed child would escape the flex column and reintroduce the

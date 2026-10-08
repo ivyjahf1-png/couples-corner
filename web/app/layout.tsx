@@ -5,6 +5,7 @@ import "./globals.css";
 import "../styles/splash.css";
 import "../styles/marquee.css";
 import { AuthModalProvider } from "@/components/auth/AuthModals";
+import { ProfileViewProvider } from "@/components/profile/ProfileViewModal";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
 import { FailureToasts } from "@/components/ui/FailureToasts";
@@ -151,10 +152,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <style dangerouslySetInnerHTML={{ __html: CRITICAL_CSS }} />
       </head>
-      <body className="app-canvas flex min-h-dvh flex-col overflow-x-hidden text-foreground">
+      <body className="app-canvas flex h-dvh flex-col overflow-hidden text-foreground">
         <ThemeColorSync />
         <FailureToasts />
         <AuthModalProvider />
+        {/* THE GLOBAL PROFILE VIEW MODAL. Mounted in the root layout, beside the
+            auth overlays, so EVERY surface (Explore, Moment, Chat, Feed,
+            Messages) can open the reference-design profile view via
+            `openProfileView(userId)` without threading props through server
+            component boundaries. Renders null until an open event fires. */}
+        <ProfileViewProvider />
         <MobileBackHeader />
         {/* AdSense loader. In the ROOT layout so every route gets it - a page
             added later cannot forget to include it. `afterInteractive` keeps it

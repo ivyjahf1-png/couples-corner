@@ -42,6 +42,7 @@ import {
 import { PageLock } from "@/components/app/PageHeader";
 import { useScrollCollapse } from "@/lib/hooks/useScrollCollapse";
 import { Avatar } from "@/components/app/Avatar";
+import { profileViewClick } from "@/components/profile/ProfileViewModal";
 
 /** One real conversation, as assembled by the server page. */
 export interface InboxChat {
@@ -50,6 +51,14 @@ export interface InboxChat {
   name: string;
   kind: "person" | "couple";
   avatarUrl: string | null;
+  /**
+   * THE OTHER PARTICIPANT'S UID — null for bot threads and self-conversations.
+   *
+   * Set, the avatar tap opens the global profile view modal
+   * (`profileViewClick`); unset, the tap falls through to the row's normal
+   * thread navigation, so no row ever offers a modal with nothing to fetch.
+   */
+  userId?: string | null;
   /** Null when the member has not shared a date of birth. */
   age: number | null;
   preview: string;
@@ -368,7 +377,19 @@ function ScamWarningBanner({ onDismiss }: { onDismiss: () => void }) {
  */
 function InboxAvatar({ chat }: { chat: InboxChat }) {
   return (
-    <span className="relative shrink-0">
+    /* AVATAR TAP → PROFILE MODAL, the rest of the row → thread.
+
+       A nested `<a>` inside the row's `<Link>` is invalid HTML, so this stays a
+       plain span carrying an onClick: `profileViewClick` calls
+       `preventDefault()`, which cancels the PARENT link's navigation for this
+       click (the default action is decided once, at dispatch time, regardless of
+       which handler cancelled it). Rows without a `userId` (bot threads) pass a
+       null id, the helper's guard skips `preventDefault`, and the tap enters the
+       thread exactly as before. */
+    <span
+      className="relative shrink-0"
+      onClick={profileViewClick(chat.userId)}
+    >
       {chat.frame === "gold" ? (
         <span
           aria-hidden
@@ -626,7 +647,7 @@ export function MessagesInbox({
         />
       }
       bodyRef={collapseRef}
-      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
+      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

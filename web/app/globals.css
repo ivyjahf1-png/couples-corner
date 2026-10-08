@@ -278,6 +278,19 @@ html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
   text-rendering: optimizeLegibility;
+  /* GLOBAL VIEWPORT LOCKDOWN. The locked column pattern assumes exactly one
+     scroll region per screen (a `flex-1 min-h-0 overflow-y-auto` child of a
+     `h-dvh overflow-hidden` column). If `body` itself can scroll, every one of
+     those screens gains a SECOND, outer scroller — the whole page drifting
+     under fixed chrome that this layout exists to prevent. So the document
+     never scrolls: `height: 100dvh` bounds it to the visual viewport (shrinking
+     with mobile browser chrome instead of overflowing), and
+     `overflow: hidden` makes containment structural. `overscroll-behavior: none`
+     stops rubber-band chaining at the document edge. Ordinary pages scroll
+     inside AppMain's own region, which owns the iOS momentum flags. */
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 /* ----------------------------------------------------------------------------
@@ -339,7 +352,11 @@ html {
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
-  padding-bottom: env(safe-area-inset-bottom);
+  /* NOTE: no `padding-bottom` here. The bottom-nav + home-indicator reserve is
+     owned by each caller (`pb-28`, `pb-[calc(6rem+env(...))]`, …) because only
+     the page knows how tall its own chrome is. A value here would be UNLAYERED
+     CSS and would silently beat those layered Tailwind utilities in the
+     cascade, stranding content behind the fixed tab bar. */
   /* Composite the scroll region on the GPU so touch/wheel momentum never
      janks behind repaint work on large phones. */
   transform: translateZ(0);
@@ -393,6 +410,10 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans);
   line-height: 1.5;
+  /* VIEWPORT LOCKDOWN. The shell owns all scrolling inside its own flex
+     children (`AppShell` -> h-dvh overflow-hidden column); the document body
+     must never become a second scroller or leak rubber-banding behind it. */
+  overscroll-behavior: none;
 }
 
 ::selection {
@@ -618,10 +639,10 @@ input::placeholder, textarea::placeholder {
   backdrop-filter: none;
 }
 
-/* Thumb-friendly tap targets + iPhone home-indicator clearance. */
-.app-bottom-nav {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
-}
+/* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
+   is reserved by the `pb-[env(safe-area-inset-bottom,0px)]` utility on the nav
+   element in AppNav.tsx (Tailwind, so it stays with the component); no padding
+   is declared here, because a second reserve would double-count the inset. */
 
 /* Slide-in "Menu" drawer (mobile only). */
 .app-drawer {

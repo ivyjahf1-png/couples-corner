@@ -4,13 +4,13 @@
 -- Every statement here is idempotent — safe to run repeatedly in the SQL Editor.
 begin;
 
--- 1) Bucket: public read, 250 MB per file, all common image/video MIME types.
+-- 1) Bucket: public read, no per-file limit, all common image/video MIME types.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
   'user-media',
   'user-media',
   true,
-  262144000, -- 250 MB per file (set null instead to defer to plan limits only)
+  null,
   array[
     'image/jpeg','image/png','image/webp','image/gif','image/avif','image/heic','image/heif','image/bmp','image/tiff',
     'video/mp4','video/webm','video/quicktime','video/x-m4v','video/ogg','video/mpeg','video/x-msvideo','video/x-matroska','video/3gpp'
@@ -109,3 +109,4 @@ drop trigger if exists user_media_limit_trigger on public.user_media;
 drop function if exists check_user_media_limit();
 
 commit;
+

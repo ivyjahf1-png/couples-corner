@@ -105,7 +105,7 @@ export function GameCenterHub({
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] pb-20 text-white">
+    <div className="flex min-h-0 flex-col bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] pb-20 text-white md:pb-8">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0B1120]/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">

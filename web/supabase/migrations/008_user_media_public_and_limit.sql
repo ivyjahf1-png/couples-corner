@@ -24,21 +24,8 @@ create policy "user_media_delete_own"
   on user_media for delete
   using (auth.uid() = user_id);
 
--- 3) Enforce the 10-item limit at the database level.
-create or replace function check_user_media_limit()
-returns trigger as $$
-begin
-  if (select count(*) from user_media where user_id = new.user_id) >= 10 then
-    raise exception 'Media limit reached: maximum 10 photos/videos per account';
-  end if;
-  return new;
-end;
-$$ language plpgsql security definer;
-
-drop trigger if exists user_media_limit_trigger on user_media;
-create trigger user_media_limit_trigger
-  before insert on user_media
-  for each row execute function check_user_media_limit();
+-- 3) No row-count ceiling: members keep full control of their own library,
+--    and server-side limits no longer interfere with their uploads.
 
 -- 4) Storage policies for the user-media bucket (public read, owner write).
 --    Requires the bucket to exist with public read access.

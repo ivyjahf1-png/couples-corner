@@ -63,11 +63,24 @@ export default async function ExplorePage() {
     }
   }
 
-  // `/explore` is a BROWSING LIST and stays scrollable in `AppMain`'s own
-  // scroll region. Tighter mobile rhythm so more cards are reachable per
-  // swipe without changing what the page shows.
+  // `/explore` is a BROWSING LIST and owns the same locked-column contract as
+  // the feed: `AppMain` hands it a bounded `h-full` box (see its `h-full`
+  // inner wrapper), so `h-full min-h-0 overflow-hidden` fills exactly that box
+  // and the inner region is the ONE scroll surface. Without this the page
+  // scrolled the shell's `<main>` behind the fixed tab bar instead of its own
+  // region.
+  //
+  // THE BOTTOM RESERVE IS BREATHING ROOM ONLY — NOT THE NAV. `/explore` is not
+  // one of AppMain's full-bleed routes, so `<main>` itself already carries
+  // `pb-[calc(5rem+env(safe-area-inset-bottom,0px))]` — the tab bar's exact
+  // height plus the gesture-bar inset. This scroller previously added ANOTHER
+  // `pb-[calc(7rem+env(...))]` on top, stacking two independent reserves into
+  // a ~12rem dead band between the last card and the nav (both `env()`s count
+  // the same inset a second time). `pb-8` is just scroll clearance at the end
+  // of the list; the nav clearance lives in ONE place, AppMain.
   return (
-    <div className="flex w-full flex-col gap-4 pb-28 sm:gap-6 md:pb-8">
+    <div className="flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-8 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] sm:gap-6">
       {/* Header title, directly above the search row */}
       <PageHeader
         eyebrow="Explore"
@@ -111,16 +124,29 @@ export default async function ExplorePage() {
 
         {/* HERO + GRID. The first profile is the main photo card: it stretches
             vertically (tall immersive card) to fill the remaining space above
-            the fixed bottom nav, while the rest flow in the responsive grid. */}
+            the fixed bottom nav, while the rest flow in the responsive grid.
+
+            THE SELECTOR TARGETS `<a>`, NOT `<div>`. `ProfileCard`'s ROOT is a
+            next/link anchor — `<Link>` renders an `<a>` — so the previous
+            `[&>div]` compound matched NOTHING (there is no direct `<div>`
+            child) and every min-height on these wrappers was dead code: the
+            hero collapsed to its content height instead of stretching.
+
+            The hero wrapper is `flex-1 shrink-0` inside the `flex min-h-0
+            flex-1 flex-col` stack, so it takes every pixel the scroller has
+            left after the header and grid — its bottom edge lands at the top
+            of the bottom nav (AppMain's `pb-[calc(5rem+env(...))]` is what
+            reserves that nav). The inner `<a>` fills the wrapper with `h-full`,
+            pushing the photo to all four edges of the glass card. */}
         {suggestions.length > 0 ? (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="min-w-0 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>div]:h-full [&>div]:min-h-[480px] sm:[&>div]:min-h-[540px]">
+            <div className="min-w-0 flex-1 shrink-0 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>a]:h-full [&>a]:min-h-[480px] sm:[&>a]:min-h-[540px]">
               <ProfileCard profile={suggestions[0]} />
             </div>
             {suggestions.length > 1 ? (
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {suggestions.slice(1, 9).map((profile) => (
-                  <li key={profile.id} className="min-w-0 [&>div]:h-full [&>div]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
+                  <li key={profile.id} className="min-w-0 [&>a]:h-full [&>a]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
                     <ProfileCard profile={profile} />
                   </li>
                 ))}
@@ -144,7 +170,7 @@ export default async function ExplorePage() {
         {nearby.length > 0 ? (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {nearby.slice(0, 9).map((profile) => (
-              <li key={`nearby-${profile.id}`} className="min-w-0 [&>div]:h-full [&>div]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
+              <li key={`nearby-${profile.id}`} className="min-w-0 [&>a]:h-full [&>a]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
                 <ProfileCard profile={profile} />
               </li>
             ))}
@@ -168,6 +194,7 @@ export default async function ExplorePage() {
         label="Game"
         ariaLabel="Open the game hub"
       />
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { sendConnectionAction } from "@/lib/actions/connections";
 
 import { Avatar } from "@/components/app/Avatar";
+import { profileViewClick } from "@/components/profile/ProfileViewModal";
 import { ConnectionButton } from "@/components/app/ConnectionButton";
 import { Chip } from "@/components/ui/Chip";
 import { useActionError, failureMessage } from "@/components/ui/FailureToasts";
@@ -87,6 +88,15 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
     <Link
       href={profileHref as never}
       aria-label={`View ${name}'s full profile`}
+      /* TAP THE CARD → GLOBAL PROFILE MODAL, in place, instead of navigating
+         away from the Explore grid. `profileViewClick` intercepts plain
+         left-clicks only: ctrl/cmd/shift-click, middle-click and "copy link"
+         still follow `href` (open in new tab, save), and with JavaScript off the
+         anchor navigates exactly as before. The connection buttons below stop
+         propagation, so they keep acting on the card rather than opening the
+         profile. The fallback id guard mirrors `hasTargetId`: no id → plain
+         navigation, never a modal with nothing to fetch. */
+      onClick={profileViewClick(hasTargetId ? profile.id : null)}
       className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] bg-gradient-to-b from-[#1E293B] to-[#0F172A] p-5 shadow-card transition duration-150 hover:border-orange-500/30 hover:shadow-lg hover:shadow-orange-500/5 hover:bg-white/[0.05]"
     >
       <div className="flex items-start justify-between gap-3">

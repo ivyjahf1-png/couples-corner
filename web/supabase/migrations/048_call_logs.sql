@@ -88,6 +88,8 @@ alter table public.calls enable row level security;
 
 -- READ: both participants. Anything else would leak the fact that a call
 -- happened, which is itself private information about someone's availability.
+drop policy if exists "calls_select_participants" on public.calls;
+
 create policy calls_select_participants
   on public.calls
   for select
@@ -99,6 +101,8 @@ create policy calls_select_participants
 -- INSERT: only as the caller, and only for yourself. Without the
 -- `auth.uid() = caller_id` leg, any member could write a row claiming someone
 -- else placed a call to them.
+drop policy if exists "calls_insert_own" on public.calls;
+
 create policy calls_insert_own
   on public.calls
   for insert
@@ -107,6 +111,8 @@ create policy calls_insert_own
 -- UPDATE: only a participant, and only to move a call toward a terminal state.
 -- The `with check` re-asserts the caller so a participant cannot reassign a row
 -- to someone else mid-update.
+drop policy if exists "calls_update_participant" on public.calls;
+
 create policy calls_update_participant
   on public.calls
   for update

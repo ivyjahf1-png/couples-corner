@@ -58,6 +58,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
+import { profileViewClick } from "@/components/profile/ProfileViewModal";
 import { EMOJI_PICKER_PANEL_ID, EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
 import { GiftDrawer } from "@/components/app/GiftDrawer";
 import {
@@ -517,9 +518,15 @@ function ChatRoomHeader({
         </p>
       </div>
 
+      {/* THE AVATAR OPENS THE GLOBAL PROFILE MODAL. `profileViewClick` prevents
+          the default navigation and dispatches the open event instead — the
+          `/u/<id>` href stays as the no-JS/auxiliary-click fallback, and
+          ctrl/cmd/shift-click still opens it in a new tab (the helper only
+          intercepts plain left-clicks). */}
       <Link
         href={`/u/${summary?.id ?? ""}`}
         aria-label={`View ${summary?.name ?? "profile"}`}
+        onClick={profileViewClick(summary?.id)}
         className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
       >
         <Avatar name={summary?.name ?? "?"} src={summary?.avatarUrl ?? null} size="sm" />

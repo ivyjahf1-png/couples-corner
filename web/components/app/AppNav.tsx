@@ -419,6 +419,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
      different, already-full-bleed surface, and `/profile` is the member's own hub. */
   const isFullBleedSurface =
     pathname === "/feed" ||
+    pathname === "/moments" ||
     pathname === "/" ||
     pathname === "/discover" ||
     pathname === "/messages" ||
@@ -433,7 +434,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
          capsule. In a short landscape viewport that padding is what was pushing
          the bottom fifth of the feed off-screen. See globals.css LANDSCAPE. */
       className={[
-        "app-main min-h-0 min-w-0 flex-1",
+        "app-main flex min-h-0 min-w-0 flex-1 flex-col",
         /* -- PAGE-LEVEL SCROLL IS FORBIDDEN ON LOCKED SURFACES ------------------
            These routes are self-contained viewport-locked screens: each owns its
            own single inner scroll region (the community panel's `overflow-y-auto`,
@@ -477,10 +478,10 @@ export function AppMain({ children }: { children: React.ReactNode }) {
             // (the media feed) shrink to clear the bar rather than hiding under
             // it. The conversation route takes `p-0`: its bar is hidden entirely,
             // so any padding here would be dead space.
-            "px-4 pb-20 pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
+            "px-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
       ].join(" ")}
     >
-      <div className="mx-auto h-full w-full max-w-[88rem]">{children}</div>
+      <div className="mx-auto flex min-h-0 w-full max-w-[88rem] flex-1 flex-col">{children}</div>
     </main>
   );
 }
@@ -584,7 +585,7 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav shrink-0 bg-[#1B1636]"
+        className="app-bottom-nav shrink-0 bg-[#1B1636] pb-[env(safe-area-inset-bottom,0px)]"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 

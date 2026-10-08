@@ -458,7 +458,31 @@ function ProfileIdentity({ view, online }: { view: PublicProfileView; online: bo
   );
 }
 
-export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
+export function PublicProfileScreen({
+  view,
+  onClose,
+  inModal,
+}: {
+  view: PublicProfileView;
+  /**
+   * CLOSE HANDLER FOR THE GLOBAL PROFILE MODAL.
+   *
+   * When supplied, the photo header's chevron closes the overlay instead of
+   * navigating history — the modal is an overlay over the surface the member
+   * was already on, so `router.back()` would leave the app entirely. Absent on
+   * `/profile/[userId]`, which keeps the original back behaviour.
+   */
+  onClose?: () => void;
+  /**
+   * RENDERING INSIDE THE GLOBAL MODAL rather than as a full page.
+   *
+   * The bottom Chat/Follow bar reserves the fixed tab bar's height when this
+   * screen IS the page (see the comment on that bar below). The modal covers
+   * the tab bar, so `inModal` drops the reservation — otherwise the buttons
+   * float a clear 4.5rem above the modal's own bottom edge.
+   */
+  inModal?: boolean;
+}) {
   const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [tab, setTab] = useState<TabId>("about");
@@ -478,6 +502,12 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
   const safeIndex = Math.min(activeIndex, Math.max(view.photos.length - 1, 0));
 
   function goBack() {
+    /* In the modal there is no history to return to — the overlay was opened
+       over the current surface, so dismissing it restores exactly that. */
+    if (onClose) {
+      onClose();
+      return;
+    }
     /* History first, so the member returns to the list they came from rather
        than being dumped on the app landing screen. `replace` is the fallback for
        a cold deep link, where there IS no history to go back to. */
@@ -669,10 +699,22 @@ export function PublicProfileScreen({ view }: { view: PublicProfileView }) {
           sidebar rail takes over — without it the buttons would float 72px above
           the screen edge on a surface that has nothing beneath them.
 
+          `inModal` drops the reserve entirely: the global profile modal paints
+          OVER the fixed tab bar (z-[300] > z-50), so there is no bar to clear
+          and the reservation would float the buttons 4.5rem above the modal's
+          own bottom edge. The safe-area inset survives in both modes — it
+          belongs to the device's home-indicator strip, not to the nav.
+
           The self view hides the bar entirely: there is no one to Chat with or
           Follow, and an inert primary action is noise, not a feature. */}
       {!view.isSelf ? (
-        <div className="relative z-20 shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-3 md:pb-4">
+        <div
+          className={`relative z-20 shrink-0 border-t border-slate-100 bg-white px-4 pt-3 md:pb-4 ${
+            inModal
+              ? "pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+              : "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+          }`}
+        >
           <div className="flex items-center gap-3">
             <ProfileChatButton recipientId={view.uid} recipientName={view.name} />
             <ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} />

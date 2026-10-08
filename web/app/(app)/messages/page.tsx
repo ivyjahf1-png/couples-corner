@@ -54,6 +54,9 @@ export default async function MessagesPage() {
         name: c.name,
         kind: c.kind,
         avatarUrl: c.avatarUrl,
+        /* The other participant's uid — lets the avatar open the profile modal
+           in place instead of only entering the thread. */
+        userId: c.userId,
         /* Null unless they shared a date of birth — the row then renders the name
            alone rather than a placeholder age. */
         age: c.age,
