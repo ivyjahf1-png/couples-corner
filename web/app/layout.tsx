@@ -95,9 +95,9 @@ export const viewport: Viewport = {
      the page cannot draw into the notch/home-indicator strip, and every
      `env(safe-area-inset-*)` in the codebase silently resolves to 0px. The
      consequence is that all of these become decorative no-ops:
-       • `MobileBackHeader`      `pt-[env(safe-area-inset-top)]`      (:147)
+       • `MobileBackHeader`      padding-top + env()        (:147)
        • `.app-bottom-nav`       `padding-bottom: env(safe-area-inset-bottom)` (globals.css:569)
-       • `MediaFeed`             `bottom-[calc(5rem_+_env(safe-area-inset-bottom))]` etc.
+       • `MediaFeed`             bottom offset via calc() + env()
 
      So the feed's bottom bar, the caption, the action rail and the upload FAB are
      all positioned against 0px, while the OS draws the home indicator OVER them

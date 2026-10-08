@@ -71,13 +71,12 @@ export default async function ExplorePage() {
   // region.
   //
   // THE BOTTOM RESERVE IS BREATHING ROOM ONLY — NOT THE NAV. `/explore` is not
-  // one of AppMain's full-bleed routes, so `<main>` itself already carries
-  // `pb-[calc(5rem+env(safe-area-inset-bottom,0px))]` — the tab bar's exact
-  // height plus the gesture-bar inset. This scroller previously added ANOTHER
-  // `pb-[calc(7rem+env(...))]` on top, stacking two independent reserves into
-  // a ~12rem dead band between the last card and the nav (both `env()`s count
-  // the same inset a second time). `pb-8` is just scroll clearance at the end
-  // of the list; the nav clearance lives in ONE place, AppMain.
+  // one of AppMain's full-bleed routes, so `<main>` itself already carries the
+  // tab bar's exact height plus the gesture-bar inset as a single calc() reserve.
+  // This scroller previously added a SECOND, larger reserve on top, stacking two
+  // independent insets into a ~12rem dead band between the last card and the nav
+  // (both env() lookups count the same inset twice). `pb-8` is just scroll
+  // clearance at the end of the list; the nav clearance lives in ONE place, AppMain.
   return (
     <div className="flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-8 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] sm:gap-6">
@@ -135,7 +134,7 @@ export default async function ExplorePage() {
             The hero wrapper is `flex-1 shrink-0` inside the `flex min-h-0
             flex-1 flex-col` stack, so it takes every pixel the scroller has
             left after the header and grid — its bottom edge lands at the top
-            of the bottom nav (AppMain's `pb-[calc(5rem+env(...))]` is what
+            of the bottom nav (AppMain's calc()+env() reserve is what
             reserves that nav). The inner `<a>` fills the wrapper with `h-full`,
             pushing the photo to all four edges of the glass card. */}
         {suggestions.length > 0 ? (

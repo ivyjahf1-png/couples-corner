@@ -19,6 +19,7 @@ import { publishMomentAction } from "@/lib/actions/tasks";
 import { openProfileView } from "@/components/profile/ProfileViewModal";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { validateMediaFile } from "@/lib/utils/media-upload";
+import { deleteUserMediaAction } from "@/lib/actions/profile";
 
 /** Media kinds this player knows how to render. Mirrors `MomentMediaType`
     from `lib/moments.ts` (the server view model) as a local union so the
@@ -275,6 +276,30 @@ export function MomentViewerCard({
   }
   function closeMore() {
     setIsMoreOpen(false);
+  }
+
+  /** Owner-only delete: the RLS policy and `deleteUserMediaAction` both scope a
+   * destroy to the owning member, and this function leaves storage and the row
+   * in sync so a refresh can never re-display the deleted clip. */
+  async function handleDeleteVideo() {
+    if (!moment.id || !moment.authorId || moment.mediaType !== "video" || moment.authorId !== uploadingTo) {
+      alert("Only the owner can delete this video.");
+      return;
+    }
+    if (!confirm("Delete this video? This cannot be undone.")) return;
+    try {
+      const res = await deleteUserMediaAction(moment.id, moment.authorId);
+      if (!res.ok) {
+        alert(res.error ?? "Could not delete this video.");
+        return;
+      }
+      // The parent re-renders with the moment removed (its id no longer matches
+      // the route param); no need to touch storage here — the action did it.
+      router.refresh();
+    } catch (err) {
+      console.error("[moment] delete failed", err);
+      alert("Could not delete this video.");
+    }
   }
 
 
@@ -751,13 +776,7 @@ export function MomentViewerCard({
               type="button"
               className="w-full flex items-center gap-3 px-4 py-2 text-sm text-white hover:bg-white/10"
               onClick={() => {
-                // Delete video only for the moment owner
-                if (moment?.mediaType === "video" && uploadingTo === "current_user") {
-                  if (confirm("Delete this video?")) {
-                    // TODO: implement delete API call when available
-                    alert("Delete would be implemented here.");
-                  }
-                }
+                handleDeleteVideo();
                 closeMore();
               }}
             >

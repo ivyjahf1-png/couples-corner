@@ -636,7 +636,7 @@ input::placeholder, textarea::placeholder {
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
-   is reserved by the `pb-[env(safe-area-inset-bottom,0px)]` utility on the nav
+   is reserved by the Tailwind padding-bottom + env() utility on the nav
    element in AppNav.tsx (Tailwind, so it stays with the component); no padding
    is declared here, because a second reserve would double-count the inset. */
 

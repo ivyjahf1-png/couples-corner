@@ -102,4 +102,3 @@ export interface Post {
 }
 
 export const MAX_POST_MEDIA = 4;
-export { MAX_USER_MEDIA_BYTES as MAX_MEDIA_BYTES, USER_MEDIA_MIME_TYPES as ALLOWED_MEDIA_TYPES } from "@/lib/utils/media-upload";
