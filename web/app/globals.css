@@ -288,9 +288,27 @@ html {
      `overflow: hidden` makes containment structural. `overscroll-behavior: none`
      stops rubber-band chaining at the document edge. Ordinary pages scroll
      inside AppMain's own region, which owns the iOS momentum flags. */
+  /* THE `100vh` FALLBACK IS THE BLANK-SCREEN FIX — the `@supports` block near the
+     end of this file (LOW-END ANDROID WEBVIEW COMPATIBILITY) supplies it for
+     `<html>` and every dvh utility in the app. Keep that block.
+
+     `dvh` is a 2022 unit. An Android WebView that predates it — Chrome/WebView
+     < 108, which is exactly what still ships on entry-level hardware like an
+     Infinix Smart 7 that has not taken a system update — does not merely ignore
+     the value: the CSS parser treats `100dvh` as an INVALID declaration and
+     DISCARDS THE ENTIRE LINE. With no fallback, `height` falls back to `auto`,
+     the document stops being a bounded box, and every `height: 100%` and
+     `flex: 1` descendant resolves against an indefinite parent and collapses to
+     ZERO. The member gets an empty screen — the reported blank Explore and
+     Moment pages — not a layout that is merely slightly short. */
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
+  /* `pan-y` hands the vertical gesture to whichever inner scroller owns it.
+     Without it, some Android WebView builds claim the touch on <html> and the
+     thread underneath never receives the drag — the reported "chat and profile
+     will not scroll". */
+  touch-action: pan-y;
 }
 
 /* ----------------------------------------------------------------------------
@@ -354,7 +372,20 @@ html {
   touch-action: pan-y;
   /* Bottom padding uses Tailwind utility pb-28 for safe-area-aware spacing. */
   /* Composite the scroll region on the GPU so touch/wheel momentum never
-     janks behind repaint work on large phones. */
+     janks behind repaint work on large phones.
+
+     `-webkit-transform` is the older prefix form of the `transform` right below
+     it. It is written here for the old WebView, but the production minifier
+     strips vendor prefixes it deems unnecessary for its browser targets, so it
+     may not reach the built file — the unprefixed `transform` is the one that
+     reliably survives, and it is the same layer promotion on any engine new
+     enough to honour it. Both are kept: the prefix is free, and it does the work
+     on the engines that still need it.
+
+     Promoting this region to its own compositor layer is what stops a nested
+     scroller inside `overflow: hidden` ancestors from dropping its touch
+     handling entirely — the "profile page will not scroll" report. */
+  -webkit-transform: translateZ(0);
   transform: translateZ(0);
   will-change: scroll-position;
 }
@@ -410,6 +441,104 @@ body {
      children (`AppShell` -> h-dvh overflow-hidden column); the document body
      must never become a second scroller or leak rubber-banding behind it. */
   overscroll-behavior: none;
+}
+
+/* ============================================================================
+   LOW-END ANDROID WEBVIEW COMPATIBILITY
+   ----------------------------------------------------------------------------
+   Three independent failure modes on entry-level hardware (e.g. Infinix Smart 7,
+   Android 12/13, Chrome/WebView < 108). Each is fixed in its own section below.
+   ========================================================================== */
+
+/* ----------------------------------------------------------------------------
+   1. VIEWPORT-UNIT FALLBACKS FOR OLD WEBVIEWS.
+
+   The root layout writes its viewport height with the Tailwind `h-dvh` utility
+   (`<body class="flex h-dvh …">`), and the locked columns use `h-[100dvh]`,
+   `max-h-[100dvh]`, `min-h-dvh` and friends. A WebView without `dvh` support
+   discards each of those declarations as invalid, leaving `height` /
+   `min-height` at `auto`, which collapses the shell to zero — the blank screen.
+
+   Each rule below lives inside `@supports not (height: 100dvh)`, so the `vh`
+   value is applied ONLY on engines that lack `dvh`. Modern engines never enter
+   the block and resolve exactly as before.
+
+   WHY `@supports` AND NOT THE USUAL "declare `vh` then override with `dvh`"
+   TRICK: the two-declaration cascade form is what this file used first, and the
+   PRODUCTION MINIFIER DELETED IT. It recognises that the second declaration
+   always overrides the first on every browser in its target list, so it drops
+   the `vh` line as dead code — which silently removes the fallback and leaves the
+   old WebView exactly as broken as before. Verified against the built
+   stylesheet: the two-declaration rules did not survive, the `@supports` rules
+   do. A conditional block cannot be optimised away, because it is only entered
+   when the condition is true. */
+@supports not (height: 100dvh) {
+  html { height: 100vh; }
+  .h-dvh { height: 100vh; }
+  .min-h-dvh { min-height: 100vh; }
+  .h-\[100dvh\] { height: 100vh; }
+  .min-h-\[100dvh\] { min-height: 100vh; }
+  /* Sheet and modal caps: `vh` only raises the ceiling a little, which is the
+     safe direction for a bottom sheet. */
+  .max-h-\[100dvh\] { max-height: 100vh; }
+  .max-h-\[85dvh\] { max-height: 85vh; }
+  .max-h-\[92dvh\] { max-height: 92vh; }
+  .max-h-\[46dvh\] { max-height: 46vh; }
+  .h-\[calc\(100dvh_-_4rem\)\] { height: calc(100vh - 4rem); }
+  .sm\:h-\[calc\(100dvh-3rem\)\] { height: calc(100vh - 3rem); }
+  .page-lock--flush { height: 100vh; }
+  /* The Explore hero's own floor, wrapped in `min()` so it needs its own form. */
+  .\[\&\>a\]\:min-h-\[min\(100\%\,calc\(100dvh_-_22rem\)\)\] > a {
+    min-height: min(100%, 100vh - 22rem);
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   2. GLASSMORPHISM: SOLID FALLBACKS FOR WEAK GPUs.
+
+   `backdrop-filter` samples the pixels behind an element and blurs them, so the
+   compositor must re-read the region underneath every frame. On a low-end mobile
+   GPU that work is not merely slow — with a large surface or a fast scroll the
+   compositor can fail to produce a frame, and the element paints as a blank
+   block. Because nearly every glass surface here uses a very low alpha
+   (`bg-white/[0.02]`, `bg-white/[0.04]`), a compositor failure shows the browser's
+   white default canvas through the gap: a white screen.
+
+   Two guards, both capability-gated so a device that CAN take the effect keeps
+   it unchanged:
+
+     `@supports not (...)` — a WebView with no `backdrop-filter` at all skips the
+     blur and gains an opaque fill, so the surface can never go see-through.
+
+     `(prefers-reduced-transparency: reduce)` — the OS "reduce transparency"
+     switch (iOS) and forced low-power states. Honoured because it is the only
+     signal a user has to say "this device cannot take the effect", and it costs a
+     capable device nothing while unset. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    /* Opaque equivalent of the glass, so nothing reads as a hole. */
+    background-color: #0f172a;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .backdrop-blur,
+  .backdrop-blur-sm,
+  .backdrop-blur-md,
+  .backdrop-blur-xl {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: #0f172a;
+  }
+  .app-drawer-scrim {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 ::selection {
