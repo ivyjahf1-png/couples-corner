@@ -778,6 +778,10 @@ input::placeholder, textarea::placeholder {
   color: #1f2937;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
