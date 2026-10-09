@@ -21,9 +21,17 @@ export function uploadWithProgress(
       let result: Record<string, unknown> = {};
       try { result = JSON.parse(request.responseText); } catch { /* Non-JSON gateway responses. */ }
       if (request.status < 200 || request.status >= 300) {
-        reject(new Error(typeof result.error === "string" ? result.error
+        // Carry the numeric status on the Error so the caller can map specific
+        // storage codes (413 too-large, 401/403 auth, 404 bucket) to real copy
+        // instead of a generic "Network error".
+        const detail =
+          typeof result.error === "string" ? result.error
           : typeof result.message === "string" ? result.message
-          : `Upload failed (HTTP ${request.status}). Please retry.`));
+          : typeof result.msg === "string" ? result.msg
+          : `Upload failed (HTTP ${request.status}). Please retry.`;
+        const err = new Error(detail) as Error & { status?: number };
+        err.status = request.status;
+        reject(err);
       } else resolve(result);
     };
     request.send(body);

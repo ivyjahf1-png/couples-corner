@@ -31,7 +31,7 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
 import { uploadWithProgress } from "@/lib/utils/upload-progress";
-import { validateMediaFile } from "@/lib/utils/media-upload";
+import { validateMediaFile, MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
 
 export const USER_MEDIA_BUCKET = "user-media";
 export const PROFILE_PHOTOS_BUCKET = "photos";
@@ -114,6 +114,54 @@ function buildStoragePath(bucket: string, uid: string, fileName: string, pathPre
 }
 
 /**
+ * Map a Supabase Storage failure to a clear, actionable message.
+ *
+ * The generic "Network error" the Moment composer used to show hides the real
+ * cause. Storage rejects are not all the same: a 413 means the file exceeds the
+ * bucket limit, a 401/403 is an auth/RLS problem, a 404 is a missing bucket, and
+ * a bare transport failure is a genuine network drop. Members can only act on
+ * the ones we name, so this keys off the status code first and the message text
+ * second, always falling back to the original message rather than a placeholder.
+ */
+export function describeStorageError(error: unknown, limitBytes: number = MAX_MOMENT_VIDEO_BYTES): string {
+  const status =
+    typeof (error as { status?: unknown })?.status === "number"
+      ? (error as { status: number }).status
+      : typeof (error as { statusCode?: unknown })?.statusCode === "number"
+      ? (error as { statusCode: number }).statusCode
+      : undefined;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof (error as { message?: unknown })?.message === "string"
+      ? (error as { message: string }).message
+      : "";
+
+  const limitMb = Math.round(limitBytes / (1024 * 1024));
+
+  if (status === 413 || /too large|exceed|payload too large|size/i.test(message)) {
+    return `That file is larger than the ${limitMb} MB limit. Please choose a shorter or smaller video.`;
+  }
+  if (status === 401 || /jwt|expired|not authenticated/i.test(message)) {
+    return "Your session expired while uploading. Please sign in again and retry.";
+  }
+  if (status === 403 || /row-level|violates|permission|denied|unauthorized/i.test(message)) {
+    return "Upload was blocked by storage permissions. Please try again, or contact support if it keeps happening.";
+  }
+  if (status === 404 || /bucket|not found/i.test(message)) {
+    return "Storage is not available right now. Please try again shortly.";
+  }
+  if (status === 400 || /mime|invalid|unsupported/i.test(message)) {
+    return "That file type could not be stored. Please choose a supported MP4, MOV, or WebM video.";
+  }
+  if (status === 408 || /timeout|timed out/i.test(message)) {
+    return "The upload timed out. Check your connection and retry.";
+  }
+  if (message) return message;
+  return "Upload failed. Check your connection and try again.";
+}
+
+/**
  * Upload `file` straight to Supabase Storage and return its storage path.
  *
  * Never throws: failures come back as `{ ok: false, error }` so callers have one
@@ -189,7 +237,7 @@ export async function uploadFileDirect(
           Authorization: `Bearer ${token}`,
           apikey: key,
           "Content-Type": contentType,
-          "x-upsert": "false",
+          "x-upsert": "true",
         },
         onProgress
       );
@@ -198,9 +246,9 @@ export async function uploadFileDirect(
       // storage RLS is enforced exactly as it is on the XHR path.
       const { error: uploadError } = await client.storage
         .from(bucket)
-        .upload(path, file, { contentType, upsert: false });
+        .upload(path, file, { contentType, upsert: true });
       if (uploadError) {
-        return { ok: false, error: `Upload failed: ${uploadError.message}` };
+        return { ok: false, error: describeStorageError(uploadError) };
       }
     }
 
@@ -211,8 +259,10 @@ export async function uploadFileDirect(
       publicUrl: client.storage.from(bucket).getPublicUrl(path).data.publicUrl,
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Upload failed.";
-    return { ok: false, error: message };
+    // The XHR path rejects with an Error carrying a numeric `status` when the
+    // server responds; a bare transport failure has none. describeStorageError
+    // turns either into a message the member can act on.
+    return { ok: false, error: describeStorageError(error) };
   }
 }
 
