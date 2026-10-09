@@ -87,16 +87,32 @@ export default async function ExplorePage() {
         subtitle=""
       />
 
-      {/* Search engine shifted up immediately below header, with Browse grid beside it */}
-      <div className="flex items-center gap-3 w-full">
-        <div className="relative flex-1">
+      {/* SEARCH + BROWSE GRID — ONE ROW, NEVER STACKED.
+
+          Both controls share a single flex row directly under the page header, so
+          "Browse grid" sits on the same horizontal line as the search input rather
+          than on its own line above it.
+
+          `min-w-0` on the input wrapper IS the responsiveness fix. A flex item
+          defaults to `min-width: auto`, so without it the input refused to shrink
+          below its placeholder's intrinsic width on a 320px phone and pushed the
+          button out of the row — which is what read as the controls "wrapping".
+          `shrink-0` + `whitespace-nowrap` on the button pins its width so the
+          input absorbs all the give instead. */}
+      <div className="flex w-full items-center gap-2 sm:gap-3">
+        <div className="relative min-w-0 flex-1">
           <input
             type="text"
             placeholder="Search by 6-letter ID or username"
-            className="w-full h-12 bg-white/[0.04] border border-white/10 rounded-2xl px-4 text-sm text-ink-100 placeholder:text-ink-400 focus:outline-none focus:border-amber-500/50"
+            className="h-12 w-full min-w-0 rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm text-ink-100 placeholder:text-ink-400 focus:border-amber-500/50 focus:outline-none"
           />
         </div>
-        <Button href="/discover" size="sm" variant="secondary" className="shrink-0 rounded-2xl border-white/10 bg-white/[0.05] text-ink-100 hover:bg-white/10 px-4 py-3 h-12">
+        <Button
+          href="/discover"
+          size="sm"
+          variant="secondary"
+          className="h-12 shrink-0 whitespace-nowrap rounded-2xl border-white/10 bg-white/[0.05] px-4 text-ink-100 hover:bg-white/10"
+        >
           Browse grid
         </Button>
       </div>
@@ -122,25 +138,42 @@ export default async function ExplorePage() {
         ) : null}
 
         {/* HERO + GRID. The first profile is the main photo card: it stretches
-            vertically (tall immersive card) to fill the remaining space above
-            the fixed bottom nav, while the rest flow in the responsive grid.
-
-            THE SELECTOR TARGETS `<a>`, NOT `<div>`. `ProfileCard`'s ROOT is a
-            next/link anchor — `<Link>` renders an `<a>` — so the previous
-            `[&>div]` compound matched NOTHING (there is no direct `<div>`
-            child) and every min-height on these wrappers was dead code: the
-            hero collapsed to its content height instead of stretching.
-
-            The hero wrapper is `flex-1 shrink-0` inside the `flex min-h-0
-            flex-1 flex-col` stack, so it takes every pixel the scroller has
-            left after the header and grid — its bottom edge lands at the top
-            of the bottom nav (AppMain's calc()+env() reserve is what
-            reserves that nav). The inner `<a>` fills the wrapper with `h-full`,
-            pushing the photo to all four edges of the glass card. */}
+            vertically (tall immersive card) to fill the remaining space above the
+            fixed bottom nav, while the rest flow in the responsive grid. */}
         {suggestions.length > 0 ? (
           <div className="flex min-h-0 flex-1 flex-col gap-4">
-            <div className="min-w-0 flex-1 shrink-0 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>a]:h-full [&>a]:min-h-[480px] sm:[&>a]:min-h-[540px]">
-              <ProfileCard profile={suggestions[0]} />
+            {/* THE HERO FILLS THE SPACE UNDER THE SEARCH ROW.
+
+                The wrapper is `flex-1 min-h-0` in a bounded column, so it takes
+                every pixel left after the header, the search/grid row and the
+                section heading — its bottom edge lands at the top of the bottom
+                nav. The inner anchor inherits that height with `h-full`, so the
+                photo bleeds to all four edges of the glass card.
+
+                THE FIXED FLOORS ARE GONE. `min-h-[480px] sm:min-h-[540px]` on the
+                inner anchor was a floor, not a target: on a tall phone it was
+                satisfied by content and the card stopped short of the nav, and on
+                a short landscape screen it forced the box PAST the viewport,
+                clipping the card and stranding the dead band the reserve is
+                supposed to own. A viewport-derived floor cannot drift in either
+                direction — it shrinks with the window and still guarantees a
+                usable card on a very short screen.
+
+                THE SELECTOR TARGETS `<a>`, NOT `<div>`: `ProfileCard`'s root is a
+                next/link anchor, so a `[&>div]` compound matches nothing. */}
+            <div className="flex min-h-0 w-full flex-1 flex-col">
+              {/* `100dvh_-_22rem` — THE UNDERSCORES ARE LOAD-BEARING. Tailwind
+                  turns `_` into a space in arbitrary values, and CSS `calc()`
+                  REQUIRES whitespace around `-`. Writing `calc(100dvh-22rem)`
+                  produces invalid CSS that every browser silently discards, so the
+                  whole `min-height` declaration vanishes and the floor is lost.
+
+                  `min(100%, …)` caps the floor at the parent's own height, so this
+                  can never force the card taller than the space available and push
+                  the box past the viewport. */}
+              <div className="min-h-0 w-full flex-1 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>a]:flex [&>a]:h-full [&>a]:w-full [&>a]:flex-col [&>a]:min-h-[min(100%,calc(100dvh_-_22rem))]">
+                <ProfileCard profile={suggestions[0]} />
+              </div>
             </div>
             {suggestions.length > 1 ? (
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
