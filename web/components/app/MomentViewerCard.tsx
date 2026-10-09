@@ -62,6 +62,13 @@ interface MomentViewerCardProps {
   onOpenProfile?: () => void;
 }
 
+/** Largest moment video accepted (100 MB). Direct-to-storage upload has no
+ *  server body limit, so this is a UX guard; client transcoding (ffmpeg.wasm)
+ *  is deliberately not added — it costs ~30 MB for this single flow. */
+export const MAX_MOMENT_VIDEO_BYTES = 100 * 1024 * 1024;
+/** Longest moment clip accepted (5 min); longer clips stall on slow uplinks. */
+export const MAX_MOMENT_VIDEO_SECONDS = 5 * 60;
+
 /** Demo moment so the screen always has something to play. */
 const DEMO_MOMENT: MomentData = {
   id: "1",
@@ -110,6 +117,10 @@ export function MomentViewerCard({
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Set while a large upload is in flight so the member can cancel it. */
+  const uploadAbortRef = useRef<{ canceled: boolean }>({ canceled: false });
+  /** Video duration (s) probed at pick time; null for images/unknown. */
+  const [pickedDuration, setPickedDuration] = useState<number | null>(null);
   const router = useRouter();
   /* Whether the media surface is mostly on screen. Starts TRUE: the card IS
      the screen on mount, and an observer that never fires (older engines,
@@ -162,6 +173,8 @@ export function MomentViewerCard({
 
   /** Dismiss the upload overlay and reset every piece of its state. */
   function cancelUpload() {
+    /* Flag a mid-flight transfer so its late progress/result is ignored. */
+    uploadAbortRef.current.canceled = true;
     setIsUploading(false);
     setUploadError(null);
     setUploadSuccess(null);
@@ -173,7 +186,14 @@ export function MomentViewerCard({
 
   /** Open the OS file picker with a clean slate (what the `+` rail button calls). */
   function browse() {
-    cancelUpload();
+    uploadAbortRef.current.canceled = true;
+    setIsUploading(false);
+    setUploadError(null);
+    setUploadSuccess(null);
+    setSelectedFile(null);
+    setPickedDuration(null);
+    setUploadProgress(0);
+    setCaption("");
     fileInputRef.current?.click();
   }
 
@@ -193,14 +213,50 @@ export function MomentViewerCard({
       // Deliberately NOT staged: retrying an invalid file can only fail again,
       // so the overlay offers "Choose file" instead of a Publish button.
       setSelectedFile(null);
+      setPickedDuration(null);
       setUploadError(validationError);
+      return;
+    }
+
+    /* Large-video guard (no new deps): reject oversize picks up front with a
+       clear message, and probe duration for video picks. Client transcoding
+       is out of scope (ffmpeg.wasm ~30 MB); the member picks a shorter clip. */
+    if (file.type.startsWith("video/") && file.size > MAX_MOMENT_VIDEO_BYTES) {
+      setSelectedFile(null);
+      setPickedDuration(null);
+      setUploadError(
+        `Video too large (${(file.size / 1048576).toFixed(1)} MB) — max 100 MB. Pick a shorter clip or lower resolution.`
+      );
       return;
     }
 
     setUploadError(null);
     setUploadSuccess(null);
     setSelectedFile(file);
+    setPickedDuration(null);
     setUploadProgress(0);
+    /* Duration probe is best-effort: a video element reads metadata without
+       blocking the UI; failure leaves duration unknown (upload still allowed). */
+    if (file.type.startsWith("video/") && typeof document !== "undefined") {
+      const url = URL.createObjectURL(file);
+      const probe = document.createElement("video");
+      probe.preload = "metadata";
+      probe.onloadedmetadata = () => {
+        if (Number.isFinite(probe.duration)) {
+          const secs = probe.duration;
+          setPickedDuration(secs);
+          if (secs > MAX_MOMENT_VIDEO_SECONDS) {
+            setSelectedFile(null);
+            setUploadError(
+              `Video too long (${Math.round(secs / 60)} min) — max 5 min. Trim it and try again.`
+            );
+          }
+        }
+        URL.revokeObjectURL(url);
+      };
+      probe.onerror = () => URL.revokeObjectURL(url);
+      probe.src = url;
+    }
   }
 
   /**
@@ -222,10 +278,14 @@ export function MomentViewerCard({
     setUploadSuccess(null);
     setUploadProgress(0);
     setIsUploading(true);
+    uploadAbortRef.current = { canceled: false };
+    const signal = uploadAbortRef.current;
 
-    const result = await uploadMediaDirect(uploadingTo ?? "", file, (p) =>
-      setUploadProgress(p)
-    );
+    const result = await uploadMediaDirect(uploadingTo ?? "", file, (p) => {
+      if (!signal.canceled) setUploadProgress(p);
+    });
+    /* Cancel wins over any late result: the member already dismissed. */
+    if (signal.canceled) return;
     if (!result.ok) {
       // The staged file and caption are kept, so the member can retry.
       setUploadError(result.error);
@@ -405,11 +465,11 @@ export function MomentViewerCard({
           the card, so typing a description cannot close the modal. */}
       {showUpload ? (
         <div
-          className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          className="absolute inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4 sm:p-6"
           onClick={cancelUpload}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-5 shadow-2xl backdrop-blur-xl"
+            className="my-auto w-full max-w-sm rounded-2xl border border-white/10 bg-slate-900/95 p-4 sm:p-5 shadow-2xl backdrop-blur-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">
@@ -437,20 +497,29 @@ export function MomentViewerCard({
               <div className="mt-3">
                 <p className="text-sm text-white/80">
                   <span className="font-semibold text-white">{selectedFile.name}</span>
-                  <span className="text-white/50"> · {Math.round(uploadProgress)}%</span>
+                  <span className="text-white/50">
+                    {" "}· {(selectedFile.size / 1048576).toFixed(1)} MB
+                    {pickedDuration !== null && Number.isFinite(pickedDuration)
+                      ? ` · ${Math.round(pickedDuration)}s`
+                      : ""}
+                    {" "}· {Math.round(uploadProgress)}%
+                  </span>
                 </p>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(uploadProgress)}>
                   <div
                     className="h-full rounded-full bg-amber-400 transition-[width] duration-200"
                     style={{ width: `${uploadProgress}%` }}
                   />
                 </div>
+                {isUploading ? (
+                  <p className="mt-1 text-xs text-white/50">Uploading in the background — you can cancel below.</p>
+                ) : null}
               </div>
             ) : null}
 
             {!selectedFile && !uploadError ? (
               <p className="mt-2 text-xs text-white/60">
-                Choose a file in MP4, MOV, or WebM (up to 250 MB).
+                Choose a file in MP4, MOV, or WebM (up to 100 MB, max 5 min).
               </p>
             ) : null}
 
@@ -573,17 +642,17 @@ export function MomentViewerCard({
       </div>
 
       {/* Top location header — floating pill, centred, clear of the notch. */}
-      <div className="absolute inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] z-30 flex items-center justify-between px-4" style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}>
+      <div className="absolute inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] z-30 flex min-w-0 items-center justify-between gap-2 px-3 sm:px-4" style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}>
         <div className="w-10" />
         {/* Real uploads carry no location, so the pill is omitted rather
             than rendered as an empty chip with a pulsing dot. */}
         {moment.location ? (
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-black/50 px-4 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md">
+          <div className="inline-flex min-w-0 max-w-[60vw] items-center gap-2 rounded-full border border-white/15 bg-black/50 px-3 sm:px-4 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur-md">
             <span
-              className="h-2 w-2 animate-pulse rounded-full bg-amber-400"
+              className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-amber-400"
               aria-hidden="true"
             />
-            <span>{moment.location}</span>
+            <span className="truncate">{moment.location}</span>
           </div>
         ) : null}
         <button
@@ -605,11 +674,11 @@ export function MomentViewerCard({
           comment bar + a gap, scaling with the home-indicator inset. The old
           `bottom-24` assumed the bar sat at the viewport edge, which is no
           longer where the stack lands. */}
-      <div className="absolute bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] right-3 z-30 flex flex-col items-center gap-3.5 max-sm:gap-2.5" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
+      <div className="absolute bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] right-2 sm:right-3 z-30 flex max-h-[46dvh] min-h-0 flex-col items-center gap-2.5 sm:gap-3.5 overflow-y-auto" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         <button
           type="button"
           onClick={browse}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
+          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Add"
         >
           <Plus className="h-6 w-6" />
@@ -621,7 +690,7 @@ export function MomentViewerCard({
             onClick={toggleLike}
             aria-pressed={liked}
             aria-label={liked ? "Remove your like" : "Like this moment"}
-            className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-md transition active:scale-95 ${
+            className={`flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border shadow-xl backdrop-blur-md transition active:scale-95 ${
               liked
                 ? "border-rose-500 bg-rose-500/30 text-rose-400"
                 : "border-white/20 bg-black/40 text-white hover:bg-white/30"
@@ -639,7 +708,7 @@ export function MomentViewerCard({
         <button
           type="button"
           onClick={toggleComment}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
+          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Jump to the comment box"
         >
           <MessageCircle className="h-5 w-5" />
@@ -648,7 +717,7 @@ export function MomentViewerCard({
         <button
           type="button"
           onClick={openShare}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
+          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label="Share"
         >
           <Share2 className="h-5 w-5" />
@@ -657,7 +726,7 @@ export function MomentViewerCard({
         <button
           type="button"
           onClick={toggleAudio}
-          className="flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
+          className="flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-xl backdrop-blur-md transition hover:bg-white/30 active:scale-95"
           aria-label={isAudioMuted ? "Unmute" : "Mute"}
         >
           <Volume2 className={`h-5 w-5 ${isAudioMuted ? "" : "text-amber-400"}`} />
@@ -675,11 +744,11 @@ export function MomentViewerCard({
           bar's height BELOW that edge — so the bar lands ~11px ON TOP of the
           tab bar on every screen height (5rem reserve vs the measured 69px
           bar), with no page scroll available to uncover it. */}
-      <div className="absolute inset-x-0 bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] z-20 flex flex-col gap-3 px-4 max-sm:gap-2" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
+      <div className="absolute inset-x-0 bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] z-20 flex min-w-0 flex-col gap-2 sm:gap-3 px-3 sm:px-4 pr-16 sm:pr-20" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         {/* `self-start`: as a flex-column child the pill would otherwise
             stretch to full width and its rounded-full shape would read as a
             full-bleed strip rather than the compact chip it is. */}
-        <div className="flex w-10/12 max-w-xs items-center gap-3 self-start rounded-2xl border border-white/20 bg-white/20 p-2 pr-4 shadow-2xl backdrop-blur-md max-sm:w-3/4">
+        <div className="flex w-full max-w-[16rem] sm:max-w-xs min-w-0 items-center gap-2 sm:gap-3 self-start rounded-2xl border border-white/20 backdrop-blur-md bg-white/20 p-2 pr-3 sm:pr-4 shadow-2xl">
           <button
             type="button"
             onClick={() => {
@@ -692,9 +761,9 @@ export function MomentViewerCard({
               if (moment.authorId) openProfileView(moment.authorId);
               else onOpenProfile?.();
             }}
-            className="flex items-center gap-3 text-left"
+            className="flex min-w-0 items-center gap-2 sm:gap-3 text-left"
           >
-            <div className="h-9 w-9 overflow-hidden rounded-full border border-white/30 bg-slate-800">
+            <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/30 bg-slate-800">
               {moment.avatarUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
@@ -708,9 +777,9 @@ export function MomentViewerCard({
                 </span>
               )}
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-white">
+                <span className="truncate text-sm font-bold text-white">
                   {moment.authorName}
                 </span>
                 {moment.isVerified ? (
@@ -728,7 +797,7 @@ export function MomentViewerCard({
             type="button"
             onClick={() => setIsFollowing((prev) => !prev)}
             aria-pressed={isFollowing}
-            className={`ml-2 rounded-full border px-3.5 py-1 text-xs font-semibold transition active:scale-95 ${
+            className={`ml-1 sm:ml-2 shrink-0 rounded-full border px-3 sm:px-3.5 py-1 text-xs font-semibold transition active:scale-95 ${
               isFollowing
                 ? "border-white/30 bg-slate-800 text-white"
                 : "border-white/30 bg-white/10 text-white hover:bg-white/20"
@@ -742,7 +811,7 @@ export function MomentViewerCard({
             stack's bottom edge — the reserved strip that sits on the nav. */}
         <form
           onSubmit={handleSend}
-          className="flex w-10/12 max-w-md items-center self-center rounded-full border border-white/25 bg-black/70 px-4 py-2 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl"
+          className="flex w-full max-w-md items-center self-center rounded-full border border-white/25 bg-black/70 px-4 pt-2 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl"
           noValidate
         >
           <label htmlFor="moment-comment" className="sr-only">
@@ -789,7 +858,7 @@ export function MomentViewerCard({
 
       {/* Share modal — appears when share button is clicked */}
       {isShareOpen ? (
-        <div className="absolute bottom-24 right-4 z-50 w-80 rounded-2xl border border-white/10 bg-black/80 shadow-2xl backdrop-blur-xl">
+        <div className="absolute bottom-24 right-2 sm:right-4 z-50 w-[calc(100%-1rem)] max-w-80 rounded-2xl border border-white/10 bg-black/80 shadow-2xl backdrop-blur-xl">
           <div className="px-4 py-3">
             <h3 className="text-sm font-semibold text-white">Share this moment</h3>
             <p className="mt-1 text-xs text-white/60">
