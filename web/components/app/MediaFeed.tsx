@@ -1536,7 +1536,7 @@ export function MediaFeed({
               A caption anchored at 96px therefore printed straight through the
               quick reactions: the one screen the bar was lifted to save.
 
-              `bottom-[calc(11.5rem_+_...)]` (184px) clears that range with ~12px of
+              `bottom-[calc(11.5rem_+_env(safe-area-inset-bottom,0px))]` (184px) clears that range with ~12px of
               breathing room. The safe-area term is ADDED to the offset, matching
               every other control here, so the clearance survives a home indicator.
 

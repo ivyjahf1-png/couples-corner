@@ -128,7 +128,7 @@ export function LiveChatThread({
       ) : null}
 
       <ul
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-3 scrollbar-thin"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 scrollbar-thin [-webkit-overflow-scrolling:touch]"
         aria-label="Messages"
         role="log"
       >

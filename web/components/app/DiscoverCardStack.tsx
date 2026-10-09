@@ -449,11 +449,14 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               relying on the page's dock reserve to keep it clear of the fixed
               tab bar. That reserve is measured from the SHELL's bottom edge —
               but on /discover `MobileBackHeader` returns null (discover is in
-              SELF_HEADERED) while the shell still claims
-              `h-[calc(100dvh_-_4rem)]`, so 4rem of dead body sits BELOW the
+              SELF_HEADERED) and the shell still claimed
+              `h-[calc(100dvh_-_4rem)]`, leaving 4rem of dead body BELOW the
               shell. The row therefore landed 64px (dead band) + 80px (reserve)
               = 144px above the viewport bottom: a ~75px gap floating over the
               tab bar instead of resting on it (measured, not guessed).
+              The shell now sizes itself with `flex-1 min-h-0` (see AppShell), so
+              the dead band is gone - but the viewport anchoring STAYS, since it is
+              immune to whatever chrome changes above it.
 
               FIXED, INSET FROM THE VIEWPORT. The bottom offset is the tab
               bar's height — 69px (`p-2` 8px + tab pill 53px + `p-2` 8px, see
@@ -465,8 +468,8 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               device: flush "right on top of" it, never under it and never
               overlapping it. A bare `bottom-20` would tuck 23px UNDER the bar
               on notched phones, where the inset makes the bar taller than
-              5rem; anchoring to the viewport also makes the row immune to the
-              4rem dead band above.
+              5rem; anchoring to the viewport also keeps the row immune to
+              header or dead-band changes above.
 
               `z-40`: above the card's chrome (tap zones z-10, counter z-20),
               BELOW the tab bar's z-50 (this row can never paint over the nav)
@@ -488,7 +491,7 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
           <div aria-hidden className="deck-dock-spacer h-16 shrink-0 md:hidden" />
           <nav
             aria-label="Profile actions"
-            className="deck-dock fixed inset-x-0 bottom-[calc(5rem_+_env(safe-area-inset-bottom,0px))] z-40 mx-auto flex w-full max-w-md items-center justify-center gap-4 px-1 sm:gap-5 md:static md:pb-[env(safe-area-inset-bottom)]"
+            className="deck-dock fixed inset-x-0 bottom-[calc(5rem_+_env(safe-area-inset-bottom))] z-40 mx-auto flex w-full max-w-md items-center justify-center gap-4 px-1 sm:gap-5 md:static md:pb-[env(safe-area-inset-bottom)]"
           >
             {/* Rewind */}
             <button type="button" onClick={goPrev} disabled={safeIndex <= 0} aria-label="Rewind to previous profile" title="Rewind"

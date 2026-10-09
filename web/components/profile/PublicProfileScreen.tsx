@@ -535,7 +535,7 @@ export function PublicProfileScreen({
           `pt-12` inside puts the name back below the sheet's rounded corner so it
           can never collide with the photo's bottom edge. */}
       <div className="relative z-10 -mt-10 flex min-h-0 flex-1 flex-col rounded-t-3xl bg-white">
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-12 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] pt-12 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
           <ProfileIdentity view={view} online={online} />
 
           {/* TABS. A real `tablist` with `aria-selected`, so the active state is
@@ -689,7 +689,7 @@ export function PublicProfileScreen({
           column, so it is always on screen without being `fixed` — and so it can
           never be painted underneath the app's own fixed tab bar.
 
-          THE NAV RESERVE IS A CALC, NOT A GUESS. `pb-[calc(4.5rem+env(safe-area-inset-bottom))]`
+          THE NAV RESERVE IS A CALC, NOT A GUESS. A 4.5rem-plus-safe-area bottom pad
           reserves 72px, which is the real measured height of the bottom capsule
           (52px tab min-height + 2x 8px capsule padding + 2px border ≈ 70px) plus
           the gesture-bar inset. The earlier `4rem` figure was 8px short and let
@@ -711,8 +711,8 @@ export function PublicProfileScreen({
         <div
           className={`relative z-20 shrink-0 border-t border-slate-100 bg-white px-4 pt-3 md:pb-4 ${
             inModal
-              ? "pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
-              : "pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]"
+              ? "pb-[calc(1rem_+_env(safe-area-inset-bottom))]"
+              : "pb-[calc(4.5rem_+_env(safe-area-inset-bottom))]"
           }`}
         >
           <div className="flex items-center gap-3">

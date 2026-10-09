@@ -35,7 +35,7 @@ import type { ReactNode } from "react";
  * ── VIEWPORT LOCK: WHY NOT `h-[100dvh]` ──────────────────────────────────────
  * The Moment screen is already viewport-locked, one level up:
  *
- *   AppShell   h-[100dvh] flex-col overflow-hidden   <- viewport sized here, once
+ *   AppShell   flex-1 min-h-0 overflow-hidden        <- viewport sized here, once
  *   └ AppMain  flex-1 min-h-0 overflow-hidden       <- locked surfaces never scroll
  *     └ this div  flex h-full min-h-0 flex-col      <- fills what is left
  *

@@ -227,7 +227,7 @@ export function StoreFront({
           </Link>
         </header>
       }
-      bodyClassName="px-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] pt-4 md:pb-8"
+      bodyClassName="px-4 pb-[calc(6rem_+_env(safe-area-inset-bottom))] pt-4 md:pb-8"
     >
       {/* TITLE BLOCK. `flex-wrap` lets the heading and the cart pill share a row on
           a wide phone and stack on a narrow one, instead of the pill being pushed

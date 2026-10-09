@@ -163,7 +163,7 @@ export function WalletMenu({
             if (e.target === e.currentTarget) setOpen(false);
           }}
         >
-          <div className="flex h-full w-full max-w-md flex-col overflow-y-auto border-l border-white/10 bg-slate-950 p-6 text-white shadow-2xl">
+          <div className="flex h-full w-full max-w-md flex-col overflow-y-auto overscroll-contain border-l border-white/10 bg-slate-950 p-6 text-white shadow-2xl [-webkit-overflow-scrolling:touch]">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold">Wallet</h2>
               <button

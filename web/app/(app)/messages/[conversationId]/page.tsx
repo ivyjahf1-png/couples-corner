@@ -13,10 +13,12 @@ interface ConversationPageProps {
  * A single conversation thread.
  *
  * Layout contract - exactly one vertical scroll region:
- *   - Shell: `relative flex h-[100dvh] w-full flex-col overflow-hidden`, owned by
- *     `ChatRoomClient`. This page drops the app shell's `<main>` padding on this
- *     route (see `AppMain`), so nothing is subtracted from that measurement and
- *     the column never bounces.
+ *   - Shell: `relative flex h-full max-h-[100dvh] min-h-0 w-full flex-col
+ *     justify-between overflow-hidden`, owned by `ChatRoomClient`. `h-full`
+ *     chains off AppMain, which drops its padding on this route (see
+ *     `AppMain`), and `MobileBackHeader` suppresses itself on `/messages/*` —
+ *     so AppShell's `flex-1 min-h-0` resolves to exactly 100dvh here: no 4rem
+ *     header subtraction, no dead band under the composer.
  *   - The bottom tab nav is HIDDEN here by `BottomNavRegion`, so the content
  *     region grows into the reclaimed space. `/messages` (the list) still shows
  *     the bar, so the back arrow brings it straight back.

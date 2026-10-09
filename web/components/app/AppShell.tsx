@@ -62,21 +62,37 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
     // bottom controls riding under the tab bar — the "messy scrolling" reported.
     //
     // The shell now fills exactly what the header leaves (`flex-1`), with
-    // `min-h-0` so it may shrink below its content's intrinsic height. The viewport
-    // is measured ONCE, by `<html class="h-full">` + `<body class="min-h-dvh">`;
-    // every route below just divides the space it is given.
+    // `min-h-0` so it may shrink below its content's intrinsic height.
+    // The viewport is measured ONCE, by `<body class="flex h-dvh flex-col
+    // overflow-hidden">` in the root layout; every route below just divides the
+    // space it is given. `flex-1` computes the shell to whatever the body has
+    // left after the header sibling — `100dvh - header` where the header
+    // renders, the full `100dvh` where it does not.
+    //
+    // WHY NOT `h-[calc(100dvh_-_4rem)] md:h-dvh` (the previous value): that
+    // reserved 4rem for `MobileBackHeader` whether or not it rendered. That
+    // component returns null on the self-headered routes (/messages, /profile,
+    // /likes, /discover), on /dashboard and on the root path, and is removed
+    // outright at `md:` and by the short-landscape block in globals.css — so
+    // every one of those routes left 4rem of dead body below the shell (the
+    // black strip under the conversation thread and the inbox) or, when the
+    // header rendered TALLER than 4rem (`pt-[env(safe-area-inset-top)]` on
+    // notched devices), pushed the body past `h-dvh` and clipped the shell's
+    // bottom instead. `flex-1` is exact in both directions and cannot drift
+    // from the header's real height.
+    //
+    // `min-h-0` is REQUIRED: a flex item defaults to `min-height: auto`, so
+    // without it tall content stretches the shell past the viewport, the BODY
+    // becomes the scroll region again, and `height:100%` children (PageLock,
+    // the profile column) resolve against an indefinite box and collapse — the
+    // failure `min-h-dvh` caused when content height owned the shell. The
+    // shell must stay a BOUNDED box so inner `flex-1 min-h-0` scroll regions
+    // resolve against a real height on mobile.
     //
     // `overflow-hidden` is load-bearing: it makes containment STRUCTURAL. Without
     // it a child that overflows its box silently promotes the shell into a
     // scroller and the page starts drifting again.
-    //
-    // `h-dvh` (NOT `min-h-0 flex-1`): the shell must be a BOUNDED box so inner
-    // `flex-1 min-h-0` scroll regions resolve against a real height on mobile.
-    // `min-h-dvh` let content height stretch the shell past the viewport, which
-    // collapsed every `height:100%` child (PageLock, profile column) to zero and
-    // is exactly why Profile/Messages could not scroll on phones. Subtract the
-    // ~4rem mobile header sibling above so the shell + header equal one viewport.
-    <div className="app-canvas relative flex h-[calc(100dvh_-_4rem)] w-full flex-col overflow-hidden bg-slate-950 text-foreground md:h-dvh">
+    <div className="app-canvas relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-slate-950 text-foreground">
       {/* Demo banner — shrink-0 so it never collapses or scrolls away. */}
       {isDemo && (
         <div className="shrink-0 border-b border-amber-400/30 bg-amber-500/10 px-4 py-2 text-center text-sm text-amber-100">
@@ -164,8 +180,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         {/* AppMain is the single vertical scroll region in the app. It keeps
             the normal page gutters everywhere, and drops them inside an active
             conversation so that page can own the full 100dvh. The bottom nav is
-            an in-flow sibling below this, so content is never hidden behind it
-            and needs no compensating padding. */}
+            `fixed` (see BottomNavRegion) and OVERLAYS this region's last 5rem,
+            so AppMain carries the matching bottom reserve (5rem plus the safe-area inset) — and
+            full-bleed routes, which take `p-0`, reserve that height themselves. */}
         <AppMain>{children}</AppMain>
       </div>
 

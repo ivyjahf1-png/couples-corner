@@ -76,7 +76,7 @@ export function PageLock({
    *
    * Tailwind arbitrary values cover most cases, but a multi-stop gradient with a
    * layered radial bloom is clearer and safer inline than as a
-   * `bg-[linear-gradient(...)]` utility, where commas and nested parens have to be
+   * `bg-[linear-gradient( ... )]` utility, where commas and nested parens have to be
    * escaped and are easy to get subtly wrong.
    */
   style?: React.CSSProperties;

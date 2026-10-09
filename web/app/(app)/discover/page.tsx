@@ -60,7 +60,7 @@ export default async function DiscoverPage({ searchParams }: PageProps) {
      * A "strict viewport lock" for this screen already exists, and it starts one
      * level UP, in `AppShell`:
      *
-     *   AppShell   h-[100dvh] flex-col overflow-hidden   <- the viewport is sized here
+     *   AppShell   flex-1 min-h-0 overflow-hidden         <- the viewport is sized here
      *   └ AppMain  flex-1 min-h-0                        <- subtracts the chrome
      *     └ this div  h-full min-h-0 overflow-hidden     <- fills what is left
      *

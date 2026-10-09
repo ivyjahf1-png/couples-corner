@@ -883,10 +883,13 @@ export default function ChatRoomClient({
                             and never scrolls away.
 
    The app shell drops its `<main>` padding and hides the tab bar on this route
-   (`isActiveConversationPath`), so the composer inherits the full height. */
+   (`isActiveConversationPath`), so the composer inherits the full height.
+   `flex-1` fills the shell's measured box (body is `h-dvh`, so this resolves to
+   the true dynamic viewport minus only the chrome above it); `max-h-[100dvh]`
+   clamps the keyboard case so the composer rides up instead of hiding. */
   return (
     <div
-      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-col justify-between overflow-hidden"
+      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#0F0C1B]"
       style={{
         /* THE CANVAS GRADIENT, not the flat `THEME.canvas`.
            `THEME.canvas` (`#0F0C1B`) is still the base colour below it, but the
@@ -905,7 +908,7 @@ export default function ChatRoomClient({
            ordinary gradient would be sized to this box (correct) — but `fixed`
            guarantees the warm foot stays at the bottom of the screen however the
            message column grows, instead of stretching with the content. */
-        backgroundAttachment: "fixed",
+        backgroundSize: "100% 100%",
       }}
     >
       <ChatRoomHeader summary={summary} online={online} collapsed={headerCollapsed} />
@@ -993,8 +996,19 @@ export default function ChatRoomClient({
           minimum touch target. `dvh` is what makes it ride up with the on-screen
           keyboard — see the note at the top of this file. */}
       <div
-        className="sticky bottom-0 w-full self-stretch shrink-0 border-t px-2 pb-[calc(0.5rem_+_env(safe-area-inset-bottom,0px))] pt-2"
-        style={{ backgroundColor: GLASS_BAR, borderColor: THEME.hairline }}
+        className="relative z-10 w-full shrink-0 border-t px-2 pt-2"
+        style={{
+          /* OPAQUE fill, not GLASS_BAR. The composer is the last child of a
+             column whose own gradient ends at its top edge — a translucent
+             fill here lets the near-black canvas show through as a "dead"
+             strip whenever the toolbar + quick chips pin it in place. The
+             solid `#19152A` is GLASS_BAR composited over the canvas (same
+             value EmojiPickerDrawer's sticky heading uses), so the bar reads
+             as glass without ever going see-through. */
+          backgroundColor: "#19152A",
+          borderColor: THEME.hairline,
+          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
+        }}
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six
            short pills `flex-wrap` shows every one of them without a swipe, which

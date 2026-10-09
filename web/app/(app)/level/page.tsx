@@ -190,7 +190,7 @@ export default function LevelPage() {
           {/* Fixed-height scroller: 100 rows would otherwise push the reward
               frames a full page below the fold. The current level's row is
               tinted so it is findable the moment the table opens. */}
-          <div className="max-h-[26rem] overflow-y-auto">
+          <div className="max-h-[26rem] overflow-y-auto overscroll-contain [-webkit-overflow-scrolling:touch]">
             <table className="w-full border-collapse text-left text-sm">
               <thead className="sticky top-0 z-10 bg-[#0F172A] text-[10px] uppercase tracking-wider text-slate-400">
                 <tr>

@@ -267,8 +267,7 @@ export function CallScreen({
       {/* Top bar: name + status. Fades with the controls. */}
       <div
         className={[
-          "pointer-events-none shrink-0 bg-gradient-to-b from-slate-950/80 to-transparent px-4 pb-8",
-          "pt-[max(0.75rem,env(safe-area-inset-top))]",
+          "pointer-events-none shrink-0 bg-gradient-to-b from-slate-950/80 to-transparent px-4 pb-8 pt-3",
           CHROME_FADE,
           visible ? "opacity-100" : "opacity-0",
         ].join(" ")}

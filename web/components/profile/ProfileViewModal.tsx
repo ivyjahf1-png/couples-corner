@@ -93,6 +93,24 @@ export function profileViewClick(userId: string | null | undefined) {
 type ModalState = "loading" | "ready" | "missing";
 
 /**
+ * ONE SETTLED FETCH, tagged with the id it was fetched for.
+ *
+ * The tag is what makes the loading state DERIVABLE instead of resettable. The
+ * effect below no longer has to synchronously clear `state`/`view` back to
+ * "loading" when `userId` changes — a result tagged with any OTHER id is simply
+ * treated as not-yet-arrived during render, which shows the spinner and hides
+ * the previous member's photos for free.
+ *
+ * That matters beyond tidiness: React 19's lint rules reject a synchronous
+ * `setState` in an effect body (`react-hooks/set-state-in-effect`) because it
+ * forces a wasted extra render pass on every open and every id switch. Storing
+ * the id alongside the payload removes the reset entirely, so the only
+ * `setState` calls left are inside the promise callbacks — exactly where the
+ * rule expects them.
+ */
+type FetchResult = { userId: string; view: PublicProfileView | null } | null;
+
+/**
  * The modal shell: overlay, backdrop, panel geometry. Rendered ONLY by
  * `ProfileViewProvider` below, never at a call site.
  */
@@ -130,32 +148,35 @@ function ProfileViewModal({ userId, onClose }: { userId: string; onClose: () => 
  * the fetch effect when only dismissal state changes.
  */
 function ProfileViewBody({ userId, onClose }: { userId: string; onClose: () => void }) {
-  const [state, setState] = useState<ModalState>("loading");
-  const [view, setView] = useState<PublicProfileView | null>(null);
+  const [result, setResult] = useState<FetchResult>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setState("loading");
-    setView(null);
     getPublicProfileViewAction(userId)
-      .then((result) => {
+      .then((view) => {
         if (cancelled) return;
-        /* A null result is the builder refusing — private, blocked, or not a
-           member. An honest state, never a crash or a silent blank. */
-        if (result) {
-          setView(result);
-          setState("ready");
-        } else {
-          setState("missing");
-        }
+        setResult({ userId, view });
       })
       .catch(() => {
-        if (!cancelled) setState("missing");
+        /* A null result is the builder refusing — private, blocked, or not a
+           member. An honest state, never a crash or a silent blank. A thrown
+           request lands on the same "missing" branch rather than an unhandled
+           rejection. */
+        if (!cancelled) setResult({ userId, view: null });
       });
     return () => {
       cancelled = true;
     };
   }, [userId]);
+
+  /* THE LOAD STATE IS DERIVED, NEVER RESET. A result belonging to a previous
+     id is ignored, so switching straight from one member to another shows the
+     spinner instead of flashing the old photos while the new fetch is in
+     flight — the exact guarantee the old `setView(null)` reset provided, but
+     without a synchronous setState in an effect. */
+  const settled = result !== null && result.userId === userId ? result : null;
+  const state: ModalState = settled === null ? "loading" : settled.view ? "ready" : "missing";
+  const view = settled === null ? null : settled.view;
 
   /* ESCAPE closes — the expectation for any dialog, and the one dismissal
      gesture that works identically on every surface the modal opens over. */
@@ -222,8 +243,9 @@ function ProfileViewBody({ userId, onClose }: { userId: string; onClose: () => v
  * closes it.
  */
 export function ProfileViewProvider() {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [openedAtPath, setOpenedAtPath] = useState<string | null>(null);
+  /* ONE object rather than `userId` + `openedAtPath` pair, so "closed" is a
+     single `null` and the two fields can never disagree about being set. */
+  const [open, setOpen] = useState<{ userId: string; openedAtPath: string } | null>(null);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -232,26 +254,32 @@ export function ProfileViewProvider() {
       const id = detail?.userId?.trim();
       if (!id) return;
       /* Snapshot the route we are opening OVER — see the doc comment above. */
-      setOpenedAtPath(window.location.pathname);
-      setUserId(id);
+      setOpen({ userId: id, openedAtPath: window.location.pathname });
     }
     window.addEventListener(OPEN_PROFILE_VIEW_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_PROFILE_VIEW_EVENT, onOpen);
   }, []);
 
-  /* Close on navigation (including the modal's own Chat/Follow-driven routing). */
-  useEffect(() => {
-    if (userId && openedAtPath && pathname !== openedAtPath) {
-      setUserId(null);
-      setOpenedAtPath(null);
-    }
-  }, [pathname, openedAtPath, userId]);
+  /* Close on navigation (including the modal's own Chat/Follow-driven routing).
+
+     WHY THIS IS A RENDER-TIME ADJUSTMENT AND NOT AN EFFECT: the old version ran
+     this check in a `useEffect` and called `setUserId(null)` from its body,
+     which React 19's `react-hooks/set-state-in-effect` rejects — an effect that
+     only exists to copy a prop change into state is an effect that should not
+     exist. Comparing during render and clearing there is React's documented
+     pattern for "adjusting state when a prop changes", and it is strictly
+     BETTER here: the stale request is dropped in the same pass that detects the
+     navigation, so the overlay can never be painted for one frame after the
+     route has already moved, and it can never reappear on the way back —
+     `open` is cleared outright rather than left lying around to re-match. */
+  if (open !== null && open.openedAtPath !== pathname) {
+    setOpen(null);
+  }
 
   const close = useCallback(() => {
-    setUserId(null);
-    setOpenedAtPath(null);
+    setOpen(null);
   }, []);
 
-  if (!userId) return null;
-  return <ProfileViewModal userId={userId} onClose={close} />;
+  if (open === null) return null;
+  return <ProfileViewModal userId={open.userId} onClose={close} />;
 }

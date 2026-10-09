@@ -126,7 +126,7 @@ export default function ChatPage() {
     // Instant chat skeleton — same header + bubble geometry as the real thread,
     // so the thread swaps in with no spinner and no layout jump.
     return (
-      <div className="app-canvas mx-auto flex h-dvh max-w-3xl flex-col" aria-busy="true">
+      <div className="app-canvas mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden" aria-busy="true">
         <span role="status" aria-live="polite" className="sr-only">
           Opening chat
         </span>
@@ -137,7 +137,7 @@ export default function ChatPage() {
             <span className="sk sk--line block h-2.5 w-48" />
           </div>
         </header>
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
           <BubbleSkeleton bubbles={5} />
         </div>
       </div>
@@ -145,7 +145,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="app-canvas mx-auto flex h-dvh max-w-3xl flex-col">
+    <div className="app-canvas mx-auto flex h-dvh max-w-3xl flex-col overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-3 border-b border-ink-700 bg-surface px-4 py-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-500/15">
@@ -172,7 +172,7 @@ export default function ChatPage() {
       {/* Messages */}
       <ul
         ref={listRef}
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-4 [-webkit-overflow-scrolling:touch]"
         aria-label="Messages"
         role="log"
       >
@@ -239,7 +239,7 @@ export default function ChatPage() {
       {/* Composer */}
       <form
         onSubmit={handleSend}
-        className="flex items-center gap-2 border-t border-ink-700 bg-surface px-4 py-3"
+        className="flex shrink-0 items-center gap-2 border-t border-ink-700 bg-surface px-4 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-3"
       >
         <label htmlFor="chat-input" className="sr-only">
           Message

@@ -123,12 +123,23 @@ export default async function FeedPage({
   // measures the padded box and shrinks to clear the fixed bottom nav rather
   // than hiding under it. `overflow-hidden` here + `overflow-y-auto` on the
   // inner region = ONE scroll surface: body-scroll conflicts gone, no
-  // lockups, momentum scrolling on iOS via the touch flags. `pb-28`
-  // reserves the 5rem fixed tab bar + 2rem breathing room (dropped at
-  // `md:` where the sidebar rail takes over).
+  // lockups, momentum scrolling on iOS via the touch flags.
+  //
+  // THE BOTTOM RESERVATION SITS IN EXACTLY ONE PLACE — HERE. `CommunityFeedView`
+  // used to carry a second `pb-28 md:pb-8` of its own, so the column reserved
+  // 7rem twice: 14rem of dead space above the tab bar on phones and 4rem at
+  // md:, the black gap below the last post. The scroll container is the element
+  // whose end must clear the fixed bar, so it owns the padding; the view is
+  // content only.
+  //
+  // `calc(7rem + env(safe-area-inset-bottom))` = the bar's 5rem (agrees with
+  // AppMain's 5rem-plus-safe-area bottom reserve) + 2rem breathing room + the iOS
+  // home-indicator inset the bar adds to itself via
+  // `pb-[env(safe-area-inset-bottom)]`. `md:pb-8` drops the bar reservation
+  // where the bar is `md:hidden` and the sidebar rail takes over.
   return (
     <div className="flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain pb-28 [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:pb-8">
+      <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain pb-[calc(7rem_+_env(safe-area-inset-bottom))] [-webkit-overflow-scrolling:touch] [touch-action:pan-y] md:pb-8">
         <CommunityFeedView posts={posts} canPost={Boolean(user)} userId={user.uid} />
       </div>
     </div>

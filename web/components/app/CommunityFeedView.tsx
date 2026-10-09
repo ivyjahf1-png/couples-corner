@@ -68,20 +68,22 @@ export function CommunityFeedView({
   const visible = posts;
 
   return (
-    /* ── BOTTOM PADDING ──────────────────────────────────────────────────────
-       `pb-28` (7rem), not the old `pb-8` (2rem).
+    /* ── NO BOTTOM PADDING ON THIS VIEW ───────────────────────────────────────
+       Nav clearance lives in exactly ONE place: the scroll container in
+       `app/(app)/feed/page.tsx`, which reserves the fixed 5rem tab bar + 2rem
+       breathing room + `env(safe-area-inset-bottom)` for the bar's own inset.
 
-       The tab bar is `fixed` and 5rem tall, so it OVERLAYS this column rather
-       than sitting below it — the column never grows to account for it. With
-       `pb-8` the last post scrolled to rest under the bar: the member reached
-       the end of the timeline and the final card was simply unreachable, which
-       reads as "the feed is broken" rather than "there is more".
+       This view used to carry a SECOND `pb-28 md:pb-8` on top of that one.
+       Two 7rem reserves stacked at the end of the SAME column: 14rem of dead
+       space above the tab bar on phones and 4rem at md: — the black gap
+       members saw below the last post, paid as scroll for nothing.
 
-       7rem = 5rem bar + 2rem of breathing room, which is the same reservation
-       `profile/[userId]` uses and must agree with `AppMain`'s `pb-20` and
-       `NAV_BAR_REM` in `components/ui/layers.ts`. `md:pb-8` drops it where the
-       bar is `md:hidden` and the sidebar rail takes over. */
-    <div className="flex flex-col gap-4 pb-28 md:pb-8">
+       The reasoning for reserving AT ALL is unchanged and now lives with the
+       single copy in the page: the bar is `fixed` and OVERLAYS this column
+       rather than pushing it, so without the reservation the last post comes
+       to rest behind the bar and reads as unreachable. The view is content
+       only; the route that scrolls it owns the chrome that scroll must clear. */
+    <div className="flex flex-col gap-4">
       {/* ── SHARE COMPOSER ────────────────────────────────────────────────────
           Sits ABOVE the safety banner, not below it.
 

@@ -144,7 +144,7 @@ export function GamePlayer({
     : "mx-auto w-full max-w-4xl";
 
   return (
-    <div className="flex min-h-0 flex-col bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] px-3 py-4 pb-[calc(1rem+env(safe-area-inset-bottom,0px))] text-white sm:px-6 sm:py-8">
+    <div className="flex min-h-0 flex-col bg-gradient-to-br from-[#0B1120] via-[#0F172A] to-[#1E293B] px-3 py-4 pb-[calc(1rem_+_env(safe-area-inset-bottom))] text-white sm:px-6 sm:py-8">
       <div ref={containerRef} className={viewport}>
         {/* ── Overlay toolbar ──────────────────────────────────────────── */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950/70 p-3 backdrop-blur-md sm:rounded-t-3xl">

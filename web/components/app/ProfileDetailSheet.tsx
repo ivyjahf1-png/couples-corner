@@ -86,7 +86,7 @@ export function ProfileDetailSheet({
         onClick={onClose}
         className={SHEET_BACKDROP}
       />
-      <div className={`${SHEET_PANEL_RELATIVE} max-h-[85dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/10 bg-[#0F172A] shadow-2xl sm:rounded-3xl`}>
+      <div className={`${SHEET_PANEL_RELATIVE} max-h-[85dvh] w-full max-w-lg overflow-y-auto overscroll-contain rounded-t-3xl border border-white/10 bg-[#0F172A] shadow-2xl [-webkit-overflow-scrolling:touch] sm:rounded-3xl`}>
         {/* Sheet grab handle */}
         <div className="sticky top-0 z-10 flex items-center gap-3 border-b border-white/10 bg-[#0F172A]/95 px-5 py-4 backdrop-blur">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-500/15 text-brand-300">
