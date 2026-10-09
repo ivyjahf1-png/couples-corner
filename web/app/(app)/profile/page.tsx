@@ -174,15 +174,13 @@ export default async function ProfilePage() {
          mobile clears the fixed 5rem tab bar, which is the thing actually
          crowding the bottom of the last card; `md:pb-8` drops it where that bar
          is `md:hidden` and the sidebar rail takes over. */
-      /* NO `gap` HERE, DELIBERATELY. `ProfileScreen` owns all of its own vertical
-         rhythm through the single `gap-3` on its root column. A second gap on
-         this wrapper produced a doubled gutter around the whole screen — the
-         first of the "disjointed spacing" symptoms.
-
-         `pb-28` on mobile clears the fixed 5rem tab bar, which is the thing
-         actually crowding the bottom of the last card; `md:pb-8` drops it where
-         that bar is `md:hidden` and the sidebar rail takes over. */
-      bodyClassName="px-4 pt-2 pb-28 md:pb-8"
+      /* BOTTOM RESERVE: `pb-[calc(5rem+env(safe-area-inset-bottom))]` — exactly the
+         fixed bottom nav's height (`NAV_BAR_REM = 5`) plus the iOS home-indicator
+         inset the nav adds to itself. The old `pb-28` was 7rem flat, which left 2rem
+         of dead space beneath the Settings card — the blank gap in the screenshot.
+         `md:pb-8` drops it where the bar is `md:hidden` and the sidebar rail takes
+         over. */
+      bodyClassName="px-4 pt-2 pb-[calc(5rem_+_env(safe-area-inset-bottom))] md:pb-8"
     >
       <ProfileScreen
         data={{
