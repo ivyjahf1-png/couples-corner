@@ -2695,4 +2695,8 @@ button,
   .chat-theme-surface {
     background-color: var(--chat-surface);
   }
+.safe-pb {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+
 }
