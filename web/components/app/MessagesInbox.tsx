@@ -504,6 +504,24 @@ function InboxRowItem({ row }: { row: InboxRow }) {
 
   return (
     <li>
+      {/* `content-visibility: auto` ON THE ROW, NOT ON THE SCROLLER.
+
+          This is the performance optimisation that previously broke the inbox: an
+          off-screen row skips its rendering work, which is what keeps a long list
+          cheap on a budget device.
+
+          `contain-intrinsic-size` IS THE PART THAT MAKES IT SAFE. `auto` implies
+          SIZE containment, and a skipped subtree measured without an intrinsic
+          size is ZERO tall — which collapsed the parent scroller's `scrollHeight`
+          and made the list unscrollable. Naming a realistic row height (72px: the
+          `px-4 py-3.5` row plus its two text lines) means a skipped row still
+          reports a truthful height, so the scrollbar stays honest and every row
+          remains reachable.
+
+          `auto <length>` specifically asks the browser to remember the real
+          rendered height once it HAS painted the row, and to use the length only
+          before then. */}
+      <div className="[content-visibility:auto] [contain-intrinsic-size:auto_72px]">
       <Link
         href={chat.href}
         className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${ROW_FOCUS}`}
@@ -540,6 +558,7 @@ function InboxRowItem({ row }: { row: InboxRow }) {
           </span>
         ) : null}
       </Link>
+      </div>
     </li>
   );
 }
@@ -647,7 +666,30 @@ export function MessagesInbox({
         />
       }
       bodyRef={collapseRef}
-      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [touch-action:pan-y] [content-visibility:auto] md:pb-8"
+      /* THE SINGLE SCROLL REGION — the full mobile triad, and NOTHING that
+         breaks `scrollHeight`.
+
+         `flex-1 min-h-0` is load-bearing: a flex item defaults to
+         `min-height: auto`, so without `min-h-0` this region refuses to shrink
+         below its content and the whole page becomes the scroller instead of the
+         list — the fixed bottom nav then scrolls away with it. `min-h-0` is what
+         makes this box bounded and therefore genuinely scrollable.
+
+         `overscroll-contain` stops reaching the end of the list from
+         rubber-banding the shell behind it.
+
+         `[content-visibility:auto]` USED TO BE HERE AND IT IS THE BUG THAT MADE
+         THIS INBOX UNSCROLLABLE. `content-visibility: auto` skips rendering work
+         for off-screen content by applying SIZE CONTAINMENT to it — and without a
+         matching `contain-intrinsic-size`, every skipped subtree is measured as
+         ZERO tall. So the region's `scrollHeight` collapsed to roughly its own
+         height, the browser saw nothing to scroll to, and the list looked frozen.
+         It is worst exactly where it was meant to help: a long inbox on a slow
+         device, where the compositor skips the most rows. The optimisation now
+         lives on the ROW instead (see `InboxRowItem`), where a skipped row is
+         harmless and an explicit `contain-intrinsic-size` keeps the maths
+         truthful. */
+      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [touch-action:pan-y] [-webkit-overflow-scrolling:touch] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

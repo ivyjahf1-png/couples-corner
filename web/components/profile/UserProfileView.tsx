@@ -171,7 +171,20 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
          pinned without intercepting the scroll gesture. The sibling also
          reserves the fixed tab bar's height in its own `mb`, so it rests flush
          ON TOP of the nav instead of behind it (see the action bar below). */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] [content-visibility:auto]">
+      {/* THE SINGLE SCROLL REGION. Full mobile triad: `flex-1 min-h-0` keeps the
+          box bounded so it — not the page — is the scroller, `overflow-y-auto`
+          makes it genuinely scrollable, and `overscroll-contain` stops the
+          rubber-band chaining to the shell behind it.
+
+          `[content-visibility:auto]` USED TO BE HERE AND IT BROKE SCROLLING.
+          `auto` implies SIZE containment, and with no matching
+          `contain-intrinsic-size` every skipped subtree measures as ZERO tall —
+          so this region's `scrollHeight` collapsed to its own height, the browser
+          found nothing to scroll to, and a long profile looked frozen on exactly
+          the low-end devices the hint was meant to help. Removed; the
+          optimisation belongs on the individual sections, each with its own
+          `contain-intrinsic-size`. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
       {/* Cover: capped height + layout containment so it never forces the sheet. */}
       <div className="relative h-[52vh] max-h-[480px] min-h-[340px] w-full shrink-0 bg-slate-900 [contain:layout_style]">
         {cover ? (
