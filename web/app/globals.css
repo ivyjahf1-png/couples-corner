@@ -754,14 +754,30 @@ input::placeholder, textarea::placeholder {
    a fast scroll they visibly lag the content. Removing the blur is a legibility
    fix, not only a stylistic one.
 
-   `background-color` is set here rather than left to Tailwind so the opacity is
-   guaranteed: an accidental `/90` on the utility class would be silently
-   overridden in the other direction otherwise. */
+   THIS RULE IS UNLAYERED, SO IT BEATS EVERY TAILWIND UTILITY ON THE ELEMENT.
+   That is the whole reason it exists, and it is also why the nav's own
+   `bg-*`/`backdrop-blur-*` classes do nothing on their own: an unlayered rule
+   outranks anything in `@layer utilities`. The colours therefore have to be
+   stated HERE as well as on the element, or the utility is silently ignored.
+   Keep the two in step — the values below are the shipped ones.
+
+   DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
+   the dark slate/navy card, and `blur(12px)` is the translucent frosted edge.
+
+   The blur used to be deliberately OFF (see the history below) because labels sat
+   on a shifting smear of the content behind them. It is back because the pill now
+   floats clear of the content instead of spanning edge to edge, so the sampled
+   area is small and the smear is a thin rim rather than a field behind every
+   caption. On a device with `prefers-reduced-transparency` the LOW-END
+   COMPATIBILITY block further down this file removes the blur and substitutes an
+   opaque fill, which is also the guard for the weak GPUs that cannot composite a
+   backdrop filter at all. */
 .app-bottom-nav {
-  background-color: #1b1636;
+  /* rgb() form of `#0b0f19` at 95% — matches `bg-[#0b0f19]/95` on the element. */
+  background-color: rgb(11 15 25 / 0.95);
   color: #1f2937;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
@@ -1201,45 +1217,36 @@ button,
    fill would be the brightest object on the bar and would out-shout the app's
    own accent. The active tab IS the accent: solid `#FF7A00` with a near-black
    label (7.4:1), the same pair the raised centre tab uses, so "you are here"
-   is one consistent orange across the whole bar. */
+   is one consistent orange across the whole bar.
+
+   `background-color: transparent` IS DELIBERATE AND LOAD-BEARING. The orange now
+   lives on the tab's INNER CIRCLE (the `h-11 w-11 rounded-full` span in
+   `mobileTabClasses`), not on the tab itself — the reference shows a round
+   highlighted button, not a full-width bar. This rule is UNLAYERED, so if it
+   declared an orange fill here that fill would win over every Tailwind utility
+   on the element and paint a wide ellipse behind the circle, stretching it into
+   an oval. Keeping the tab transparent is what lets the circle stay round.
+   `color` and `border-color` stay orange so the label still reads as selected. */
 .nav-pill--active,
 .nav-pill--active:hover {
-  color: #0f0c1b;
-  background-color: #ff7a00;
-  border-color: #ff7a00;
+  /* WHITE, not near-black. The label sits directly on the pill's navy now that
+     the tab itself is transparent — the near-black `#0f0c1b` this carried was
+     tuned to sit ON an orange fill and would be invisible here. White keeps the
+     caption legible while the circle above it carries the accent. */
+  color: #ffffff;
+  background-color: transparent;
+  border-color: transparent;
 }
 
-/* THE GLOW, NOT A FLAT SHADOW. On the dark bar an orange glow is what reads as
-   "lit"; a plain dark drop shadow would only smear the pill's edge into the
-   navy behind it. Kept tight so it never bleeds onto a neighbour. */
-.nav-pill--active {
-  box-shadow: 0 8px 20px -6px rgb(255 122 0 / 0.75);
-}
-/* The indicator: a short bar under the active tab's label.
+/* The glow lives on the ACTIVE CIRCLE in `AppNav.tsx`, not here: it has to
+   follow the orange fill, and the fill moved off this element. */
+/* THE INDICATOR BAR IS GONE.
 
-   Purple rather than orange, for the same reason as the pill above — orange on a
-   white capsule reads as an alert, and it is the app's reserved primary-action
-   colour. It sits on the pill's own axis and is still a bar, not a disc, so it
-   cannot be confused with the red unread count badge.
-
-   The RAISED centre tab does not get this bar: it has a filled pill and a lifted
-   position already, so an indicator under it would double the signal. */
-.nav-pill--active::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: 0.25rem;
-  width: 1rem;
-  height: 0.1875rem;
-  transform: translateX(-50%);
-  border-radius: 9999px;
-  /* Near-black, because it now sits ON the orange fill — the old violet
-     (#7a6abe) would muddy against it and orange-on-orange would vanish. */
-  background-color: rgb(15 12 27 / 0.55);
-}
+   It was a short dark bar under the active tab's label. With the accent now a
+   filled circle directly above the caption, a second mark under it double-states
+   "you are here" and crowds the label. The circle is the whole signal. */
 .nav-pill--active:active:not(:disabled) {
   transform: translateY(1px);
-  background-color: #e86e00;
 }
 @media (prefers-reduced-motion: reduce) {
   .nav-pill {

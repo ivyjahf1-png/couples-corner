@@ -251,28 +251,27 @@ const mobileTabs: MobileTab[] = [
  * inside for why it is a separate branch and not a modifier on the amber pill.
  */
 function mobileTabClasses(active: boolean, raised = false) {
-    /* THE RAISED CENTRE TAB - NO RESTING CONTAINER.
+    /* THE SELECTED TAB IS A CIRCULAR ACCENT, NOT A PILL FILL.
 
-       This button previously carried a permanent filled pill (`#F1EDFA` at rest,
-       deep purple when active) plus a `-mt-4` lift, which made the "Feed" tab a
-       solid white block sitting in the middle of the bar. It read as a permanent
-       primary action and out-shouted its four neighbours, which are transparent
-       until tapped.
+       The reference shows the highlighted slot as a filled CIRCLE rather than a
+       rounded rectangle, so the resting pill is a circle that grows only when
+       selected. `rounded-full` alone gives an ellipse as wide as the track; the
+       fixed `h-11 w-11` on the inner span is what actually makes it round, and
+       `min-w-0`/`px-0` stop the `whitespace-nowrap` "Messages" caption from
+       stretching it back into an oval on a narrow phone.
 
-       It is now SHAPELESS AT REST: `bg-transparent`, no border, no lift, and the
-       same muted label colour the other four resting tabs use. Selection is carried
-       entirely by the brand ORANGE fill and its glow, so the orange that means "you
-       are here" is the only orange on the bar.
+       ACCENT IS BRAND ORANGE, matching the app's single accent. The previous
+       `bg-white` fill was a leftover from the light theme: on this deep navy pill
+       it read as five holes punched in the bar, and it competed with the content
+       above rather than marking the current location.
 
-       The lift is gone for the same reason as the fill: a control raised above its
-       neighbours with nothing inside it reads as a broken or half-rendered element,
-       not as a distinguished one. Elevation is now a STATE (orange, lifted) rather
-       than a permanent trait, which is also what makes the transition legible when
-       the member taps the tab.
-
-       `-mt-4`/`-mb-1` are deliberately NOT retained: they only made sense as space
-       for the filled pill to overflow into. With no fill there is nothing to
-       overflow, so they would leave the icon floating above the row. */
+       `raised` (the centre Feed tab) is NO LONGER a separate branch. It used to
+       carry a permanent filled pill plus a `-mt-4` lift, which out-shouted its
+       four neighbours at rest and read as a broken element once the lift was
+       removed. Selection is now the ONLY thing that fills a tab, on every tab
+       alike, so "you are here" is expressed the same way everywhere. The flag is
+       kept in the signature because `mobileTabs` still sets it and callers pass
+       it; it intentionally no longer changes the styling. */
     return [
       "nav-pill nav-pill--tab",
       /* THE ACTIVE CLASS IS WHAT RETINTS THE PILL. `.nav-pill` in globals.css is
@@ -282,10 +281,10 @@ function mobileTabClasses(active: boolean, raised = false) {
          origin) is the one rule allowed to override it, which is why the active
          state must carry the class rather than only the utility pair. */
       active ? "nav-pill--active" : "",
-      "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-4 pt-2.5 pb-2 transition",
+      "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-0 pt-2.5 pb-2 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
-        ? "bg-white text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,255,255,0.5)] transition-all duration-300"
+        ? "text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.65)] transition-all duration-300"
           : "text-[#9B93AE] hover:bg-white/10 hover:text-white transition-all duration-300",
     ]
       .filter(Boolean)
@@ -470,7 +469,17 @@ export function AppMain({ children }: { children: React.ReactNode }) {
             // (the media feed) shrink to clear the bar rather than hiding under
             // it. The conversation route takes `p-0`: its bar is hidden entirely,
             // so any padding here would be dead space.
-            "px-4 pb-[calc(5rem_+_env(safe-area-inset-bottom))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
+            //
+            // 7rem, NOT 5rem, SINCE THE BAR BECAME A FLOATING PILL. The reserve
+            // must cover the pill's whole height PLUS the `mb-4` gap that lifts it
+            // off the bottom edge: 16px margin + 8px padding + a 44px accent
+            // circle with its caption + 8px padding is ~109px, and 5rem (80px)
+            // stranded the last row behind it. 7rem (112px) clears it. The
+            // gesture-bar inset is INSIDE the pill (`pb-[env(...)]`), so it is
+            // added on top here exactly as before. The pages that reserve the bar
+            // themselves (`pb-24` on the inbox and store, `pb-28` on the profile)
+            // were already generous enough and are unchanged.
+            "px-4 pb-[calc(7rem_+_env(safe-area-inset-bottom))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
       ].join(" ")}
     >
       <div className="mx-auto flex min-h-0 w-full max-w-[88rem] flex-1 flex-col">{children}</div>
@@ -577,7 +586,20 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav pointer-events-auto mx-auto w-10/12 max-w-md rounded-full border border-white/15 bg-black/60 shadow-2xl backdrop-blur-xl mb-[calc(0.75rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)]"
+        /* THE FLOATING PILL. Not an edge-to-edge bar: `mx-4` pulls it in from both
+           sides and `mb-4` lifts it off the bottom edge, so it reads as a card
+           hovering over the content. `rounded-full` makes it a true pill.
+
+           `pb-[env(safe-area-inset-bottom)]` is what puts the gesture-bar inset
+           INSIDE the pill rather than below it — the home indicator is drawn over
+           the pill's own bottom padding, so the icons keep a real clearance on a
+           notched device instead of sitting under the system bar.
+
+           `bg-[#0b0f19]/95` and `backdrop-blur-md` are restated here for readers,
+           but they are NOT what paints the surface: `.app-bottom-nav` is UNLAYERED
+           CSS and outranks this layered utility, so the authoritative values live
+           in that rule in globals.css. Both places must be changed together. */
+        className="app-bottom-nav pointer-events-auto mx-4 mb-4 w-[calc(100%-2rem)] max-w-md rounded-full border border-white/10 bg-[#0b0f19]/95 shadow-2xl backdrop-blur-md pb-[env(safe-area-inset-bottom)]"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -594,45 +616,44 @@ function MobileNavigation({
             OWN background on its `<li>` below. Do not reintroduce a fill here -
             this shared background is the thing the fix exists to remove. */}
         <div className="mx-auto max-w-lg p-2">
-          {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
-              change together: a stale column count would either squeeze four
-              tabs into five tracks — leaving a dead gap at one end — or stretch
-              them across an empty fifth, which is the more obvious bug.
+          {/* FIVE EQUAL TRACKS, NO GUTTER. `grid-cols-5` gives every tab exactly a
+              fifth of the pill, which is what "evenly spaced" means here — each
+              pill then fills its own track via `w-full` below, so the five
+              controls are identical in size and the spaces between them are
+              identical too.
 
-              `gap-1` is the EXPLICIT CHANNEL between the pills. It is small on
-              purpose: together with each `<li>`'s `mx-1` it opens an ~12px dark
-              gutter between neighbours (clearly separating the buttons) without
-              eating the width the `whitespace-nowrap` "Messages" label needs on
-              a narrow phone. */}
-          <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
+              `gap-1` and each `<li>`'s `mx-1` are GONE. They were there to stop
+              the old separate-card pills touching, but combined with `grid-cols-5`
+              they left the row unevenly spaced: the pills did not fill their
+              tracks, so the visual gaps did not match the arithmetic ones. With
+              the pills now flush to their tracks the spacing is exact by
+              construction, and there is no dark gutter inside the pill to betray
+              the shared background.
+
+              MUST match the length of `mobileTabs` (5). A stale count either
+              squeezes four tabs into five tracks — a dead gap at one end — or
+              stretches them across an empty fifth. */}
+          <ul className="grid w-full grid-cols-5">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
-              /* EACH TAB'S OWN CONTAINER.
+              /* THE `<li>` IS A TRANSPARENT TRACK, NOT A CARD.
 
-                 The `<li>` is the independent pill: it owns the solid muted
-                 slate fill, hairline ring and shadow that the shared capsule
-                 used to provide for the whole row, and `mx-1` gives every
-                 button margin so no two pills can touch even before the list's
-                 `gap-1` is counted.
-                 `relative` is kept as the positioning context for anything
-                 absolutely placed inside a tab, and there is deliberately NO
-                 `overflow-hidden` - the unread badge overflows its icon box and
-                 clipping would cut it off. */
+                 It used to paint its own opaque slate pill (`bg-[#241E44]` + ring +
+                 shadow) so five separate cards read as five controls. That is the
+                 opposite of the reference, which shows ONE floating pill with five
+                 evenly spaced slots inside it. The fill therefore moves OFF this
+                 element: it is now invisible, and the selected tab paints its own
+                 accent circle inside it (see `mobileTabClasses`).
+
+                 `flex items-stretch` makes the `<li>` as tall as its grid track so
+                 the tab below can be `h-full`; `relative` stays the positioning
+                 context for the unread badge, and there is still deliberately NO
+                 `overflow-hidden` — the badge overflows its icon box and clipping
+                 would cut it off. */
               return (
                 <li
                   key={item.href}
-                  /* EACH TAB'S OWN SOLID, MUTED CONTAINER — NO BRIGHT WHITE.
-
-                     `#241E44` is an opaque slate lifted just above the bar's own
-                     `#1B1636`: dark enough to stay calm under the orange accent,
-                     light enough that the hairline ring reads as an edge rather
-                     than a smudge. `bg-white` here produced five glowing slabs on
-                     a navy bar — the buttons stopped reading as one restrained
-                     row of controls and started competing with the content above.
-                     The `ring-white/[0.08]` + shadow draw the boundary that the
-                     fill alone no longer provides, so neighbours still cannot
-                     merge. */
-                  className="relative mx-1 rounded-full bg-[#241E44] shadow-[0_6px_16px_-8px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.08]"
+                  className="relative flex h-full w-full items-stretch justify-center"
                 >
                   <Link
                     href={item.href}
@@ -664,20 +685,32 @@ function MobileNavigation({
     and the glyph stay in step. The RAISED Feed tab is given 18px: it sits in a
     filled pill whose label is bold, and a 20px stroke-only glyph beside that
     weight reads heavier than its neighbours. */}
-                    <span className="relative flex h-5 w-6 items-center justify-center">
+                    {/* THE ICON'S CIRCULAR ACCENT — the highlighted centre button.
+
+                        `h-11 w-11` + `rounded-full` is what makes the selected tab a
+                        true CIRCLE: the track is far wider than it is tall, so
+                        `rounded-full` on the tab alone would only ever produce a
+                        wide ellipse. Fixing both dimensions here is the only way to
+                        get a round highlight.
+
+                        At rest the circle is transparent and the glyph sits on the
+                        pill's own navy. Selected, it fills with the brand orange and
+                        gains a glow, which is the single accent on the bar.
+
+                        `relative` is kept as the badge's positioning context and
+                        there is NO `overflow-hidden`: the unread badge escapes this
+                        box to sit over the glyph's top-right corner. */}
+                    <span
+                      className={
+                        active
+                          ? "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#FF9500] to-[#FF7A00]"
+                          : "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-transparent"
+                      }
+                    >
                       <NavIcon
                         name={item.navIcon}
-                        size={item.raised ? 18 : 20}
-                        className={
-                          /* Icon colour tracks the LABEL colour in both states, on
-                             every tab. The raised Feed tab used to rest white
-                             because its pill was a different (purple) surface
-                             from its neighbours; it now shares the same muted
-                             slate fill, so its glyph uses the same `#9B93AE` the
-                             caption renders in — icon and caption stay one lit
-                             unit instead of drifting two tones apart. */
-                          active ? "text-[#0F0C1B]" : "text-[#9B93AE]"
-                        }
+                        size={20}
+                        className={active ? "text-white" : "text-[#9B93AE]"}
                       />
                       {item.showBadge && unreadCount > 0 ? (
                         <UnreadBadge count={unreadCount} />
