@@ -285,16 +285,8 @@ function mobileTabClasses(active: boolean, raised = false) {
       "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-4 pt-2.5 pb-2 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
-        /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
-             wash; this one is the primary destination and the reference calls for the
-             vibrant orange accent. Near-black label on orange clears 7.4:1, so the text
-             stays legible instead of going orange-on-orange. */
-          ? "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.75)]"
-          /* RESTING LABEL, RE-CHOSEN FOR THE MUTED SLATE PILL. `#5B6478` was tuned
-             for the old WHITE fill and drops to ~2:1 on `#241E44` — invisible.
-             `#9B93AE` clears 4.6:1 there; hover lifts to white so the affordance
-             stays discoverable without a second bright surface appearing. */
-          : "text-[#9B93AE] hover:bg-white/10 hover:text-white",
+        ? "bg-white text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,255,255,0.5)] transition-all duration-300"
+          : "text-[#9B93AE] hover:bg-white/10 hover:text-white transition-all duration-300",
     ]
       .filter(Boolean)
       .join(" ");
@@ -361,7 +353,7 @@ export function isActiveConversationPath(pathname: string | null): boolean {
  *
  * Everywhere except an ACTIVE conversation (/messages/<conversationId>) the
  * region keeps its normal page gutters and top padding. Inside a conversation it
- * drops them completely, so the chat page's own `h-[100dvh]` column is not
+ * drops them completely, so the chat page's own `h-full max-h-[100dvh]` column is not
  * squeezed or overflowed by shell padding - the thread, header and composer get
  * the raw dynamic viewport, edge to edge.
  *
@@ -478,7 +470,7 @@ export function AppMain({ children }: { children: React.ReactNode }) {
             // (the media feed) shrink to clear the bar rather than hiding under
             // it. The conversation route takes `p-0`: its bar is hidden entirely,
             // so any padding here would be dead space.
-            "px-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
+            "px-4 pb-[calc(5rem_+_env(safe-area-inset-bottom))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
       ].join(" ")}
     >
       <div className="mx-auto flex min-h-0 w-full max-w-[88rem] flex-1 flex-col">{children}</div>
@@ -585,7 +577,7 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav shrink-0 bg-[#1B1636] pb-[env(safe-area-inset-bottom,0px)]"
+        className="app-bottom-nav pointer-events-auto mx-auto w-10/12 max-w-md rounded-full border border-white/15 bg-black/60 shadow-2xl backdrop-blur-xl mb-[calc(0.75rem+env(safe-area-inset-bottom))] pb-[env(safe-area-inset-bottom)]"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -739,7 +731,7 @@ function MobileNavigation({
               </p>
             ) : null}
 
-            <nav aria-label="Menu" className="flex-1 overflow-y-auto px-3 py-4">
+            <nav aria-label="Menu" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-4">
               <ul className="flex flex-col gap-1">
                 {menuDrawerItems.map((item) => {
                   const active = isActive(pathname, item);

@@ -545,8 +545,8 @@ export function MomentViewerCard({
             muted
             loop
             playsInline
-            preload="auto"
-            className="h-full w-full object-cover"
+            preload="metadata"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : kind === "link" ? (
           /* Link moments are validated, allowlisted embed URLs produced
@@ -572,8 +572,8 @@ export function MomentViewerCard({
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/80" />
       </div>
 
-      {/* Top location header */}
-      <div className="relative z-30 flex items-center justify-between px-4 pt-4">
+      {/* Top location header — floating pill, centred, clear of the notch. */}
+      <div className="absolute inset-x-0 top-[calc(env(safe-area-inset-top)+1rem)] z-30 flex items-center justify-between px-4" style={{ top: "calc(env(safe-area-inset-top, 0px) + 1rem)" }}>
         <div className="w-10" />
         {/* Real uploads carry no location, so the pill is omitted rather
             than rendered as an empty chip with a pulsing dot. */}
@@ -605,7 +605,7 @@ export function MomentViewerCard({
           comment bar + a gap, scaling with the home-indicator inset. The old
           `bottom-24` assumed the bar sat at the viewport edge, which is no
           longer where the stack lands. */}
-      <div className="absolute bottom-[calc(9rem_+_env(safe-area-inset-bottom,0px))] right-4 z-30 flex flex-col items-center gap-3.5">
+      <div className="absolute bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] right-3 z-30 flex flex-col items-center gap-3.5 max-sm:gap-2.5" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         <button
           type="button"
           onClick={browse}
@@ -675,11 +675,11 @@ export function MomentViewerCard({
           bar's height BELOW that edge — so the bar lands ~11px ON TOP of the
           tab bar on every screen height (5rem reserve vs the measured 69px
           bar), with no page scroll available to uncover it. */}
-      <div className="relative z-20 flex flex-col gap-3 px-4">
+      <div className="absolute inset-x-0 bottom-[calc(theme(spacing.20)+env(safe-area-inset-bottom))] z-20 flex flex-col gap-3 px-4 max-sm:gap-2" style={{ bottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
         {/* `self-start`: as a flex-column child the pill would otherwise
             stretch to full width and its rounded-full shape would read as a
             full-bleed strip rather than the compact chip it is. */}
-        <div className="flex items-center gap-3 self-start rounded-full border border-white/20 bg-black/50 p-2 pr-4 shadow-2xl backdrop-blur-md">
+        <div className="flex w-10/12 max-w-xs items-center gap-3 self-start rounded-2xl border border-white/20 bg-white/20 p-2 pr-4 shadow-2xl backdrop-blur-md max-sm:w-3/4">
           <button
             type="button"
             onClick={() => {
@@ -742,7 +742,7 @@ export function MomentViewerCard({
             stack's bottom edge — the reserved strip that sits on the nav. */}
         <form
           onSubmit={handleSend}
-          className="flex items-center rounded-full border border-white/25 bg-black/70 px-4 py-2 shadow-2xl backdrop-blur-xl"
+          className="flex w-10/12 max-w-md items-center self-center rounded-full border border-white/25 bg-black/70 px-4 py-2 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-xl"
           noValidate
         >
           <label htmlFor="moment-comment" className="sr-only">
