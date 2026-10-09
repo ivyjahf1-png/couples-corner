@@ -332,6 +332,13 @@ export async function exchangeSessionCookie(accessToken: string): Promise<void> 
   try {
     response = await fetch("/api/auth/session", {
       method: "POST",
+      /* `credentials: "same-origin"` is what lets the browser ACCEPT the
+         Set-Cookie the route returns. Without it, fetch still completes 200
+         but the cookie jar drops the Set-Cookie silently — sign-in looks
+         successful and every subsequent navigation is signed out. Same-origin
+         keeps the cookie first-party (path=/, SameSite=Lax from the server)
+         so middleware sees it on the very next request. */
+      credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ accessToken }),
     });
@@ -344,7 +351,30 @@ export async function exchangeSessionCookie(accessToken: string): Promise<void> 
     );
   }
 
-  if (response.ok) return;
+  if (response.ok) {
+    /* VERIFY THE COOKIE ACTUALLY LANDED. A 200 means the server WROTE the
+       Set-Cookie header, not that the browser STORED it — third-party-cookie
+       blocking, a Secure mismatch, or a rejected domain silently drops it. A
+       follow-up GET that requires the cookie confirms persistence; failure
+       here is a graceful fallback (bearer session still works client-side),
+       never a crash — the exact reason is logged for diagnosis. */
+    try {
+      const verify = await fetch("/api/auth/session", {
+        method: "GET",
+        credentials: "same-origin",
+      });
+      if (!verify.ok) {
+        console.warn("[auth] session cookie exchange succeeded but cookie did not persist", {
+          verifyStatus: verify.status,
+        });
+      }
+    } catch (verifyError) {
+      console.warn("[auth] session cookie persistence check failed (non-fatal)", {
+        message: verifyError instanceof Error ? verifyError.message : String(verifyError),
+      });
+    }
+    return;
+  }
 
   /* READ THE STATUS CODE, NOT JUST THE BODY.
 

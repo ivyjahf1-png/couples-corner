@@ -8,7 +8,21 @@
  */
 
 import { NextResponse } from "next/server";
-import { createSessionFromIdToken } from "@/lib/server/session";
+import { createSessionFromIdToken, getCurrentSessionUser } from "@/lib/server/session";
+
+/**
+ * GET /api/auth/session — lightweight persistence probe.
+ *
+ * The client's `exchangeSessionCookie` calls this right after the POST: a 200
+ * there only proves the server WROTE Set-Cookie, not that the browser STORED
+ * it. A 200 here proves the cookie round-tripped (middleware/server sees it);
+ * anything else is logged client-side as a non-fatal persistence warning.
+ */
+export async function GET() {
+  const user = await getCurrentSessionUser();
+  if (!user) return NextResponse.json({ ok: false }, { status: 401 });
+  return NextResponse.json({ ok: true });
+}
 
 export async function POST(request: Request) {
   try {
