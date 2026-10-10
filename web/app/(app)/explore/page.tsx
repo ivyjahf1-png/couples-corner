@@ -99,8 +99,8 @@ export default async function ExplorePage() {
           button out of the row — which is what read as the controls "wrapping".
           `shrink-0` + `whitespace-nowrap` on the button pins its width so the
           input absorbs all the give instead. */}
-      <div className="flex w-full items-center gap-2 sm:gap-3">
-        <div className="relative min-w-0 flex-1">
+      <div className="flex w-full min-w-0 flex-nowrap items-center gap-2 sm:gap-3">
+        <div className="min-w-0 flex-1">
           <input
             type="text"
             placeholder="Search by 6-letter ID or username"
@@ -111,9 +111,9 @@ export default async function ExplorePage() {
           href="/discover"
           size="sm"
           variant="secondary"
-          className="h-12 shrink-0 whitespace-nowrap rounded-2xl border-white/10 bg-white/[0.05] px-4 text-ink-100 hover:bg-white/10"
+          className="h-12 shrink-0 whitespace-nowrap rounded-2xl border-white/10 bg-white/[0.05] px-3 text-ink-100 hover:bg-white/10 sm:px-4"
         >
-          Browse grid
+          <span className="hidden min-[380px]:inline">Browse grid</span><span className="min-[380px]:hidden">Grid</span>
         </Button>
       </div>
 
@@ -162,23 +162,28 @@ export default async function ExplorePage() {
                 THE SELECTOR TARGETS `<a>`, NOT `<div>`: `ProfileCard`'s root is a
                 next/link anchor, so a `[&>div]` compound matches nothing. */}
             <div className="flex min-h-0 w-full flex-1 flex-col">
-              {/* `100dvh_-_22rem` — THE UNDERSCORES ARE LOAD-BEARING. Tailwind
+              {/* `100dvh_-_20rem` — THE UNDERSCORES ARE LOAD-BEARING. Tailwind
                   turns `_` into a space in arbitrary values, and CSS `calc()`
                   REQUIRES whitespace around `-`. Writing `calc(100dvh-22rem)`
                   produces invalid CSS that every browser silently discards, so the
                   whole `min-height` declaration vanishes and the floor is lost.
 
-                  `min(100%, …)` caps the floor at the parent's own height, so this
-                  can never force the card taller than the space available and push
-                  the box past the viewport. */}
-              <div className="min-h-0 w-full flex-1 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>a]:flex [&>a]:h-full [&>a]:w-full [&>a]:flex-col [&>a]:min-h-[min(100%,calc(100dvh_-_22rem))]">
+                  `100dvh - 20rem` ≈ the viewport minus everything above/below the
+                  hero (header + search row + gutters + tab-bar reserve), so the
+                  photo card stretches to fill right up under the search/grid row
+                  with no dead space — and shrinks with the window, never pushing
+                  past the viewport. No `min(100%, …)` wrapper: inside this scroll
+                  region the parent's height is `auto`, so `100%` resolves to
+                  content height and `min()` would pick the SMALLER value, pinning
+                  the hero to its content instead of the viewport. */}
+              <div className="min-h-0 w-full flex-1 overflow-hidden rounded-3xl border border-orange-500/20 bg-white/[0.02] shadow-xl backdrop-blur-md [&>a]:flex [&>a]:h-full [&>a]:w-full [&>a]:flex-col [&>a]:min-h-[calc(100dvh_-_20rem)]">
                 <ProfileCard profile={suggestions[0]} />
               </div>
             </div>
             {suggestions.length > 1 ? (
               <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {suggestions.slice(1, 9).map((profile) => (
-                  <li key={profile.id} className="min-w-0 [&>a]:h-full [&>a]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
+                  <li key={profile.id} className="min-w-0 [&>a]:h-full bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
                     <ProfileCard profile={profile} />
                   </li>
                 ))}
@@ -202,7 +207,7 @@ export default async function ExplorePage() {
         {nearby.length > 0 ? (
           <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {nearby.slice(0, 9).map((profile) => (
-              <li key={`nearby-${profile.id}`} className="min-w-0 [&>a]:h-full [&>a]:min-h-[420px] bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
+              <li key={`nearby-${profile.id}`} className="min-w-0 [&>a]:h-full bg-white/[0.02] border border-white/10 rounded-3xl overflow-hidden shadow-xl backdrop-blur-md">
                 <ProfileCard profile={profile} />
               </li>
             ))}
