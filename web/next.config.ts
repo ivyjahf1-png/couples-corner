@@ -20,6 +20,16 @@ const nextConfig: NextConfig = {
       // cached bundle from the short-lived alias still lands on a real page.
       // `permanent: false` keeps it re-evaluated, matching the aliases above.
       { source: "/vip-club", destination: "/aristocracy", permanent: false },
+      // The legacy Game Center was removed wholesale (built-in engines, the
+      // /games hub, /games/[id] and /api/games/reward). Old links survive in
+      // two places: bookmarks/shared URLs, and the task-center seed row whose
+      // link is `/games/couples-ludo-advance`. Redirecting the whole `/games`
+      // tree to the dashboard keeps those links landing on a real screen — the
+      // launcher itself is a modal (`openGame()`), not a page, so there is no
+      // games route left to send them to. Checked before filesystem routes and
+      // affecting only unmatched paths, so it is inert until /games is gone.
+      { source: "/games/:path*", destination: "/dashboard", permanent: false },
+      { source: "/games", destination: "/dashboard", permanent: false },
     ];
   },
   // Server Action request body limit.

@@ -85,8 +85,10 @@ export default function FeedLayout({ children }: { children: ReactNode }) {
        no component that renders a preview of the app inside itself — verified by
        inspection: the only `<iframe>`s in the codebase are `MediaEmbed` (a
        click-to-load third-party VIDEO player, scoped to no allow-same-origin and
-       no allow-top-navigation) and `GamePlayer` (a sandboxed external HTML5
-       game). Neither mounts on this route, and neither points at this app.
+       no allow-top-navigation) and `GameModal` (the fullscreen HTML5 game
+       launcher). `GameModal` mounts only on demand — its provider renders null
+       until a member opens a game — so neither frame exists on this route by
+       default, and neither points at this app.
 
        `bg-slate-950` matches `AppShell`'s canvas so the screen paints its own
        surface even if a panel is briefly shorter than the viewport, instead of

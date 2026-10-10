@@ -2,7 +2,8 @@ import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
-import { GAMES_REGISTRY } from "@/lib/gamesData";
+import { HTML5_GAMES } from "@/lib/game/registry";
+import { GameLaunchButton } from "@/components/game/GameModal";
 
 /**
  * THE PROFILE SCREEN ("Me").
@@ -242,59 +243,27 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "Aristocracy", href: "/aristocracy", icon: "crown" },
 ];
 
-/** A game tile in the Recommended Games grid. */
-interface GameTile {
-  id: string;
-  title: string;
-  /** Absolute route — the game is genuinely playable at this path. */
-  href: string;
-  /** The game's own accent gradient, from the registry. */
-  gradient: string;
-  /** The game's own glyph, from the registry. */
-  emoji: string;
-  /** Short registry tagline, used as the tile's accessible description. */
-  tagline: string;
-}
-
 /**
- * The four titles promoted into the profile's Recommended Games row.
+ * The titles promoted into the profile's Recommended Games row.
  *
- * THESE ARE NOT INVENTED. Every id below is a real entry in `GAMES_REGISTRY`,
- * which is the same catalogue `GameCenterHub` renders and that `/games/[id]`
- * resolves — so each tile now opens a game that actually loads and plays,
- * instead of the `/store` dead link these tiles carried before.
+ * Resolved from `lib/game/registry` BY ID rather than re-declared, so the
+ * title, gradient, glyph and tagline cannot drift out of step with the
+ * launcher: change a name in the registry and both surfaces follow. The ids
+ * come from the same list POST /api/game/launch validates against — a tile
+ * here can never open a game the server would refuse.
  *
- * They are resolved BY ID rather than re-declared so the title, gradient, glyph
- * and tagline cannot drift out of step with the hub: change a name in
- * `gamesData.ts` and both surfaces follow.
- *
- * ORDER is deliberate rather than registry order — these four are the
- * Slots/Action titles the hub hides behind its category filter, promoted here as
- * the profile's showcase.
+ * Each tile renders a `GameLaunchButton` (not a Link): there is no `/games`
+ * route anymore. The click dispatches `openGame(id)` and the root-layout
+ * provider mints the signed iframe URL.
  */
-const FEATURED_GAME_IDS = [
-  "fortune-gems",
-  "wealthy-tiger",
-  "world-goal",
-  "rocket-star",
-] as const;
+const FEATURED_GAME_IDS = ["ludo", "mines", "spin-wheel"] as const;
 
-const GAMES: GameTile[] = FEATURED_GAME_IDS.map((id) => {
-  const entry = GAMES_REGISTRY.find((game) => game.id === id);
+const GAMES = FEATURED_GAME_IDS.flatMap((id) => {
+  const entry = HTML5_GAMES.find((game) => game.id === id);
   /* A missing id is a programming error, not a runtime condition: the ids above
-     are compile-time literals checked against a literal array. Returning a
-     visible placeholder beats rendering an empty tile with no href. */
-  if (!entry) {
-    return { id, title: id, href: "/games", gradient: "from-slate-500 to-slate-700", emoji: "🎮", tagline: "Game" };
-  }
-  return {
-    id: entry.id,
-    title: entry.title,
-    href: `/games/${entry.id}`,
-    gradient: entry.gradient,
-    emoji: entry.emoji,
-    tagline: entry.tagline,
-  };
+     are compile-time literals. flatMap skips rather than inventing a placeholder
+     — a tile with no registry entry has nothing honest to show. */
+  return entry ? [entry] : [];
 });
 
 /**
@@ -574,17 +543,18 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * between them anywhere.
        * ================================================================ */}
       <section aria-label="Games and features" className={SURFACE}>
-        {/* Band 1 — Recommended Games. A 4-up grid, not a scroll rail: with
-            four titles a rail would clip the fourth and imply content that does
-            not exist.
-            The tiles are real catalogue entries with real routes (see GAMES),
-            not placeholders pointing at the store. */}
+        {/* Band 1 — Recommended Games. A 3-up grid, one per registered HTML5
+            game, not a scroll rail: with three titles a rail would clip the
+            third and imply content that does not exist.
+            The tiles open the launcher modal via `GameLaunchButton` (see GAMES
+            above) — there is no `/games` route any more. */}
         <div className="px-4 pb-4 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white">Recommended Games</h2>
             <Link
               href="/store"
               aria-label="See all games"
+              title="See all games"
               className={`flex h-8 w-8 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
             >
               <ProfileIcon name="chevron-right" className="h-5 w-5" />
@@ -595,22 +565,22 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
               A grid item defaults to `min-width: auto`, which means it refuses to
               shrink below its content's width. One long game title therefore widened
-              its whole track, and because the grid is `1fr` x 4 the extra width was
-              pushed out of the right edge and the fourth tile was cut off - the row
+              its whole track, and because the grid is `1fr` x 3 the extra width was
+              pushed out of the right edge and the last tile was cut off - the row
               looked broken rather than scrolled.
 
               `min-w-0` lets the track shrink to its `1fr` share, the title's
-              `line-clamp-1` ellipsizes inside it, and all four tiles stay on screen.
-              It is a containment fix, not a layout change: the 4-up grid is kept
-              deliberately, because with exactly four titles a scroll rail would clip
-              the fourth AND imply content that does not exist. */}
-          <ul className="mt-3 grid grid-cols-4 gap-2">
+              `line-clamp-1` ellipsizes inside it, and all tiles stay on screen.
+              It is a containment fix, not a layout change: the 3-up grid is kept
+              deliberately, because with exactly three titles a scroll rail would
+              clip the last AND imply content that does not exist. */}
+          <ul className="mt-3 grid grid-cols-3 gap-2">
             {GAMES.map((game) => (
               <li key={game.id} className="min-w-0">
-                <Link
-                  href={game.href}
+                <GameLaunchButton
+                  gameId={game.id}
                   /* The tagline is the tile's accessible name: a screen reader
-                     otherwise announces four identical bare numbers-of-a-game with
+                     otherwise announces three identical bare numbers-of-a-game with
                      no idea which is which or what playing one involves. */
                   aria-label={`${game.title} — ${game.tagline}`}
                   className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-white/[0.06] ${FOCUS}`}
@@ -631,9 +601,9 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
 
                      HONEST LIMITATION: there are no screenshot or photo assets in
                      this repository — `public/` holds only the three app icons — so
-                     this is designed artwork built from the catalogue's own data,
-                     not photography. Drop PNGs at `public/games/<id>.png` and add
-                     an `image` field to `GameRegistryEntry` to swap in real
+                     this is designed artwork built from the registry's own data,
+                     not photography. Drop PNGs at `public/html5-games/<id>/cover.png` and add
+                     an `image` field to `Html5Game` to swap in real
                      screenshots; the tile is one `<img>` away from it. */}
                   <span
                     aria-hidden
@@ -655,7 +625,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                   >
                     {game.title}
                   </span>
-                </Link>
+                </GameLaunchButton>
               </li>
             ))}
           </ul>

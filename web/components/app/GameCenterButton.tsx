@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { openGame } from "@/components/game/GameModal";
 
 /**
  * Compact Game Center badge, for use INSIDE a card's header area.
@@ -19,9 +19,10 @@ import { useEffect, useRef, useState } from "react";
  * caller positions, so the same component works on the Discover card and on any
  * other card-shaped surface without a second set of offsets to maintain.
  *
- * Kept as an <a> for the same reason as the floating button: the statically
- * hosted build can strand a client-side route transition on a not-yet-hydrated
- * document, so this always does a full document navigation.
+ * Kept as a <button> now that there is no `/games` route to navigate to: both
+ * forms dispatch `openGame()` and the root-layout `GameModalProvider` does the
+ * rest, so the control is a real button in the a11y tree instead of a link
+ * pretending to be one.
  */
 export function GameCenterBadge({
   /** Visible caption beside the glyph. */
@@ -37,8 +38,9 @@ export function GameCenterBadge({
 }) {
   return (
     <div className={className}>
-      <a
-        href="/games"
+      <button
+        type="button"
+        onClick={() => openGame()}
         className="nm-raised group inline-flex items-center gap-1.5 rounded-full border border-sky-400/40 bg-[#0F172A]/90 px-3 py-1.5 text-white backdrop-blur transition duration-150 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120]"
         title="Game Center"
         aria-label={ariaLabel}
@@ -47,7 +49,7 @@ export function GameCenterBadge({
           🎮
         </span>
         <span className="text-[11px] font-medium text-sky-300">{label}</span>
-      </a>
+      </button>
     </div>
   );
 }
@@ -76,10 +78,12 @@ function clampToViewport(x: number, y: number): { x: number; y: number } {
  * navigation) require the "use client" boundary, so this component is safe
  * to nest inside any Server Component, such as the Discover page.
  *
- * The control is rendered as an <a> rather than a <Link> on purpose: in the
- * statically hosted build (Firebase Hosting serving `web/out`) client-side
- * route transitions to a not-yet-hydrated document can strand the user on a
- * blank screen, so the Game Center always does a full document navigation.
+ * The control is rendered as a <button> that dispatches `openGame()` (the
+ * root-layout `GameModalProvider` mints the signed URL and renders the
+ * fullscreen iframe modal) rather than a link to a games route: the old
+ * `/games` hub was removed with the legacy Game Center, and a button is the
+ * honest a11y semantic for "opens an overlay" — with no href, there is also no
+ * half-hydrated route transition to strand.
  *
  * ── DRAGGABLE ────────────────────────────────────────────────────────────────
  * The button can be dragged anywhere on the viewport (mouse or touch) and
@@ -190,7 +194,7 @@ export function GameCenterButton({
     }
   }
 
-  function handlePointerDown(e: React.PointerEvent<HTMLAnchorElement>) {
+  function handlePointerDown(e: React.PointerEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     dragRef.current = {
       pointerId: e.pointerId,
@@ -210,7 +214,7 @@ export function GameCenterButton({
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
-  function handlePointerMove(e: React.PointerEvent<HTMLAnchorElement>) {
+  function handlePointerMove(e: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
     const dx = e.clientX - drag.startX;
@@ -227,7 +231,7 @@ export function GameCenterButton({
     applyPosition(clampToViewport(drag.originX + dx, drag.originY + dy));
   }
 
-  function finishDrag(e: React.PointerEvent<HTMLAnchorElement>) {
+  function finishDrag(e: React.PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== e.pointerId) return;
     dragRef.current = null;
@@ -239,14 +243,18 @@ export function GameCenterButton({
     if (drag.moved) persistPosition();
   }
 
-  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+  function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
     /* A drag always ends in a click on mouse and touch; that click must not
-       navigate. Keyboard activation has no preceding drag, so Enter still
-       opens the Game Center. */
+       launch a game. Keyboard activation has no preceding drag, so Enter still
+       opens the launcher. `preventDefault` also stops the button stealing focus
+       after a drag, which would leave a ring on a control the member was
+       moving rather than activating. */
     if (draggedRef.current) {
       e.preventDefault();
       draggedRef.current = false;
+      return;
     }
+    openGame();
   }
 
   return (
@@ -272,8 +280,8 @@ export function GameCenterButton({
       }
       style={position ? { left: position.x, top: position.y } : undefined}
     >
-      <a
-        href="/games"
+      <button
+        type="button"
         draggable={false}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -297,7 +305,7 @@ export function GameCenterButton({
             gradient: 400 is vivid enough to vibrate against `#0F172A` at this
             size, 300 keeps it legible without glowing. */}
         <span className="text-[10px] font-semibold text-amber-300">{label}</span>
-      </a>
+      </button>
     </div>
   );
 }

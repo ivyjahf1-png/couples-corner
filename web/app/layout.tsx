@@ -6,6 +6,7 @@ import "../styles/splash.css";
 import "../styles/marquee.css";
 import { AuthModalProvider } from "@/components/auth/AuthModals";
 import { ProfileViewProvider } from "@/components/profile/ProfileViewModal";
+import { GameModalProvider } from "@/components/game/GameModal";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
 import { FailureToasts } from "@/components/ui/FailureToasts";
@@ -162,6 +163,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `openProfileView(userId)` without threading props through server
             component boundaries. Renders null until an open event fires. */}
         <ProfileViewProvider />
+        {/* THE HTML5 GAME LAUNCHER. Mounted beside the profile modal so ANY
+            surface (floating Game button, feed star, profile tiles) opens a
+            game via `openGame(gameId)` without threading props through server
+            component boundaries. Renders null until a launch event fires. */}
+        <GameModalProvider />
         <MobileBackHeader />
         {/* AdSense loader. In the ROOT layout so every route gets it - a page
             added later cannot forget to include it. `afterInteractive` keeps it
