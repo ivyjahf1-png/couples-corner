@@ -271,7 +271,7 @@ function mobileTabClasses(active: boolean, raised = false) {
          origin) is the one rule allowed to override it, which is why the active
          state must carry the class rather than only the utility pair. */
       active ? "nav-pill--active" : "",
-      "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 pt-2.5 pb-2 transition",
+      "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 pt-1 pb-1 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
         /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
@@ -584,14 +584,14 @@ function MobileNavigation({
       {/* FLOATING GLASS PILL — compact, low-profile container. `bg-[#0b0f19]/90
           backdrop-blur-md` is the glassmorphism (90% fill so scrolling content
           ghosts through); `border-white/10 shadow-2xl` lift it off that content;
-          `px-4 py-2` is the compact chrome; `pb-[env(safe-area-inset-bottom)]`
+          `px-3 py-1.5` is the compact chrome; `pb-[env(safe-area-inset-bottom)]`
           keeps the glass running under the iOS home indicator so the inset is
           absorbed by the bar, not by page content. The unlayered `.app-bottom-nav`
           rule in globals.css paints the same 90% fill — keep the two in sync or
           the CSS wins and the class lies. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/90 px-4 py-2 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-md"
+        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/90 px-3 py-1.5 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-md"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -607,16 +607,21 @@ function MobileNavigation({
             `gap-1` on the list and around each pill, and every tab paints its
             OWN background on its `<li>` below. Do not reintroduce a fill here -
             this shared background is the thing the fix exists to remove. */}
-        {/* `py-1` (was `p-2`) IS THE HEIGHT CONTROL. The bar moved from the
-            old `0.25rem + env` lift to `bottom-3` (0.75rem), and the safe-area
-            inset moved inside the pill as its `pb`. Trimming this vertical
-            padding by 4px per side keeps the bar's TOTAL stack — lift + pill +
-            inset — at or BELOW the height the previous design occupied, so the
-            measured 5rem-plus-inset reserves (AppMain's calc()+env() bottom
-            padding, the deck dock's calc()+env() bottom offset, and
-            `.app-dock-reserve`) all still clear it without a single downstream
-            edit. Grow this pill and you must grow every one of those reserves
-            with it.
+        {/* COMPACT GEOMETRY — THE 5REM INVARIANT. The whole app reserves exactly
+            5rem (80px) plus the safe-area inset for this bar: AppMain's bottom
+            padding, the deck dock's bottom offset and MediaFeed's composer all
+            sit at 5rem + env(). The bar's TOTAL stack must therefore stay at or
+            under 80px + env, or it covers them:
+
+              bottom-3 (12px lift)
+            + pt-1.5 (6px) + inner py-0.5 (2px)
+            + h-12 row (48px)
+            + inner py-0.5 (2px)
+            = 70px + env   — 10px clear of the 5rem line on every device.
+
+            The earlier `py-2 / h-14` build measured 84px + env and sat 4px OVER
+            the Moment composer — the exact overlap this pass removes. Grow the
+            pill and you must grow every one of those reserves with it.
 
             WHY THE RESERVES ARE NAMED IN PROSE, NOT AS CLASSES: Tailwind scans
             COMMENTS for class candidates too, so a backticked arbitrary-value
@@ -626,7 +631,7 @@ function MobileNavigation({
             source code failed / Unexpected token" error this repo has fixed
             twice (see commits c9b1fa7 and 6f9db75). Never write an
             arbitrary-value class token in a comment here. */}
-        <div className="mx-auto max-w-lg px-2 py-1">
+        <div className="mx-auto max-w-lg px-1.5 py-0.5">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch
@@ -637,7 +642,7 @@ function MobileNavigation({
               gutter between neighbours (clearly separating the buttons) without
               eating the width the `whitespace-nowrap` "Messages" label needs on
               a narrow phone. */}
-          <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
+          <ul className="mx-auto grid h-12 max-w-md grid-cols-5 gap-1">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
               return (
@@ -683,7 +688,7 @@ function MobileNavigation({
     filled pill whose label is bold, and a 20px stroke-only glyph beside that
     weight reads heavier than its neighbours. */}
                     <span
-                      className={`relative flex h-11 w-11 items-center justify-center rounded-full transition ${
+                      className={`relative flex h-9 w-9 items-center justify-center rounded-full transition ${
                         active
                           ? /* PROMINENT CIRCULAR ORANGE FILL + SOFT GLOWING HALO, per the
                                reference. bg-amber-500 is the warm filled disc around the
@@ -704,7 +709,7 @@ function MobileNavigation({
                         <UnreadBadge count={unreadCount} />
                       ) : null}
                     </span>
-                    <span className="mt-1">{item.label}</span>
+                    <span className="mt-0.5">{item.label}</span>
                   </Link>
                 </li>
               );

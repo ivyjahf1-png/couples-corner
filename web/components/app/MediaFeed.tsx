@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, ThumbsUp, Flame, Laugh, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Loader2, Trash2, type LucideIcon } from "lucide-react";
+import { Heart, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Loader2, Trash2 } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   setMomentReactionAction,
@@ -88,27 +88,6 @@ const MAX_CAPTION = 2200;
 // `ReactionKind` is imported from @/lib/moments rather than redeclared here.
 // The feed, the server actions and the view model must agree on the set of
 // persisted kinds; a second local union is how they drift.
-
-/**
- * Quick-reaction row shown in the bottom bar.
- *
- * Lucide ICONS, not emoji. These were literal emoji characters until now, but
- * every one of them was reaching the browser as mojibake - the feed chips
- * rendered as scrambled sequences rather than a heart, a thumb, a flame and
- * a laughing face. Whatever mangled them (a UTF-8 -> Latin-1 round-trip at some
- * point in this file history) is not worth chasing, because SVG cannot be
- * mangled: there is no encoding layer for a glyph to get lost in, and no
- * dependence on whether a given Android or iOS build ships the emoji font.
- *
- * The persisted ReactionKind values are untouched, so this is presentational
- * only and no stored reaction row moves.
- */
-const QUICK_REACTIONS: { kind: ReactionKind; Icon: LucideIcon; label: string }[] = [
-  { kind: "love", Icon: Heart, label: "Love" },
-  { kind: "like", Icon: ThumbsUp, label: "Like" },
-  { kind: "fire", Icon: Flame, label: "Fire" },
-  { kind: "laugh", Icon: Laugh, label: "Funny" },
-];
 
 interface MediaFeedProps {
   moments: MomentView[];
@@ -394,25 +373,9 @@ export function MediaFeed({
   const reactions = current
     ? (social[current.id]?.count ?? current.reactionCount ?? 0)
     : 0;
-  // Per-kind split, so each reaction button shows its OWN number. Falls back to
-  // the server-rendered tally, then to the combined total attributed to the
-  // viewer's own kind (so a legacy row with no split still reads sensibly).
-  const reactionKinds = current
-    ? (social[current.id]?.kinds ??
-       current.reactionKinds ??
-       (current.reactedByMe && current.myReactionKind
-         ? { [current.myReactionKind]: current.reactionCount ?? 0 }
-         : {}))
-    : {};
   const reacted = current
     ? (social[current.id]?.reacted ?? current.reactedByMe ?? false)
     : false;
-  // Which kind the VIEWER used on this moment, for the chip highlight. Falls back
-  // to the server's `myReactionKind` so a card that was already liked before this
-  // component mounted highlights correctly on first paint.
-  const myReactionKind = current
-    ? (social[current.id]?.kind ?? current.myReactionKind ?? null)
-    : null;
   // Follow state for the ACTIVE card's author, with any local override applied.
   const amFollowingAuthor = current
     ? (followOverrides[current.userId]?.following ?? current.amFollowingAuthor ?? false)
@@ -1875,54 +1838,11 @@ export function MediaFeed({
             {nav.position}/{nav.total}
           </p>
 
-          {/* Quick reactions - one tap to react to THIS moment.
-
-              Left-aligned rather than centred: the row now sits directly above
-              the message trigger, and centring both left the reactions
-              visibly detached from the input they visually belong with. The
-              trigger below is `max-w-xl`, so the two share a left edge. */}
-          <div className="pointer-events-auto mb-2 flex max-w-xl items-center gap-1.5">
-            {QUICK_REACTIONS.map((option) => {
-              const active = reacted && myReactionKind === option.kind;
-              // Each chip carries its OWN number rather than every chip
-              // repeating the combined total, so tapping one visibly moves one
-              // counter instead of all of them at once.
-              const n = reactionKinds[option.kind] ?? 0;
-              return (
-                <button
-                  key={option.kind}
-                  type="button"
-                  onClick={() => reactWith(option.kind)}
-                  disabled={!viewerId}
-                  aria-label={`${option.label}${n > 0 ? `, ${n} so far` : ""}`}
-                  aria-pressed={active}
-                  className={[
-                    "flex items-center gap-1 rounded-full border text-base transition active:scale-90 disabled:opacity-40",
-                    // A zero counter collapses to the bare icon so the row stays
-                    // tidy until there is something to report.
-                    n > 0 ? "px-2.5 py-1" : "h-9 w-9 justify-center",
-                    active
-                      ? "scale-110 border-orange-400/70 bg-orange-500/30"
-                      : "border-white/10 bg-white/10 hover:bg-white/20",
-                  ].join(" ")}
-                >
-                  <option.Icon
-                    aria-hidden
-                    className={[
-                      "h-4 w-4 shrink-0 transition",
-                      // Love is the app's signature reaction, so it reads filled
-                      // once chosen. Every other kind stays a plain outline.
-                      active && option.kind === "love" ? "fill-current" : "",
-                    ].join(" ")}
-                  />
-                  {n > 0 ? (
-                    <span className="text-xs font-semibold tabular-nums text-white/90">{n}</span>
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
-
+          {/* Quick-reaction chips removed: the love / like / fire / funny row
+              that sat above the message input is gone. Reactions still exist —
+              the comment sheet's like button and `reactWith` server action are
+              untouched — but this overlay row duplicated them one tap away from
+              the only control (the message pill) that must stay reachable. */}
           {/* Message trigger.
 
               /* VIBRANT ORANGE ACCENT, DELIBERATELY LOUD.

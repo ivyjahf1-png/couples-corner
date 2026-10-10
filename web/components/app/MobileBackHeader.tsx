@@ -99,8 +99,10 @@ export function MobileBackHeader() {
           the document by the header's height.
 
           Being in flow fixes that, and dropping the spacer removes the second
-          copy of the number entirely. Both headers now measure `min-h-16` with
-          `px-4` and a single `border-b`, so every screen's chrome lines up. */}
+          copy of the number entirely. Both headers now measure `min-h-12` with
+          `px-4` and a single `border-b`, so every screen's chrome lines up —
+          and compactly: on the Moment screen the reel now starts flush under
+          the bar instead of 16px below it. */}
       {/* ── THE ONE HEADER, LOCKED TO THE TOP ─────────────────────────────────────
           `sticky top-0` + `z-50`, which is what "locks to the screen and never
           scrolls away" actually requires. Two things make it hold:
@@ -134,7 +136,7 @@ export function MobileBackHeader() {
             the 300ms double-tap-zoom delay while leaving pinch-zoom intact. */}
         <nav
           aria-label="Page navigation"
-          className="relative flex min-h-16 touch-manipulation items-center gap-3 px-4 py-2"
+          className="relative flex min-h-12 touch-manipulation items-center gap-3 px-4 py-1.5"
         >
           {/* ── CENTERED TITLE, ABSOLUTE SO SCROLL NEVER MOVES IT ──────────────
               Rendered FIRST and pinned with absolute centering (`left-1/2
@@ -170,10 +172,33 @@ export function MobileBackHeader() {
               announcing a "Go back" action that no sighted member can see or use
               would be worse than omitting it. The bottom nav's Moment tab is the
               real, visible way back. */}
-          {isBareHeader ? (
+          {/* `moments` JOINS THE SPACER BRANCH — THE ARROW IS GONE ON THE MOMENT
+              SCREEN. Moment is a PRIMARY tab, not a page drilled into. A back
+              arrow on a top-level destination implies there is somewhere more
+              important to be, and the browser back gesture from here lands the
+              member on whatever page preceded the app — often a logged-out
+              landing screen or a share link from someone else.
+
+              It is REMOVED, not merely dimmed. A 44px invisible-but-tappable
+              square is the worst of both worlds: it eats the row's left gutter
+              and swallows taps with no visible affordance.
+
+              The empty `h-11 w-11` span is a deliberate spacer, not a leftover.
+              It reserves the arrow's width so the title sits at the same x on
+              every screen — removing the button without it would shift the title
+              56px right on this route only, which is exactly the kind of
+              one-off misalignment the shared header exists to prevent.
+
+              `aria-hidden` because the control is genuinely gone: a screen reader
+              announcing a "Go back" action that no sighted member can see or use
+              would be worse than omitting it. The bottom nav's Moment tab is the
+              real, visible way back.
+
+              NOTE: this branch previously spared only `explore` and `feed`, so
+              the arrow was still rendering on `/moments` despite this note —
+              the condition simply never listed the segment. It does now. */}
+          {isBareHeader || segment === "feed" || segment === "moments" ? (
               <span aria-hidden className="h-11 w-11 shrink-0" />
-            ) : segment === "feed" ? (
-            <span aria-hidden className="h-11 w-11 shrink-0" />
           ) : (
             <button
               type="button"
