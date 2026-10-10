@@ -58,6 +58,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
+import { ChatPhotoUploadButton } from "@/components/app/ChatPhotoUploadButton";
 import { profileViewClick } from "@/components/profile/ProfileViewModal";
 import { EMOJI_PICKER_PANEL_ID, EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
 import { GiftDrawer } from "@/components/app/GiftDrawer";
@@ -1236,6 +1237,7 @@ export default function ChatRoomClient({
             hairline ring, so no two controls can visually merge into one bar and
             nothing here glows bright white against the dark composer. */}
         <div className="mt-2 flex items-center justify-between gap-2">
+          <ChatPhotoUploadButton conversationId={conversationId} currentUserId={currentUserId} />
           {/* THE GIFT BUTTON. A `<button>`, not a `<Link>`: it opens an overlay in
               place, so it must not navigate and must not be a link for assistive
               tech. `aria-expanded` tells a screen reader the drawer is a region it

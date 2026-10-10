@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Mic, MicOff, PhoneOff, SwitchCamera, Video, VideoOff } from "lucide-react";
+import { Mic, MicOff, Phone, PhoneOff, SwitchCamera, Video, VideoOff, Volume2, VolumeX } from "lucide-react";
 
 /**
  * VideoCallModal — reusable 1:1 audio/video call surface backed by Agora RTC.
@@ -75,10 +75,117 @@ export function VideoCallModal({
   const clientRef = useRef<AgoraClient | null>(null);
   const tracksRef = useRef<ClosableTrack[]>([]);
   const endedRef = useRef(false);
+  /* Ringing tone: looping Web Audio ringback while connecting, silent once the
+     peer joins or the call ends. Pure oscillator — no audio asset needed. */
+  const ringCtxRef = useRef<AudioContext | null>(null);
+  const ringTimerRef = useRef<number | null>(null);
+  const [speakerOn, setSpeakerOn] = useState(true);
+
+  function stopRinging() {
+    if (ringTimerRef.current !== null) {
+      window.clearInterval(ringTimerRef.current);
+      ringTimerRef.current = null;
+    }
+    try {
+      void ringCtxRef.current?.close();
+    } catch {
+      /* Already closed — ringing is over either way. */
+    }
+    ringCtxRef.current = null;
+  }
+
+  function startRinging() {
+    try {
+      stopRinging();
+      const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      ringCtxRef.current = ctx;
+      const playRing = () => {
+        if (!ringCtxRef.current) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = 440;
+        gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.9);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 1);
+      };
+      playRing();
+      ringTimerRef.current = window.setInterval(playRing, 2000);
+    } catch {
+      /* Audio blocked — the call itself still works. */
+    }
+  }
+
+  async function toggleSpeaker() {
+    const next = !speakerOn;
+    setSpeakerOn(next);
+    /* Route remote audio to speaker / earpiece where the platform exposes an
+       output-device selector; elsewhere this is a state-only toggle. */
+    const remote = remoteRef.current?.querySelector("audio, video") as (HTMLMediaElement & { setSinkId?: (id: string) => Promise<void> }) | null;
+    try {
+      await remote?.setSinkId?.(next ? "" : "communications");
+    } catch {
+      /* setSinkId unsupported — button state still reflects intent. */
+    }
+  }
+
+  useEffect(() => stopRinging, []);
+
+  /* Any terminal or connected state silences the ringback — the peer is here
+     or the call is over. Centralised here so no exit path can forget it. */
+  useEffect(() => {
+    if (status === "connected" || status === "ended" || status === "failed" || status === "unavailable" || status === "unconfigured") {
+      stopRinging();
+    }
+  }, [status]);
+
+  /* Incoming-call receiver: listen for another member's broadcast on this
+     conversation's call channel and ring loudly with an overlay until the
+     member answers or dismisses. Mounted only when this modal is NOT already
+     in an active call surface for the same channel. */
+  const [incoming, setIncoming] = useState<{ callerName: string; mode: "audio" | "video" } | null>(null);
+
+  useEffect(() => {
+    if (status === "connected" || status === "connecting" || status === "loading") return;
+    let channel: { unsubscribe: () => Promise<unknown> } | null = null;
+    let alive = true;
+    (async () => {
+      try {
+        const { getSupabaseClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseClient();
+        const ch = supabase
+          .channel(`call:${channelName}`)
+          .on("broadcast", { event: "incoming-call" }, (msg) => {
+            const payload = (msg as { payload?: { callerName?: string; mode?: string; callerUid?: string } }).payload;
+            /* Ignore our own broadcast echo (callerUid arrives as a string). */
+            if (payload?.callerUid != null && payload.callerUid === String(uid)) return;
+            if (!alive) return;
+            setIncoming({ callerName: payload?.callerName ?? "Someone", mode: payload?.mode === "video" ? "video" : "audio" });
+            startRinging();
+          });
+        await ch.subscribe();
+        channel = ch as unknown as { unsubscribe: () => Promise<unknown> };
+      } catch {
+        /* Realtime unavailable — direct call links still work. */
+      }
+    })();
+    return () => {
+      alive = false;
+      stopRinging();
+      if (channel) void channel.unsubscribe().catch(() => undefined);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelName, uid, status]);
 
   function finish() {
     if (endedRef.current) return;
     endedRef.current = true;
+    stopRinging();
     setStatus("ended");
     onEnd?.();
   }
@@ -131,6 +238,26 @@ export function VideoCallModal({
       }
       if (cancelled) return;
       setStatus("connecting");
+      /* Ringback while the peer has not joined yet; the user-published
+         handler and the connected transition silence it below. */
+      startRinging();
+      /* Broadcast the outgoing call so the recipient's device can ring with
+         an incoming-call overlay via Supabase Realtime. Best-effort: the
+         Agora join below is the real call path. */
+      try {
+        const { getSupabaseClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseClient();
+        const channel = supabase.channel(`call:${channelName}`);
+        await channel.subscribe();
+        await channel.send({
+          type: "broadcast",
+          event: "incoming-call",
+          payload: { channelName, mode, callerUid: uid, callerName: displayName ?? "Someone" },
+        });
+        await supabase.removeChannel(channel);
+      } catch {
+        /* Signalling failed — the call itself still proceeds. */
+      }
       try {
         const client = rtc.createClient({ mode: "rtc", codec: "vp8" });
         clientRef.current = client;
@@ -144,6 +271,8 @@ export function VideoCallModal({
             await peer.subscribe(client, mediaType as string);
             if (mediaType === "video" && remoteRef.current) peer.videoTrack?.play(remoteRef.current);
             if (mediaType === "audio") peer.audioTrack?.play();
+            /* Peer arrived — ringback has done its job. */
+            stopRinging();
           } catch {
             /* Failed subscribe leaves that stream silent; call continues. */
           }
@@ -338,7 +467,60 @@ export function VideoCallModal({
         >
           <PhoneOff className="h-5 w-5" />
         </button>
+        {/* Speaker toggle — switches audio output route (speaker / earpiece)
+            via setSinkId where supported; falls back to state-only toggle. */}
+        <button
+          type="button"
+          onClick={() => void toggleSpeaker()}
+          aria-label={speakerOn ? "Switch to earpiece" : "Switch to speaker"}
+          aria-pressed={speakerOn}
+          className="flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white backdrop-blur-md transition hover:bg-white/20 active:scale-95"
+        >
+          {speakerOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+        </button>
       </div>
+      {/* Incoming-call overlay: rings loudly (ringback above) until the member
+          answers — which joins this same channel — or declines. */}
+      {incoming ? (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-label={`Incoming ${incoming.mode} call from ${incoming.callerName}`}
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-slate-950/95 p-6 text-center backdrop-blur-sm"
+        >
+          <span className="flex h-16 w-16 animate-pulse items-center justify-center rounded-full bg-orange-500 text-white shadow-[0_0_30px_rgba(249,115,22,0.6)]">
+            {incoming.mode === "video" ? <Video className="h-7 w-7" /> : <Phone className="h-7 w-7" />}
+          </span>
+          <p className="text-lg font-bold text-white">{incoming.callerName}</p>
+          <p className="text-sm text-white/60">Incoming {incoming.mode} call — tap to answer</p>
+          <div className="mt-2 flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => {
+                setIncoming(null);
+                stopRinging();
+                setStatus("connecting");
+              }}
+              aria-label="Answer call"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg transition hover:bg-emerald-400 active:scale-95"
+            >
+              <Phone className="h-6 w-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIncoming(null);
+                stopRinging();
+                finish();
+              }}
+              aria-label="Decline call"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-rose-600 text-white shadow-lg transition hover:bg-rose-500 active:scale-95"
+            >
+              <PhoneOff className="h-6 w-6" />
+            </button>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

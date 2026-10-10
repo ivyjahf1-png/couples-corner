@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
+import { InviteLinkCard } from "@/components/profile/InviteLinkCard";
+import { WalletTile } from "@/components/profile/WalletTile";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
 import { HTML5_GAMES } from "@/lib/game/registry";
 import { GameLaunchButton } from "@/components/game/GameModal";
@@ -423,24 +425,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             `hover:bg-[#332B45]/65` rather than `brightness`: the fill is
             translucent, and `brightness` would brighten the gradient behind it
             too, which flickered against the ramp as it scrolled. */}
-        <Link
-          href="/store"
-          aria-label={`Coin balance ${data.coinBalance}. Open store`}
-          className={`flex h-[88px] items-center gap-2 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-3.5 transition hover:bg-[#332B45]/65 ${FOCUS}`}
-          style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)" }}
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: ORANGE }}>
-            <ProfileIcon name="coin" className="h-5 w-5 text-[#0F0C1B]" />
-          </span>
-          <span className="flex min-w-0 flex-col">
-            <span className="text-2xl font-bold tabular-nums leading-none text-white">
-              {data.coinBalance}
-            </span>
-            <span className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-[#A09AB0]">
-              Coins
-            </span>
-          </span>
-        </Link>
+        <WalletTile balance={data.coinBalance} />
 
         {/* VIP tier. The same GLASS as the coin tile rather than a second solid
             orange block: two saturated fills side by side is what made this pair
@@ -480,6 +465,11 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             <ProfileIcon name="gem" className="h-14 w-14 drop-shadow-lg" />
           </span>
         </Link>
+
+      {/* SURFACE 2b — invite link, restored below the wallet/VIP pair so the
+          member's share link is one tap away without leaving the profile. */}
+      <InviteLinkCard uid={data.uid} />
+
       </div>
 
       {/* ================================================================ *

@@ -690,13 +690,9 @@ function MobileNavigation({
                     <span
                       className={`relative flex h-9 w-9 items-center justify-center rounded-full transition ${
                         active
-                          ? /* PROMINENT CIRCULAR ORANGE FILL + SOFT GLOWING HALO, per the
-                               reference. bg-amber-500 is the warm filled disc around the
-                               active icon; white icon on top clears contrast; the halo
-                               (orange ring + blurred outer shadow) is the attention
-                               signal, and scale-[1.04] gives the selected button a touch
-                               more presence without moving the row. */
-                            "scale-[1.04] bg-amber-500 text-white shadow-[0_0_0_3px_rgba(245,158,11,0.35),0_10px_24px_-6px_rgba(245,158,11,0.65)]"
+                          ? /* Pill-shaped dark dock active glow: rich orange halo on
+                               the Midnight Slate theme. */
+                            "scale-[1.04] bg-amber-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)]"
                           : "text-[#9B93AE]"
                       }`}
                     >
