@@ -612,10 +612,20 @@ function MobileNavigation({
             inset moved inside the pill as its `pb`. Trimming this vertical
             padding by 4px per side keeps the bar's TOTAL stack — lift + pill +
             inset — at or BELOW the height the previous design occupied, so the
-            measured 5rem-plus-inset reserves (AppMain's `pb-[calc(5rem+…)]`,
-            the deck dock's `bottom-[calc(5rem_+_env(…))]`, `.app-dock-reserve`)
-            all still clear it without a single downstream edit. Grow this pill
-            and you must grow every one of those reserves with it. */}
+            measured 5rem-plus-inset reserves (AppMain's calc()+env() bottom
+            padding, the deck dock's calc()+env() bottom offset, and
+            `.app-dock-reserve`) all still clear it without a single downstream
+            edit. Grow this pill and you must grow every one of those reserves
+            with it.
+
+            WHY THE RESERVES ARE NAMED IN PROSE, NOT AS CLASSES: Tailwind scans
+            COMMENTS for class candidates too, so a backticked arbitrary-value
+            utility token — a padding class whose bracketed value is a calc()
+            over the safe-area inset — is extracted from this note and compiled
+            into a real (broken) rule in globals.css: the exact "Parsing CSS
+            source code failed / Unexpected token" error this repo has fixed
+            twice (see commits c9b1fa7 and 6f9db75). Never write an
+            arbitrary-value class token in a comment here. */}
         <div className="mx-auto max-w-lg px-2 py-1">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four

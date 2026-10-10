@@ -75,10 +75,13 @@ export function PageLock({
    * content once the member scrolled down.
    *
    * Tailwind arbitrary values cover most cases, but a multi-stop gradient with a
-   * layered radial bloom is clearer and safer inline than as a
-   * `bg-[linear-gradient( ... )]` utility, where commas and nested parens have to be
+   * layered radial bloom is clearer and safer inline than as an
+   * arbitrary-value bg utility, where commas and nested parens have to be
    * escaped and are easy to get subtly wrong.
-   */
+   *
+   * (The utility form is deliberately NOT named here: Tailwind scans comments
+   * for class candidates and would compile this note's example into a real —
+   * broken — rule. See the note in AppNav.tsx's BottomNavRegion.) */
   style?: React.CSSProperties;
   bodyClassName?: string;
   /** Escape hatch for pages that need extra bottom padding (e.g. fixed nav). */

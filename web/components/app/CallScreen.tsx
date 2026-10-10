@@ -250,7 +250,7 @@ export function CallScreen({
           `flex h-[100dvh] flex-col` and then EVERY child was `absolute` — the
           flexbox was declared and immediately made irrelevant, so nothing could
           ever push, reserve or clip. The controls were `absolute bottom-0` with
-          a fixed `pb-[max(1.5rem, …)]`, and on a device with a home indicator
+          a fixed `absolute bottom-0` with a max()-based bottom padding, and on a device with a home indicator
           plus the gift strip open, the end-call pill sat under the bar.
 
           `justify-between` distributes the three real regions: the header at the
