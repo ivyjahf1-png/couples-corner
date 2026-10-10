@@ -11,8 +11,8 @@
  *
  * SIDES THAT CONSUME IT:
  *   - `app/api/game/launch` validates `gameId` against this list server-side
- *     before minting a session token — a client can never launch an arbitrary
- *     URL.
+ *     before building the launch URL — a client can never steer the launcher at
+ *     an arbitrary URL.
  *   - `components/game/GameModal` (via `GameLaunchButton`/`GameModalProvider`)
  *     resolves titles for the loading header and picks the default game.
  *   - The profile screen's Recommended Games band renders tiles straight from

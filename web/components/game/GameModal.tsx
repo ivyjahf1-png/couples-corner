@@ -21,9 +21,10 @@ import { DEFAULT_GAME_ID, findGame } from "@/lib/game/registry";
  *
  * â”€â”€ WHY THE URL ALWAYS COMES FROM THE SERVER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * The iframe never receives a URL the client made up. The route validates the
- * id against `lib/game/registry` (the allow-list) and attaches an HMAC session
- * token proving uid + game + expiry. The client only ever supplies a KEY from
- * that registry; the server decides what actually loads.
+ * id against `lib/game/registry` (the allow-list), embeds the SESSION's uid —
+ * never a body-supplied one — and appends the provider token, which exists only
+ * in server env. The client supplies a registry KEY and nothing else; the
+ * server decides what loads, for whom, and with what credential.
  *
  * â”€â”€ DISMISSAL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
  * Escape and the header X both close it. There is no route-change dismissal

@@ -1,58 +1,46 @@
 import "server-only";
-import { createHmac } from "node:crypto";
 import { NextResponse } from "next/server";
 import { getCurrentSessionUser } from "@/lib/server/session";
 import { findGame, DEFAULT_GAME_ID } from "@/lib/game/registry";
 
 /**
- * POST /api/game/launch — mint a session-bound URL for one HTML5 game.
+ * POST /api/game/launch — mint the provider launch URL for one HTML5 game.
  *
  * Body: { gameId?: string, userId?: string }
- *   - `gameId` defaults to `DEFAULT_GAME_ID` when omitted or unknown-but-empty;
- *     any id not in `lib/game/registry` is rejected with 404 (the registry is
- *     the allow-list — a client can never talk this route into launching an
- *     arbitrary URL, which is the whole security point of a launcher).
- *   - `userId`, when supplied, must equal the session's uid. It exists so
- *     call sites that already know who they are can fail fast client-side, but
- *     the SESSION is authoritative: the uid embedded in the token always comes
- *     from `getCurrentSessionUser`, never from the body.
+ *   - `gameId` defaults to `DEFAULT_GAME_ID` when omitted; any id not in
+ *     `lib/game/registry` is rejected with 404. The registry is the allow-list:
+ *     a client can never talk this route into launching an arbitrary URL.
+ *   - `userId`, when supplied, must equal the session's uid. It exists so a
+ *     call site that already knows who it is can fail fast, but the SESSION is
+ *     authoritative: the uid embedded in the launch URL always comes from
+ *     `getCurrentSessionUser`, never from the body. (A body uid is what a
+ *     provider launch is FOR — it tells the provider whose wallet/account the
+ *     session belongs to — so letting the client choose it would be handing
+ *     any member the ability to launch a game session credited to any other
+ *     member. Mismatch is a hard 403, never a silent override.)
  *
- * Response: { gameUrl, gameId, title, token, expiresAt }
- *   - `gameUrl` is first-party (`/html5-games/<id>/index.html`) with a signed
- *     `?cc_token=` attached. The token is an HMAC-SHA256 compact string over
- *     `uid|gameId|exp` so a game build (or a future API validating in-game
- *     actions) can verify who launched it, which game, and until when —
- *     without a round trip and without ever trusting a raw query param.
- *   - `expiresAt` is 60 minutes out; the session token is short-lived by
- *     design, matching the httpOnly session cookie philosophy: re-launch to
- *     renew, never carry a long-lived credential inside an iframe URL.
+ * Response: { gameUrl, gameId, title }
+ *   - `gameUrl` points at the provider's launcher with `game_id`, `user_id`
+ *     and the shared `token`. The provider URL and token live in env
+ *     (`GAME_PROVIDER_BASE_URL`, `GAME_SECRET_TOKEN`) — never in the bundle,
+ *     never returned to the client as anything but the finished URL.
+ *   - `title` is display-only registry copy, so the modal header can name the
+ *     game while the URL is still in flight.
  *
- * SECRET: `GAME_SESSION_SECRET` when set (recommended — rotate independently),
- * otherwise `SUPABASE_SERVICE_ROLE_KEY` as a deploy-anywhere fallback so the
- * route works out of the box. If neither exists we fail CLOSED with 503 the
- * same way /api/agora-token does — an unsigned launcher URL is worse than no
- * launcher at all.
- *
- * The response URL is same-origin, so the browser's existing session cookie
- * rides along automatically for any fetch the game itself makes back into the
- * app; the HMAC token is only the game's own identity proof.
+ * FALLBACK: when the provider env is unset the route returns the FIRST-PARTY
+ * build path from the registry instead, so development and self-hosted builds
+ * keep working with zero configuration. Set both env vars to go through the
+ * provider. The fallback exists because an unconfigured launcher that 503s is
+ * strictly worse than one that serves the local build slot — remove this
+ * branch if provider-only is the desired deployment posture.
  */
 
-/** Launcher token lifetime. Short: re-launch to renew. */
-const TOKEN_TTL_MS = 60 * 60 * 1000;
-
-/** Resolve the signing secret, failing closed when none is configured. */
-function signingSecret(): string | null {
-  return process.env.GAME_SESSION_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || null;
-}
-
-/** Compact `uid|gameId|exp` signature. Constant work regardless of payload. */
-function signToken(userId: string, gameId: string, secret: string): { token: string; exp: number } {
-  const exp = Date.now() + TOKEN_TTL_MS;
-  const payload = `${userId}|${gameId}|${exp}`;
-  const signature = createHmac("sha256", secret).update(payload).digest("base64url");
-  const body = Buffer.from(payload, "utf8").toString("base64url");
-  return { token: `${body}.${signature}`, exp };
+/** Resolve the provider launch base + token, or null when unconfigured. */
+function providerConfig(): { baseUrl: string; token: string } | null {
+  const baseUrl = process.env.GAME_PROVIDER_BASE_URL?.trim();
+  const token = process.env.GAME_SECRET_TOKEN?.trim();
+  if (!baseUrl || !token) return null;
+  return { baseUrl: baseUrl.replace(/\/+$/, ""), token };
 }
 
 export async function POST(request: Request) {
@@ -65,37 +53,42 @@ export async function POST(request: Request) {
   try {
     body = (await request.json()) as { gameId?: string; userId?: string };
   } catch {
-    /* Empty/invalid body → defaults below. Never a 500 for a missing JSON. */
+    /* Empty/invalid body → defaults below. Never a 500 for missing JSON. */
   }
 
-  // A caller-supplied userId is advisory only; a MISMATCH is still a hard
-  // refusal so a confused or hostile call site can't mint tokens for uids
-  // other than its own session.
+  // Caller-supplied userId is advisory only; a MISMATCH is a hard refusal so a
+  // confused or hostile call site can't mint a launch for another member's
+  // account. The session's uid is always what gets embedded.
   const claimedUserId = typeof body.userId === "string" ? body.userId.trim() : "";
   if (claimedUserId && claimedUserId !== session.uid) {
     return NextResponse.json({ error: "User mismatch" }, { status: 403 });
   }
 
   const requestedId = typeof body.gameId === "string" ? body.gameId.trim() : "";
-  const gameId = requestedId || DEFAULT_GAME_ID;
-  const game = findGame(gameId);
+  const game = findGame(requestedId || DEFAULT_GAME_ID);
   if (!game) {
     return NextResponse.json({ error: "Unknown game" }, { status: 404 });
   }
 
-  const secret = signingSecret();
-  if (!secret) {
-    return NextResponse.json({ error: "Game launcher not configured" }, { status: 503 });
+  const provider = providerConfig();
+  if (provider) {
+    const params = new URLSearchParams({
+      game_id: game.id,
+      user_id: session.uid,
+      token: provider.token,
+    });
+    return NextResponse.json({
+      gameUrl: `${provider.baseUrl}/launch?${params.toString()}`,
+      gameId: game.id,
+      title: game.title,
+    });
   }
 
-  const { token, exp } = signToken(session.uid, game.id, secret);
-  const gameUrl = `${game.path}?cc_token=${encodeURIComponent(token)}`;
-
+  // No provider configured — serve the first-party build slot. See the doc
+  // comment above for why this degrades instead of failing.
   return NextResponse.json({
-    gameUrl,
+    gameUrl: game.path,
     gameId: game.id,
     title: game.title,
-    token,
-    expiresAt: exp,
   });
 }
