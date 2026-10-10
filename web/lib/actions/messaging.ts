@@ -200,12 +200,22 @@ export async function editMessageAction(params: {
   if (!body) return { ok: false, error: "A message cannot be empty. Delete it instead." };
 
   try {
-    const updated = await updateMessage({ messageId, senderId: user.uid, body });
-    if (!updated) {
-      return { ok: false, error: "You can only edit messages you sent." };
+    const result = await updateMessage({
+      messageId,
+      senderId: user.uid,
+      body,
+    });
+    if (result.ok) {
+      revalidatePath("/messages");
+      return { ok: true };
     }
-    revalidatePath("/messages");
-    return { ok: true };
+    // The 15-minute edit window is enforced server-side (same WHERE clause as
+    // the ownership check), so a stale UI that still offers Edit fails here
+    // with the real reason rather than silently doing nothing.
+    if (result.reason === "too_old") {
+      return { ok: false, error: "Messages can only be edited within 15 minutes of sending." };
+    }
+    return { ok: false, error: "You can only edit messages you sent." };
   } catch (error) {
     rethrowIfNavigation(error);
     console.error("[messaging] Edit failed", {
@@ -217,8 +227,10 @@ export async function editMessageAction(params: {
 }
 
 /**
- * Delete a message the current user sent. Ownership is enforced in the
- * database layer, exactly as for `editMessageAction`.
+ * "Delete for everyone" — soft delete via the database layer (migration 054
+ * flags `is_deleted = true`; the row is kept and both participants render a
+ * tombstone). Ownership is enforced in the database layer, exactly as for
+ * `editMessageAction`.
  */
 export async function deleteMessageAction(params: {
   messageId: string;

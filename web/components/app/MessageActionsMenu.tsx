@@ -8,7 +8,7 @@ const LONG_PRESS_MS = 450;
 const MOVE_TOLERANCE_PX = 10;
 
 export interface MessageAction {
-  id: "edit" | "delete" | "copy";
+  id: "edit" | "delete" | "delete_me" | "copy";
   label: string;
   /** `danger` is used for irreversible actions like delete. */
   tone?: "default" | "danger";
@@ -18,14 +18,22 @@ export interface MessageAction {
  * The full action set — only ever offered on the signed-in member's own
  * messages.
  *
- * Edit and Delete are destructive writes to a row the caller must own; that is
- * enforced in the database (the UPDATE/DELETE's WHERE clause includes
- * `sender_id`), but hiding the affordance is the first line of defence. Someone
- * who long-presses their own message should see everything they can do to it.
+ * Edit and the two deletes are destructive writes to a row the caller must
+ * own; that is enforced in the database (the UPDATE's WHERE clause includes
+ * `sender_id`), but hiding the affordance is the first line of defence.
+ * Someone who long-presses their own message should see everything they can
+ * do to it.
+ *
+ * THE TWO DELETES ARE DELIBERATELY DISTINCT:
+ *   • "Delete for everyone" — soft-deletes the row (`is_deleted = true`,
+ *     migration 054); both participants see the tombstone.
+ *   • "Delete for me" — no server write at all; the caller filters the id out
+ *     of its local list, so the other participant keeps the message.
  */
 export const MESSAGE_ACTIONS: MessageAction[] = [
   { id: "edit", label: "Edit" },
-  { id: "delete", label: "Delete", tone: "danger" },
+  { id: "delete", label: "Delete for everyone", tone: "danger" },
+  { id: "delete_me", label: "Delete for me" },
   { id: "copy", label: "Copy" },
 ];
 

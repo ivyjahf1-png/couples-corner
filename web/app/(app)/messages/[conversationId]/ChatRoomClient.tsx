@@ -130,11 +130,13 @@ const THEME = {
   /** The scam-warning card: a red-shifted dark, so it reads as a caution. */
   warning: "#2A1520",
   /**
-   * Own (right-hand) bubbles. `#F2670C` is the vibrant orange from the app ramp
-   * — enough separation to tell who is speaking at a glance, while staying close
-   * enough in lightness that the thread does not read as two disconnected halves.
+   * Own (right-hand) bubbles. `#f97316` is the Tailwind orange-500 from the
+   * industry-standard chat ramp — enough separation to tell who is speaking at
+   * a glance, while staying close enough in lightness that the thread does not
+   * read as two disconnected halves. The bubble paints this as a GRADIENT
+   * (see MessageBubble), not a flat fill.
    */
-  own: "#F2670C",
+  own: "#f97316",
   /** Hairlines and input borders. Visible on dark, so lighter than a dark-theme default. */
   hairline: "#3A3358",
   /** Body text on a bubble. */
@@ -165,6 +167,14 @@ const ORANGE_RING = "#CC6200";
 /** Longest message the composer will send. Mirrors the server's own cap. */
 const MAX_LENGTH = 4000;
 
+/**
+ * How long a sent message may be edited — 15 minutes, the chat-industry
+ * standard. Mirrored server-side in `updateMessage` (lib/server/messaging.ts),
+ * which enforces it in the UPDATE's WHERE clause; this copy only decides
+ * whether the Edit entry is OFFERED in the long-press menu.
+ */
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
 /** One message as it arrives from the server or from realtime. */
 export interface ChatMessage {
   id: string;
@@ -174,6 +184,12 @@ export interface ChatMessage {
   body: string | null;
   created_at: string;
   edited_at?: string | null;
+  /**
+   * Soft-delete flag (migration 054). True once the sender chose "delete for
+   * everyone": the row stays and the bubble renders as a tombstone. Optional
+   * so a database without the column still types — every row reads as live.
+   */
+  is_deleted?: boolean | null;
 }
 
 /**
@@ -365,30 +381,68 @@ function MessageBubble({
   busy: boolean;
 }) {
   const body = (message.body ?? "").trim();
+
+  /* ROW ALIGNMENT — the left/right split, standardized once here.
+     Received: `justify-start items-start text-left` (avatar left, slate glass).
+     Sent:     `justify-end items-end text-right ml-auto` (orange gradient).
+     It lives on the ROW rather than on the bubble because the bubble also sits
+     inside `MessageActionsMenu`, whose own trigger is a separate button —
+     aligning the bubble alone would leave that button out of line. */
+  const rowClass = `flex w-full gap-2 ${
+    isMine ? "items-end justify-end text-right ml-auto" : "items-start justify-start text-left"
+  }`;
+
+  /* TOMBSTONE. A row the sender deleted-for-everyone keeps its place in the
+     thread rather than vanishing: a silent gap would leave the other
+     participant unable to tell a deletion from a message that failed to
+     arrive. No actions menu — there is nothing left to act on. */
+  if (message.is_deleted) {
+    return (
+      <div className={rowClass}>
+        {!isMine ? (
+          <Avatar name={participantName} src={avatarUrl} size="sm" className="shrink-0" />
+        ) : null}
+        <div className="flex w-fit max-w-[80%] flex-col gap-1 break-words rounded-2xl border border-dashed border-white/20 bg-white/[0.03] px-3 py-2 text-sm leading-5 text-white/45">
+          <p className="whitespace-pre-wrap break-words text-sm italic leading-5">
+            This message was deleted
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (!body) return null;
 
   const bubble = (
     /* THE BUBBLE.
 
-       `max-w-[80%]` is the spec's 80% cap, and `ml-1`/`mr-1` is its 4px lap
-       toward the thread edge. The lap is what stops an incoming bubble sitting
-       flush against the scroll container's padding and reading as clipped, and
-       what keeps an outgoing one off the right bezel.
+       `max-w-[80%]` is the spec's 80% cap. The lap (`mr-1`/`ml-1`) is what
+       stops a bubble sitting flush against the scroll container's padding and
+       reading as clipped, and keeps an outgoing one off the right bezel.
 
        `w-fit` is required alongside `max-w`: without it a block-level div fills
-       the row and the cap has nothing to shrink, so every bubble would render as a
-       full-width slab regardless of its text. `w-fit` makes the box shrink to the
-       content first, and `max-w` then only bites on genuinely long messages.
+       the row and the cap has nothing to shrink, so every bubble would render
+       as a full-width slab regardless of its text. `w-fit` makes the box
+       shrink to the content first, and `max-w` then only bites on genuinely
+       long messages.
 
        `break-words` stops one unbroken token (a pasted URL, a long handle) from
-       forcing horizontal overflow on a narrow phone. */
+       forcing horizontal overflow on a narrow phone.
+
+       COLOURS — received is the slate glass `#1e293b` with a slate hairline;
+       sent is the orange-500 `#f97316` painted as a gradient (a flat fill
+       reads as a flat block; the ramp gives it dimension and matches the
+       industry-standard "my messages are orange" convention). */
     <div
       className={`flex w-fit max-w-[80%] flex-col gap-1 break-words rounded-2xl px-3 pb-1.5 pt-2 text-sm leading-5 ${
         isMine ? "mr-1" : "ml-1"
       }`}
       style={{
-        backgroundColor: isMine ? THEME.own : "rgba(255, 255, 255, 0.08)",
-        border: isMine ? "none" : "1px solid rgba(255, 255, 255, 0.15)",
+        backgroundColor: isMine ? THEME.own : "#1e293b",
+        backgroundImage: isMine
+          ? "linear-gradient(135deg, #fb923c 0%, #f97316 55%, #ea580c 100%)"
+          : undefined,
+        border: isMine ? "none" : "1px solid rgba(148, 163, 184, 0.25)",
         color: THEME.ink,
         /* Tail pointing at the avatar: squared off on the corner nearest the
            sender, so incoming and outgoing read as two sides of one thread. */
@@ -400,15 +454,24 @@ function MessageBubble({
     </div>
   );
 
+  /* Edit is offered only inside the 15-minute window (mirrored and enforced
+     server-side). Past it the entry is dropped rather than disabled — a menu
+     item that always fails is worse than one that is absent. */
+  const withinEditWindow =
+    Date.now() - new Date(message.created_at).getTime() < EDIT_WINDOW_MS;
+  const actions = isMine
+    ? MESSAGE_ACTIONS.filter((action) => action.id !== "edit" || withinEditWindow)
+    : COPY_ONLY_ACTIONS;
+
   return (
-    <div className={`flex w-full items-end gap-2 ${isMine ? "flex-row-reverse justify-start pl-10" : "flex-row justify-start pr-10"}`}>
+    <div className={rowClass}>
       {!isMine ? (
         <Avatar name={participantName} src={avatarUrl} size="sm" className="shrink-0" />
       ) : null}
 
       <MessageActionsMenu
         messageId={message.id}
-        actions={isMine ? MESSAGE_ACTIONS : COPY_ONLY_ACTIONS}
+        actions={actions}
         onAction={onAction}
         disabled={busy}
         className="min-w-0 max-w-full"
@@ -600,6 +663,10 @@ export default function ChatRoomClient({
   const [draft, setDraft] = useState("");
   /* Which message the composer is currently patching; null = composing new. */
   const [editingId, setEditingId] = useState<string | null>(null);
+  /* "Delete for me" — a purely LOCAL hide. The row stays on the server (the
+     other participant keeps seeing it); this set filters it out of THIS
+     member's render only, which is exactly what "for me" means. */
+  const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /* Gift drawer visibility. It is a local modal, so its state belongs here rather
@@ -666,6 +733,14 @@ export default function ChatRoomClient({
     );
   }, [initialMessages, live, sent]);
 
+  /* The list the thread actually renders: everything except ids this member
+     hid with "Delete for me". Server-side tombstones (is_deleted) are NOT
+     filtered — they render as "This message was deleted" instead. */
+  const visibleMessages = useMemo(
+    () => messages.filter((m) => !hiddenIds.has(m.id)),
+    [messages, hiddenIds],
+  );
+
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   /* SCROLL-DRIVEN HEADER COLLAPSE.
@@ -707,8 +782,18 @@ export default function ChatRoomClient({
       setError(null);
       try {
         if (action.id === "delete") {
+          // "Delete for everyone" — server-side soft delete (is_deleted = true,
+          // migration 054). The realtime UPDATE echoes it back and the bubble
+          // swaps to its tombstone for both participants.
           const result = await deleteMessageAction({ messageId });
           if (!result.ok) setError(result.error ?? "That message could not be deleted.");
+        } else if (action.id === "delete_me") {
+          // "Delete for me" — no server write at all. Local filter only.
+          setHiddenIds((prev) => new Set(prev).add(messageId));
+          if (editingId === messageId) {
+            setDraft("");
+            setEditingId(null);
+          }
         } else if (action.id === "edit") {
           /* Edits reuse this composer instead of opening a second editor: the
              existing text is loaded into the field so the member corrects it in
@@ -945,11 +1030,11 @@ export default function ChatRoomClient({
         <PinnedProfileCard summary={summary} />
 
         <div className="mt-3 flex flex-col justify-end gap-2.5">
-          {messages.length === 0 ? (
+          {visibleMessages.length === 0 ? (
             <p className="py-8 text-center text-xs text-[#B8B2D1]">No messages yet — say hello.</p>
           ) : null}
 
-          {messages.map((message, index) => {
+          {visibleMessages.map((message, index) => {
             const isMine = message.sender_id === currentUserId;
             /* A centred clock above the first message of each minute group. */
             const previous = messages[index - 1];
@@ -985,27 +1070,31 @@ export default function ChatRoomClient({
         </div>
       </div>
 
-      {/* THE BOTTOM BAR. `w-full` + `self-stretch` are the spec's `width: '100%'`
-          and `alignSelf: 'stretch'`, and `px-2`/`pb-2` are its 8px paddings.
+      {/* THE BOTTOM BAR — the composer. `w-full` + `self-stretch` are the spec's
+          `width: '100%'` and `alignSelf: 'stretch'`, and `px-2`/`pt-2` are its
+          8px paddings.
 
-          It is a FLEX SIBLING of the thread inside the locked `h-[100dvh]` column,
-          not `position: fixed`. That is deliberate: a fixed bar at `bottom: 0`
-          resolves against the viewport, and the composer would be painted under
-          this route's own chrome. As a sibling it is always on screen, and
-          `shrink-0` is what stops a long thread from compressing it below the 44px
-          minimum touch target. `dvh` is what makes it ride up with the on-screen
-          keyboard — see the note at the top of this file. */}
+          `sticky bottom-0 z-40` pins it to the bottom of the locked column at a
+          stacking order above the thread (z-10 there) and below the action
+          menu (z-200) and sheets. It remains a FLEX SIBLING of the thread
+          rather than `position: fixed`: a fixed bar at `bottom: 0` resolves
+          against the VIEWPORT and would be painted under this route's own
+          chrome; as a sticky sibling it is always on screen, `shrink-0` stops a
+          long thread from compressing it below the 44px touch target, and —
+          because the parent column is `h-full max-h-[100dvh]` — the whole bar
+          rides UP with the on-screen keyboard instead of being pushed out of
+          view. That is the keyboard-cutoff fix; see the note at the top of
+          this file. */}
       <div
-        className="relative z-10 w-full shrink-0 border-t px-2 pt-2"
+        className="sticky bottom-0 z-40 w-full shrink-0 border-t px-2 pt-2"
         style={{
-          /* OPAQUE fill, not GLASS_BAR. The composer is the last child of a
-             column whose own gradient ends at its top edge — a translucent
+          /* OPAQUE `#0b0f19`, not GLASS_BAR. The composer is the last child of
+             a column whose own gradient ends at its top edge — a translucent
              fill here lets the near-black canvas show through as a "dead"
              strip whenever the toolbar + quick chips pin it in place. The
-             solid `#19152A` is GLASS_BAR composited over the canvas (same
-             value EmojiPickerDrawer's sticky heading uses), so the bar reads
-             as glass without ever going see-through. */
-          backgroundColor: "#19152A",
+             solid fill matches the app's dark chrome so the bar reads as one
+             continuous surface with the rest of the shell. */
+          backgroundColor: "#0b0f19",
           borderColor: THEME.hairline,
           paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
         }}

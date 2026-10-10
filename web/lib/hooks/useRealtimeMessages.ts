@@ -20,6 +20,12 @@ export interface RealtimeMessage {
    * See migration 044.
    */
   edited_at?: string | null;
+  /**
+   * Soft-delete flag (migration 054). An UPDATE event carries the whole row,
+   * so a "delete for everyone" arrives here as `is_deleted: true` and the
+   * thread swaps the bubble for its tombstone live.
+   */
+  is_deleted?: boolean | null;
 }
 
 interface UseRealtimeMessagesOptions {

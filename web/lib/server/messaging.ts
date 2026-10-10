@@ -46,6 +46,13 @@ export interface MessageRow {
   read_at: string | null;
   created_at: string;
   updated_at: string;
+  /**
+   * Soft-delete flag (migration 054): true once the sender chose "delete for
+   * everyone". The row is KEPT and both participants render a tombstone.
+   * Optional so a database that has not run 054 still types: the column is
+   * simply absent, nothing is ever flagged, and every row reads as live.
+   */
+  is_deleted?: boolean | null;
 }
 
 /** Fetch all conversations for the current user. */
@@ -228,16 +235,43 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  const { data, error } = await supabase
+  /* Exactly `MessageRow`'s columns, not "*": this query pulls up to 500 rows
+     per thread open, and the legacy `content` text kept only for the write
+     bridge is never read back by any typed consumer. Mirrors migration 016's
+     shape.
+
+     `is_deleted` (migration 054) is selected but NOT filtered out: a row the
+     sender deleted-for-everyone stays in the list so BOTH participants render
+     the "This message was deleted" tombstone instead of a silent gap. */
+  const COLUMNS_WITH_FLAG =
+    "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at, is_deleted";
+  const COLUMNS_BASE =
+    "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at";
+
+  let { data, error } = await supabase
     .from("messages")
-    /* Exactly `MessageRow`'s eight columns, not "*": this query pulls up to
-       500 rows per thread open, and the two columns it drops — the legacy
-       `content` text kept only for the write bridge, and `status` — are never
-       read back by any typed consumer. Mirrors migration 016's shape. */
-    .select("id, conversation_id, sender_id, type, body, read_at, created_at, updated_at")
+    .select(COLUMNS_WITH_FLAG)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(500);
+
+  /* Fallback: a database that has not run migration 054 rejects the unknown
+     column and fails the ENTIRE query — the thread would not open at all.
+     Degrading to the pre-054 column list keeps the chat working; every row
+     simply reads as live (no tombstones) until the migration is applied.
+
+     The cast is sound: `is_deleted` is OPTIONAL on `MessageRow`, so rows
+     selected without it satisfy the type — they simply never carry the flag. */
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from("messages")
+      .select(COLUMNS_BASE)
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(500);
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
 
   if (error) {
     console.error("[messaging] Messages query failed", {
@@ -248,6 +282,13 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
   }
 
   return (data as MessageRow[] | null) ?? [];
+}
+
+/** True when a Supabase/Postgres error is an unknown-column (42703). */
+function isMissingColumnError(error: unknown): boolean {
+  const detail = supabaseErrorDetail(error as never);
+  const text = `${detail.code ?? ""} ${detail.message ?? ""}`.toLowerCase();
+  return detail.code === "42703" || text.includes("does not exist");
 }
 
 /** Send a message into a conversation. */
@@ -309,6 +350,12 @@ export async function sendMessage(params: {
  * service-role client bypasses RLS — that filter is the only thing standing
  * between a member and someone else's messages. It must never be dropped.
  *
+ * THE 15-MINUTE EDIT WINDOW is enforced HERE, in the same WHERE clause
+ * (`.gte("created_at", cutoff)`), not only in the UI: a client-side check is
+ * a courtesy, this one is the rule. When zero rows match, one cheap read
+ * classifies why — missing/not-yours vs simply too old — so the member gets
+ * the real reason instead of a generic failure.
+ *
  * `content` is the legacy NOT NULL column (see lib/utils/message-payload.ts), so
  * an edit has to be mirrored into it or older readers would keep rendering the
  * pre-edit text.
@@ -317,9 +364,15 @@ export async function updateMessage(params: {
   messageId: string;
   senderId: string;
   body: string;
-}): Promise<boolean> {
+  /** How long after sending an edit is allowed. Defaults to 15 minutes. */
+  editWindowMs?: number;
+}): Promise<{ ok: boolean; reason?: "not_found" | "too_old" }> {
   const supabase = getSupabaseServerClient();
-  if (!supabase) return false;
+  if (!supabase) return { ok: false, reason: "not_found" };
+
+  const cutoff = new Date(
+    Date.now() - (params.editWindowMs ?? EDIT_WINDOW_MS)
+  ).toISOString();
 
   const { data, error } = await supabase
     .from("messages")
@@ -335,6 +388,7 @@ export async function updateMessage(params: {
     })
     .eq("id", params.messageId)
     .eq("sender_id", params.senderId)
+    .gte("created_at", cutoff)
     .select("id")
     .maybeSingle();
 
@@ -345,16 +399,35 @@ export async function updateMessage(params: {
     });
     throw error;
   }
-  return Boolean(data);
+
+  if (data) return { ok: true };
+
+  // Zero rows: not ours / missing, or outside the edit window. One read on
+  // this failure path only tells them apart.
+  const { data: existing } = await supabase
+    .from("messages")
+    .select("created_at")
+    .eq("id", params.messageId)
+    .eq("sender_id", params.senderId)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, reason: "not_found" };
+  return { ok: false, reason: "too_old" };
 }
 
+/** How long a sent message may be edited. Mirrored by the chat UI. */
+export const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
 /**
- * Delete a message the current user sent.
+ * "Delete for everyone" — soft delete (migration 054).
  *
  * Same ownership guarantee as `updateMessage`: `sender_id` is part of the
- * DELETE's WHERE clause so a member can never remove someone else's message.
- * Deletion is a hard delete — messages are not soft-deleted anywhere else in
- * this schema, so a removed message leaves no recoverable row behind.
+ * UPDATE's WHERE clause so a member can never remove someone else's message.
+ *
+ * The row is FLAGGED (`is_deleted = true`), not removed. Both participants
+ * then render a "This message was deleted" tombstone, which is the industry
+ * standard and — unlike a hard delete — leaves no silent gap in the thread
+ * the other member cannot explain.
  */
 export async function deleteMessage(params: {
   messageId: string;
@@ -365,7 +438,10 @@ export async function deleteMessage(params: {
 
   const { data, error } = await supabase
     .from("messages")
-    .delete()
+    .update({
+      is_deleted: true,
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", params.messageId)
     .eq("sender_id", params.senderId)
     .select("id")
