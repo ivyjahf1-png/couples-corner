@@ -1037,6 +1037,8 @@ export function MediaFeed({
           {/* Per-card options menu (copy link / report). */}
           {current ? (
             <div className="relative shrink-0">
+              {/* Same orange-ring glass circle as the action rail below, so the
+                  top-bar menu reads as part of that control family. */}
               <button
                 type="button"
                 onClick={() => {
@@ -1049,7 +1051,7 @@ export function MediaFeed({
                 aria-label="Moment options"
                 aria-haspopup="menu"
                 aria-expanded={menuOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-slate-950/60 text-white backdrop-blur-md transition hover:bg-white/10"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/80 bg-black/40 text-white shadow-lg backdrop-blur-md transition-transform hover:bg-black/55 active:scale-95"
               >
                 <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
                   <circle cx="12" cy="5" r="1.8" />
@@ -2026,7 +2028,11 @@ export function MediaFeed({
                 and in the iOS browser, where the home indicator otherwise sits
                 directly on top of the send button.
               */
-              <div className="shrink-0 border-t border-white/10 bg-[#0F172A] px-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2.5">
+              <div className="shrink-0 border-t border-orange-500/20 bg-[#0F172A]/95 px-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-md">
+                {/* Sticky composer: a glass input plus a glowing orange send
+                    circle. `flex-1` lets the field take the row while the send
+                    button keeps its size; the safe-area padding below keeps the
+                    row clear of the home indicator and the mobile keyboard. */}
                 <div className="flex items-center gap-2">
                   <label htmlFor="moment-comment" className="sr-only">
                     Add a comment
@@ -2044,15 +2050,15 @@ export function MediaFeed({
                       }
                     }}
                     maxLength={500}
-                    placeholder="Add a comment…"
-                    className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-[#1E293B] px-4 text-sm text-white placeholder:text-ink-400 focus:border-orange-400/50 focus:outline-none"
+                    placeholder="Add a comment..."
+                    className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/55 focus:border-orange-400/60 focus:outline-none"
                   />
                   <button
                     type="button"
                     onClick={postComment}
                     disabled={!commentDraft.trim() || isPending}
                     aria-label="Post comment"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-orange-500 text-white transition hover:bg-orange-400 disabled:opacity-40"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-orange-400/60 bg-orange-500 text-white shadow-[0_0_16px_-2px_rgba(249,115,22,0.8)] transition-transform hover:bg-orange-400 active:scale-95 disabled:opacity-40"
                   >
                     <Send className="h-4 w-4" />
                   </button>
@@ -2786,10 +2792,11 @@ function ActionButton({
       aria-label={label}
       aria-pressed={active}
       className={[
-        // 11 rather than 12: the rail now carries four controls, and the
-        // smaller circle plus the transparent fill keeps the stack from
-        // reading as a solid bar laid over the video.
-        "flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-white/10 backdrop-blur-md transition hover:bg-white/20 active:scale-95 disabled:opacity-40",
+        // Unified orange-ring glass circle shared by every Moment overlay
+        // action: three-dots menu, heart, comment, share and mute. The dark
+        // translucent fill keeps the video visible through it while the crisp
+        // orange edge marks all five as one control family.
+        "flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/80 bg-black/40 text-white shadow-lg backdrop-blur-md transition-transform hover:bg-black/55 active:scale-95 disabled:opacity-40",
         active ? "text-rose-400" : "text-white",
       ].join(" ")}
     >
