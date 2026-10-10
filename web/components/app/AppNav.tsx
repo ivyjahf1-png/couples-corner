@@ -197,7 +197,6 @@ interface MobileTab extends AppNavItem {
 }
 
 /**
-/**
  * Mobile bottom-bar tabs - the exact 5-tab sequence:
  *   Explore - Moment - Feed (raised centre) - Messages - Me
  *
@@ -235,19 +234,9 @@ const mobileTabs: MobileTab[] = [
 ];
 
 /**
- * Shared tab styling: a rounded pill with an amber active state (the `nav-pill`
- * family comes from globals.css; `nav-pill--tab` keeps the icon-above-label
- * column layout inside the pill).
- *
- * The INACTIVE colour is light slate, not the `#94a3b8` the pill carried when the
- * bar was dark: an inactive tab has to recede against a light surface, and the
- * old mid-grey was the same value it had when the bar behind it was near-black.
- * Hover moves to amber so the affordance is still discoverable.
- */
-/**
  * Shared tab styling.
  *
- * `raised` switches on the FEED tab''s centre-button treatment. See the comment
+ * `raised` switches on the FEED tab's centre-button treatment. See the comment
  * inside for why it is a separate branch and not a modifier on the amber pill.
  */
 function mobileTabClasses(active: boolean, raised = false) {
@@ -282,14 +271,14 @@ function mobileTabClasses(active: boolean, raised = false) {
          origin) is the one rule allowed to override it, which is why the active
          state must carry the class rather than only the utility pair. */
       active ? "nav-pill--active" : "",
-      "flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-full px-4 pt-2.5 pb-2 transition",
+      "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 pt-2.5 pb-2 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
         /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
              wash; this one is the primary destination and the reference calls for the
              vibrant orange accent. Near-black label on orange clears 7.4:1, so the text
              stays legible instead of going orange-on-orange. */
-          ? "bg-[#FF7A00] text-[#0F0C1B] shadow-[0_8px_20px_-6px_rgba(255,122,0,0.75)]"
+          ? "text-white"
           /* RESTING LABEL, RE-CHOSEN FOR THE MUTED SLATE PILL. `#5B6478` was tuned
              for the old WHITE fill and drops to ~2:1 on `#241E44` — invisible.
              `#9B93AE` clears 4.6:1 there; hover lifts to white so the affordance
@@ -526,11 +515,15 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 
   if (inActiveConversation) return null;
 
+  // `Z.nav` is 50 and must stay BELOW `Z.sheet` (200): a modal sheet paints
+  // over this bar and dims it, but the bar's links would otherwise still win
+  // taps in the strip where the two overlap. See components/ui/layers.ts.
+  // THE FLOATING LIFT LIVES HERE — the single fixed ancestor, 0.25rem plus the
+  // home-indicator inset above the bottom edge, per the reference. `.app-bottom-nav`
+  // deliberately carries no positioning of its own: when both this wrapper AND
+  // the nav were fixed, the offset applied twice and the bar drifted.
   return (
-    // `Z.nav` is 50 and must stay BELOW `Z.sheet` (200): a modal sheet paints
-    // over this bar and dims it, but the bar's links would otherwise still win
-    // taps in the strip where the two overlap. See components/ui/layers.ts.
-    <div className="fixed inset-x-0 bottom-0 z-50 shrink-0 md:hidden">
+    <div className="fixed inset-x-0 bottom-[calc(0.25rem+env(safe-area-inset-bottom))] z-50 md:hidden">
       <AppMobileNav {...props} />
     </div>
   );
@@ -538,12 +531,11 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 
 /**
  * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me)
- * rendered as FIVE SEPARATE PILLS - one independent card per tab, each with its
- * own solid muted-slate fill, margin, ring and shadow, laid out with a dark
- * gutter between neighbours. It is deliberately NOT one shared capsule, and
- * deliberately NOT bright white: a single background behind transparent tabs
- * merged them into one block, and five white slabs on the navy bar out-shouted
- * the content above. Hidden from `md` up, where the fixed sidebar takes over.
+ * rendered as ONE SHARED FLOATING CAPSULE — a single rounded-full pill painted
+ * by the `<nav>` itself (fill + border + blur + shadow), with five transparent
+ * tab slots inside. Each tab's icon sits in its own transparent box; the ACTIVE
+ * tab's icon gets a prominent circular orange disc + soft glowing halo. Hidden
+ * from `md` up, where the fixed sidebar takes over.
  * The "Menu" drawer holds every destination that is not a tab.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
@@ -585,7 +577,7 @@ function MobileNavigation({
           convert either half back to in-flow without changing the other. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav shrink-0 bg-[#1B1636] pb-[env(safe-area-inset-bottom,0px)]"
+        className="app-bottom-nav mx-3 rounded-full border border-white/10 bg-[#0b0f19]/95 px-3 py-2 shadow-2xl backdrop-blur-md"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -615,32 +607,17 @@ function MobileNavigation({
           <ul className="mx-auto grid max-w-md grid-cols-5 gap-1">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
-              /* EACH TAB'S OWN CONTAINER.
-
-                 The `<li>` is the independent pill: it owns the solid muted
-                 slate fill, hairline ring and shadow that the shared capsule
-                 used to provide for the whole row, and `mx-1` gives every
-                 button margin so no two pills can touch even before the list's
-                 `gap-1` is counted.
-                 `relative` is kept as the positioning context for anything
-                 absolutely placed inside a tab, and there is deliberately NO
-                 `overflow-hidden` - the unread badge overflows its icon box and
-                 clipping would cut it off. */
               return (
                 <li
                   key={item.href}
-                  /* EACH TAB'S OWN SOLID, MUTED CONTAINER — NO BRIGHT WHITE.
-
-                     `#241E44` is an opaque slate lifted just above the bar's own
-                     `#1B1636`: dark enough to stay calm under the orange accent,
-                     light enough that the hairline ring reads as an edge rather
-                     than a smudge. `bg-white` here produced five glowing slabs on
-                     a navy bar — the buttons stopped reading as one restrained
-                     row of controls and started competing with the content above.
-                     The `ring-white/[0.08]` + shadow draw the boundary that the
-                     fill alone no longer provides, so neighbours still cannot
-                     merge. */
-                  className="relative mx-1 rounded-full bg-[#241E44] shadow-[0_6px_16px_-8px_rgba(0,0,0,0.7)] ring-1 ring-white/[0.08]"
+                  /* TRANSPARENT SLOT — NO PER-TAB FILL. The bar is now ONE shared
+                     floating capsule (the nav above paints the single rounded-full
+                     fill + border + blur); per-tab slabs would carve it back into
+                     five blocks, which is exactly the merged look the reference
+                     removes. `relative` stays as the unread badge's positioning
+                     context, with NO `overflow-hidden` so the badge can escape the
+                     icon box. */
+                  className="relative min-w-0"
                 >
                   <Link
                     href={item.href}
@@ -672,20 +649,23 @@ function MobileNavigation({
     and the glyph stay in step. The RAISED Feed tab is given 18px: it sits in a
     filled pill whose label is bold, and a 20px stroke-only glyph beside that
     weight reads heavier than its neighbours. */}
-                    <span className="relative flex h-5 w-6 items-center justify-center">
+                    <span
+                      className={`relative flex h-11 w-11 items-center justify-center rounded-full transition ${
+                        active
+                          ? /* PROMINENT CIRCULAR ORANGE FILL + SOFT GLOWING HALO, per the
+                               reference. bg-amber-500 is the warm filled disc around the
+                               active icon; white icon on top clears contrast; the halo
+                               (orange ring + blurred outer shadow) is the attention
+                               signal, and scale-[1.04] gives the selected button a touch
+                               more presence without moving the row. */
+                            "scale-[1.04] bg-amber-500 text-white shadow-[0_0_0_3px_rgba(245,158,11,0.35),0_10px_24px_-6px_rgba(245,158,11,0.65)]"
+                          : "text-[#9B93AE]"
+                      }`}
+                    >
                       <NavIcon
                         name={item.navIcon}
                         size={item.raised ? 18 : 20}
-                        className={
-                          /* Icon colour tracks the LABEL colour in both states, on
-                             every tab. The raised Feed tab used to rest white
-                             because its pill was a different (purple) surface
-                             from its neighbours; it now shares the same muted
-                             slate fill, so its glyph uses the same `#9B93AE` the
-                             caption renders in — icon and caption stay one lit
-                             unit instead of drifting two tones apart. */
-                          active ? "text-[#0F0C1B]" : "text-[#9B93AE]"
-                        }
+                        className="text-current"
                       />
                       {item.showBadge && unreadCount > 0 ? (
                         <UnreadBadge count={unreadCount} />

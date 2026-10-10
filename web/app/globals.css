@@ -739,49 +739,46 @@ input::placeholder, textarea::placeholder {
   backdrop-filter: blur(20px) saturate(140%);
 }
 
-/* THE BOTTOM BAR — SOLID, OPAQUE, NO BLUR.
+/* THE BOTTOM BAR — ONE SHARED FLOATING CAPSULE.
 
-   This is the one surface in the app that is deliberately NOT glassmorphic. Each
-   tab is now its OWN pure-`#FFFFFF` pill (the `<li>` in AppNav.tsx) standing on
-   the opaque deep-purple strip, so every button gets a hard, crisp edge of its
-   own with a dark gutter between neighbours - instead of one merged white slab,
-   and instead of a frosted one.
+   The `<nav>` paints a single rounded-full pill (fill + border + blur + shadow,
+   via its Tailwind classes); each tab is a TRANSPARENT slot inside it, and the
+   ACTIVE tab's icon carries its own circular orange disc + glow (see
+   `mobileTabClasses` in AppNav.tsx). An earlier revision gave every `<li>` its
+   own muted-slate fill — five slabs that carved the capsule back into blocks.
 
-   WHY IT MATTERS ENOUGH TO ASSERT EXPLICITLY. A `backdrop-filter` on a bar that
-   sits directly over scrolling content does not read as "premium depth" on a
-   phone — it samples whatever happens to be underneath at each frame, so the
-   labels permanently sit on a shifting smear of the messages behind them, and on
-   a fast scroll they visibly lag the content. Removing the blur is a legibility
-   fix, not only a stylistic one.
+   WHY THE BLUR IS BACK. A `backdrop-filter` over scrolling content used to smear
+   labels because the bar spanned edge to edge. The pill now floats clear of the
+   content (0.25rem + safe-area lift, `mx-3` side insets), so the sampled area is
+   a thin rim rather than a field behind every caption. On
+   `prefers-reduced-transparency` the LOW-END COMPATIBILITY block further down
+   removes the blur and substitutes an opaque fill — the guard for weak GPUs.
 
-   THIS RULE IS UNLAYERED, SO IT BEATS EVERY TAILWIND UTILITY ON THE ELEMENT.
-   That is the whole reason it exists, and it is also why the nav's own
-   `bg-*`/`backdrop-blur-*` classes do nothing on their own: an unlayered rule
-   outranks anything in `@layer utilities`. The colours therefore have to be
-   stated HERE as well as on the element, or the utility is silently ignored.
-   Keep the two in step — the values below are the shipped ones.
+    THIS RULE IS UNLAYERED, SO IT BEATS EVERY TAILWIND UTILITY ON THE ELEMENT.
+    That is the whole reason it exists, and it is also why the nav's own
+    `bg-*`/`backdrop-blur-*` classes do nothing on their own: an unlayered rule
+    outranks anything in `@layer utilities`. The colours therefore have to be
+    stated HERE as well as on the element, or the utility is silently ignored.
+    Keep the two in step — the values below are the shipped ones.
 
-   DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
-   the dark slate/navy card, and `blur(12px)` is the translucent frosted edge.
-
-   The blur used to be deliberately OFF (see the history below) because labels sat
-   on a shifting smear of the content behind them. It is back because the pill now
-   floats clear of the content instead of spanning edge to edge, so the sampled
-   area is small and the smear is a thin rim rather than a field behind every
-   caption. On a device with `prefers-reduced-transparency` the LOW-END
-   COMPATIBILITY block further down this file removes the blur and substitutes an
-   opaque fill, which is also the guard for the weak GPUs that cannot composite a
-   backdrop filter at all. */
+    DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
+    the dark slate/navy card, and `blur(12px)` is the translucent frosted edge. */
 .app-bottom-nav {
   /* rgb() form of `#0b0f19` at 95% — matches `bg-[#0b0f19]/95` on the element. */
   background-color: rgb(11 15 25 / 0.95);
-  color: #1f2937;
+  color: #ffffff;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  /* POSITIONING LIVES ON THE BottomNavRegion WRAPPER (fixed, lifted 0.25rem +
+     safe-area above the bottom edge), NOT HERE. A previous revision declared
+     `position: fixed; left: 0; right: 0; bottom: ...` here too, which made the
+     nav fixed INSIDE an already-fixed wrapper: the inner bar resolved against
+     the viewport while the wrapper collapsed to zero height, so the floating
+     offset applied twice and the bar drifted over content. One fixed ancestor
+     only.
+     `color` is restated here (not inherited) because THIS UNLAYERED RULE beats
+     every Tailwind `text-*` utility on the element — leave it dark and the
+     labels render dark-on-dark no matter what classes the nav carries. */
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
