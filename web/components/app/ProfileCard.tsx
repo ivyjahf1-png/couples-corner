@@ -102,9 +102,15 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           {profile.avatarUrl && failedPhoto !== profile.avatarUrl ? (
+            /* LOADING HINTS. An Explore grid renders dozens of these cards at
+               once; `loading="lazy"` + `decoding="async"` keep first paint off
+               the hook of every avatar fetch and decode — the same pairing
+               `Avatar` already uses, so the two avatar paths behave alike. */
             <img
               src={profile.avatarUrl}
               alt={name}
+              loading="lazy"
+              decoding="async"
               onError={() => setFailedPhoto(profile.avatarUrl ?? null)}
               className="h-11 w-11 rounded-full object-cover"
             />

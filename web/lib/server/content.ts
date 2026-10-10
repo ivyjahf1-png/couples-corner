@@ -65,11 +65,23 @@ function dbToContentItem(row: Record<string, unknown>): ContentItem {
   };
 }
 
+/**
+ * Every column `dbToContentItem` reads, listed explicitly.
+ *
+ * These calls used to `select("*")`, which pulls the whole row — including
+ * `description` and `media_url`, free text that can run to kilobytes apiece —
+ * for a mapper that only ever consumes these nineteen fields. The list mirrors
+ * the migration 011 shape exactly (the table defines no other columns), so the
+ * payload shrinks without changing a single value the mapper sees.
+ */
+const CONTENT_SELECT_COLUMNS =
+  "id, category, title, description, media_type, media_url, thumbnail_url, button_text, destination_url, placement, status, priority, start_at, end_at, target_audience, created_at, updated_at, created_by, updated_by";
+
 export async function listContent(filters: ContentFilters = {}): Promise<ContentItem[]> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return [];
 
-  let query = supabase.from("content").select("*").order("created_at", { ascending: false });
+  let query = supabase.from("content").select(CONTENT_SELECT_COLUMNS).order("created_at", { ascending: false });
 
   if (filters.category) query = query.eq("category", filters.category);
   if (filters.status) query = query.eq("status", filters.status);
@@ -85,7 +97,7 @@ export async function getContent(id: string): Promise<ContentItem | null> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
 
-  const { data } = await supabase.from("content").select("*").eq("id", id).single();
+  const { data } = await supabase.from("content").select(CONTENT_SELECT_COLUMNS).eq("id", id).single();
   return data ? dbToContentItem(data) : null;
 }
 
@@ -270,7 +282,7 @@ export async function getPublishedForPlacement(
 
   const { data } = await supabase
     .from("content")
-    .select("*")
+    .select(CONTENT_SELECT_COLUMNS)
     .eq("placement", placement)
     .eq("status", "published")
     .lte("start_at", now)

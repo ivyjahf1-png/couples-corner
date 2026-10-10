@@ -189,7 +189,10 @@ export async function listRiskFlags(userId: string): Promise<RiskFlag[]> {
 
   const { data } = await supabase
     .from("risk_flags")
-    .select("*")
+    /* Exactly the fields the RiskFlag mapper below reads — every column the
+       table's only writer (`addRiskSignal` in safety.ts) inserts, plus the
+       default-generated `id`. Nothing else on the row is consumed. */
+    .select("id, target_user_id, type, context, source, score, created_at")
     .eq("target_user_id", userId)
     .order("created_at", { ascending: false })
     .limit(100);

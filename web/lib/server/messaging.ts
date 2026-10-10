@@ -230,7 +230,11 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
 
   const { data, error } = await supabase
     .from("messages")
-    .select("*")
+    /* Exactly `MessageRow`'s eight columns, not "*": this query pulls up to
+       500 rows per thread open, and the two columns it drops — the legacy
+       `content` text kept only for the write bridge, and `status` — are never
+       read back by any typed consumer. Mirrors migration 016's shape. */
+    .select("id, conversation_id, sender_id, type, body, read_at, created_at, updated_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .limit(500);
@@ -269,7 +273,9 @@ export async function sendMessage(params: {
         updatedAt: now,
       })
     )
-    .select("*")
+    /* Row shape matches `MessageRow` — the same eight columns `listMessages`
+       selects, so both read paths agree on what a message row IS. */
+    .select("id, conversation_id, sender_id, type, body, read_at, created_at, updated_at")
     .single();
 
   // Never swallow the database exception — it is the only way to diagnose a

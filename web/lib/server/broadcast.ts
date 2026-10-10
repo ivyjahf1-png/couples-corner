@@ -76,7 +76,10 @@ export async function listBroadcasts(): Promise<Broadcast[]> {
 
   const { data } = await supabase
     .from("broadcasts")
-    .select("*")
+    /* Exactly the fields `listBroadcasts`' row mapper reads — `body` is
+       unbounded admin-authored text and this list renders up to 100 rows.
+       Mirrors migration 003's shape. */
+    .select("id, title, body, audience, type, created_by, status, targeted_user_count, created_at, updated_at, sent_at")
     .order("created_at", { ascending: false })
     .limit(100);
 
@@ -103,7 +106,8 @@ export async function sendBroadcast(id: string, adminUid: string): Promise<numbe
 
   const { data: existing } = await supabase
     .from("broadcasts")
-    .select("*")
+    /* Only what `sendBroadcast` branches on / fans out — not the whole row. */
+    .select("audience, status, title, body, targeted_user_count")
     .eq("id", id)
     .single();
   if (!existing) throw new Error("Broadcast not found");

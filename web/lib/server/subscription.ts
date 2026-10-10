@@ -19,13 +19,24 @@ function dbToSub(row: Record<string, unknown>): Subscription {
   };
 }
 
+/**
+ * The columns `dbToSub` reads, listed explicitly rather than `select("*")`.
+ *
+ * Every field here is one THIS module writes (see `createSubscription`'s
+ * insert and `cancelSubscription`'s `canceled_at` update), so the list is
+ * provably in sync with whatever schema is deployed — the read side just
+ * stops paying for columns the mapper never touches.
+ */
+const SUBSCRIPTION_SELECT_COLUMNS =
+  "id, user_id, plan_id, tier, status, started_at, current_period_end, canceled_at, payment_provider, payment_method_id";
+
 export async function getActiveSubscription(userId: string): Promise<Subscription | null> {
   const supabase = getSupabaseServerClient();
   if (!supabase) return null;
 
   const { data } = await supabase
     .from("subscriptions")
-    .select("*")
+    .select(SUBSCRIPTION_SELECT_COLUMNS)
     .eq("user_id", userId)
     .eq("status", "active")
     .order("current_period_end", { ascending: false })
@@ -42,7 +53,7 @@ export async function listUserSubscriptions(userId: string): Promise<Subscriptio
 
   const { data } = await supabase
     .from("subscriptions")
-    .select("*")
+    .select(SUBSCRIPTION_SELECT_COLUMNS)
     .eq("user_id", userId)
     .order("started_at", { ascending: false });
 

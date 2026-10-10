@@ -503,18 +503,22 @@ export async function getMatchesData(uid: string): Promise<MatchesData> {
   }
 
   const [incomingResult, outgoingResult, conn1Result, conn2Result] = await Promise.all([
+    /* Explicit columns per row (not "*"): each mapper below reads only these,
+       and the four queries run in parallel on every /matches load — so the
+       column list is the cheapest place to keep the payload honest. Mirrors
+       migration 013's shape for both tables. */
     supabase
       .from("connection_requests")
-      .select("*")
+      .select("id, from_user_id, to_user_id, created_at")
       .eq("to_user_id", uid)
       .eq("status", "pending"),
     supabase
       .from("connection_requests")
-      .select("*")
+      .select("id, from_user_id, to_user_id, created_at")
       .eq("from_user_id", uid)
       .eq("status", "pending"),
-    supabase.from("connections").select("*").eq("user1_id", uid),
-    supabase.from("connections").select("*").eq("user2_id", uid),
+    supabase.from("connections").select("id, user1_id, user2_id, connected_at").eq("user1_id", uid),
+    supabase.from("connections").select("id, user1_id, user2_id, connected_at").eq("user2_id", uid),
   ]);
 
   // Resolve every participant name once

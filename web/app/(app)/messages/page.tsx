@@ -103,7 +103,28 @@ export default async function MessagesPage() {
   return (
     /* No `EmptyState` prop any more: the inbox renders its own light-themed empty
        block. `EmptyState` hardcodes the old dark palette and cannot be themed
-       from the call site. */
-    <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} />
+       from the call site.
+
+       VIEWPORT-LOCKED WRAPPER — `h-[100dvh] w-full overflow-hidden flex flex-col`.
+       The height is stated in DVH against the VIEWPORT rather than inherited as
+       a percentage, because the chain above this element is not guaranteed to be
+       definite: the shell and `<main>` are content-sized flex items, and a
+       `height: 100%` on `PageLock` resolves to auto against an indefinite
+       parent. The failure mode is specific and ugly — the lock box grows to its
+       content, the body's `overflow-y-auto` has nothing to scroll past, and the
+       whole thing gets clipped by `<main>`'s `overflow-hidden`: an inbox whose
+       rows below the fold are simply unreachable. Stating 100dvh cuts that chain
+       entirely — the wrapper is bounded no matter what the ancestors do, so
+       `PageLock`'s `height: 100%` finally has a definite box to measure.
+
+       `overflow-hidden` + `flex-col` make containment structural: the only
+       element allowed to scroll is the list inside `PageLock`, never this box
+       and never the document. The wrapper is also a flex item of `<main>`, so
+       it SHRINKS when the viewport claim exceeds the space available (the demo
+       banner sits above it) instead of overflowing — the list absorbs the
+       difference and nothing is clipped. */
+    <div className="h-[100dvh] w-full overflow-hidden flex flex-col">
+      <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} />
+    </div>
   );
 }

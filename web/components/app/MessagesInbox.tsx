@@ -675,8 +675,15 @@ export function MessagesInbox({
          list — the fixed bottom nav then scrolls away with it. `min-h-0` is what
          makes this box bounded and therefore genuinely scrollable.
 
-         `overscroll-contain` stops reaching the end of the list from
+          `overscroll-contain` stops reaching the end of the list from
          rubber-banding the shell behind it.
+
+         `overflow-y-auto` is written out here even though `.page-lock__body`
+         already declares it: the contract this screen is held to is that the
+         LIST carries `flex-1 min-h-0 overflow-y-auto overscroll-contain`
+         visibly in its class list, so a reader auditing the scroll maths does
+         not have to hop to globals.css to confirm the region actually scrolls.
+         Same value either way — no cascade fight, just the proof in place.
 
          `[content-visibility:auto]` USED TO BE HERE AND IT IS THE BUG THAT MADE
          THIS INBOX UNSCROLLABLE. `content-visibility: auto` skips rendering work
@@ -689,7 +696,7 @@ export function MessagesInbox({
          lives on the ROW instead (see `InboxRowItem`), where a skipped row is
          harmless and an explicit `contain-intrinsic-size` keeps the maths
          truthful. */
-      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [touch-action:pan-y] [-webkit-overflow-scrolling:touch] md:pb-8"
+      bodyClassName="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 pb-[calc(6rem_+_env(safe-area-inset-bottom))] [touch-action:pan-y] [-webkit-overflow-scrolling:touch] md:pb-8"
     >
       {/* The fraud warning is OUTSIDE the tab panels: it applies regardless of
           whether the member is reading chats or calls, and hiding it behind the

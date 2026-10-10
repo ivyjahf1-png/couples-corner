@@ -108,14 +108,6 @@ function LoginModalContent({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 text-ink-400 hover:text-white"
-        aria-label="Close"
-      >
-        ✕
-      </button>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {error ? <FormAlert message={error} /> : null}
         {info ? (
@@ -233,14 +225,6 @@ function RegisterModalContent({ onClose }: { onClose: () => void }) {
         </>
       }
     >
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 text-ink-400 hover:text-white"
-        aria-label="Close"
-      >
-        ✕
-      </button>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {formError ? <FormAlert message={formError} /> : null}
         {/* Confirms the referral is being honoured. Without this the visitor has

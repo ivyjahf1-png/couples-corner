@@ -230,7 +230,8 @@ export async function cancelConnectionRequest(uid: string, requestId: string): P
 
   const { data: request } = await supabase
     .from("connection_requests")
-    .select("*")
+    /* Only the two fields the guard below reads. */
+    .select("from_user_id, status")
     .eq("id", requestId)
     .single();
 
@@ -263,7 +264,9 @@ export async function respondToConnectionRequest(
   // Pre-read for authorization + notification targeting.
   const { data: pre } = await supabase
     .from("connection_requests")
-    .select("*")
+    /* Authorization + notification targeting + pair id — the three things the
+       branch below touches; nothing else on the row is read. */
+    .select("from_user_id, to_user_id, status")
     .eq("id", requestId)
     .single();
 
@@ -354,7 +357,8 @@ export async function removeConnection(uid: string, connectionId: string): Promi
 
   const { data: connection } = await supabase
     .from("connections")
-    .select("*")
+    /* Ownership check only: the pair the guard below compares against uid. */
+    .select("user1_id, user2_id")
     .eq("id", connectionId)
     .single();
 

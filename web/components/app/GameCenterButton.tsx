@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Compact Game Center badge, for use INSIDE a card's header area.
@@ -51,6 +52,23 @@ export function GameCenterBadge({
   );
 }
 
+/** localStorage key holding the member's dropped button position, in viewport px. */
+const GAME_BUTTON_POSITION_KEY = "cc-game-button-position";
+/** The button is `h-14 w-14` — the edge length used when clamping to the viewport. */
+const GAME_BUTTON_EDGE_PX = 56;
+/** Pointer travel below this is a tap, not a drag. */
+const DRAG_THRESHOLD_PX = 6;
+
+/** Clamp a point so the WHOLE button stays inside the current viewport. */
+function clampToViewport(x: number, y: number): { x: number; y: number } {
+  const maxX = Math.max(0, window.innerWidth - GAME_BUTTON_EDGE_PX);
+  const maxY = Math.max(0, window.innerHeight - GAME_BUTTON_EDGE_PX);
+  return {
+    x: Math.min(Math.max(x, 0), maxX),
+    y: Math.min(Math.max(y, 0), maxY),
+  };
+}
+
 /**
  * Floating Game Center action button.
  *
@@ -62,6 +80,31 @@ export function GameCenterBadge({
  * statically hosted build (Firebase Hosting serving `web/out`) client-side
  * route transitions to a not-yet-hydrated document can strand the user on a
  * blank screen, so the Game Center always does a full document navigation.
+ *
+ * ── DRAGGABLE ────────────────────────────────────────────────────────────────
+ * The button can be dragged anywhere on the viewport (mouse or touch) and
+ * remembers where it was dropped in localStorage.
+ *
+ * - POSITION MODEL: the wrapper is either in its DEFAULT layout (the
+ *   `inset-x-0 + bottomOffset + justify-end` classes callers pass) or, once a
+ *   position exists, pinned at an explicit `{left, top}`. There is no third
+ *   mode: dropping the button writes {x, y} and the default offsets stop
+ *   applying, so what the member sees is exactly what was persisted.
+ * - POINTER EVENTS, not separate mouse/touch handlers: `pointerdown/move/up`
+ *   unify both input types, and `setPointerCapture` keeps the drag alive when
+ *   the cursor or finger leaves the 56px button mid-drag — without capture a
+ *   fast flick would strand the button halfway between positions.
+ * - A 6px MOVE THRESHOLD separates a drag from a tap, so a normal tap still
+ *   navigates: below the threshold no position is ever written, and above it
+ *   the trailing click is suppressed (see the onClick guard) instead of
+ *   firing a navigation the member did not ask for.
+ * - CLAMPING keeps the persisted point inside the current viewport on restore
+ *   AND on resize, so a position saved on a tall phone cannot strand the
+ *   button off-screen after a rotate or a window shrink.
+ * - RESTORE IS AN EFFECT, never render-time state: localStorage does not
+ *   exist during SSR, and this component is server-rendered too, so reading
+ *   it in the render body would throw on the server and desync hydration.
+ *   First paint uses the default placement, then the saved position snaps in.
  */
 export function GameCenterButton({
   /**
@@ -79,45 +122,165 @@ export function GameCenterButton({
   label?: string;
   ariaLabel?: string;
 }) {
+  /* Dropped position, or null while the default `bottomOffset` layout is in
+     force. State rather than a ref because the wrapper's classes and inline
+     styles are derived from it during render. */
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  /* Mirror of the state, so the pointer-up handler can persist the FINAL
+     position synchronously — reading state there would see the render-time
+     value from before the last move event. */
+  const positionRef = useRef<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    moved: boolean;
+  } | null>(null);
+  /* Set once the move passes the threshold, cleared by the trailing click.
+     A ref, not state: the click handler runs in the same task as pointer-up
+     and would otherwise read a stale render-time `false`. */
+  const draggedRef = useRef(false);
+
+  function applyPosition(next: { x: number; y: number } | null) {
+    positionRef.current = next;
+    setPosition(next);
+  }
+
+  /* RESTORE, after mount — never during render (see the doc comment above).
+     A corrupt or absent key simply leaves the default placement in force. */
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(GAME_BUTTON_POSITION_KEY);
+      if (!raw) return;
+      const point = JSON.parse(raw) as { x?: unknown; y?: unknown };
+      if (typeof point.x === "number" && typeof point.y === "number") {
+        const clamped = clampToViewport(point.x, point.y);
+        positionRef.current = clamped;
+        setPosition(clamped);
+      }
+    } catch {
+      /* Storage disabled or the value unreadable: default placement stands. */
+    }
+  }, []);
+
+  /* RE-CLAMP ON RESIZE. A point saved near the right edge of a wide window
+     would sit off-screen after the window narrows — and a point saved on a
+     tall phone ends up under the tab bar after a rotate. */
+  useEffect(() => {
+    function onResize() {
+      const current = positionRef.current;
+      if (!current) return;
+      const next = clampToViewport(current.x, current.y);
+      positionRef.current = next;
+      setPosition(next);
+    }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  function persistPosition() {
+    const current = positionRef.current;
+    if (!current) return;
+    try {
+      window.localStorage.setItem(GAME_BUTTON_POSITION_KEY, JSON.stringify(current));
+    } catch {
+      /* Quota or private mode: the drag still held for this session. */
+    }
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLAnchorElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      /* Viewport origin captured at DOWN, not at first move: the wrapper
+         switches from the default layout to explicit {left, top} on the first
+         move, and deriving from the down-time rect keeps that switch seamless —
+         the button tracks the pointer 1:1 with no jump. */
+      originX: rect.left,
+      originY: rect.top,
+      moved: false,
+    };
+    draggedRef.current = false;
+    /* Capture so the drag survives the pointer leaving the 56px button —
+       a fast flick would otherwise strand the button mid-flight. */
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLAnchorElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    /* Still a tap: move nothing, mark nothing — a press must not nudge the
+       button on its own. */
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    drag.moved = true;
+    draggedRef.current = true;
+    /* Stops the browser turning the gesture into a scroll or a native
+       link-drag mid-drag (the anchor is also `draggable={false}` and
+       `touch-action: none`, so all three layers agree). */
+    e.preventDefault();
+    applyPosition(clampToViewport(drag.originX + dx, drag.originY + dy));
+  }
+
+  function finishDrag(e: React.PointerEvent<HTMLAnchorElement>) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== e.pointerId) return;
+    dragRef.current = null;
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* The browser already released it (document teardown) — nothing to do. */
+    }
+    if (drag.moved) persistPosition();
+  }
+
+  function handleClick(e: React.MouseEvent<HTMLAnchorElement>) {
+    /* A drag always ends in a click on mouse and touch; that click must not
+       navigate. Keyboard activation has no preceding drag, so Enter still
+       opens the Game Center. */
+    if (draggedRef.current) {
+      e.preventDefault();
+      draggedRef.current = false;
+    }
+  }
+
   return (
-    /* `fixed`, not `absolute`. THE REGRESSION THIS FIXES:
-       the wrapper was `absolute` inside the page's `relative` container, so it
-       was positioned against the CONTENT BOX — which scrolls. Two consequences:
-         1. It scrolled away with the content instead of floating.
-         2. Its `bottom-4` resolved against the container's padding box, so the
-            button sat INSIDE the `pb-20` reserve — right on top of the 5-icon
-            action row and the card's own bottom controls, clipping into them.
+    /* DEFAULT LAYOUT vs DROPPED LAYOUT. While `position` is null the wrapper
+       keeps the caller's offset classes (`inset-x-0` + `bottomOffset` +
+       `justify-end`) and the button sits where every caller expects it. The
+       moment a position exists, those offsets stop applying and the wrapper
+       pins at that exact {left, top} — one source of truth, so the visible
+       spot and the persisted spot can never disagree.
 
-       `fixed` pins it to the VIEWPORT, which is what "floats clearly above the
-       action button row by the side of the screen" requires.
-
-       ── WHY `bottom-32` AND NOT `bottom-24` ────────────────────────────────
-       `bottom-24` (96px) cleared the 5rem tab bar (80px) and nothing else, so
-       the 56px button still overlapped the card's own 5-icon action row — the
-       one at `bottom-0 p-5` inside DiscoverCardStack, which is ALSO a fixed
-       height above the nav. Clearing the nav is necessary but NOT sufficient:
-       the action row is the taller obstacle and sits above it.
-
-       `bottom-32` (128px) = 80px nav + 48px action row + clearance. The two
-       offsets are now in proportion to what they clear, so neither can hide
-       under the other.
-
-       `z-[60]` is above `Z.nav` (50) so the touch target is genuinely
+       `fixed`, not `absolute`, in BOTH modes: it pins the button to the
+       VIEWPORT, so it floats above scrolling content instead of travelling
+       with it. `z-[60]` is above `Z.nav` (50) so the touch target stays
        reachable where the two overlap, and well below `Z.sheet` (200) so a
-       modal still covers it. The old `z-20` was BELOW the nav, which is why
-       the button sometimes could not be tapped at all.
-
-       NOTE: `bottom-32` is specific to Discover. Any other surface that floats
-       this button must pass its own `bottomOffset`, sized to what THAT page
-       stacks underneath it — /messages has the nav but no action row, so it
-       passes `bottom-24`. Copying the Discover value onto a page with less
-       beneath it is what left the button floating oddly high in the inbox. */
+       modal still covers it. The default `bottomOffset` stays caller-supplied
+       because each surface stacks different obstacles under the button —
+       Discover passes `bottom-32` (nav + action row), /messages `bottom-24`. */
     <div
-      className={`pointer-events-none fixed inset-x-0 ${bottomOffset} z-[60] flex justify-end px-4`}
+      className={
+        position
+          ? "pointer-events-none fixed z-[60]"
+          : `pointer-events-none fixed inset-x-0 ${bottomOffset} z-[60] flex justify-end px-4`
+      }
+      style={position ? { left: position.x, top: position.y } : undefined}
     >
       <a
         href="/games"
-        className="nm-raised pointer-events-auto group flex h-14 w-14 flex-col items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white transition duration-150 hover:-translate-y-0.5 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:shadow-none"
+        draggable={false}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+        onClick={handleClick}
+        className="nm-raised pointer-events-auto group flex h-14 w-14 cursor-grab select-none flex-col items-center justify-center rounded-full border border-sky-400/40 bg-gradient-to-b from-[#1E293B] to-[#0F172A] text-white transition duration-150 hover:-translate-y-0.5 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120] active:translate-y-0 active:shadow-none active:cursor-grabbing [touch-action:none]"
         title="Game Center"
         aria-label={ariaLabel}
       >

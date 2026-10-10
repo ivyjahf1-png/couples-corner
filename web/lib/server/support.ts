@@ -42,7 +42,11 @@ export async function listSupportTickets(options?: {
 
   let query = supabase
     .from("support_tickets")
-    .select("*")
+    /* Explicit columns, not "*": `message` is unbounded member-authored text and
+       this list renders up to 200 rows — selecting exactly the fields the row
+       mapper reads keeps the admin list payload off that text it never shows
+       twice. Mirrors migration 003's shape. */
+    .select("id, user_id, email, category, subject, message, status, admin_user_id, admin_reply, created_at, updated_at")
     .order("created_at", { ascending: false })
     .limit(200);
   if (options?.status) query = query.eq("status", options.status);
