@@ -130,19 +130,29 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
         </Chip>
       </div>
 
-      {/* Bio + match ring. The ring sits beside the bio/interest tags and only
-          exists when the server computed a real overlap — see MatchRing below. */}
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          {profile.bio?.trim() ? (
-            <p className="text-sm leading-6 text-ink-300">{profile.bio.trim()}</p>
-          ) : (
-            <p className="text-sm italic leading-6 text-ink-400">
-              A quiet presence — this member is keeping their story unwritten for now.
-            </p>
-          )}
+      {/* Match indicator row: circular progress ring ALONGSIDE the percentage
+          text ("92% Match"). Ring + label sit side-by-side so the number reads
+          at a glance even where the in-ring text is small. Renders only when
+          the server computed a real overlap — see MatchRing below. */}
+      {matchPercent !== null ? (
+        <div className="flex items-center gap-3">
+          <MatchRing percent={matchPercent} showCaption={false} />
+          <p className="text-sm font-semibold text-white">
+            {matchPercent}% <span className="font-medium text-ink-300">Match</span>
+          </p>
         </div>
-        {matchPercent !== null ? <MatchRing percent={matchPercent} /> : null}
+      ) : null}
+
+      {/* Bio sits DIRECTLY BENEATH the match indicator, full-width, so the
+          overlay order is: identity → match → story → tags. */}
+      <div className="min-w-0">
+        {profile.bio?.trim() ? (
+          <p className="text-sm leading-6 text-ink-300">{profile.bio.trim()}</p>
+        ) : (
+          <p className="text-sm italic leading-6 text-ink-400">
+            A quiet presence — this member is keeping their story unwritten for now.
+          </p>
+        )}
       </div>
 
       {profile.interests.length > 0 ? (
@@ -206,7 +216,7 @@ export function ProfileCard({ profile }: { profile: ProfileCardView | null | und
 const RING_RADIUS = 21;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-function MatchRing({ percent }: { percent: number }) {
+function MatchRing({ percent, showCaption = true }: { percent: number; showCaption?: boolean }) {
   const offset = RING_CIRCUMFERENCE * (1 - percent / 100);
   return (
     <div
@@ -245,9 +255,11 @@ function MatchRing({ percent }: { percent: number }) {
           {percent}%
         </text>
       </svg>
-      <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-300">
-        Match
-      </span>
+      {showCaption ? (
+        <span className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-300">
+          Match
+        </span>
+      ) : null}
     </div>
   );
 }
