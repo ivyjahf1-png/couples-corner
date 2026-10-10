@@ -518,12 +518,18 @@ export function BottomNavRegion(props: AppMobileNavProps) {
   // `Z.nav` is 50 and must stay BELOW `Z.sheet` (200): a modal sheet paints
   // over this bar and dims it, but the bar's links would otherwise still win
   // taps in the strip where the two overlap. See components/ui/layers.ts.
-  // THE FLOATING LIFT LIVES HERE — the single fixed ancestor, 0.25rem plus the
-  // home-indicator inset above the bottom edge, per the reference. `.app-bottom-nav`
-  // deliberately carries no positioning of its own: when both this wrapper AND
-  // the nav were fixed, the offset applied twice and the bar drifted.
+  // THE FLOATING LIFT LIVES HERE — the single fixed ancestor. `bottom-3`
+  // lifts the pill 0.75rem above the bottom edge; the home-indicator inset is
+  // carried BY THE BAR ITSELF via `pb-[env(safe-area-inset-bottom)]` (the
+  // glass continues under the home indicator), so the inset is counted ONCE —
+  // never also here, or the two env() lookups stack into a doubled gap.
+  // `left-4 right-4` give the pill real side gutters; `max-w-md mx-auto` caps
+  // and centres it on the same axis the deck card and deck dock centre on.
+  // `.app-bottom-nav` deliberately carries no positioning of its own: when
+  // both this wrapper AND the nav were fixed, the offset applied twice and
+  // the bar drifted.
   return (
-    <div className="fixed inset-x-0 bottom-[calc(0.25rem+env(safe-area-inset-bottom))] z-50 md:hidden">
+    <div className="fixed bottom-3 left-4 right-4 z-50 mx-auto max-w-md md:hidden">
       <AppMobileNav {...props} />
     </div>
   );
@@ -575,9 +581,17 @@ function MobileNavigation({
           runs the full height and this bar overlays it - AppMain carries the
           matching bottom padding so content is never hidden underneath. Do not
           convert either half back to in-flow without changing the other. */}
+      {/* FLOATING GLASS PILL — compact, low-profile container. `bg-[#0b0f19]/90
+          backdrop-blur-md` is the glassmorphism (90% fill so scrolling content
+          ghosts through); `border-white/10 shadow-2xl` lift it off that content;
+          `px-4 py-2` is the compact chrome; `pb-[env(safe-area-inset-bottom)]`
+          keeps the glass running under the iOS home indicator so the inset is
+          absorbed by the bar, not by page content. The unlayered `.app-bottom-nav`
+          rule in globals.css paints the same 90% fill — keep the two in sync or
+          the CSS wins and the class lies. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav mx-3 rounded-full border border-white/10 bg-[#0b0f19]/95 px-3 py-2 shadow-2xl backdrop-blur-md"
+        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/90 px-4 py-2 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-md"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -593,7 +607,16 @@ function MobileNavigation({
             `gap-1` on the list and around each pill, and every tab paints its
             OWN background on its `<li>` below. Do not reintroduce a fill here -
             this shared background is the thing the fix exists to remove. */}
-        <div className="mx-auto max-w-lg p-2">
+        {/* `py-1` (was `p-2`) IS THE HEIGHT CONTROL. The bar moved from the
+            old `0.25rem + env` lift to `bottom-3` (0.75rem), and the safe-area
+            inset moved inside the pill as its `pb`. Trimming this vertical
+            padding by 4px per side keeps the bar's TOTAL stack — lift + pill +
+            inset — at or BELOW the height the previous design occupied, so the
+            measured 5rem-plus-inset reserves (AppMain's `pb-[calc(5rem+…)]`,
+            the deck dock's `bottom-[calc(5rem_+_env(…))]`, `.app-dock-reserve`)
+            all still clear it without a single downstream edit. Grow this pill
+            and you must grow every one of those reserves with it. */}
+        <div className="mx-auto max-w-lg px-2 py-1">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch

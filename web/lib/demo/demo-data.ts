@@ -19,6 +19,10 @@ export interface DemoPerson {
   interests: string[];
   sharedInterests?: number;
   status: "new" | "pending" | "connected";
+  /** Age in whole years — feeds the Explore card's "28 🇳🇬" age/flag badge. */
+  age?: number;
+  /** Self-reported country name, verbatim — feeds the flag emoji badge. */
+  country?: string;
 }
 
 export const demoSuggested: DemoPerson[] = [
@@ -31,6 +35,8 @@ export const demoSuggested: DemoPerson[] = [
     interests: ["Ceramics", "Hiking", "Jazz"],
     sharedInterests: 3,
     status: "new",
+    age: 28,
+    country: "Nigeria",
   },
   {
     id: "p2",
@@ -42,6 +48,8 @@ export const demoSuggested: DemoPerson[] = [
     interests: ["Board games", "Cooking", "Travel"],
     sharedInterests: 2,
     status: "new",
+    age: 34,
+    country: "United States",
   },
   {
     id: "p3",
@@ -52,6 +60,8 @@ export const demoSuggested: DemoPerson[] = [
     interests: ["Running", "Plants", "Karaoke"],
     sharedInterests: 1,
     status: "pending",
+    age: 26,
+    country: "India",
   },
   {
     id: "p4",
@@ -63,6 +73,8 @@ export const demoSuggested: DemoPerson[] = [
     interests: ["Climbing", "Van life", "Photography"],
     sharedInterests: 2,
     status: "connected",
+    age: 31,
+    country: "Canada",
   },
 ];
 
@@ -152,6 +164,8 @@ export const demoProfileViews: ProfileCardView[] = demoSuggested.map((p) => ({
     p.sharedInterests && p.interests.length > 0
       ? Math.min(100, Math.round((p.sharedInterests / p.interests.length) * 100))
       : undefined,
+  age: p.age,
+  country: p.country,
   connection: connectionByStatus[p.status],
   href: p.kind === "couple" ? `/couple/${p.id}` : `/u/${p.id}`,
 }));

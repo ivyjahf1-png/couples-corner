@@ -764,13 +764,16 @@ input::placeholder, textarea::placeholder {
     DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
     the dark slate/navy card, and `blur(12px)` is the translucent frosted edge. */
 .app-bottom-nav {
-  /* rgb() form of `#0b0f19` at 95% — matches `bg-[#0b0f19]/95` on the element. */
-  background-color: rgb(11 15 25 / 0.95);
+  /* rgb() form of `#0b0f19` at 90% — matches `bg-[#0b0f19]/90` on the element.
+     Keep the two in sync: this UNLAYERED declaration wins over the Tailwind
+     utility, so the class is documentation and the opacity lives here. */
+  background-color: rgb(11 15 25 / 0.9);
   color: #ffffff;
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
-  /* POSITIONING LIVES ON THE BottomNavRegion WRAPPER (fixed, lifted 0.25rem +
-     safe-area above the bottom edge), NOT HERE. A previous revision declared
+  /* POSITIONING LIVES ON THE BottomNavRegion WRAPPER (fixed, lifted `bottom-3`
+     = 0.75rem; the safe-area inset is padded by THE BAR ITSELF via
+     `pb-[env(safe-area-inset-bottom)]`), NOT HERE. A previous revision declared
      `position: fixed; left: 0; right: 0; bottom: ...` here too, which made the
      nav fixed INSIDE an already-fixed wrapper: the inner bar resolved against
      the viewport while the wrapper collapsed to zero height, so the floating
