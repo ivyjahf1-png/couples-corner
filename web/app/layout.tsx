@@ -10,6 +10,7 @@ import { GameModalProvider } from "@/components/game/GameModal";
 import { GameCenterProvider } from "@/components/game/GameCenter";
 import { TruthOrDareModalProvider } from "@/components/game/TruthOrDareModal";
 import { GameLauncherProvider } from "@/components/game/GameLauncher";
+import { CallListenerProvider } from "@/providers/CallListenerProvider";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
 import { FailureToasts } from "@/components/ui/FailureToasts";
@@ -178,6 +179,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GameCenterProvider />
         <TruthOrDareModalProvider />
         <GameLauncherProvider />
+        {/* THE GLOBAL INCOMING-CALL LISTENER. Subscribes to
+            `public.active_calls` filtered by `receiver_id` (plus a 12s poll as
+            a fallback for blocked realtime) for as long as the member is signed
+            in, and raises the full-screen ring popup on ANY route. Previously
+            this subscription lived inside VideoCallModal, so it only existed
+            while that modal was mounted — a call placed from the feed, a
+            profile or a background tab arrived with nothing listening. */}
+        <CallListenerProvider />
         <MobileBackHeader />
         {/* AdSense loader. In the ROOT layout so every route gets it - a page
             added later cannot forget to include it. `afterInteractive` keeps it

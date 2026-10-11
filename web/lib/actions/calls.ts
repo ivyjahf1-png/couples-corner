@@ -185,3 +185,200 @@ export async function endActiveCallAction(params: {
   revalidatePath("/messages");
   return { ok: true };
 }
+
+/** Live session row shape returned to the incoming-call modal. */
+export interface IncomingCallView {
+  id: string;
+  callerId: string;
+  receiverId: string;
+  channelName: string;
+  status: string;
+  mode: "audio" | "video";
+}
+
+/** Coerce a raw row into an IncomingCallView; mode falls back to video. */
+function toIncomingCallView(row: {
+  id: string;
+  caller_id: string;
+  receiver_id: string;
+  channel_name: string;
+  status: string;
+  mode?: string | null;
+}): IncomingCallView {
+  return {
+    id: row.id,
+    callerId: row.caller_id,
+    receiverId: row.receiver_id,
+    channelName: row.channel_name,
+    status: row.status,
+    mode: row.mode === "audio" ? "audio" : "video",
+  };
+}
+
+const INCOMING_SELECT = "id, caller_id, receiver_id, channel_name, status, mode";
+
+/**
+ * Polling fallback for the global listener: live `ringing` rows addressed to
+ * the current member, newest first.
+ *
+ * WHY A POLL EXISTS ALONGSIDE REALTIME: the provider subscribes to
+ * `active_calls` over Supabase Realtime, but that socket is the first thing
+ * an ad-blocker, VPN, or flaky mobile radio kills — and a missed INSERT is
+ * silent, so the phone never rings. A cheap 10s poll (`receiver_id` is
+ * indexed) covers the gap with no extra infrastructure.
+ */
+export async function getIncomingCallsAction(): Promise<IncomingCallView[]> {
+  const user = await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("active_calls")
+    .select(INCOMING_SELECT)
+    .eq("receiver_id", user.uid)
+    .eq("status", "ringing")
+    .order("created_at", { ascending: false })
+    .limit(5);
+  if (error) {
+    if (!/does not exist/i.test(error.message ?? "")) {
+      console.error("[active_calls] incoming poll failed", error.message);
+    }
+    return [];
+  }
+  return ((data ?? []) as {
+    id: string;
+    caller_id: string;
+    receiver_id: string;
+    channel_name: string;
+    status: string;
+    mode?: string | null;
+  }[]).map(toIncomingCallView);
+}
+
+
+/**
+ * Accept a ringing call. RECEIVER-ONLY: the caller never accepts their own
+ * row, and a stranger's row is rejected — RLS enforces the same, but the
+ * explicit check is what turns a tap into a legible error.
+ *
+ * Moves `ringing` → `connected` and returns the row so the client can route
+ * both parties into the same `/call/<conversationId>/<mode>` room. Rows
+ * already past `ringing` (answered elsewhere, ended) resolve `ok: false`
+ * rather than throwing, so a double-tap degrades to a toast, not a crash.
+ */
+export async function acceptActiveCallAction(params: {
+  callId: string;
+}): Promise<{ ok: boolean; error?: string; call?: IncomingCallView }> {
+  const user = await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Calling is not available." };
+
+  const { data: existing } = await supabase
+    .from("active_calls")
+    .select(INCOMING_SELECT)
+    .eq("id", params.callId)
+    .maybeSingle();
+
+  const row = existing as {
+    id: string;
+    caller_id: string;
+    receiver_id: string;
+    channel_name: string;
+    status: string;
+    mode?: string | null;
+  } | null;
+  if (!row) return { ok: false, error: "That call no longer exists." };
+  if (row.receiver_id !== user.uid) {
+    return { ok: false, error: "That call is not for you." };
+  }
+  if (row.status !== "ringing") {
+    return { ok: false, error: "That call has already been answered." };
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("active_calls")
+    .update({ status: "connected", answered_at: now })
+    .eq("id", params.callId);
+
+  if (error) {
+    if (!/does not exist/i.test(error.message ?? "")) {
+      console.error("[active_calls] accept failed", error.message);
+    }
+    return { ok: false, error: "Couldn't answer the call." };
+  }
+
+  revalidatePath("/messages");
+  return { ok: true, call: toIncomingCallView({ ...row, status: "connected" }) };
+}
+
+/**
+ * Decline a ringing call. Either participant may write it (caller cancelling
+ * from their own screen, receiver declining from the popup) — the RLS update
+ * policy allows both, and this mirrors it.
+ *
+ * Moves the row → `ended` with `ended_at` stamped. Idempotent: declining an
+ * already-ended row succeeds silently so both sides hanging up at once never
+ * errors.
+ */
+export async function declineActiveCallAction(params: {
+  callId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Calling is not available." };
+
+  const { data: existing } = await supabase
+    .from("active_calls")
+    .select("id, caller_id, receiver_id, status")
+    .eq("id", params.callId)
+    .maybeSingle();
+
+  if (!existing) return { ok: true };
+  if (existing.caller_id !== user.uid && existing.receiver_id !== user.uid) {
+    return { ok: false, error: "That call is not yours." };
+  }
+  if (existing.status === "ended") return { ok: true };
+
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from("active_calls")
+    .update({ status: "ended", ended_at: now })
+    .eq("id", params.callId);
+
+  if (error) {
+    if (!/does not exist/i.test(error.message ?? "")) {
+      console.error("[active_calls] decline failed", error.message);
+    }
+    return { ok: false, error: "Couldn't decline the call." };
+  }
+
+  revalidatePath("/messages");
+  return { ok: true };
+}
+
+
+/**
+ * Resolve a caller's display name for the incoming-call popup.
+ *
+ * Reads `profiles.display_name` for `callerId` — no membership check, because
+ * a caller name is the least surprising thing a ringing phone can show, and
+ * RLS on `profiles` already bounds what is visible. Falls back to "Someone"
+ * (never an id, never an email prefix) so the popup always reads human.
+ */
+export async function getCallerNameAction(params: {
+  callerId: string;
+}): Promise<string> {
+  await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return "Someone";
+  const { data } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", params.callerId)
+    .limit(1)
+    .maybeSingle();
+  const row = data as { display_name?: string | null } | null;
+  const name = (row?.display_name ?? "").trim();
+  return name || "Someone";
+}
+

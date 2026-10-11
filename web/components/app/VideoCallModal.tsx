@@ -281,44 +281,15 @@ export function VideoCallModal({
          * realtime wake-up is not a hard dependency. */
       }
 
-      /* Subscribe to the live call surface on the receiver's end. `active_calls`
-       * is filtered by `receiver_id = auth.uid()` so any ringing call rings the
-       * device exactly once, without polling or a second lookup. The row that
-       * fires is the caller's session row — the caller wants to hear that the
-       * call was placed, not their own echo. */
-      try {
-        const { getSupabaseClient } = await import("@/lib/supabase/client");
-        const supabase = getSupabaseClient();
-        const ch = supabase
-          .channel("active_calls")
-          .on(
-            "postgres_changes",
-            {
-              event: "INSERT",
-              schema: "public",
-              table: "active_calls",
-              filter: `receiver_id=eq.${receiverId ?? String(uid)}`,
-            },
-            (payload) => {
-              /* `payload.new` is the full row inserted by `startActiveCallAction`.
-               * The caller wants to hear the ring unless the row belongs to them
-               * (which it shouldn't — they are the caller). */
-              const row =
-                (payload as { new: { caller_id?: string; receiver_id?: string; mode?: string; callerName?: string } }).new;
-              if (row.caller_id != null && row.caller_id !== String(uid)) return;
-              if (cancelled) return;
-              setIncoming({
-                callerName: row.callerName ?? "Someone",
-                mode: (row.mode ?? mode) as "audio" | "video",
-              });
-              startRinging();
-            },
-          )
-          .subscribe();
-        activeCallChannelRef.current = ch as unknown as { unsubscribe: () => Promise<unknown> };
-      } catch {
-        /* Realtime unavailable — direct call links still work. */
-      }
+      /* ── INCOMING-CALL SUBSCRIPTION MOVED TO THE ROOT LAYOUT ─────────────────
+       * The `active_calls` INSERT subscription that used to live here only
+       * existed while THIS modal was mounted, so a call placed from the feed, a
+       * profile, the inbox or a background tab arrived with nothing listening
+       * and never rang. It now lives in `providers/CallListenerProvider.tsx`,
+       * mounted from `app/layout.tsx`, filtered by `receiver_id` and backed by a
+       * polling fallback — so it rings on every route for as long as the member
+       * is signed in. Nothing to do here; leaving a second subscription would
+       * ring the same call twice. */
       try {
         const client = rtc.createClient({ mode: "rtc", codec: "vp8" });
         clientRef.current = client;
