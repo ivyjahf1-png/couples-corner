@@ -138,16 +138,20 @@ export default function GameModal({
           Close
         </button>
       </div>
-      {/* THE GAME. `flex-1` + `w-full` give the iframe every remaining pixel;
-          `border-0` removes the default frame. `allow` grants only what a
-          browser game plausibly needs: audio that may start without a tap and
-          keeping the screen awake during play. */}
-      <iframe
-        src={gameUrl}
-        title="Game Zone"
-        className="w-full flex-1 border-0"
-        allow="autoplay; fullscreen; screen-wake-lock"
-      />
+      {/* THE GAME. The wrapper is `flex-1 min-h-0` so it claims exactly the
+          space left under the header and never overflows the dialog; the
+          iframe then fills that box with `h-full w-full`. `border-0` removes
+          the default frame. `allow` grants only what a browser game plausibly
+          needs: audio that may start without a tap and keeping the screen
+          awake during play. */}
+      <div className="flex min-h-0 flex-1 flex-col">
+        <iframe
+          src={gameUrl}
+          title="Game Zone"
+          className="h-full w-full border-0"
+          allow="autoplay; fullscreen; screen-wake-lock"
+        />
+      </div>
     </div>
   );
 }
