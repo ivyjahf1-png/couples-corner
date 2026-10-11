@@ -40,7 +40,7 @@ import { NavIcon, type NavIconName } from "@/components/app/NavIcons";
  * (lift + pill height, excluding the centre button's deliberate overhang)
  * must stay at or under 80px + the inset, or it covers them:
  *
- *   mb-4                      (16px lift above the screen edge)
+ *   bottom-4                  (16px lift above the screen edge + safe-area pad)
  * + pill: border (2px)
  *       + py-1.5 chrome (12px)
  *       + h-11 tab row (44px)
@@ -267,7 +267,7 @@ export function BottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
           lift above the screen edge; z-50 must stay below the sheets' z-200. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav fixed bottom-0 left-4 right-4 z-50 mx-auto mb-4 max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="app-bottom-nav fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {/* THE PILL — one shared capsule: dark navy at 90% under a heavy
             backdrop frost, hairline slate border, deep float shadow. It has NO
