@@ -20,19 +20,11 @@ import { findGame, DEFAULT_GAME_ID } from "@/lib/game/registry";
  *     member. Mismatch is a hard 403, never a silent override.)
  *
  * Response: { gameUrl, gameId, title }
- *   - `gameUrl` points at the provider's launcher with `game_id`, `user_id`
- *     and the shared `token`. The provider URL and token live in env
- *     (`GAME_PROVIDER_BASE_URL`, `GAME_SECRET_TOKEN`) — never in the bundle,
- *     never returned to the client as anything but the finished URL.
- *   - `title` is display-only registry copy, so the modal header can name the
- *     game while the URL is still in flight.
- *
- * FALLBACK: when the provider env is unset the route returns the FIRST-PARTY
- * build path from the registry instead, so development and self-hosted builds
- * keep working with zero configuration. Set both env vars to go through the
- * provider. The fallback exists because an unconfigured launcher that 503s is
- * strictly worse than one that serves the local build slot — remove this
- * branch if provider-only is the desired deployment posture.
+ *   - `gameUrl` points at the public HTML5 Distribution embed URL for the
+ *     requested game, served directly by this route. No provider is involved —
+ *     the external embed host (html5.gamedistribution.com) returns the iframe
+ *     with its launch token baked in. The title is display-only registry copy,
+ *     so the modal header can name the game while the URL is still in flight.
  */
 
 /** Resolve the provider launch base + token, or null when unconfigured. */
@@ -84,8 +76,9 @@ export async function POST(request: Request) {
     });
   }
 
-  // No provider configured — serve the first-party build slot. See the doc
-  // comment above for why this degrades instead of failing.
+  // No provider configured — serve the public HTML5 Distribution embed URL
+  // directly from the registry. The embed host delivers its own launch token
+  // (via cookies/anonymous session) so no first-party build slot is needed.
   return NextResponse.json({
     gameUrl: game.path,
     gameId: game.id,

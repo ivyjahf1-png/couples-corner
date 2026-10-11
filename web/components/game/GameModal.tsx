@@ -110,7 +110,9 @@ export default function GameModal({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
+{/* === START === */}
     window.addEventListener("keydown", onKey);
+function GameModal({ gameUrl, gameTitle, coinBalance, onClose }: { gameUrl: string; gameTitle: string; coinBalance: number | null; onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
@@ -122,7 +124,11 @@ export default function GameModal({
       aria-label="Game Zone"
     >
       <div className="flex items-center justify-between border-b border-white/10 bg-[#0b0f19] p-3">
-        <span className="text-sm font-bold text-white">Game Zone</span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-bold text-white">{gameTitle}</span>
+{/* CHECK */}
+          <span className="text-[10px] text-white/50">{coinBalance !== null ? `🪙 ${coinBalance.toLocaleString()}` : ""}</span>
+        </div>
         <button
           type="button"
           onClick={onClose}
@@ -139,7 +145,7 @@ export default function GameModal({
         src={gameUrl}
         title="Game Zone"
         className="w-full flex-1 border-0"
-        allow="autoplay; screen-wake-lock"
+        allow="autoplay; fullscreen; screen-wake-lock"
       />
     </div>
   );
@@ -161,7 +167,7 @@ export function GameModalProvider() {
   /* Which game is being launched, and its URL once resolved. `gameUrl: null`
      means the request is in flight: the modal deliberately does not render
      yet — there is no src-less frame to show. */
-  const [open, setOpen] = useState<{ gameId: string; gameUrl: string | null } | null>(null);
+  const [open, setOpen] = useState<{ gameId: string; gameUrl: string | null; coinBalance: number | null } | null>(null);
 
   useEffect(() => {
     function onOpen(event: Event) {
@@ -178,7 +184,7 @@ export function GameModalProvider() {
 
       setOpen({ gameId: game.id, gameUrl: null });
 
-      fetch("/api/game/launch", {
+       fetch("/api/game/launch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gameId: game.id }),
@@ -197,6 +203,26 @@ export function GameModalProvider() {
           notifyFailure("Couldn't start the game. Please try again.");
           setOpen((current) => (current && current.gameId === game.id ? null : current));
         });
+
+      fetch("/api/wallet/purchase", {
+        method: "GET",
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`wallet read failed (${res.status})`);
+          return res.json() as Promise<{ coinBalance: number }>;
+        })
+        .then((wallet) => {
+          /* Apply ONLY if this game is still the open one — see doc above. */
+          setOpen((current) =>
+            current && current.gameId === game.id
+              ? { ...current, gameUrl: data.gameUrl, coinBalance: wallet.coinBalance }
+              : current
+          );
+        })
+        .catch(() => {
+          notifyFailure("Couldn't read your wallet. Please try again.");
+          setOpen((current) => (current && current.gameId === game.id ? null : current));
+        });
     }
 
     window.addEventListener(OPEN_GAME_EVENT, onOpen);
@@ -210,6 +236,13 @@ export function GameModalProvider() {
   /* `gameUrl === null` = request in flight (or failed): render nothing rather
      than a modal with an empty iframe. */
   if (open === null || open.gameUrl === null) return null;
-  return <GameModal gameUrl={open.gameUrl} onClose={close} />;
+  return (
+    <GameModal
+      gameUrl={open.gameUrl}
+      gameTitle={game.title}
+      coinBalance={open.coinBalance}
+      onClose={close}
+    />
+  );
 }
 
