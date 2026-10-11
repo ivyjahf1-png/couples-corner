@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { openGame } from "@/components/game/GameModal";
+import { openGameCenter } from "@/components/game/GameCenter";
 
 /**
  * Compact Game Center badge, for use INSIDE a card's header area.
@@ -40,7 +40,7 @@ export function GameCenterBadge({
     <div className={className}>
       <button
         type="button"
-        onClick={() => openGame()}
+        onClick={() => openGameCenter()}
         className="nm-raised group inline-flex items-center gap-1.5 rounded-full border border-sky-400/40 bg-[#0F172A]/90 px-3 py-1.5 text-white backdrop-blur transition duration-150 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120]"
         title="Game Center"
         aria-label={ariaLabel}
@@ -254,7 +254,7 @@ export function GameCenterButton({
       draggedRef.current = false;
       return;
     }
-    openGame();
+    openGameCenter();
   }
 
   return (

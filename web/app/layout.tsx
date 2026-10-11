@@ -7,6 +7,9 @@ import "../styles/marquee.css";
 import { AuthModalProvider } from "@/components/auth/AuthModals";
 import { ProfileViewProvider } from "@/components/profile/ProfileViewModal";
 import { GameModalProvider } from "@/components/game/GameModal";
+import { GameCenterProvider } from "@/components/game/GameCenter";
+import { TruthOrDareModalProvider } from "@/components/game/TruthOrDareModal";
+import { GameLauncherProvider } from "@/components/game/GameLauncher";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
 import { FailureToasts } from "@/components/ui/FailureToasts";
@@ -168,6 +171,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             game via `openGame(gameId)` without threading props through server
             component boundaries. Renders null until a launch event fires. */}
         <GameModalProvider />
+        {/* THE MATCHMAKING GAME SUITE. Tabbed center (`openGameCenter()`),
+            native Truth-or-Dare swiper (`openTruthOrDare()`), and the
+            fullscreen launcher sheet (`openGameSheet()`) — same event-driven
+            mounting as the iframe modal above. */}
+        <GameCenterProvider />
+        <TruthOrDareModalProvider />
+        <GameLauncherProvider />
         <MobileBackHeader />
         {/* AdSense loader. In the ROOT layout so every route gets it - a page
             added later cannot forget to include it. `afterInteractive` keeps it

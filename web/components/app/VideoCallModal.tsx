@@ -66,6 +66,8 @@ interface AgoraClient {
 
 export function VideoCallModal({
   channelName,
+  callerId,
+  receiverId,
   uid = 0,
   mode = "video",
   displayName,
@@ -273,7 +275,7 @@ export function VideoCallModal({
           receiverId: receiverId ?? "unknown",
           channelName,
         });
-        if (session.ok) activeCallIdRef.current = session.id;
+        if (session.ok && session.id != null) activeCallIdRef.current = session.id;
       } catch {
         /* The call still proceeds; the active_calls row is best-effort so the
          * realtime wake-up is not a hard dependency. */
@@ -304,7 +306,7 @@ export function VideoCallModal({
               const row =
                 (payload as { new: { caller_id?: string; receiver_id?: string; mode?: string; callerName?: string } }).new;
               if (row.caller_id != null && row.caller_id !== String(uid)) return;
-              if (!alive) return;
+              if (cancelled) return;
               setIncoming({
                 callerName: row.callerName ?? "Someone",
                 mode: (row.mode ?? mode) as "audio" | "video",

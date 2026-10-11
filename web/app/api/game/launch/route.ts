@@ -62,6 +62,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unknown game" }, { status: 404 });
   }
 
+  /* Native entries (Truth or Dare, Real Feelings, the compatibility quiz)
+     are launched by their own modal event, never by the iframe — minting a
+     launch URL for one would hand the modal an empty src. Fail fast as a
+     call-site programming error rather than rendering a dead frame. */
+  if (game.kind === "native" || !game.path) {
+    return NextResponse.json({ error: "This game opens in its own experience" }, { status: 400 });
+  }
+
   const provider = providerConfig();
   if (provider) {
     const params = new URLSearchParams({
