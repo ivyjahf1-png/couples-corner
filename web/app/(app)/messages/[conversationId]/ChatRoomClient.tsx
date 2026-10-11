@@ -1190,7 +1190,7 @@ export default function ChatRoomClient({
           />
         ) : null}
 
-<form onSubmit={onSubmit} className="flex items-center gap-2">
+        <form onSubmit={onSubmit} className="flex items-center gap-2">
           <button
             type="button"
             aria-label="Record a voice message"
