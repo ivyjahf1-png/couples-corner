@@ -700,8 +700,8 @@ input::placeholder, textarea::placeholder {
      primary-action accents and drags the eye off the tab labels.
 
      `--nav-surface` is the same hue at 85% alpha so the frosted blur still lets
-     content glow through, which is the whole point of the `backdrop-filter` on
-     `.app-bottom-nav`. A fully opaque fill would have killed that effect. */
+     content glow through - the same reason the bottom dock frosts. A fully
+     opaque fill would have killed that effect. */
   --nav-purple: #2a2438;
   --nav-purple-lift: #3a3150; /* raised capsule + active pill */
   --nav-bg: #2a2438; /* deep purple base — sidebar rail */
@@ -725,12 +725,12 @@ input::placeholder, textarea::placeholder {
 
 /* Mobile top bar: frosted navy so content glows through.
 
-   `.app-bottom-nav` is DELIBERATELY NOT IN THIS RULE. It used to be grouped here,
+   The BOTTOM bar is DELIBERATELY NOT IN THIS RULE. It used to be grouped here,
    which meant this rule won over the bar's own Tailwind classes and re-imposed a
    translucent purple fill plus a `backdrop-filter` on the bottom bar itself - a
    stylesheet silently overriding the component it is meant to style.
-   The bar now paints itself (see `.app-bottom-nav` below) and this rule covers
-   only the top bar. */
+   The bottom dock now paints itself entirely with Tailwind utilities in
+   components/navigation/BottomNav.tsx and this rule covers only the top bar. */
 .app-top-bar {
   background-color: var(--nav-surface);
   border-color: var(--nav-border);
@@ -739,56 +739,16 @@ input::placeholder, textarea::placeholder {
   backdrop-filter: blur(20px) saturate(140%);
 }
 
-/* THE BOTTOM BAR — ONE SHARED FLOATING CAPSULE.
+/* THE BOTTOM BAR - FLOATING ISLAND PILL (components/navigation/BottomNav.tsx).
 
-   The `<nav>` paints a single rounded-full pill (fill + border + blur + shadow,
-   via its Tailwind classes); each tab is a TRANSPARENT slot inside it, and the
-   ACTIVE tab's icon carries its own circular orange disc + glow (see
-   `mobileTabClasses` in AppNav.tsx). An earlier revision gave every `<li>` its
-   own muted-slate fill — five slabs that carved the capsule back into blocks.
+   The dock paints its own pill (navy fill, hairline border, backdrop frost,
+   deep shadow, the elevated orange centre button) entirely with Tailwind
+   utilities on the component - there is deliberately NOTHING left to style
+   here. The `app-bottom-nav` class survives on the element as a HIDE HOOK
+   only: the short-landscape media block further down display:none's the dock
+   on rotated phones, where the height reserve would eat a fifth of the
+   viewport.
 
-   WHY THE BLUR IS BACK. A `backdrop-filter` over scrolling content used to smear
-   labels because the bar spanned edge to edge. The pill now floats clear of the
-   content (0.25rem + safe-area lift, `mx-3` side insets), so the sampled area is
-   a thin rim rather than a field behind every caption. On
-   `prefers-reduced-transparency` the LOW-END COMPATIBILITY block further down
-   removes the blur and substitutes an opaque fill — the guard for weak GPUs.
-
-    THIS RULE IS UNLAYERED, SO IT BEATS EVERY TAILWIND UTILITY ON THE ELEMENT.
-    That is the whole reason it exists, and it is also why the nav's own
-    `bg-*`/`backdrop-blur-*` classes do nothing on their own: an unlayered rule
-    outranks anything in `@layer utilities`. The colours therefore have to be
-    stated HERE as well as on the element, or the utility is silently ignored.
-    Keep the two in step — the values below are the shipped ones.
-
-    DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
-    the dark slate/navy card, and `blur(24px)` is the translucent frosted edge. */
-.app-bottom-nav {
-  /* rgb() form of `#0b0f19` at 95% — matches `bg-[#0b0f19]/95` on the element.
-     Keep the two in sync: this UNLAYERED declaration wins over the Tailwind
-     utility, so the class is documentation and the opacity lives here. */
-  background-color: rgb(11 15 25 / 0.95);
-  color: #ffffff;
-  -webkit-backdrop-filter: blur(24px);
-  backdrop-filter: blur(24px);
-  /* POSITIONING LIVES ON THE BottomNavRegion WRAPPER (fixed, lifted `bottom-3`
-     = 0.75rem; the safe-area inset is carried by THAT WRAPPER as a bottom
-     margin), NOT HERE. A previous revision declared
-     `position: fixed; left: 0; right: 0; bottom: ...` here too, which made the
-     nav fixed INSIDE an already-fixed wrapper: the inner bar resolved against
-     the viewport while the wrapper collapsed to zero height, so the floating
-     offset applied twice and the bar drifted over content. One fixed ancestor
-     only.
-     `color` is restated here (not inherited) because THIS UNLAYERED RULE beats
-     every Tailwind `text-*` utility on the element — leave it dark and the
-     labels render dark-on-dark no matter what classes the nav carries. */
-}
-
-/* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
-   is reserved by the Tailwind margin-bottom + env() utility on the
-   BottomNavRegion wrapper in AppNav.tsx (Tailwind, so it stays with the
-   component); no padding is declared here, because a second reserve would
-   double-count the inset. */
 
 /* Slide-in "Menu" drawer (mobile only). */
 .app-drawer {
@@ -1156,122 +1116,21 @@ button,
 }
 
 /* ========================================================================
-   BOTTOM NAVIGATION PILLS
-   Active state = ORANGE (Midnight Slate & Orange dock).
+   BOTTOM NAVIGATION PILLS - REMOVED WITH THE OLD BAR.
 
-   WHY THIS WAS RETINTED: the active tab was a saturated orange-to-red
-   gradient with a strong outer glow. On the light profile surface that read as
-   an emergency — a red-hot smear under the one tab the member is on — and it
-   fought the amber accent the rest of that screen is built around. The active
-   state is now a soft amber pill with an amber glyph and an amber underline
-   indicator, which is the same "you are here" signal at the screen's own
-   temperature.
-
-   `.nav-pill` is used ONLY by the mobile bottom bar (`mobileTabClasses` in
-   AppNav.tsx); the desktop sidebar uses its own classes. So this retint cannot
-   leak onto any other surface.
+   `.nav-pill`, `.nav-pill--active` and `.nav-pill--tab` (the rules that used
+   to follow this banner) styled the tabs of the old inline five-tab bar in
+   AppNav.tsx and its `mobileTabClasses` data, retinted twice along the way
+   (violet-on-white, then orange-on-navy). That bar is gone:
+   components/navigation/BottomNav.tsx paints the floating-island dock -
+   including its #FF5722 active states and the framer-motion tap spring - with
+   Tailwind utilities on the component itself. The rules were deleted rather
+   than left to rot; if you need dock styling, put it on the component, and
+   only go unlayered if you are prepared to document why every utility on the
+   element dies.
    ==================================================================== */
-/* THE PILL STATES ARE TUNED FOR A WHITE CAPSULE.
 
-   These were written for a dark purple bar: a near-white active pill and light
-   lavender inactive text. On pure white that inverts — the resting labels
-   (`#94a3b8`) fell to roughly 2.6:1 and read as disabled, and the white-on-white
-   active pill was invisible. Every value below is now measured against `#FFFFFF`:
 
-     inactive `#5B6478`  ~ 6.1:1  (AA body, and clearly "resting" not "disabled")
-     hover    `#2A2438`  ~ 14:1
-     active   `#2A2438`  ~ 14:1  on a `#F1EDFA` wash
-
-   The active state is a light violet wash rather than the brand orange: orange is
-   still reserved for primary actions, and on white an orange wash reads as an
-   alert badge rather than a selection. */
-.nav-pill {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-height: 2.75rem;
-  padding: 0.5rem 0.9rem;
-  border-radius: 9999px;
-  /* RESTING LABEL. This rule is UNLAYERED, so it beats Tailwind's layered
-     utilities — whatever colour sits here is what a resting tab actually
-     renders. MIDNIGHT SLATE: the dock fills with `#0b0f19` at 95%, where
-     slate-400 (`#94a3b8`, the value the component asks for) clears ~7.4:1 —
-     clearly "resting", never "disabled", and AA-compliant for the 11px label. */
-  color: #94a3b8;
-  border: 1px solid transparent;
-  transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
-    color 0.2s ease;
-  touch-action: manipulation;
-  user-select: none;
-}
-.nav-pill:hover {
-  /* COLOUR ONLY. The spec's inactive state is slate-400 → white on hover, with
-     no wash: a white slab behind a resting tab competed with the active tab's
-     orange glow for the eye. `.nav-pill` transitions `color`, so the lift is
-     still animated. */
-  color: #ffffff;
-}
-.nav-pill:active:not(:disabled) {
-  transform: translateY(1px);
-}
-/* ACTIVE — WHITE CAPTION + THE ORANGE ON THE ICON DISC.
-
-   The active tab carries no fill of its own: the accent lives on the tab's
-   INNER DISC (the `h-10 w-10 p-2.5 rounded-full` span in `mobileTabClasses`),
-   a translucent orange wash (`bg-orange-500/10`) under an orange glyph, haloed
-   by a rich 15px orange glow — the round highlighted button the reference
-   shows, not a full-width bar. This rule is UNLAYERED, so if it declared an
-   orange fill here that fill would win over every Tailwind utility on the
-   element and paint a wide slab behind the disc, stretching the highlight
-   across the whole tab. Keeping the tab transparent is what lets the disc stay
-   round; the caption itself stays WHITE (see the declaration below) for
-   legibility on the dock's navy. */
-.nav-pill--active,
-.nav-pill--active:hover {
-  /* WHITE, not near-black. The label sits directly on the pill's navy now that
-     the tab itself is transparent — the near-black `#0f0c1b` this carried was
-     tuned to sit ON an orange fill and would be invisible here. White keeps the
-     caption legible while the circle above it carries the accent. */
-  color: #ffffff;
-  background-color: transparent;
-  border-color: transparent;
-}
-
-/* The glow lives on the ACTIVE CIRCLE in `AppNav.tsx`, not here: it has to
-   follow the orange fill, and the fill moved off this element. */
-/* THE INDICATOR BAR IS GONE.
-
-   It was a short dark bar under the active tab's label. With the accent now a
-   filled circle directly above the caption, a second mark under it double-states
-   "you are here" and crowds the label. The circle is the whole signal. */
-.nav-pill--active:active:not(:disabled) {
-  transform: translateY(1px);
-}
-@media (prefers-reduced-motion: reduce) {
-  .nav-pill {
-    transition: background-color 0.2s linear, border-color 0.2s linear, color 0.2s linear;
-  }
-  .nav-pill:active:not(:disabled) {
-    transform: none;
-  }
-}
-
-/* Bottom-bar tab variant: pill keeps the icon stacked above its label. */
-.nav-pill--tab {
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  /* 2.75rem (44px), NOT the 3.25rem it used to be. The dock's row is now h-11
-     (44px) so the bar's outer height stays inside the app's 5rem reserve with
-     the taller py-2.5 chrome; a 52px min-height would push the tab's content
-     column out through the bottom of the pill. 44px is also the WCAG AA touch
-     target minimum. */
-  min-height: 2.75rem;
-  gap: 0.25rem;
-  padding: 0.375rem 0.25rem;
-}
 
 /* ==========================================================================
    Discovery deck action buttons — 3D soft-neumorphic glassmorphism

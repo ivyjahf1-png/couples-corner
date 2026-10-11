@@ -334,31 +334,32 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
       </div>
       </div>
       {!view.isSelf ? (
-        /* SITS DIRECTLY ON TOP OF THE FIXED TAB BAR — never under it.
+        /* SITS DIRECTLY ON TOP OF THE FIXED DOCK - never under it.
            `<main>` takes `p-0` on this route (full-bleed), so this view's own
-           bottom edge IS the viewport bottom, exactly where `BottomNavRegion`
-           pins the nav with `fixed ... z-50`. Reserving the nav's EXACT height
-           below this bar — 69px (`p-2` 8px + tab pill 53px + `p-2` 8px, see
-           `mobileTabClasses` / `.nav-pill--tab`) plus the nav's own
-           `padding-bottom: env(safe-area-inset-bottom)` — lands its bottom edge
-           flush against the nav's top edge on every device. A round `mb-20`
-           would sit 11px proud on flat phones and 22px SHALLOW on notched ones,
-           where the home-indicator strip makes the nav taller than 5rem.
+           bottom edge IS the viewport bottom, where the floating-island dock
+           (components/navigation/BottomNav.tsx) paints. That component
+           documents its own stack: 74px of pill (16px lift + 58px chrome) plus
+           the centre button's overhang up to 79px, all inside the app-wide
+           5rem (80px) + `env(safe-area-inset-bottom)` reserve the rest of the
+           app sits at. Reserving exactly `calc(80px + env(...))` therefore puts
+           this bar's bottom edge flush under the dock's TALLEST element (the
+           raised centre button) and 6px clear of the pill itself on every
+           device - never overlapping it, never floating above it.
 
            It is a `shrink-0` sibling of the scroller, so the profile content
            scrolls INSIDE its region while the bar holds this exact spot.
 
-           `z-50` matches the nav and beats the sheet's `z-30`, so the bar
+           `z-50` matches the dock and beats the sheet's `z-30`, so the bar
            paints cleanly above the content. `md:mb-0` drops the reservation at
-           tablet and up, where the bottom bar is `md:hidden` and there is
-           nothing to clear.
+           tablet and up, where the dock is `md:hidden` and there is nothing to
+           clear.
 
-           The old `pb` counted `env(safe-area-inset-bottom)` too — right when
-           the bar sat at the viewport bottom, wrong now that the NAV owns the
+           The old `pb` counted `env(safe-area-inset-bottom)` too - right when
+           the bar sat at the viewport bottom, wrong now that the DOCK owns the
            home-indicator strip below it (double-counting pushed the buttons
-           34px clear of the bar they sit on). Kept `md:`-only for iPads, which
-           have a real inset but no bottom bar. */
-        <div className="z-50 mx-auto mb-[calc(69px_+_env(safe-area-inset-bottom))] flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/95 p-4 md:mb-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
+           clear of the bar they sit on). Kept `md:`-only for iPads, which have
+           a real inset but no bottom bar. */
+        <div className="z-50 mx-auto mb-[calc(80px_+_env(safe-area-inset-bottom))] flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/95 p-4 md:mb-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
           <div className="flex-1"><ProfileChatButton recipientId={view.uid} recipientName={view.name} /></div>
           <div className="flex-1"><ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} /></div>
         </div>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon, type IconName } from "@/components/landing/Icon";
-import { NavIcon, type NavIconName } from "@/components/app/NavIcons";
+import { BottomNav } from "@/components/navigation/BottomNav";
 import { Avatar } from "@/components/app/Avatar";
 import { LogoutButton } from "@/components/auth/LogoutButton";
 
@@ -12,10 +12,12 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
  * Couples Corner — app navigation (VISUAL SHELL ONLY).
  *
  * Layout contract:
- *   — Mobile (<768px): a 5-item bottom bar — Explore | Moment | Likes |
- *     Messages | Me, in that order. Explore leads (see `mobileTabs` for why)
- *     and is also the post-auth landing screen. The "Menu" drawer (opened from
- *     the top bar) holds the secondary destinations + sign out.
+ *   - Mobile (<768px): a floating-island bottom bar (see
+ *     components/navigation/BottomNav.tsx): Explore | Moments on the left,
+ *     an elevated orange Match / Game Hub action in the centre, then
+ *     Messages | Profile on the right. Explore leads and is also the
+ *     post-auth landing screen. The "Menu" drawer (opened from the top bar)
+ *     holds the secondary destinations + sign out.
  *   — Tablet + desktop (=768px): one fixed left-hand navy (#0F172A) sidebar
  *     carrying the complete navigation.
  *
@@ -159,7 +161,7 @@ export function AppSidebar() {
 }
 
 /* -------------------------------------------------------------------------- *
- * Mobile — strictly 3-item bottom bar + "Menu" drawer
+ * Mobile - floating-island bottom bar + "Menu" drawer
  * -------------------------------------------------------------------------- */
 
 interface AppMobileNavProps {
@@ -169,172 +171,6 @@ interface AppMobileNavProps {
   unreadCount?: number;
 }
 
-/** One tab in the mobile bottom bar. */
-interface MobileTab extends AppNavItem {
-  /**
-   * The line-art glyph for THIS tab, from `NavIcons`.
-   *
-   * Separate from `icon` on purpose. `icon` still feeds the desktop sidebar and
-   * the "Menu" drawer, which keep the hand-drawn `Icon` set; the bottom bar uses
-   * the stroke-only set. One union type per surface means neither is forced to
-   * compromise, and changing a tab's nav glyph cannot silently change its
-   * sidebar glyph.
-   */
-  navIcon: NavIconName;
-  /** Renders the unread-messages badge on this tab (Messages). */
-  showBadge?: boolean;
-  /**
-   * THE RAISED CENTRE BUTTON. `true` on the Feed tab only.
-   *
-   * It is a normal entry in this array and a normal link — it is NOT a floating
-   * button layered over the bar. The reference shows a raised pill, not a separate
-   * widget, and a `position: fixed` centre button is exactly the class of thing
-   * that ends up overlapping the composer or sitting under the tab bar once a
-   * safe-area inset appears. Raising it INSIDE the row keeps it on the same
-   * baseline maths as its neighbours and lets it scroll with the bar.
-   */
-  raised?: boolean;
-}
-
-/**
- * Mobile bottom-bar tabs - the exact 5-tab sequence:
- *   Explore - Moment - Feed (raised centre) - Messages - Me
- *
- * -- WHY FIVE TABS AGAIN -------------------------------------------------------
- * This bar previously carried four (Home - Moment - Chat - Me) after an earlier
- * request, and five before that (Explore - Moment - Likes - Messages - Me). The
- * reference this now matches has five, with a RAISED centre Feed button. That is
- * what is built here.
- *
- * The two changes worth understanding, because both are reversible by editing only
- * this array and the `grid-cols-5` below:
- *
- *   1. EXPLORE IS BACK as the first tab, pointing at `/discover` ? the product's core
- *      loop and the route a member lands on after signing in. It had been demoted to
- *      the drawer when the bar shrank to four.
- *
- *   2. FEED IS ITS OWN TAB (`/feed`) AND MOMENT IS ITS OWN TAB (`/moments`). These
- *      were ONE tab serving two very different surfaces: `/moments` redirected to
- *      `/feed`, which itself toggled between an immersive video player and a blog
- *      timeline. A member tapping "Moment" for videos could land on a blog with no
- *      indication that anything had been substituted. They are now genuinely
- *      separate routes with their own headers.
-
- * THE GRID BELOW MUST MATCH THIS LENGTH. `grid-cols-5` with six entries squeezes
- * every tab; four entries leave a dead gap. Change them together.
-
- * `showBadge` is on Messages only, and the count is the real `unreadCount` prop.
- */
-const mobileTabs: MobileTab[] = [
-  { href: "/discover", icon: "compass", navIcon: "explore", label: "Explore", alsoActiveFor: ["/explore"] },
-  { href: "/moments", icon: "moments", navIcon: "moment", label: "Moment" },
-  { href: "/feed", icon: "sparkle", navIcon: "feed", label: "Feed", raised: true },
-  { href: "/messages", icon: "chat", navIcon: "messages", label: "Messages", showBadge: true },
-  { href: "/profile", icon: "profile", navIcon: "me", label: "Profile" },
-];
-
-/**
- * Shared tab styling.
- *
- * `raised` switches on the FEED tab's centre-button treatment. See the comment
- * inside for why it is a separate branch and not a modifier on the amber pill.
- */
-function mobileTabClasses(active: boolean, raised = false) {
-    /* THE RAISED CENTRE TAB - NO RESTING CONTAINER.
-
-       This button previously carried a permanent filled pill (`#F1EDFA` at rest,
-       deep purple when active) plus a `-mt-4` lift, which made the "Feed" tab a
-       solid white block sitting in the middle of the bar. It read as a permanent
-       primary action and out-shouted its four neighbours, which are transparent
-       until tapped.
-
-       It is now SHAPELESS AT REST: `bg-transparent`, no border, no lift, and the
-       same muted label colour the other four resting tabs use. Selection is carried
-       entirely by the brand ORANGE fill and its glow, so the orange that means "you
-       are here" is the only orange on the bar.
-
-       The lift is gone for the same reason as the fill: a control raised above its
-       neighbours with nothing inside it reads as a broken or half-rendered element,
-       not as a distinguished one. Elevation is now a STATE (orange, lifted) rather
-       than a permanent trait, which is also what makes the transition legible when
-       the member taps the tab.
-
-       `-mt-4`/`-mb-1` are deliberately NOT retained: they only made sense as space
-       for the filled pill to overflow into. With no fill there is nothing to
-       overflow, so they would leave the icon floating above the row. */
-    return [
-      "nav-pill nav-pill--tab",
-      /* THE ACTIVE CLASS IS WHAT RETINTS THE PILL. `.nav-pill` in globals.css is
-         UNLAYERED CSS, so it beats Tailwind's layered utilities in the cascade —
-         its resting `color` would otherwise paint every label in the muted base
-         tone, orange fill or not. `.nav-pill--active` (same specificity, same
-         origin) is the one rule allowed to override it, which is why the active
-         state must carry the class rather than only the utility pair. */
-      active ? "nav-pill--active" : "",
-      "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 pt-1 pb-1 transition",
-      "text-[11px] font-bold leading-none whitespace-nowrap",
-      active
-        /* WHITE LABEL, NOT ORANGE. The accent lives on the icon disc below — a
-             translucent orange wash ringed by a glow — so the caption stays
-             white for maximum legibility on the dock's navy fill instead of
-             doubling the accent. */
-          ? "text-white"
-          /* RESTING LABEL — MUTED SLATE, per the Midnight Slate & Orange spec.
-             `.nav-pill` in globals.css is UNLAYERED and paints the resting
-             colour, so it was retinted to slate-400 to match; this utility is
-             the component's half of that pair. Hover lifts to white — colour
-             only, no wash, so nothing competes with the active glow. */
-          : "text-slate-400 hover:text-white",
-    ]
-      .filter(Boolean)
-      .join(" ");
-  }
-
-/* The active dot is GONE, deliberately.
-
-   It was an orange disc at the bottom edge of a tab whose active state is already
-   a full orange gradient pill with a glow. Orange-on-orange is invisible at
-   best, and at worst it reads as a rendering artifact where the gradient is
-   lightest — a smudge under the label of the very tab the member is on. The pill
-   plus the `font-semibold` weight already carry "you are here" unambiguously;
-   the dot was a third signal saying the same thing in a colour that cannot
-   survive its own background.
-
-   Removing it also means the active tab has no child positioned below the icon
-   row, so the icon and label sit optically centred in the pill instead of being
-   pushed up by an invisible element. */
-function UnreadBadge({ count }: { count: number }) {
-  if (count <= 0) return null;
-  const display = count > 99 ? "99+" : String(count);
-  return (
-    /* THE BADGE NEEDS ROOM TO OVERFLOW ITS PARENT.
-
-       Positioning it at `right-0` put the dot's right edge flush with the 20px
-       icon box, so with a one-digit count ("5") the circle hung mostly OUTSIDE
-       the glyph and read as a smudge beside the chat icon rather than a badge on
-       it. Pulling it back with a negative inset centres the single digit over the
-       icon's top-right corner, which is where a member looks for it.
-
-       `-top-1.5` (not `-top-0.5`) is what makes it float clear ABOVE the icon: at
-       half a step it overlapped the glyph's own top edge and looked pasted on.
-
-       THE ANIMATED WRAPPER IS LOAD-BEARING. `overflow-x: hidden` + `overflow-y:
-       visible` cannot be combined in CSS — the "visible" side silently computes
-       to "auto", which would give this element a scroll container and clip the
-       badge at its own edge. So the icon wrapper is the positioned ancestor with
-       NO overflow at all, and the badge is a plain `absolute` inside it.
-
-       `bg-[#FF5722]` is the app's existing action orange (same value as the Chat
-       button's gradient end), not a new red, so the badge matches the rest of
-       the yellow/orange theme rather than introducing a fourth accent. */
-    <span
-      aria-label={`${count} unread messages`}
-      className="pointer-events-none absolute -right-1 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-slate-900 bg-[#FF5722] px-1 text-[10px] font-bold leading-none text-white"
-    >
-      {display}
-    </span>
-  );
-}
 
 /**
  * True for an ACTIVE conversation route (`/messages/<conversationId>`) and false
@@ -477,36 +313,26 @@ export function AppMain({ children }: { children: React.ReactNode }) {
 }
 
 /**
- * Bottom tab navigation with route-aware visibility.
+ * Bottom navigation with route-aware visibility.
  *
- * The 5-tab bar is hidden inside an ACTIVE conversation
- * (`/messages/<conversationId>`) and reappears the moment the member taps back
- * to `/messages`. This is the standard dating-app pattern: a live chat is a
- * focused, single-task surface, and a persistent tab bar steals vertical space
- * from the thread and invites accidental navigation mid-conversation.
+ * The floating-island bar (components/navigation/BottomNav.tsx) is hidden
+ * inside an ACTIVE conversation (`/messages/<conversationId>`) and
+ * reappears the moment the member taps back to `/messages`. This is the
+ * standard dating-app pattern: a live chat is a focused, single-task
+ * surface, and a persistent tab bar steals vertical space from the thread
+ * and invites accidental navigation mid-conversation.
  *
  * The list route `/messages` itself keeps the bar - only a specific
  * conversation hides it.
  *
- * FIXED to the bottom of the viewport (was an in-flow `shrink-0` sibling).
- *
- * Why it was in-flow before, and what changed: the in-flow version reserved its
- * own height in the shell's flex column, so the content region never extended
- * under it. That works, but it means the bar's position is a function of the
- * content column above it - and when a page inside the region sets its own
- * height (the 100dvh conversation view, the fill-mode media feed) the two
- * disagree and the bar drifts. Pinning it removes that whole class of bug: the
- * bar is now anchored to the viewport and cannot be moved by content.
- *
- * THE TRADE-OFF, and the reason the padding below is NOT optional: a `fixed`
- * element leaves the flex flow, so <main> now grows to the FULL viewport and
- * page content scrolls *behind* the bar. That is precisely the "floating nav"
- * bug the in-flow layout was built to avoid. The fix is the compensating bottom
- * padding on AppMain, which is why the two changes in this commit must ship
- * together - do not revert one without the other.
- *
- * `/messages` (the list) keeps the bar; only a specific conversation hides it,
- * and the conversation page therefore takes NO compensating padding.
+ * VISIBILITY GUARD ONLY, NOT A WRAPPER. This function used to be the bar's
+ * fixed anchor (and, before that, an in-flow sibling reserving height in
+ * the shell's flex column), each carrying its own copies of the dock's
+ * geometry. The fixed positioning, the 5rem height budget, the safe-area
+ * inset and the z-index now all live inside BottomNav.tsx itself - counted
+ * once, there. This guard simply declines to render the bar where a chat
+ * must not be interrupted. To move the dock, move it THERE; do not re-add
+ * positioning here or two fixed elements will fight.
  */
 export function BottomNavRegion(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -516,35 +342,15 @@ export function BottomNavRegion(props: AppMobileNavProps) {
 
   if (inActiveConversation) return null;
 
-  // `Z.nav` is 50 and must stay BELOW `Z.sheet` (200): a modal sheet paints
-  // over this bar and dims it, but the bar's links would otherwise still win
-  // taps in the strip where the two overlap. See components/ui/layers.ts.
-  // THE FLOATING LIFT LIVES HERE — the single fixed ancestor. `bottom-3`
-  // lifts the pill 0.75rem above the bottom edge; the home-indicator inset is
-  // carried BY THIS WRAPPER, as a bottom margin that pushes the whole dock up
-  // so the pill floats clear ABOVE the iOS home indicator. The inset is counted
-  // ONCE — the nav carries no safe-area padding of its own any more, or the two
-  // env() lookups stack into a doubled gap.
-  // `left-4 right-4` give the pill real side gutters; `max-w-md mx-auto` caps
-  // and centres it on the same axis the deck card and deck dock centre on.
-  // `.app-bottom-nav` deliberately carries no positioning of its own: when
-  // both this wrapper AND the nav were fixed, the offset applied twice and
-  // the bar drifted.
-  return (
-    <div className="fixed bottom-3 left-4 right-4 z-50 mx-auto mb-[env(safe-area-inset-bottom)] max-w-md md:hidden">
-      <AppMobileNav {...props} />
-    </div>
-  );
+  return <AppMobileNav {...props} />;
 }
 
 /**
- * Mobile chrome: a 5-item bottom bar (Explore - Moment - Feed - Messages - Me)
- * rendered as ONE SHARED FLOATING CAPSULE — a single rounded-full pill painted
- * by the `<nav>` itself (fill + border + blur + shadow), with five transparent
- * tab slots inside. Each tab's icon sits in its own transparent box; the ACTIVE
- * tab's icon sits in a translucent orange disc with a soft glowing halo. Hidden
- * from `md` up, where the fixed sidebar takes over.
- * The "Menu" drawer holds every destination that is not a tab.
+ * Mobile chrome: the floating-island bottom bar (see
+ * components/navigation/BottomNav.tsx) plus the "Menu" drawer below.
+ * Re-keyed per route so open-drawer state resets on navigation. Hidden from
+ * `md` up, where the fixed sidebar takes over. The "Menu" drawer holds every
+ * destination that is not a tab.
  */
 export function AppMobileNav(props: AppMobileNavProps) {
   const pathname = usePathname();
@@ -578,148 +384,20 @@ function MobileNavigation({
 
   return (
     <>
-      {/* `fixed` on the region above pins this bar to the viewport, so it can no
-          longer drift with the content column. Because it is out of flow, <main>
-          runs the full height and this bar overlays it - AppMain carries the
-          matching bottom padding so content is never hidden underneath. Do not
-          convert either half back to in-flow without changing the other. */}
-      {/* FLOATING GLASS PILL — the Midnight Slate & Orange dock. The fill is
-          `#0b0f19` at 95% under a `backdrop-blur-xl` frost, so scrolling content
-          ghosts through; `border-white/10` is the hairline and the deep
-          `0 10px 30px` drop shadow lifts the dock off that content; `px-4 py-2.5`
-          is the chrome. The home-indicator inset now lives on the WRAPPER above
-          as a bottom margin, so the pill floats above the indicator instead of
-          running under it. The unlayered `.app-bottom-nav` rule in globals.css
-          paints the same 95% fill and the same 24px blur — keep the two in sync
-          or the CSS wins and the class lies. */}
-      <nav
-        aria-label="Primary"
-        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/95 px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl"
-      >
-        {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
-
-            This element used to paint ONE solid white rounded capsule (fill +
-            hairline border + drop shadow) behind all five tabs. Because every
-            resting tab is transparent, that single white slab is exactly what
-            made the buttons "leak" into each other: there was no visible
-            boundary between neighbours, so the row read as one merged block
-            instead of five controls.
-
-            All of that chrome is gone. The wrapper now contributes only its max
-            width and gutters; the dark `.app-bottom-nav` strip shows through the
-            `gap-1` on the list and around each pill, and every tab paints its
-            OWN background on its `<li>` below. Do not reintroduce a fill here -
-            this shared background is the thing the fix exists to remove. */}
-        {/* COMPACT GEOMETRY — THE 5REM INVARIANT. The whole app reserves exactly
-            5rem (80px) plus the safe-area inset for this bar: AppMain's bottom
-            padding, the deck dock's bottom offset and MediaFeed's composer all
-            sit at 5rem + env(). The bar's TOTAL stack must therefore stay at or
-            under 80px + env, or it covers them:
-
-              bottom-3 (12px lift)
-            + the home-indicator inset, lifted by the wrapper's env() margin
-            + border (2px) + px-4 py-2.5 chrome (10px top + 10px bottom)
-            + h-11 row (44px)
-            = 78px + env   — 2px clear of the 5rem line on every device.
-
-            The earlier `py-2 / h-14` build measured 84px + env and sat 4px OVER
-            the Moment composer — the exact overlap this pass removes. Grow the
-            pill and you must grow every one of those reserves with it. This is
-            why the row dropped to h-11 when the chrome grew to py-2.5: the two
-            moves cancel, so the bar's own outer height is UNCHANGED (66px) and
-            every reserve above still fits exactly as before.
-
-            WHY THE RESERVES ARE NAMED IN PROSE, NOT AS CLASSES: Tailwind scans
-            COMMENTS for class candidates too, so a backticked arbitrary-value
-            utility token — a padding class whose bracketed value is a calc()
-            over the safe-area inset — is extracted from this note and compiled
-            into a real (broken) rule in globals.css: the exact "Parsing CSS
-            source code failed / Unexpected token" error this repo has fixed
-            twice (see commits c9b1fa7 and 6f9db75). Never write an
-            arbitrary-value class token in a comment here. */}
-        <div className="mx-auto max-w-lg px-1.5">
-          {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
-              change together: a stale column count would either squeeze four
-              tabs into five tracks — leaving a dead gap at one end — or stretch
-              them across an empty fifth, which is the more obvious bug.
-
-              `gap-1` is the EXPLICIT CHANNEL between the pills. It is small on
-              purpose: together with each `<li>`'s `mx-1` it opens an ~12px dark
-              gutter between neighbours (clearly separating the buttons) without
-              eating the width the `whitespace-nowrap` "Messages" label needs on
-              a narrow phone. */}
-          <ul className="mx-auto grid h-11 max-w-md grid-cols-5 gap-1">
-            {mobileTabs.map((item) => {
-              const active = isActive(pathname, item);
-              return (
-                <li
-                  key={item.href}
-                  /* TRANSPARENT SLOT — NO PER-TAB FILL. The bar is now ONE shared
-                     floating capsule (the nav above paints the single rounded-full
-                     fill + border + blur); per-tab slabs would carve it back into
-                     five blocks, which is exactly the merged look the reference
-                     removes. `relative` stays as the unread badge's positioning
-                     context, with NO `overflow-hidden` so the badge can escape the
-                     icon box. */
-                  className="relative min-w-0"
-                >
-                  <Link
-                    href={item.href}
-                    aria-current={active ? "page" : undefined}
-                    aria-label={item.label}
-                    className={mobileTabClasses(active, item.raised)}
-                  >
-                    {/* THE BADGE'S POSITIONED ANCESTOR.
-
-    `relative` with NO overflow clipping — that is what lets the badge escape
-    upward past the icon and past the capsule's padding to sit over the chat
-    glyph's top-right corner. See `UnreadBadge` for why the mixed-overflow trick
-    is not available here.
-
-    `w-6` is wider than the 20px icon on purpose: it is the positioning box that
-    lets the badge sit slightly outside the glyph without shifting the icon. */}
-                    {/* THE LINE-ART GLYPH, AND WHY ITS COLOUR IS PINNED.
-
-    `NavIcon` is stroke-only and inherits `currentColor`, so the active state
-    could simply be inherited from the pill. It is NOT: the pill's active text
-    colour is a dark amber chosen for LABEL legibility, and inheriting that into
-    the glyph produced a muddy brown mark rather than the bright accent the
-    reference shows. So active pins to the brand orange and inactive pins to
-    slate — explicitly both ways, because the inactive icon would otherwise
-    inherit the pill's colour and lose its own contrast once the pill's
-    background changes.
-
-    Size is passed as a prop (20) rather than left to `h-5 w-5`, so the SVG box
-    and the glyph stay in step. The RAISED Feed tab is given 18px: it sits in a
-    filled pill whose label is bold, and a 20px stroke-only glyph beside that
-    weight reads heavier than its neighbours. */}
-                    <span
-                      className={`relative flex h-10 w-10 items-center justify-center rounded-full p-2.5 transition ${
-                        active
-                          ? /* Vibrant orange ring highlight + rich glowing shadow: a
-                               translucent orange wash under an orange glyph, haloed
-                               onto the Midnight Slate dock. */
-                            "scale-[1.04] bg-orange-500/10 text-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      <NavIcon
-                        name={item.navIcon}
-                        size={item.raised ? 18 : 20}
-                        className="text-current"
-                      />
-                      {item.showBadge && unreadCount > 0 ? (
-                        <UnreadBadge count={unreadCount} />
-                      ) : null}
-                    </span>
-                    <span className="mt-0.5">{item.label}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </nav>
+      {/* FLOATING ISLAND BAR - the "Midnight Slate & Orange" dock. The single
+          fixed anchor, the safe-area inset (counted once, on the fixed
+          container), the pill chrome (dark navy at 90% under a backdrop
+          frost, hairline slate border, shadow-2xl), the 2 tabs + elevated
+          orange Match / Game Hub action + 2 tabs layout, the unread badge
+          and the framer-motion whileTap tap springs ALL live in
+          components/navigation/BottomNav.tsx. The old inline five-tab bar,
+          its MobileTab / mobileTabClasses data and the UnreadBadge helper
+          were removed from this file along with it. Because the dock is
+          fixed and out of flow, <main> runs the full viewport height and
+          the dock overlays it - AppMain's matching bottom padding (and the
+          other 5rem reserves across the app) keep page content from hiding
+          underneath. */}
+      <BottomNav unreadCount={unreadCount} />
 
       {menuOpen ? (
         <div

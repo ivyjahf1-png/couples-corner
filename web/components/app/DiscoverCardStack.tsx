@@ -458,18 +458,17 @@ export function DiscoverCardStack({ profiles }: { profiles: ProfileCardView[] })
               the dead band is gone - but the viewport anchoring STAYS, since it is
               immune to whatever chrome changes above it.
 
-              FIXED, INSET FROM THE VIEWPORT. The bottom offset is the tab
-              bar's height — 69px (`p-2` 8px + tab pill 53px + `p-2` 8px, see
-              `.nav-pill--tab`), rounded up to the 5rem the whole app already
-              reserves (`pb-20`, `.app-dock-reserve`) — plus the
-              home-indicator inset `.app-bottom-nav` pads itself with, written
-              as a calc over safe-area-inset-bottom. That
-              lands the row 11px clear of the tab bar's top edge on every
-              device: flush "right on top of" it, never under it and never
-              overlapping it. A bare `bottom-20` would tuck 23px UNDER the bar
-              on notched phones, where the inset makes the bar taller than
-              5rem; anchoring to the viewport also keeps the row immune to
-              header or dead-band changes above.
+              FIXED, INSET FROM THE VIEWPORT. The bottom offset is the app-wide
+              5rem (80px) reserve + the safe-area inset, the exact number
+              components/navigation/BottomNav.tsx documents for its dock (74px
+              stack + the centre button's overhang, 6px clear), written as a
+              calc over safe-area-inset-bottom. That lands the row 6px clear of
+              the pill's top edge - and 1px below the raised centre button's
+              top - on every device: resting just above the dock, never under
+              it and never overlapping it. A bare `bottom-20` would tuck the
+              row UNDER the dock on notched phones, where the inset makes the
+              dock taller than 5rem; anchoring to the viewport also keeps the
+              row immune to header or dead-band changes above.
 
               `z-40`: above the card's chrome (tap zones z-10, counter z-20),
               BELOW the tab bar's z-50 (this row can never paint over the nav)

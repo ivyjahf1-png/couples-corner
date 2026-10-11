@@ -3,9 +3,10 @@
 import {
   Compass,
   Flame,
+  Heart,
   Images,
   LayoutGrid,
-  MessageCircle,
+  MessageSquare,
   User,
   type LucideIcon,
 } from "lucide-react";
@@ -43,22 +44,28 @@ import {
  *
  * The icons that got heavier are the ones that needed it most: `Flame` and
  * `Images` are the busiest glyphs in the set, and at the old weight their inner
- * detail closed up. `User` and `MessageCircle` are simple enough that the change
+ * detail closed up. `User` and `MessageSquare` are simple enough that the change
  * reads as emphasis rather than clutter.
  *
  * COLOUR INHERITS from `currentColor`, so a tab's active state is a colour
  * change on the parent and never a second icon definition.
  */
 
-export type NavIconName = "explore" | "moment" | "feed" | "likes" | "messages" | "me";
+export type NavIconName = "explore" | "moment" | "feed" | "likes" | "messages" | "me" | "match";
 
 const NAV_ICONS: Record<NavIconName, LucideIcon> = {
   explore: Compass,
   moment: Images,
   feed: LayoutGrid,
   likes: Flame,
-  messages: MessageCircle,
+  /* Squared-off chat bubble, not `MessageCircle`: the floating-island dock spec
+     calls for MessageSquare, and the sharper silhouette separates the Messages
+     tab's glyph from the round unread badge sitting on its corner. */
+  messages: MessageSquare,
   me: User,
+  /* Heart rides the centre Match / Game hub button — same mark the desktop
+     sidebar uses for Matches, so the glyph means the same thing on both. */
+  match: Heart,
 };
 
 /** One line-art navigation glyph. Inherits `currentColor` from its parent. */
