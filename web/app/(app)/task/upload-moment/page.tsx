@@ -9,6 +9,7 @@ import {
   claimTaskAction,
 } from "@/lib/actions/tasks";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
+import { MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 import { PageLock } from "@/components/app/PageHeader";
@@ -21,16 +22,20 @@ import { PageLock } from "@/components/app/PageHeader";
 type Mode = "upload" | "link";
 
 /**
- * Per-file cap. Matches MAX_USER_MEDIA_BYTES in lib/utils/media-upload.ts,
- * which is what actually enforces the limit server-side via validateMediaFile.
+ * Per-file cap, imported from the ONE shared source of truth.
  *
- * This is NO LONGER coupled to a Server Action body limit. The file used to be
- * sent as the action request body, where Vercel's 4.5 MB platform cap killed
- * any larger upload before the action ran. The bytes now go browser ->
- * Supabase Storage directly, so this cap only has to agree with the app's own
- * per-file limit.
+ * `MAX_MOMENT_VIDEO_BYTES` (lib/utils/media-upload.ts) is what the composer
+ * guards against and what the `user-media` bucket's `file_size_limit`
+ * (migration 054) enforces server-side. They MUST agree, so this form imports
+ * the constant rather than re-declaring a number that could drift.
+ *
+ * The cap is 1 GB, not 100 MB: uploads now use the resumable TUS path
+ * (lib/utils/direct-upload.ts), which chunks the file and resumes from the
+ * last confirmed byte, so a large clip no longer dies when the connection
+ * blips. The client check below is a fast, friendly pre-flight; the real
+ * enforcement is still the bucket limit, so a member never watches a doomed
+ * transfer complete only to be rejected afterwards.
  */
-const MAX_BYTES = 250 * 1024 * 1024;
 
 /**
  * NO CLIENT-SIDE UPLOAD TIMEOUT — deliberately.
@@ -47,10 +52,11 @@ const MAX_BYTES = 250 * 1024 * 1024;
  *     "Upload timed out" and then silently completed server-side - leaving an
  *     orphaned object and a member who believed their upload had failed.
  *
- * Genuine stalls are still caught, just by the right layer: `uploadWithProgress`
- * sets a 30-MINUTE XHR timeout and fires onerror/ontimeout for a dead socket.
- * That is a real network guard, not an artificial deadline, and 30 minutes is
- * far beyond any honest transfer.
+ * Genuine stalls are still caught, just by the right layer: the resumable TUS
+ * path (uploadResumableTus) retries a failed chunk with exponential backoff and
+ * gives up only after a bounded number of attempts, so a dead socket surfaces as
+ * a real, actionable error rather than hanging forever. That is a network guard,
+ * not an artificial deadline.
  *
  * The UI shows real progress because XHR reports transferred bytes, so there is
  * always visible feedback that the upload is alive.
@@ -99,7 +105,7 @@ export function MomentUploadForm() {
   const ready =
     mode === "link"
       ? Boolean(linkUrl.trim()) && content.trim().length > 0 && linkCheck?.ok === true
-      : Boolean(file) && content.trim().length > 0 && file!.size <= MAX_BYTES;
+      : Boolean(file) && content.trim().length > 0 && file!.size <= MAX_MOMENT_VIDEO_BYTES;
 
   async function publish() {
     if (!ready || busy) return;
@@ -150,10 +156,11 @@ export function MomentUploadForm() {
       // STEP 1 — bytes go straight to storage, bypassing Vercel entirely.
       //
       // Awaited directly, with no client-side deadline: the transfer is a
-      // browser -> Supabase Storage request, so there is no serverless execution
-      // limit in the path to race. `setProgress` drives the visible bar, and
-      // uploadWithProgress's own 30-minute XHR timeout still catches a genuinely
-      // dead socket.
+      // browser -> Supabase Storage request over the resumable TUS protocol
+      // (uploadResumableTus), so there is no serverless execution limit in the
+      // path to race. `setProgress` drives the visible bar with the real
+      // percent, and a chunk that fails on a dead socket is retried with
+      // exponential backoff before the transfer is given up on.
       setStatus("Uploading...");
       const uploaded = await uploadMediaDirect(uid, file, setProgress);
       if (!uploaded.ok) {
@@ -318,7 +325,7 @@ export function MomentUploadForm() {
             <span className="max-w-full truncate text-sm font-semibold text-white">
               {file ? file.name : "Choose a photo or short video"}
             </span>
-            <span className="text-[11px] text-ink-400">Up to 250 MB. Free — no coins required. JPG, PNG, WEBP, MP4 or MOV.</span>
+            <span className="text-[11px] text-ink-400">Up to 1 GB. Free — no coins required. JPG, PNG, WEBP, MP4 or MOV.</span>
           </button>
 
           <input

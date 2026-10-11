@@ -99,9 +99,13 @@ export function GameLaunchButton({
  */
 export default function GameModal({
   gameUrl,
+  gameTitle,
+  coinBalance,
   onClose,
 }: {
   gameUrl: string;
+  gameTitle: string;
+  coinBalance: number | null;
   onClose: () => void;
 }) {
   /* Escape closes — the one dismissal gesture that works identically on every
@@ -110,9 +114,7 @@ export default function GameModal({
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
-{/* === START === */}
     window.addEventListener("keydown", onKey);
-function GameModal({ gameUrl, gameTitle, coinBalance, onClose }: { gameUrl: string; gameTitle: string; coinBalance: number | null; onClose: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
@@ -126,7 +128,6 @@ function GameModal({ gameUrl, gameTitle, coinBalance, onClose }: { gameUrl: stri
       <div className="flex items-center justify-between border-b border-white/10 bg-[#0b0f19] p-3">
         <div className="flex items-center gap-3">
           <span className="text-sm font-bold text-white">{gameTitle}</span>
-{/* CHECK */}
           <span className="text-[10px] text-white/50">{coinBalance !== null ? `🪙 ${coinBalance.toLocaleString()}` : ""}</span>
         </div>
         <button
@@ -182,7 +183,7 @@ export function GameModalProvider() {
         return;
       }
 
-      setOpen({ gameId: game.id, gameUrl: null });
+      setOpen({ gameId: game.id, gameUrl: null, coinBalance: null });
 
        fetch("/api/game/launch", {
         method: "POST",
@@ -215,7 +216,7 @@ export function GameModalProvider() {
           /* Apply ONLY if this game is still the open one — see doc above. */
           setOpen((current) =>
             current && current.gameId === game.id
-              ? { ...current, gameUrl: data.gameUrl, coinBalance: wallet.coinBalance }
+              ? { ...current, coinBalance: wallet.coinBalance }
               : current
           );
         })
@@ -239,7 +240,7 @@ export function GameModalProvider() {
   return (
     <GameModal
       gameUrl={open.gameUrl}
-      gameTitle={game.title}
+      gameTitle={findGame(open.gameId)?.title ?? "Game"}
       coinBalance={open.coinBalance}
       onClose={close}
     />

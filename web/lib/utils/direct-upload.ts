@@ -30,7 +30,6 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
-import { uploadWithProgress } from "@/lib/utils/upload-progress";
 import { validateMediaFile, MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
 
 export const USER_MEDIA_BUCKET = "user-media";
@@ -230,15 +229,17 @@ export async function uploadFileDirect(
       if (!token) {
         return { ok: false, error: "Your session expired. Please sign in again." };
       }
-      await uploadWithProgress(
-        `${base}/storage/v1/object/${bucket}/${path}`,
+      // Resumable TUS path: chunked, offset-tracked, and self-retrying on a
+      // dropped connection, so a large video survives a flaky mobile uplink
+      // instead of restarting from 0% every time a packet drops.
+      await uploadResumableTus(
+        base,
+        key,
+        token,
+        bucket,
+        path,
+        contentType,
         file,
-        {
-          Authorization: `Bearer ${token}`,
-          apikey: key,
-          "Content-Type": contentType,
-          "x-upsert": "true",
-        },
         onProgress
       );
     } else {
@@ -263,6 +264,193 @@ export async function uploadFileDirect(
     // server responds; a bare transport failure has none. describeStorageError
     // turns either into a message the member can act on.
     return { ok: false, error: describeStorageError(error) };
+  }
+}
+
+/**
+ * Read the server's confirmed `Upload-Offset` with a TUS HEAD request.
+ *
+ * Used after a failed chunk so a retry resumes from the bytes the server has
+ * actually stored, rather than blindly re-sending a chunk that may have landed
+ * just before the connection dropped.
+ */
+async function headUploadOffset(
+  uploadUrl: string,
+  authHeaders: Record<string, string>
+): Promise<number> {
+  const response = await fetch(uploadUrl, {
+    method: "HEAD",
+    headers: { ...authHeaders, "Tus-Resumable": "1.0.0" },
+  });
+  if (!response.ok) {
+    const err = new Error(
+      `Could not read upload progress (HTTP ${response.status}).`
+    ) as Error & { status?: number };
+    err.status = response.status;
+    throw err;
+  }
+  const raw = response.headers.get("Upload-Offset");
+  const value = raw != null ? Number(raw) : 0;
+  return Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
+/**
+ * Resumable upload straight to Supabase Storage, using the TUS protocol.
+ *
+ * WHY TUS instead of a single POST: a one-shot request cannot survive a dropped
+ * connection. On a flaky mobile uplink a 30-minute transfer dies the moment one
+ * packet is lost and the member has to start over from 0%. TUS splits the file
+ * into fixed-size chunks and PATCHes them to a server-assigned upload URL,
+ * remembering the confirmed `Upload-Offset` after every chunk, so an
+ * interruption resumes from the last stored byte instead of the beginning.
+ *
+ * PROTOCOL (Supabase Storage implements the TUS 1.0 spec):
+ *   1. POST {base}/storage/v1/upload/resumable
+ *        headers: Authorization, apikey, x-upsert,
+ *                 Tus-Resumable: 1.0.0,
+ *                 Upload-Length: <file size in bytes>,
+ *                 Upload-Metadata: <"key base64(value)" pairs, comma-joined>.
+ *      -> 201 Created; the `Location` header carries this upload's URL
+ *         (valid for 24h).
+ *   2. PATCH <Location>
+ *        headers: Tus-Resumable: 1.0.0, Upload-Offset: <confirmed bytes>,
+ *                 Content-Type: application/offset+json.
+ *        body:    the raw bytes of the next chunk.
+ *      -> 204 No Content; the `Upload-Offset` header reports the new confirmed
+ *         byte count.
+ *   3. Repeat PATCH from the confirmed offset until it equals the file size.
+ *
+ * A chunk that fails on a transport error is retried with exponential backoff
+ * (1s, 2s, 4s, ... capped), re-reading the confirmed offset first so a chunk
+ * that landed before the drop is never re-sent. `onProgress` receives a 0-100
+ * integer percent so the caller can render a real progress bar.
+ *
+ * Reference: https://supabase.com/docs/guides/storage/uploads/resumable-uploads
+ */
+async function uploadResumableTus(
+  base: string,
+  key: string,
+  token: string,
+  bucket: string,
+  storagePath: string,
+  contentType: string,
+  file: File,
+  onProgress: (percent: number) => void,
+  chunkSize = 6 * 1024 * 1024,
+  maxRetries = 5
+): Promise<void> {
+  const endpoint = `${base}/storage/v1/upload/resumable`;
+
+  // Upload-Metadata is "key base64(value)" pairs joined by commas, per the TUS
+  // creation extension. Every value here is ASCII (a sanitized storage path, a
+  // MIME type, and bucket names), so btoa is safe.
+  const b64 = (value: string) => btoa(value);
+  const metadata = [
+    `bucketName ${b64(bucket)}`,
+    `objectName ${b64(storagePath)}`,
+    `contentType ${b64(contentType)}`,
+    `cacheControl ${b64("3600")}`,
+  ].join(",");
+
+  const authHeaders: Record<string, string> = {
+    Authorization: `Bearer ${token}`,
+    apikey: key,
+    "x-upsert": "true",
+  };
+
+  // STEP 1 - create the upload and obtain its URL.
+  const createResponse = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      ...authHeaders,
+      "Tus-Resumable": "1.0.0",
+      "Upload-Length": String(file.size),
+      "Upload-Metadata": metadata,
+    },
+  });
+  if (!createResponse.ok) {
+    const detail = await createResponse.text().catch(() => "");
+    const err = new Error(
+      detail || `Could not start the upload (HTTP ${createResponse.status}).`
+    ) as Error & { status?: number };
+    err.status = createResponse.status;
+    throw err;
+  }
+  const location = createResponse.headers.get("Location");
+  if (!location) {
+    throw new Error("The storage server did not return an upload URL.");
+  }
+  // Location may be absolute or root-relative; normalise against the API base.
+  const uploadUrl = location.startsWith("http") ? location : `${base}${location}`;
+
+  // STEP 2 - PATCH chunks until the confirmed offset reaches the file size.
+  let offset = 0;
+  let lastOffset = -1;
+  onProgress(0);
+
+  while (offset < file.size) {
+    // Safety valve: if the server ever confirms an offset that does not move
+    // forward, the protocol is being violated and looping would never end.
+    if (offset === lastOffset) {
+      throw new Error("The upload server stopped accepting data. Please try again.");
+    }
+    lastOffset = offset;
+
+    let attempt = 0;
+    let advanced = false;
+
+    while (!advanced) {
+      const end = Math.min(offset + chunkSize, file.size);
+      try {
+        const patchResponse = await fetch(uploadUrl, {
+          method: "PATCH",
+          headers: {
+            ...authHeaders,
+            "Tus-Resumable": "1.0.0",
+            "Upload-Offset": String(offset),
+            "Content-Type": "application/offset+json",
+          },
+          body: file.slice(offset, end),
+        });
+
+        if (patchResponse.status === 409) {
+          // Conflict: another writer moved the offset. Re-read the authoritative
+          // offset and resume from it on the next pass.
+          offset = await headUploadOffset(uploadUrl, authHeaders);
+          advanced = true;
+        } else if (patchResponse.ok) {
+          // 204 No Content is success. Trust the server's confirmed offset over
+          // our own arithmetic; fall back to the chunk end if it is absent.
+          const raw = patchResponse.headers.get("Upload-Offset");
+          const confirmed = raw != null ? Number(raw) : NaN;
+          offset = Number.isFinite(confirmed) ? confirmed : end;
+          advanced = true;
+        } else {
+          const detail = await patchResponse.text().catch(() => "");
+          const err = new Error(
+            detail || `Upload failed (HTTP ${patchResponse.status}).`
+          ) as Error & { status?: number };
+          err.status = patchResponse.status;
+          throw err;
+        }
+      } catch (error) {
+        attempt += 1;
+        if (attempt > maxRetries) throw error;
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, capped at 30s.
+        const delay = Math.min(1000 * 2 ** (attempt - 1), 30000);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        // Re-sync to the last confirmed offset before re-sending, so a chunk
+        // that landed before the drop is not uploaded twice. If HEAD itself
+        // fails (still offline), keep our offset and retry the PATCH.
+        try {
+          offset = await headUploadOffset(uploadUrl, authHeaders);
+        } catch {
+          /* still offline; retain current offset and retry */
+        }
+      }
+    }
+
+    onProgress(Math.min(100, Math.round((offset / file.size) * 100)));
   }
 }
 

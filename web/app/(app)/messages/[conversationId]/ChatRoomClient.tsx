@@ -435,9 +435,7 @@ function MessageBubble({
        reads as a flat block; the ramp gives it dimension and matches the
        industry-standard "my messages are orange" convention). */
     <div
-      className={`flex w-fit max-w-[80%] flex-col gap-1 break-words rounded-2xl px-3 pb-1.5 pt-2 text-sm leading-5 ${
-        isMine ? "mr-1" : "ml-1"
-      }`}
+      className="flex justify-end w-full ml-auto mr-1 max-w-[80%] flex-col gap-1 break-words rounded-2xl px-3 pb-1.5 pt-2 text-sm leading-5"
       style={{
         backgroundColor: isMine ? THEME.own : "#1e293b",
         backgroundImage: isMine
@@ -685,6 +683,10 @@ export default function ChatRoomClient({
   /* The textarea itself, so insertion and the drawer's backspace can honour
      the caret rather than always appending at the end. */
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  /* The composer bar element. Attached so the VisualViewport resize
+     listener can force a reflow of the sticky bar when the soft keyboard
+     changes the visual viewport height. */
+  const composerBarRef = useRef<HTMLDivElement | null>(null);
   /* Whether the field has ever been focused. Before that, `selectionStart` is
      0 rather than "end of text", which would make the first emoji tap insert
      at the FRONT of a draft a quick reply just filled in. Once set it stays
@@ -743,6 +745,9 @@ export default function ChatRoomClient({
   );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The locked viewport column itself. Attached so the component can read
+  // the column's measured box (its clientHeight caps the keyboard case).
+  const rootRef = useRef<HTMLDivElement | null>(null);
 
   /* SCROLL-DRIVEN HEADER COLLAPSE.
 
@@ -973,9 +978,41 @@ export default function ChatRoomClient({
    `flex-1` fills the shell's measured box (body is `h-dvh`, so this resolves to
    the true dynamic viewport minus only the chrome above it); `max-h-[100dvh]`
    clamps the keyboard case so the composer rides up instead of hiding. */
+  
+  /* VISUAL VIEWPORT RESIZE LISTENER.
+   *
+   * `h-[100dvh]` already makes the locked column track the *visual* viewport, so
+   * when a mobile browser opens the on-screen keyboard the whole column shrinks
+   * and the `sticky bottom-0` composer rides up with it. That handles the common
+   * case, but some engines (notably iOS Safari) do not always re-run layout on
+   * the composer's own ancestors in time, so the composer can sit a few pixels
+   * short of the keyboard edge. Listening to `visualViewport.resize` and forcing
+   * a reflow of the composer bar closes that gap: it is the direct replacement
+   * for the React Native `KeyboardAvoidingView` this route has no equivalent for.
+   *
+   * `visualViewport` is feature-detected: desktop browsers that lack it simply
+   * never open a soft keyboard, so the no-op early return is correct there. */
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const handleViewportResize = () => {
+      const composer = composerBarRef.current;
+      if (!composer) return;
+      // Force a layout pass so the sticky offset re-resolves against the new
+      // visual viewport height. Reading offsetHeight is the cheapest reflow
+      // trigger and does not mutate any state.
+      void composer.offsetHeight;
+    };
+
+    viewport.addEventListener("resize", handleViewportResize);
+    return () => viewport.removeEventListener("resize", handleViewportResize);
+  }, []);
+
   return (
     <div
       className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#0F0C1B]"
+      ref={rootRef}
       style={{
         /* THE CANVAS GRADIENT, not the flat `THEME.canvas`.
            `THEME.canvas` (`#0F0C1B`) is still the base colour below it, but the
@@ -1087,6 +1124,7 @@ export default function ChatRoomClient({
           view. That is the keyboard-cutoff fix; see the note at the top of
           this file. */}
       <div
+        ref={composerBarRef}
         className="sticky bottom-0 z-40 w-full shrink-0 border-t px-2 pt-2"
         style={{
           /* OPAQUE `#0b0f19`, not GLASS_BAR. The composer is the last child of
