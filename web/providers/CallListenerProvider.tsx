@@ -9,17 +9,22 @@
  * so the phone never rang. Mounting the listener in the root layout keeps it
  * subscribed for the entire time the member is signed in, on every route.
  *
- * ── TWO DELIVERY PATHS, ON PURPOSE ───────────────────────────────────────────
+ * ── THREE DELIVERY PATHS, ON PURPOSE ─────────────────────────────────────────
  *  1. Supabase Realtime: an `INSERT` on `public.active_calls` filtered to
  *     `receiver_id = <this user>` (the filter runs server-side, so the socket
  *     only ever carries rows meant for this device).
- *  2. A 12s poll of `getIncomingCallsAction()`. Realtime is the first thing an
- *     ad-blocker, VPN, or flaky mobile radio drops, and a dropped INSERT is
- *     SILENT — no error, no retry, just a call that never rings. The poll is
- *     the safety net, and `receiver_id` is indexed so it is cheap.
+ *  2. A 3s direct poll of `active_calls` (the FAST FALLBACK). Realtime is the
+ *     first thing an ad-blocker, VPN, or flaky mobile radio drops, and a
+ *     dropped INSERT is SILENT — no error, no retry, just a call that never
+ *     rings. This is the instant-ring safety net: it reads the newest ringing
+ *     row straight from the table so the receiver's phone still rings within a
+ *     few seconds even when the socket is dead. RLS bounds the read to this
+ *     member's own rows, and `receiver_id` is indexed so it is cheap.
+ *  3. A 12s poll of `getIncomingCallsAction()` that also re-seeds the seen-set
+ *     on (re)connect so a call already handled elsewhere is never re-rung.
  *
- *  Both paths funnel into `present()`, which de-duplicates by call id, so a
- *  call that arrives on both never rings twice.
+ *  All paths funnel into `present()`, which de-duplicates by call id, so a
+ *  call that arrives on two or three of them never rings twice.
  *
  * AUTH: the listener is keyed to the Supabase auth session rather than to a
  * server-rendered prop, so it re-subscribes on sign-in and sign-out without any
@@ -43,6 +48,8 @@ import { notifyIncomingCall } from "@/lib/utils/notify";
 const RING_TIMEOUT_MS = 45_000;
 /** Poll cadence for the realtime fallback. */
 const POLL_INTERVAL_MS = 12_000;
+/** Fast direct-read poll cadence — the instant-ring safety net (see below). */
+const FAST_POLL_INTERVAL_MS = 3_000;
 
 interface RingingCall {
   id: string;
@@ -126,6 +133,9 @@ export function CallListenerProvider() {
 
   const [ringing, setRinging] = useState<RingingCall | null>(null);
   const [status, setStatus] = useState<"idle" | "accepting" | "declining">("idle");
+  /* The signed-in member's id, mirrored from the auth listener below so the
+     3s fast-poll effect can key off it without threading a server prop. */
+  const [userId, setUserId] = useState<string | null>(null);
 
   /* Refs, not state: the realtime callback and the poll both read these on
      every event and must not tear down the subscription to see a fresh value. */
@@ -246,8 +256,11 @@ export function CallListenerProvider() {
 
     async function boot() {
       const { data } = await supabase.auth.getUser();
-      const userId = data.user?.id;
-      if (alive && userId) await listenFor(userId);
+      const uid = data.user?.id;
+      if (alive && uid) {
+        setUserId(uid);
+        await listenFor(uid);
+      }
     }
 
     void boot();
@@ -260,14 +273,18 @@ export function CallListenerProvider() {
         seenRef.current.clear();
         ringingIdRef.current = null;
         setRinging(null);
+        setUserId(null);
         if (channel) void channel.unsubscribe().catch(() => undefined);
         channel = null;
         if (pollTimer !== null) window.clearInterval(pollTimer);
         pollTimer = null;
         return;
       }
-      const userId = session?.user?.id;
-      if (event === "SIGNED_IN" && userId) void listenFor(userId);
+      const uid = session?.user?.id;
+      if (event === "SIGNED_IN" && uid) {
+        setUserId(uid);
+        void listenFor(uid);
+      }
     });
 
     return () => {
@@ -278,6 +295,52 @@ export function CallListenerProvider() {
       if (pollTimer !== null) window.clearInterval(pollTimer);
     };
   }, [present, stopRingtone]);
+
+  // ── FAST POLL FALLBACK (3s) ─────────────────────────────────────────────────
+  // Realtime is the FIRST thing an ad-blocker / VPN / flaky radio drops, and a
+  // dropped INSERT is SILENT — no error, no retry, just a phone that never
+  // rings. This is the safety net: a 3s setInterval that reads `active_calls`
+  // directly and surfaces the newest ringing row. RLS
+  // (`active_calls_select_receiver` = `auth.uid() = receiver_id`) bounds the
+  // read to this member's own rows server-side, so the client query is correct
+  // and cheap (receiver_id is indexed).
+  //
+  // The row is funneled through `present()` — NOT `setIncomingCall` — because
+  // `present()` resolves the caller's display name, fires the browser
+  // notification, de-dups by `presentedId`/`ringingIdRef` (so a call already
+  // surfaced by realtime never rings twice), and schedules the 45s ring-timeout.
+  // Deps are `[userId, present]` (stable across renders) and
+  // deliberately EXCLUDE `ringing`: keying on it would tear down and
+  // rebuild the interval on every ring/dismiss. De-dup lives in `present()`.
+  useEffect(() => {
+    if (!userId) return;
+
+    const supabase = getSupabaseClient();
+    let alive = true;
+    const checkForCalls = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("active_calls")
+          .select("id, caller_id, receiver_id, channel_name, status, mode")
+          .eq("receiver_id", userId)
+          .eq("status", "ringing")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!alive || error || !data) return;
+        await present(data as RawCallRow);
+      } catch {
+        /* Poll failures are never fatal — the next tick retries. */
+      }
+    };
+
+    void checkForCalls();
+    const interval = window.setInterval(() => void checkForCalls(), FAST_POLL_INTERVAL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, [userId, present]);
 
   /** Auto-miss: a call nobody answers stops ringing after the timeout. */
   useEffect(() => {
