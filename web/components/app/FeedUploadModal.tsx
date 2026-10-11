@@ -43,25 +43,29 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
   const [error, setError] = useState<string | null>(null);
   /* Upload progress, split into phases.
 
-     This modal used to call `uploadMediaDirect(uid, file)` with no
-     `onProgress`, so a 4MB photo on mobile data was several seconds of a
-     button reading "Publishing…" with nothing moving. On a stalled connection
-     that is indistinguishable from a crash, and it invites a second tap.
+     NO PERCENT — deliberate, not a regression. The percentage existed because
+     a silent "Publishing…" invites a second tap; but passing `onProgress` to
+     `uploadMediaDirect` switched its transport from the Supabase browser
+     client's `storage.from().upload()` onto the helper's raw TUS `fetch`
+     (`/storage/v1/upload/resumable` + PATCH chunks), which failed in the field
+     with a bare `TypeError: Failed to fetch` the member could do nothing
+     about — and this sheet rendered that string verbatim. Photos are small:
+     the SDK call is the fix, and supabase-js reports no byte count for it, so
+     the bar goes INDETERMINATE rather than lying at 0% while bytes move.
 
-     Two phases, not one percentage, because the two steps are different work and
-     a member should know which one they are waiting on:
+     Two phases remain, because the two steps are different work and a member
+     should know which one they are waiting on:
        • `uploading` — the BYTES going to Supabase Storage. The slow part.
        • `saving`    — the two tiny database writes after it. Near-instant.
 
      The label changes with the phase for the same reason `ProfilePhotoUploader`
      does — a stuck number tells a member nothing about whether it is working. */
   const [phase, setPhase] = useState<"idle" | "uploading" | "saving">("idle");
-  const [uploadPercent, setUploadPercent] = useState(0);
 
   async function publish() {
     if (!userId) { setError("Sign in to publish a post."); return; }
     setPublishing(true); setError(null);
-    setPhase("uploading"); setUploadPercent(0);
+    setPhase("uploading");
     try {
       /* A caption is OPTIONAL for an uploaded photo, and that is what "upload a photo
          directly into the feed" has to mean in practice.
@@ -75,14 +79,24 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
          pointless gatekeeping step on the one action they wanted. */
       if (!file) return;
       // Two steps: the bytes go straight to storage, then two tiny actions write
-      // the gallery row and the post. This used to be a single Server Action
-      // carrying the whole File, which Vercel rejects above 4.5 MB before the
-      // action runs — the same E394 failure that broke moment uploads.
+      // the post rows. This used to be a single Server Action carrying the whole
+      // File, which Vercel rejects above 4.5 MB before the action runs — the
+      // same E394 failure that broke moment uploads.
       const { data: auth } = await getSupabaseClient().auth.getUser();
       const uid = auth.user?.id;
       if (!uid) { setError("Please sign in again."); return; }
 
-      const uploaded = await uploadMediaDirect(uid, file, setUploadPercent);
+      // NO `onProgress` — deliberately, and it is the "Failed to fetch" fix.
+      // A progress callback switched the helper onto its raw TUS `fetch`
+      // transport, whose rejections surfaced as a bare `TypeError: Failed to
+      // fetch` in this sheet whenever that endpoint was unreachable. Without
+      // the callback the helper uploads through the Supabase BROWSER CLIENT
+      // itself:
+      //     supabase.storage.from("user-media").upload(path, file, { upsert: true })
+      // the same origin and JWT as the auth call above, with `publicUrl`
+      // derived afterwards by `getPublicUrl` (pure string construction, no
+      // second request) — then `createFeedPostAction` stores it in `posts`.
+      const uploaded = await uploadMediaDirect(uid, file);
       if (!uploaded.ok) { setError(uploaded.error); return; }
 
       // Bytes are up. What remains is the post row itself — a distinct phase so a
@@ -171,8 +185,8 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       setError(err instanceof Error ? err.message : "Could not publish your post.");
     } finally {
       setPublishing(false);
-      // Reset the phase so a re-pick after a failure starts from "Uploading 0%"
-      // rather than showing a stale 100% bar over an error.
+      // Reset the phase so a re-pick after a failure starts from a clean
+      // indeterminate bar rather than showing a stale 100% over an error.
       setPhase("idle");
     }
   }
@@ -288,19 +302,22 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
         {error ? <p role="alert" className="mt-3 text-sm text-red-300">{error}</p> : null}
 
         {/* Upload progress. A real <progress> element rather than a styled div:
-            it is announced by screen readers and carries the value natively, so
-            the number and the visual cannot disagree. Same element, and same
-            reason, as ProfilePhotoUploader. */}
+            it is announced by screen readers and carries the value natively.
+            Omitting `value` during the upload phase renders the native
+            INDETERMINATE bar — honest now that the transfer runs through
+            supabase-js's `.upload()`, which reports no byte count, and still
+            visibly alive rather than a frozen 0% over a stalled transfer.
+            Same element, and same reason, as ProfilePhotoUploader. */}
         {publishing ? (
           <div className="mt-3" role="status" aria-live="polite">
             <progress
               max={100}
-              value={phase === "saving" ? 100 : uploadPercent}
+              value={phase === "saving" ? 100 : undefined}
               aria-label="Photo upload progress"
               className="w-full"
             />
             <p className="mt-1 text-xs text-white/60">
-              {phase === "saving" ? "Saving your post…" : `Uploading ${uploadPercent}%`}
+              {phase === "saving" ? "Saving your post…" : "Uploading your photo…"}
             </p>
           </div>
         ) : null}

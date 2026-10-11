@@ -156,6 +156,16 @@ export function describeStorageError(error: unknown, limitBytes: number = MAX_MO
   if (status === 408 || /timeout|timed out/i.test(message)) {
     return "The upload timed out. Check your connection and retry.";
   }
+  // Bare browser transport TypeErrors carry no status and no upload context —
+  // "Failed to fetch" (Chromium), "NetworkError when attempting to fetch
+  // resource" (Firefox), "Load failed" (Safari). Shown raw they read as the app
+  // itself being broken rather than the connection dropping mid-transfer; the
+  // bare "Failed to fetch" is exactly the string members reported from the
+  // Feed upload, so normalize before the generic pass-through below. Same
+  // pattern web-admin's media-upload already applies.
+  if (/failed to fetch|networkerror|load failed|fetch failed/i.test(message)) {
+    return "Upload failed. Check your connection and try again.";
+  }
   if (message) return message;
   return "Upload failed. Check your connection and try again.";
 }
