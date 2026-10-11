@@ -314,10 +314,14 @@ async function headUploadOffset(
  *         (valid for 24h).
  *   2. PATCH <Location>
  *        headers: Tus-Resumable: 1.0.0, Upload-Offset: <confirmed bytes>,
- *                 Content-Type: application/offset+json.
+ *                 Content-Type: application/offset+octet-stream.
  *        body:    the raw bytes of the next chunk.
  *      -> 204 No Content; the `Upload-Offset` header reports the new confirmed
  *         byte count.
+ *         NOTE the value is `application/offset+octet-stream`, NOT the
+ *         `application/offset+json` the TUS spec suggests. Supabase Storage's
+ *         PATCH route registers only that one content-type parser, so any other
+ *         value is rejected with 400 "Invalid content-type" before a byte lands.
  *   3. Repeat PATCH from the confirmed offset until it equals the file size.
  *
  * A chunk that fails on a transport error is retried with exponential backoff
@@ -408,7 +412,15 @@ async function uploadResumableTus(
             ...authHeaders,
             "Tus-Resumable": "1.0.0",
             "Upload-Offset": String(offset),
-            "Content-Type": "application/offset+json",
+            // MUST be `application/offset+octet-stream`, not `application/offset+json`.
+            // Supabase Storage's TUS route registers exactly one content-type parser
+            // for PATCH (`fastify.addContentTypeParser('application/offset+octet-stream')`),
+            // so any other value is rejected before the bytes are read:
+            //     400 Bad Request, body "Invalid content-type"
+            // The upload URL is still created fine (POST accepts any content-type),
+            // so the failure only ever surfaces on the first chunk — and because the
+            // create succeeded it looks like a transport fault rather than a header bug.
+            "Content-Type": "application/offset+octet-stream",
           },
           body: file.slice(offset, end),
         });
