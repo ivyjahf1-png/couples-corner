@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
-import { InviteLinkCard } from "@/components/profile/InviteLinkCard";
+import { RelationInviteCard } from "@/components/profile/RelationInviteCard";
 import { WalletTile } from "@/components/profile/WalletTile";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
 import { HTML5_GAMES } from "@/lib/game/registry";
@@ -118,8 +118,21 @@ export interface ProfileStat {
 
 /** Everything the screen renders. Assembled on the server by the page. */
 export interface ProfileScreenData {
-  /** Stable member id, shown as "ID:<uid>" and copied verbatim. */
+  /** Stable member id, used for navigation and as the internal fallback ID. */
   uid: string;
+  /**
+   * The member's PERMANENT public code — two digits + four letters, e.g.
+   * `21ATZE` (migration 032/042). This is the ID shown on the header and the
+   * code carried by the invite link.
+   *
+   * It is NOT the Supabase UUID. The UUID is an internal key: it is long, it
+   * leaks nothing useful, and nothing in the referral funnel accepts it —
+   * `resolveUserCode` matches strictly against `^\d{2}[A-Z]{4}$`. Displaying the
+   * code instead is therefore both cleaner AND the only value a member can
+   * actually share. Null when the database has not minted one yet, in which
+   * case the header falls back to a short slice of `uid` so it is never blank.
+   */
+  userCode?: string | null;
   name: string;
   /** Resolved avatar URL, or null to fall back to initials. */
   avatarUrl: string | null;
@@ -299,6 +312,13 @@ export function ProfileHeader({ name }: { name: string }) {
 export function ProfileScreen({ data }: { data: ProfileScreenData }) {
   const vip = vipLabel(data.vipTier);
 
+  /* THE SIX-CHARACTER DISPLAY ID.
+     Prefers the permanent public code; falls back to a short, human-readable
+     slice of the UUID for the rare account whose code has not been minted yet.
+     The hyphens are stripped first so the fallback reads as an identifier
+     rather than as a truncated GUID. */
+  const shortId = (data.userCode ?? data.uid.replace(/-/g, "")).slice(0, 6).toUpperCase();
+
   return (
     /* THE ONLY GAP ON THIS SCREEN. Every vertical rhythm decision is made here;
        no descendant adds an outer margin of its own. */
@@ -351,7 +371,11 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                 <ProfileIcon name="leaf" className="h-2.5 w-2.5" />
               </span>
             </div>
-            <CopyIdButton value={data.uid} />
+            {/* THE SHARED PUBLIC ID, six characters, not the raw UUID. It is the
+                value the member reads out to a friend to be found by, and it is
+                the same code the invite link below carries — so what is copied
+                here and what is shared there can never disagree. */}
+            <CopyIdButton value={shortId} />
           </div>
 
           <Link
@@ -466,10 +490,6 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </span>
         </Link>
 
-      {/* SURFACE 2b — invite link, restored below the wallet/VIP pair so the
-          member's share link is one tap away without leaving the profile. */}
-      <InviteLinkCard uid={data.uid} />
-
       </div>
 
       {/* ================================================================ *
@@ -480,42 +500,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * shared edge is most of what makes a column read as designed rather than
        * assembled.
        * ================================================================ */}
-      <section
-        aria-label="Friend relationship"
-        className={`${SURFACE} relative flex items-center justify-between gap-3 px-4 py-3.5`}
-      >
-        <div className="relative z-10 min-w-0">
-          <p className="text-sm font-bold text-white">
-            Friend: <span className="font-semibold">{data.relation}</span>
-          </p>
-          <Link
-            href="/invite"
-            className="mt-2 inline-flex min-h-9 items-center rounded-full bg-[#FF7A00] px-5 py-1.5 text-xs font-bold text-[#0F0C1B] transition hover:bg-[#FF9500] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
-          >
-            Invite
-          </Link>
-        </div>
-
-        {/* Overlapping pink/blue hearts. Decorative and behind the copy, hence
-            `aria-hidden` plus `pointer-events-none` so the Invite button stays
-            tappable where the shapes overlap it. */}
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-1 top-1/2 -translate-y-1/2"
-        >
-          <span className="absolute right-5 top-0 flex h-9 w-9 -rotate-12 items-center justify-center text-pink-400">
-            <ProfileIcon name="heart" className="h-9 w-9 fill-current" />
-          </span>
-          {/* The second heart is VIOLET, not sky. It was `sky-400` when this card
-              had a sky-blue fill, where the two hearts read as pink-against-blue.
-              On the purple glass the sky sat too close to the card's own hue and
-              the pair stopped separating; violet keeps the cool-warm contrast the
-              design wants while staying in the screen's palette. */}
-          <span className="absolute right-0 top-5 flex h-11 w-11 rotate-6 items-center justify-center text-violet-400">
-            <ProfileIcon name="heart" className="h-11 w-11 fill-current" />
-          </span>
-        </span>
-      </section>
+      <RelationInviteCard relation={data.relation} userCode={data.userCode ?? null} />
        {/* ================================================================ *
        * SURFACE 4 â€” games, quick actions and the two list rows, ONE card.
        *

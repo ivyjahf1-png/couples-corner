@@ -304,6 +304,24 @@ function dbToUser(row: Record<string, unknown> | null): User {
     updatedAt: row.updated_at as string,
   };
 }
+export async function getOwnUserCode(uid: string): Promise<string | null> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("user_code")
+      .eq("user_id", uid)
+      .maybeSingle();
+    if (error || !data) return null;
+    const code = (data as { user_code?: unknown }).user_code;
+    return typeof code === "string" && /^\d{2}[A-Z]{4}$/.test(code) ? code : null;
+  } catch {
+    // Column predates migration 030/032 on older DBs — degrade to null so the
+    // header falls back to a short slice of the uid instead of 500ing.
+    return null;
+  }
+}
 export async function getOwnProfile(uid: string): Promise<{
   user: User | null;
   profile: UserProfile | null;

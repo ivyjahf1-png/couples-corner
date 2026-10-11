@@ -4,7 +4,7 @@ import { GameCenterButton } from "@/components/app/GameCenterButton";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { publicDisplayName } from "@/lib/utils/display-name";
-import { getOwnProfile } from "@/lib/server/profiles";
+import { getOwnProfile, getOwnUserCode } from "@/lib/server/profiles";
 import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
 import { getMembership } from "@/lib/server/subscription";
@@ -69,10 +69,11 @@ export default async function ProfilePage() {
      the redesign: the VIP card needs a tier, not just a balance. It degrades to
      `{ subscriptionTier: "free", coinBalance: 0 }` on error, so a Supabase
      hiccup costs the VIP card its badge and nothing else. */
-  const [stats, wallet, membership] = await Promise.all([
+  const [stats, wallet, membership, userCode] = await Promise.all([
     getProfileStats(session.uid),
     getGameWallet(session.uid),
     getMembership(session.uid),
+    getOwnUserCode(session.uid),
   ]);
 
   /* Strip an address-shaped name down to its prefix ("ivyjahf1", not
@@ -185,6 +186,7 @@ export default async function ProfilePage() {
       <ProfileScreen
         data={{
           uid: session.uid,
+          userCode,
           name,
           avatarUrl: primaryPhotoUrl(session.uid, profile),
           stats: statCells,
