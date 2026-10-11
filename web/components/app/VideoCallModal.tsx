@@ -268,17 +268,27 @@ export function VideoCallModal({
        * through verbatim so both sides join the same channel. A 503 from the
        * server means "Agora is not configured on this deployment" and the call
        * still proceeds (falling back to the peer-to-peer `CallScreen`). */
+      /* receiver_id MUST be the target's Auth UUID (public.users.id) — never a
+       * profile code, username, or the `"unknown"` sentinel this used to send.
+       * A non-uuid receiver violates the FK, the row never lands, and the
+       * receiver's listener never wakes — so skip the initiation entirely when
+       * the parent has not supplied one. The action re-validates server-side
+       * and logs any insertion rejection. */
       try {
-        const session = await startActiveCallAction({
-          conversationId: String(channelName), // channel id is the room id; the conversation is the same value on both sides
-          callerId: callerId ?? String(uid),
-          receiverId: receiverId ?? "unknown",
-          channelName,
-        });
-        if (session.ok && session.id != null) activeCallIdRef.current = session.id;
-      } catch {
+        if (receiverId) {
+          const session = await startActiveCallAction({
+            conversationId: String(channelName), // channel id is the room id; the conversation is the same value on both sides
+            callerId: callerId ?? String(uid),
+            receiverId,
+            channelName,
+          });
+          if (session.ok && session.id != null) activeCallIdRef.current = session.id;
+        }
+      } catch (err) {
         /* The call still proceeds; the active_calls row is best-effort so the
-         * realtime wake-up is not a hard dependency. */
+         * realtime wake-up is not a hard dependency — but an initiation that
+         * threw outright is worth surfacing in the console. */
+        console.error("[active_calls] call initiation threw:", err);
       }
 
       /* ── INCOMING-CALL SUBSCRIPTION MOVED TO THE ROOT LAYOUT ─────────────────

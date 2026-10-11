@@ -4,6 +4,7 @@ import "server-only";
 import { requireUser } from "@/lib/auth/authorization";
 import { finishCall, listCalls, startCall } from "@/lib/server/calls";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { toUuidOrNull } from "@/lib/utils/uuid";
 import type { CallLogEntry } from "@/lib/feature/types";
 import { revalidatePath } from "next/cache";
 
@@ -120,11 +121,33 @@ export async function startActiveCallAction(params: {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Calling is not available." };
 
+  // caller_id is ALWAYS the verified session's Auth UUID — the same value RLS
+  // checks as auth.uid() (`with check (auth.uid() = caller_id)`). The client's
+  // `callerId` prop is never trusted: it may be "", a profile code, a numeric
+  // Agora uid, or someone else's id, and any mismatch with auth.uid() makes
+  // the insert fail RLS — silently, so the receiver's realtime listener never
+  // wakes and the phone simply does not ring.
+  const resolvedCallerId = user.uid;
+
+  // receiver_id MUST be the target member's Auth UUID (public.users.id) — never
+  // their profile code (e.g. "12ABCD") or username. A non-uuid value violates
+  // the FK to users(id), the row never lands, and the receiver's listener never
+  // wakes — validate BEFORE the insert and log the rejection instead of letting
+  // Postgres fail it silently.
+  const receiverId = toUuidOrNull(params.receiverId);
+  if (!receiverId) {
+    console.error(
+      "[active_calls] insert rejected: receiverId must be the target member's Auth UUID (public.users.id) — not a profile code or username. Got:",
+      JSON.stringify(String(params.receiverId ?? "").trim().slice(0, 80)),
+    );
+    return { ok: false, error: "receiverId must be a valid user id." };
+  }
+
   const { data, error } = await supabase
     .from("active_calls")
     .insert({
-      caller_id: params.callerId,
-      receiver_id: params.receiverId,
+      caller_id: resolvedCallerId,
+      receiver_id: receiverId,
       channel_name: params.channelName,
       status: "ringing",
     })
@@ -132,9 +155,22 @@ export async function startActiveCallAction(params: {
     .single();
 
   if (error || !data) {
+    // EVERY insertion rejection is logged with code + message + details — the
+    // old code swallowed RLS/FK failures silently, which is exactly how a
+    // mis-wired caller/receiver pair produced "the call does nothing" with
+    // nothing in the logs.
+    const detail = `${error?.code ?? "no-code"} ${error?.message ?? "no row returned"}${error?.details ? ` | ${error.details}` : ""}`;
     if (/does not exist/i.test(error?.message ?? "")) {
+      console.error(`[active_calls] insert rejected (migration 056 not applied): ${detail}`);
       return { ok: false, error: "Calling is not enabled on this deployment yet." };
     }
+    if (error?.code === "23503" || /foreign key/i.test(error?.message ?? "")) {
+      console.error(
+        `[active_calls] insert rejected (foreign key): caller_id/receiver_id must exist in public.users(id) — Auth UUIDs only, never profile codes or usernames. caller=${resolvedCallerId} receiver=${receiverId}: ${detail}`,
+      );
+      return { ok: false, error: "Invalid caller or receiver id." };
+    }
+    console.error(`[active_calls] insert rejected: ${detail}`);
     return { ok: false, error: error?.message ?? "Couldn't place the call." };
   }
 

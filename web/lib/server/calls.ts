@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { toUuidOrNull } from "@/lib/utils/uuid";
 import type { CallLogEntry, CallStatus } from "@/lib/feature/types";
 
 /**
@@ -236,11 +237,28 @@ export async function startActiveCall(params: {
   const supabase = getSupabaseServerClient();
   if (!supabase) return { ok: false, error: "Calling is not available." };
 
+  // Both participant ids are FKs to public.users(id): they must be Auth UUIDs,
+  // never profile codes or usernames. Validate before the insert so a bad id is
+  // a clear, logged application error rather than a silent FK rejection. (The
+  // session match on caller_id is enforced by RLS: `auth.uid() = caller_id`.)
+  const callerId = toUuidOrNull(params.callerId);
+  const receiverId = toUuidOrNull(params.receiverId);
+  if (!callerId || !receiverId) {
+    console.error(
+      "[active_calls] insert rejected: callerId and receiverId must be Auth UUIDs (public.users.id) — never profile codes or usernames. Got:",
+      JSON.stringify({
+        callerId: String(params.callerId ?? "").slice(0, 80),
+        receiverId: String(params.receiverId ?? "").slice(0, 80),
+      }),
+    );
+    return { ok: false, error: "Invalid caller or receiver id." };
+  }
+
   const { data, error } = await supabase
     .from("active_calls")
     .insert({
-      caller_id: params.callerId,
-      receiver_id: params.receiverId,
+      caller_id: callerId,
+      receiver_id: receiverId,
       channel_name: params.channelName,
       status: "ringing",
     })
@@ -248,6 +266,11 @@ export async function startActiveCall(params: {
     .single();
 
   if (error || !data) {
+    // Log every insertion rejection (code + message + details) — including the
+    // pre-migration "does not exist" case, which is merely handled gracefully
+    // for the caller, not invisible in the logs.
+    const detail = `${error?.code ?? "no-code"} ${error?.message ?? "no row returned"}${error?.details ? ` | ${error.details}` : ""}`;
+    console.error(`[active_calls] insert rejected: ${detail}`);
     if (/does not exist/i.test(error?.message ?? "")) {
       return { ok: false, error: "Calling is not enabled on this deployment yet." };
     }
