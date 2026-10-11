@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Mic, MicOff, Phone, PhoneOff, SwitchCamera, Video, VideoOff, Volume2, VolumeX } from "lucide-react";
+import { startActiveCallAction, endActiveCallAction } from "@/lib/actions/calls";
 
 /**
  * VideoCallModal — reusable 1:1 audio/video call surface backed by Agora RTC.
@@ -33,6 +34,10 @@ export type VideoCallStatus =
 
 interface VideoCallModalProps {
   channelName: string;
+  /** Caller's user id (uuid). Provided by the parent that owns the call button. */
+  callerId?: string;
+  /** Receiver's user id (uuid). Provided by the parent that owns the call button. */
+  receiverId?: string;
   uid?: number;
   mode?: "audio" | "video";
   displayName?: string | null;
@@ -74,6 +79,10 @@ export function VideoCallModal({
   const remoteRef = useRef<HTMLDivElement>(null);
   const clientRef = useRef<AgoraClient | null>(null);
   const tracksRef = useRef<ClosableTrack[]>([]);
+  /** The live call session id, written to `active_calls` on initiation. */
+  const activeCallIdRef = useRef<string | null>(null);
+  /** The Realtime channel handle for `active_calls` (the receiver's wake-up). */
+  const activeCallChannelRef = useRef<{ unsubscribe: () => Promise<unknown> } | null>(null);
   const endedRef = useRef(false);
   /* Ringing tone: looping Web Audio ringback while connecting, silent once the
      peer joins or the call ends. Pure oscillator — no audio asset needed. */
@@ -188,6 +197,15 @@ export function VideoCallModal({
     stopRinging();
     setStatus("ended");
     onEnd?.();
+    /* Terminate the live call session in Supabase. This updates `status` to
+     * `ended` and stamps `ended_at` so the recipient's device can show a clean
+     * state. The Agora client is left by the cleanup effect above (the
+     * `unpublish().then(leave())` chain). */
+    const callId = activeCallIdRef.current;
+    if (callId) {
+      void endActiveCallAction({ callId, userId: String(uid) }).catch(() => undefined);
+      activeCallIdRef.current = null;
+    }
   }
 
   useEffect(() => {
@@ -241,22 +259,63 @@ export function VideoCallModal({
       /* Ringback while the peer has not joined yet; the user-published
          handler and the connected transition silence it below. */
       startRinging();
-      /* Broadcast the outgoing call so the recipient's device can ring with
-         an incoming-call overlay via Supabase Realtime. Best-effort: the
-         Agora join below is the real call path. */
+      /* Call initiation: write the live session row to `public.active_calls` so
+       * the receiver's realtime subscription (on `receiver_id`) wakes up and
+       * rings with an incoming-call overlay. The `channel_name` is the Agora
+       * room id the two clients derive from the conversation; it is passed
+       * through verbatim so both sides join the same channel. A 503 from the
+       * server means "Agora is not configured on this deployment" and the call
+       * still proceeds (falling back to the peer-to-peer `CallScreen`). */
+      try {
+        const session = await startActiveCallAction({
+          conversationId: String(channelName), // channel id is the room id; the conversation is the same value on both sides
+          callerId: callerId ?? String(uid),
+          receiverId: receiverId ?? "unknown",
+          channelName,
+        });
+        if (session.ok) activeCallIdRef.current = session.id;
+      } catch {
+        /* The call still proceeds; the active_calls row is best-effort so the
+         * realtime wake-up is not a hard dependency. */
+      }
+
+      /* Subscribe to the live call surface on the receiver's end. `active_calls`
+       * is filtered by `receiver_id = auth.uid()` so any ringing call rings the
+       * device exactly once, without polling or a second lookup. The row that
+       * fires is the caller's session row — the caller wants to hear that the
+       * call was placed, not their own echo. */
       try {
         const { getSupabaseClient } = await import("@/lib/supabase/client");
         const supabase = getSupabaseClient();
-        const channel = supabase.channel(`call:${channelName}`);
-        await channel.subscribe();
-        await channel.send({
-          type: "broadcast",
-          event: "incoming-call",
-          payload: { channelName, mode, callerUid: uid, callerName: displayName ?? "Someone" },
-        });
-        await supabase.removeChannel(channel);
+        const ch = supabase
+          .channel("active_calls")
+          .on(
+            "postgres_changes",
+            {
+              event: "INSERT",
+              schema: "public",
+              table: "active_calls",
+              filter: `receiver_id=eq.${receiverId ?? String(uid)}`,
+            },
+            (payload) => {
+              /* `payload.new` is the full row inserted by `startActiveCallAction`.
+               * The caller wants to hear the ring unless the row belongs to them
+               * (which it shouldn't — they are the caller). */
+              const row =
+                (payload as { new: { caller_id?: string; receiver_id?: string; mode?: string; callerName?: string } }).new;
+              if (row.caller_id != null && row.caller_id !== String(uid)) return;
+              if (!alive) return;
+              setIncoming({
+                callerName: row.callerName ?? "Someone",
+                mode: (row.mode ?? mode) as "audio" | "video",
+              });
+              startRinging();
+            },
+          )
+          .subscribe();
+        activeCallChannelRef.current = ch as unknown as { unsubscribe: () => Promise<unknown> };
       } catch {
-        /* Signalling failed — the call itself still proceeds. */
+        /* Realtime unavailable — direct call links still work. */
       }
       try {
         const client = rtc.createClient({ mode: "rtc", codec: "vp8" });
@@ -319,6 +378,20 @@ export function VideoCallModal({
           .finally(() => {
             client.leave().catch(() => undefined);
           });
+      }
+      /* Clean up the `active_calls` Realtime subscription so the receiver's
+       * device does not ring after the call is over. */
+      const activeChannel = activeCallChannelRef.current;
+      activeCallChannelRef.current = null;
+      if (activeChannel) {
+        void activeChannel.unsubscribe().catch(() => undefined);
+      }
+      /* If the user hung up while a call session was still open, move the row to
+       * `ended` now — the same way the end-call button does it. */
+      const callId = activeCallIdRef.current;
+      activeCallIdRef.current = null;
+      if (callId) {
+        void endActiveCallAction({ callId, userId: String(uid) }).catch(() => undefined);
       }
     };
   }, [channelName, uid, mode]);

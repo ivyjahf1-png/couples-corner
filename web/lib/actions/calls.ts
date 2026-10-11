@@ -104,3 +104,84 @@ export async function markCallMissedAction(
   revalidatePath("/messages");
   return { ok: true };
 }
+
+/** Place a LIVE call session. Writes one row to `public.active_calls` and returns
+ * the row id the caller keeps in memory so it can be moved to `ended` on hang-up.
+ * The `channel_name` is the Agora room id the two clients derive from the
+ * conversation; it is passed through verbatim so both sides join the same room. */
+
+export async function startActiveCallAction(params: {
+  conversationId: string;
+  callerId: string;
+  receiverId: string;
+  channelName: string;
+}): Promise<{ ok: boolean; error?: string; id?: string }> {
+  const user = await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Calling is not available." };
+
+  const { data, error } = await supabase
+    .from("active_calls")
+    .insert({
+      caller_id: params.callerId,
+      receiver_id: params.receiverId,
+      channel_name: params.channelName,
+      status: "ringing",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    if (/does not exist/i.test(error?.message ?? "")) {
+      return { ok: false, error: "Calling is not enabled on this deployment yet." };
+    }
+    return { ok: false, error: error?.message ?? "Couldn't place the call." };
+  }
+
+  return { ok: true, id: data.id as string };
+}
+
+/** Terminate a live call session. Only the caller or the receiver may write;
+ * anything else returns a legible error. Revalidates the conversation and the
+ * inbox so the UI reflects the finished state. */
+
+export async function endActiveCallAction(params: {
+  callId: string;
+  userId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const user = await requireUser();
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, error: "Calling is not available." };
+
+  const { data: existing } = await supabase
+    .from("active_calls")
+    .select("id, caller_id, receiver_id, status")
+    .eq("id", params.callId)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "That call no longer exists." };
+  if (existing.caller_id !== user.uid && existing.receiver_id !== user.uid) {
+    return { ok: false, error: "That call is not yours." };
+  }
+  if (existing.status === "ended") {
+    return { ok: false, error: "That call has already ended." };
+  }
+
+  const { error } = await supabase
+    .from("active_calls")
+    .update({ status: "ended", ended_at: new Date().toISOString() })
+    .eq("id", params.callId);
+
+  if (error) {
+    if (/violates row-level security|check constraint/i.test(error.message)) {
+      return { ok: false, error: "That call is already in a final state." };
+    }
+    if (!/does not exist/i.test(error.message ?? "")) {
+      console.error("[active_calls] endFailed", error.message);
+    }
+    return { ok: false, error: "Couldn't end the call." };
+  }
+
+  revalidatePath("/messages");
+  return { ok: true };
+}
