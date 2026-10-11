@@ -70,6 +70,8 @@ import {
 } from "@/components/app/MessageActionsMenu";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
+import { useTypingChannel } from "@/lib/hooks/useTypingChannel";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import { useScrollCollapse } from "@/lib/hooks/useScrollCollapse";
 import {
   deleteMessageAction,
@@ -373,6 +375,7 @@ function MessageBubble({
   participantName,
   onAction,
   busy,
+  seen = false,
 }: {
   message: ChatMessage;
   isMine: boolean;
@@ -380,6 +383,12 @@ function MessageBubble({
   participantName: string;
   onAction: (action: MessageAction, messageId: string) => void;
   busy: boolean;
+  /**
+   * True when this own message has been opened by the other participant. Rendered
+   * as a "Seen" label beside the timestamp — a word, not WhatsApp-style ticks,
+   * per the brief. Defaulted so the bubble is unchanged anywhere it is not passed.
+   */
+  seen?: boolean;
 }) {
   const body = (message.body ?? "").trim();
 
@@ -417,18 +426,27 @@ function MessageBubble({
   const bubble = (
     /* THE BUBBLE.
 
-       `max-w-[80%]` is the spec's 80% cap. The lap (`mr-1`/`ml-1`) is what
-       stops a bubble sitting flush against the scroll container's padding and
-       reading as clipped, and keeps an outgoing one off the right bezel.
-
-       `w-fit` is required alongside `max-w`: without it a block-level div fills
+       `w-fit` is REQUIRED alongside `max-w`: without it a block-level div fills
        the row and the cap has nothing to shrink, so every bubble would render
        as a full-width slab regardless of its text. `w-fit` makes the box
        shrink to the content first, and `max-w` then only bites on genuinely
        long messages.
 
-       `break-words` stops one unbroken token (a pasted URL, a long handle) from
-       forcing horizontal overflow on a narrow phone.
+       `min-w-[60px]` and `max-w-[75%]` are the spec's wrapping bounds. The
+       MINIMUM is the half that was missing, and it is the actual fix for the
+       vertical-collapse bug: a one-word bubble ("k", "ok", "💕") was allowed to
+       shrink to the width of that single word, which on a narrow phone is a
+       few pixels wide — so every following line of a longer message wrapped
+       down into a tall, one-word-per-line column. Reserving 60px of minimum
+       width keeps a short message a bubble rather than a sliver, and gives the
+       wrap something to fill.
+
+       `whitespace-pre-wrap` on the text is what preserves the member's own line
+       breaks (and the leading spaces of an indented message) while still
+       allowing wrapping; `break-words` then stops one unbroken token — a pasted
+       URL, a long handle — from forcing horizontal overflow. The two together
+       are the difference between wrapping at WORD boundaries and snapping
+       mid-character.
 
        COLOURS — received is the slate glass `#1e293b` with a slate hairline;
        sent is the orange-500 `#f97316` painted as a gradient (a flat fill
@@ -437,12 +455,15 @@ function MessageBubble({
     <div
       className={
         isMine
-          ? "max-w-[78%] bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-2xl rounded-br-none px-4 py-2.5 ml-auto text-sm shadow-md break-words"
-          : "max-w-[78%] bg-slate-800/90 text-white border border-white/10 rounded-2xl rounded-bl-none px-4 py-2.5 mr-auto text-sm shadow-md break-words"
+          ? "ml-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-br-none bg-gradient-to-r from-orange-500 to-amber-600 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
+          : "mr-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-bl-none border border-white/10 bg-slate-800/90 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
       }
     >
-      <p className="whitespace-pre-wrap break-words text-sm leading-5">{body}</p>
-      <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>{formatClock(message.created_at)}</span>
+      {body}
+      <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>
+        {formatClock(message.created_at)}
+        {isMine && seen ? " · Seen" : ""}
+      </span>
     </div>
   );
 
@@ -475,41 +496,56 @@ function MessageBubble({
 }
 
 /**
- * The top bar: back arrow, identity, presence, avatar thumbnail.
+ * The top bar: back arrow, the match's identity, and the call triggers.
+ *
+ * ── LAYOUT: ONE ROW, IDENTITY TOP-LEFT, CALLS TOP-RIGHT ──────────────────────
+ * This used to be a two-state grid that CENTRED the name in the expanded bar and
+ * moved it left on scroll, with the avatar alone on the far right. That is not
+ * how a dating app header reads: the person you are talking to belongs in the
+ * reading order's first position, immediately after the back affordance, and a
+ * portrait floating off on the opposite edge looks like a decorative orphan. So
+ * the cluster is now a single left-aligned group — circular avatar with a green
+ * presence dot, then name over status — and the right edge carries the two call
+ * triggers and nothing else.
+ *
+ * WHY THE COLLAPSE BEHAVIOUR IS GONE. `useScrollCollapse` existed to shrink this
+ * bar so a long thread had more room. But the whole point of the redesign is a
+ * header that does NOT move: the name, the avatar and the dot stay exactly where
+ * they were on first paint at every scroll offset. Keeping a second, shifted
+ * layout for the same identity would reintroduce the drift this replaces, and
+ * the ~24px it would save is not worth a target that relocates under a thumb.
+ * `collapsed` is still accepted (the parent computes it for other chrome) and
+ * drives only a background tint, which cannot move anything.
  *
  * NO UNREAD BADGE. The design shows one beside the back arrow, but a member only
- * reaches this route BY tapping that thread, and `ConversationClient` marked the
- * conversation read on mount — so a number here would always read zero. There is
- * no unread-for-this-conversation figure in `ConversationParticipantSummary` to
- * source it from, and inventing one would print a permanent lie.
+ * reaches this route BY tapping that thread, and the thread marked it read on
+ * mount — so a number here would always read zero, and inventing one would print
+ * a permanent lie.
  */
 function ChatRoomHeader({
   summary,
+  conversationId,
   online,
   collapsed,
+  typing,
 }: {
   summary: ConversationParticipantSummary | null;
+  conversationId: string;
   online: boolean;
-  /** True once the thread has been scrolled past the collapse threshold. */
+  /** True once the thread has been scrolled; now cosmetic only. */
   collapsed: boolean;
+  /** True while the other participant is typing, from the broadcast channel. */
+  typing: boolean;
 }) {
-  /* The two states are laid out as a GRID with the same number of rows and the
-     same explicit row heights, and only the CONTENT differs. Animating a height
-     between two genuinely different layouts (avatar+name+status vs a single line)
-     is not possible without measuring, and measuring on every scroll frame is
-     exactly the jank this feature must not introduce. So instead the bar keeps a
-     constant height and swaps what occupies it:
+  const name = summary?.name ?? "Conversation";
+  const initial = (name.trim()[0] ?? "?").toUpperCase();
 
-       expanded  - a taller row holding avatar + name + status
-       collapsed - a single line: back arrow, name only, avatar
-
-     Both states render the SAME title text, so the name never disappears and
-     never jumps: it is centred in the expanded bar and sits left-aligned next to
-     the back arrow in the collapsed one, which is the "pins cleanly to the
-     top-left" behaviour that was asked for.
-
-     `min-h-16` is set on both, so collapsing changes what is visible rather than
-     how tall the bar is - no reflow of the thread below, no scroll-position jump. */
+  /* TYPING OUTRANKS PRESENCE. "…is typing" is strictly more current than "Online
+     now", and showing both at once reads as two competing states for one slot. */
+  const statusText = typing ? "typing" : online ? "Online now" : "Offline";
+  /* Emerald when either typing or online; grey only when genuinely neither.
+     Colour is never the only cue — the word sits beside it. */
+  const statusLive = typing || online;
   return (
     <header
       className="relative flex min-h-16 shrink-0 items-center gap-2 border-b px-3 py-2.5"
@@ -526,66 +562,83 @@ function ChatRoomHeader({
         <ArrowLeft className="h-5 w-5" aria-hidden />
       </Link>
 
-      {/* EXPANDED: centred identity with the presence line under the name.
-
-          PINNED TO THE HEADER'S CENTRE LINE, NOT TO THE LEFT FLEX SLOT. This block
-          used to be `min-w-0 flex-1 text-center`, and the bar also renders a
-          collapsed block that takes a second `flex-1` — so the name centred inside
-          the LEFT HALF of the bar, not the bar itself, and shifted whenever the
-          back button or avatar changed width. Absolute centring measures it from
-          the header alone, so the title stays dead-centre at every width and
-          cannot drift during scroll. `max-w` + `truncate` keeps a long name off
-          the back button and avatar. */}
-      <div
-        className={`pointer-events-none absolute left-1/2 top-1/2 w-full max-w-[55%] -translate-x-1/2 -translate-y-1/2 text-center transition-opacity duration-150 ${
-          collapsed ? "opacity-0" : "opacity-100"
-        }`}
-        /* Removed from the accessibility tree when collapsed, because the same
-           name is rendered by the compact row below and a screen reader would
-           otherwise announce the title twice. */
-        aria-hidden={collapsed}
-      >
-        <p className="flex items-center justify-center gap-1 truncate text-sm font-bold text-white">
-          <span className="truncate">{summary?.name ?? "Conversation"}</span>
-        </p>
-        <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-medium text-[#C9C2E4]">
-          {/* Colour alone is not the only cue — the word is right there, so the
-              state does not depend on distinguishing two greens. */}
+      {/* ── THE IDENTITY CLUSTER: TOP-LEFT ────────────────────────────────────
+          One row, left-aligned, no absolute positioning and no scroll state:
+          avatar (with the presence dot welded to it) then name over status.
+          `min-w-0` on the wrapper plus `truncate` on the name is what keeps a long
+          name from pushing the call buttons off the bar — without `min-w-0` the
+          flex item refuses to shrink below its content width and the overflow
+          lands on the buttons instead. */}
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        {/* Avatar → global profile modal. `profileViewClick` intercepts only a
+            plain left-click, so ctrl/cmd/shift-click still opens `/u/<id>` in a
+            new tab. `relative` here is the dot's positioning context. */}
+        <Link
+          href={`/u/${summary?.id ?? ""}`}
+          aria-label={`View ${summary?.name ?? "profile"}`}
+          onClick={profileViewClick(summary?.id)}
+          className="relative shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
+        >
+          <Avatar name={summary?.name ?? "?"} src={summary?.avatarUrl ?? null} size="sm" />
+          {/* THE GREEN ONLINE DOT. Anchored bottom-right ON the portrait rather
+              than floated beside the name: that is where a presence dot reads as
+              belonging to the face instead of to the row. The ring is painted in
+              the bar's own background colour so the dot cuts a hole through the
+              avatar edge rather than half-falling off it. */}
           <span
             aria-hidden
-            className={`h-1.5 w-1.5 rounded-full ${online ? "bg-emerald-400" : "bg-[#B8B2D1]"}`}
+            className={`absolute bottom-0 right-0 h-3 w-3 rounded-full ring-2 ${
+              statusLive ? "bg-emerald-400" : "bg-[#6B6488]"
+            }`}
+            style={{ ["--tw-ring-color" as string]: GLASS_BAR }}
           />
-          {online ? "Online" : "Offline"}
-        </p>
+        </Link>
+
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold leading-tight text-white">
+            {summary?.name ?? "Conversation"}
+          </p>
+          {/* Status line. Typing wins over presence (set above), and the three
+              dots animate only for that state — a still "…" would look broken. */}
+          <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-[#C9C2E4]">
+            {typing ? (
+              <>
+                <span aria-hidden className="flex items-end gap-0.5 pb-0.5">
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[#FF7A00] [animation-delay:-0.2s]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[#FF7A00] [animation-delay:-0.1s]" />
+                  <span className="h-1 w-1 animate-bounce rounded-full bg-[#FF7A00]" />
+                </span>
+                {name} is typing…
+              </>
+            ) : (
+              <>{statusText}</>
+            )}
+          </p>
+        </div>
       </div>
 
-      {/* COLLAPSED: the name pinned to the top-left, beside the back arrow.
-          It occupies the same flex slot as the block above, so the avatar on the
-          right never moves and nothing reflows. */}
-      <div
-        className={`min-w-0 flex-1 transition-opacity duration-150 ${
-          collapsed ? "opacity-100" : "pointer-events-none opacity-0"
-        }`}
-        aria-hidden={!collapsed}
-      >
-        <p className="truncate text-sm font-bold text-white">
-          {summary?.name ?? "Conversation"}
-        </p>
+      {/* ── CALL TRIGGERS: TOP-RIGHT ───────────────────────────────────────────
+          The only things on this edge. Both are real `Link`s to the call route
+          rather than buttons firing an invented dispatcher — that is the pattern
+          the quick actions below already use for the same two destinations, and
+          a link means cmd/middle-click opens a call in a new tab and the route
+          survives a JS failure. */}
+      <div className="flex shrink-0 items-center gap-1">
+        <Link
+          href={`/call/${conversationId}/audio`}
+          aria-label={`Start an audio call with ${name}`}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] active:scale-95"
+        >
+          <Phone className="h-5 w-5" aria-hidden />
+        </Link>
+        <Link
+          href={`/call/${conversationId}/video`}
+          aria-label={`Start a video call with ${name}`}
+          className="flex h-9 w-9 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] active:scale-95"
+        >
+          <Video className="h-5 w-5" aria-hidden />
+        </Link>
       </div>
-
-      {/* THE AVATAR OPENS THE GLOBAL PROFILE MODAL. `profileViewClick` prevents
-          the default navigation and dispatches the open event instead — the
-          `/u/<id>` href stays as the no-JS/auxiliary-click fallback, and
-          ctrl/cmd/shift-click still opens it in a new tab (the helper only
-          intercepts plain left-clicks). */}
-      <Link
-        href={`/u/${summary?.id ?? ""}`}
-        aria-label={`View ${summary?.name ?? "profile"}`}
-        onClick={profileViewClick(summary?.id)}
-        className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0F0C1B]"
-      >
-        <Avatar name={summary?.name ?? "?"} src={summary?.avatarUrl ?? null} size="sm" />
-      </Link>
     </header>
   );
 }
@@ -711,6 +764,69 @@ export default function ChatRoomClient({
     : initialOnline;
 
   const { messages: live } = useRealtimeMessages({ conversationId, enabled: true });
+
+  /* ── LIVE TYPING ────────────────────────────────────────────────────────────
+     A broadcast channel, not a table write: a keystroke event has no business
+     being a row (see `useTypingChannel` for why). `selfId` lets the hook drop the
+     echo of this member's own announcements, which otherwise would show them
+     "typing" at themselves. */
+  const { peerTyping, announceTyping } = useTypingChannel({
+    conversationId,
+    selfId: currentUserId,
+  });
+
+  /* ── LIVE "SEEN" ────────────────────────────────────────────────────────────
+     `markConversationReadAction` stamps `read_at` on the rows the peer opens, so
+     a Seen indicator needs nothing written on the sender's side — it only needs
+     to HEAR about those stamps. This subscribes to UPDATEs on this conversation
+     and records the newest read timestamp among MY messages, which is what
+     `MessageBubble` renders as "· Seen".
+
+     WHY ONLY THIS MEMBER'S OWN MESSAGES. `markConversationRead` updates every
+     unread row in the thread, including the peer's own sent copies — reading
+     those would mark the peer's bubbles as seen by them, which is meaningless.
+
+     WHY THE MAXIMUM AND NOT THE LATEST EVENT. Events can arrive out of order on
+     a flaky radio. Taking the newest stamp is monotonic, so a late duplicate can
+     never un-see a message. */
+  const [peerReadAt, setPeerReadAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    let supabase: ReturnType<typeof getSupabaseClient>;
+    try {
+      supabase = getSupabaseClient();
+    } catch {
+      return; // Supabase unconfigured — no realtime, and nothing to subscribe to.
+    }
+
+    const channel = supabase
+      .channel(`seen:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload: { new?: { id?: string; sender_id?: string; read_at?: string | null } }) => {
+          if (!alive) return;
+          const row = payload.new;
+          if (!row?.read_at) return;
+          if (row.sender_id !== currentUserId) return;
+          const stamp = new Date(row.read_at).getTime();
+          if (!Number.isFinite(stamp)) return;
+          setPeerReadAt((prev) => (prev === null || stamp > prev ? stamp : prev));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      alive = false;
+      void channel.unsubscribe().catch(() => undefined);
+    };
+  }, [conversationId, currentUserId]);
 
   /* Initial history, live inserts and locally-sent rows MERGED, de-duplicated by
      id and sorted by time. The seed alone would miss anything sent while the
@@ -928,6 +1044,16 @@ export default function ChatRoomClient({
     }
     return -1;
   }, [messages, currentUserId]);
+
+  /* Index of the newest message I sent — the ONE bubble that carries the "Seen"
+     label. Same reverse scan, inverted predicate, and -1 when I have not sent
+     anything (so the seen expression can never match an empty thread). */
+  const lastOwnIndex = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i]?.sender_id === currentUserId) return i;
+    }
+    return -1;
+  }, [messages, currentUserId]);
 /* THE LOCKED VIEWPORT COLUMN.
 
    `h-full max-h-[100dvh]`, NOT a bare `h-[100dvh]`.
@@ -1027,7 +1153,13 @@ export default function ChatRoomClient({
         backgroundSize: "100% 100%",
       }}
     >
-      <ChatRoomHeader summary={summary} online={online} collapsed={headerCollapsed} />
+      <ChatRoomHeader
+        summary={summary}
+        conversationId={conversationId}
+        online={online}
+        collapsed={headerCollapsed}
+        typing={peerTyping}
+      />
 
       {/* THREAD. `px-3` is the 12px edge padding from the spec — applied HERE rather
           than on the root column, because the root also holds the header and the
@@ -1092,6 +1224,17 @@ export default function ChatRoomClient({
                   participantName={summary?.name ?? "Member"}
                   onAction={handleMessageAction}
                   busy={busy}
+                  /* "Seen" only on the LAST of my own messages, and only once the
+                     peer has actually opened past it. Painting it on every bubble
+                     turns one quiet status into a column of repeated labels; a
+                     single one at the tail of my last message says the same thing
+                     and reads as information rather than noise. */
+                  seen={
+                    isMine &&
+                    index === lastOwnIndex &&
+                    peerReadAt !== null &&
+                    new Date(message.created_at).getTime() <= peerReadAt
+                  }
                 />
 
                 {index === lastIncomingIndex ? <ScamWarning /> : null}
@@ -1201,6 +1344,18 @@ export default function ChatRoomClient({
             }}
             onChange={(event) => {
               setDraft(event.target.value);
+              /* ── ANNOUNCE TYPING ─────────────────────────────────────────────
+                 Must be called from the ACTUAL keystroke path. The hook can
+                 subscribe and expose `announceTyping`, but nothing else in the
+                 app writes to the draft — insert-an-emoji and tap-a-quick-reply
+                 also setDraft, and a member who fills the composer either way
+                 and then pauses is indistinguishable from one who typed. So the
+                 call goes here, on every change to this one field, which is the
+                 only path that means "this person is writing".
+
+                 The hook throttles internally (1.5s floor), so this is a plain
+                 call — no local debounce, or two throttles would fight. */
+              announceTyping();
               /* Typing during an edit means the member has moved on; drop back to
                  composing rather than silently patching the old message. */
               if (editingId) setEditingId(null);
