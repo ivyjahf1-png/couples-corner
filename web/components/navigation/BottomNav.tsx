@@ -7,7 +7,7 @@ import { NavIcon, type NavIconName } from "@/components/app/NavIcons";
 
 /**
  * Couples Corner — FLOATING ISLAND BOTTOM NAVIGATION (the "Midnight Slate &
- * Orange" dock, 1000022088.jpg-style floating pill).
+ * Vibrant Orange" dock, reference design 1000022088_2.jpg).
  *
  * ── WHAT THIS REPLACED ──────────────────────────────────────────────────────
  * The old bar was hardcoded inside AppNav.tsx: a five-slot `grid-cols-5` row
@@ -18,19 +18,17 @@ import { NavIcon, type NavIconName } from "@/components/app/NavIcons";
  * file is now the single source of truth for the mobile bar; the desktop
  * sidebar (AppSidebar) and the "Menu" drawer in AppNav.tsx are untouched.
  *
- * ── LAYOUT: 2 TABS · CENTRE ACTION · 2 TABS ─────────────────────────────────
- *   Left:  Explore (Compass → /discover) · Moments (Images → /moments)
- *   Centre: Match / Game hub — a prominent circular button on the orange →
- *           amber gradient with a glowing border, elevated slightly proud of
- *           the pill's top edge (Heart glyph, → /matches)
- *   Right: Messages (MessageSquare → /messages, carries the unread badge) ·
- *          Profile (User → /profile)
+ * ── LAYOUT: STRICT SYMMETRICAL 5-COLUMN GRID (reference 1000022088_2.jpg) ──
+ *   Slot 1 (far left):   Explore  (Compass → /discover)
+ *   Slot 2 (inner left):  Moments  (Images → /moments)
+ *   Slot 3 (centre):      Feed — elevated solid-orange circular action button
+ *                         (bg-[#FF5722] + radial glow, → /feed)
+ *   Slot 4 (inner right): Messages (MessageSquare → /messages, unread badge)
+ *   Slot 5 (far right):   Profile  (User → /profile)
  *
- * The grid is three columns — one fr track, the auto-sized centre button,
- * one fr track — so the centre button is geometrically centred no matter how
- * wide the flanking tabs render. Each side group is its own evenly-spaced
- * flex row, so Explore/Moments never drift toward the middle on narrow
- * phones.
+ * The pill is ONE `grid grid-cols-5` row — five equal tracks, no hardcoded
+ * offsets — so the centre button is geometrically centred on every screen
+ * width and the bar scales automatically without breaking.
  *
  * ── THE 5REM INVARIANT (unchanged from the old bar — do not break it) ───────
  * The whole app reserves exactly 5rem (80px) plus the safe-area inset below
@@ -114,22 +112,17 @@ const RIGHT_TABS: DockTab[] = [
 ];
 
 /**
- * THE CENTRE ACTION — Match / Game hub.
- *
- * `/matches` is the connections hub ("your matches, requests and chats — all
- * in one place"), which is the product's pairing surface; no separate game
- * route exists, so the button points at the route that does. Heart is the
- * same mark the desktop sidebar uses for Matches, so the glyph means the
- * same thing on both surfaces.
+ * THE CENTRE ACTION — Feed. Solid vibrant-orange circle (bg-[#FF5722]) with a
+ * soft radial glow, elevated proud of the pill's top edge.
  */
-const CENTRE_ACTION = { href: "/matches", label: "Match and game hub", navIcon: "match" } as const;
+const CENTRE_ACTION = { href: "/feed", label: "Feed", navIcon: "feed" } as const;
 
 /**
  * Tab active-state check, same rules the sidebar/drawer `isActive` uses:
  * exact match, or prefix match for nested screens — EXCEPT the root, which
  * must match exactly or its entry would light up everywhere.
  */
-function isTabActive(pathname: string, tab: Pick<DockTab, "href" | "alsoActiveFor">) {
+function isTabActive(pathname: string, tab: { href: string; alsoActiveFor?: string[] }) {
   const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
   return [tab.href, ...(tab.alsoActiveFor ?? [])].some(
     (href) => path === href || (href !== "/" && path.startsWith(`${href}/`))
@@ -218,7 +211,7 @@ function DockTabItem({
   );
 }
 
-/** THE CENTRE ACTION BUTTON — elevated orange-gradient circle with a glowing border. */
+/** THE CENTRE ACTION BUTTON — elevated solid-orange circle with radial glow. */
 function CentreAction({ pathname }: { pathname: string }) {
   const active = isTabActive(pathname, CENTRE_ACTION);
   return (
@@ -235,12 +228,12 @@ function CentreAction({ pathname }: { pathname: string }) {
           whileTap={{ scale: 0.92 }}
           transition={TAP_SPRING}
           className={[
-            "flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-r from-orange-500 to-amber-500 ring-2 transition-shadow",
+            "flex h-14 w-14 items-center justify-center rounded-full bg-[#FF5722] transition-shadow",
             active
-              /* ON /matches the border glow intensifies so the centre reads as
-                 the lit control without changing the shared gradient. */
-              ? "shadow-[0_0_22px_rgba(249,115,22,0.55)] ring-orange-300/90"
-              : "shadow-lg shadow-orange-500/30 ring-orange-400/45",
+              /* ON /feed the radial glow intensifies so the centre reads as
+                 the lit control without changing the shared orange. */
+              ? "shadow-[0_0_28px_rgba(255,87,34,0.65)]"
+              : "shadow-[0_0_20px_rgba(255,87,34,0.4)]",
           ].join(" ")}
         >
           <NavIcon
@@ -267,13 +260,13 @@ export function BottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
           lift above the screen edge; z-50 must stay below the sheets' z-200. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="app-bottom-nav fixed bottom-4 left-4 right-4 z-50 mx-auto w-[calc(100%-2rem)] max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {/* THE PILL — one shared capsule: dark navy at 90% under a heavy
             backdrop frost, hairline slate border, deep float shadow. It has NO
             overflow clipping, which is what lets the centre button stand proud
             of its top edge and the unread badge escape its icon. */}
-        <ul className="grid grid-cols-[1fr_auto_1fr] items-center rounded-full border border-slate-800 bg-[#0F172A]/90 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
+        <ul className="grid grid-cols-5 items-center rounded-full border border-slate-800/80 bg-[#0F172A]/90 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
           {LEFT_TABS.map((tab) => (
             <DockTabItem key={tab.href} tab={tab} pathname={pathname} unreadCount={unreadCount} />
           ))}

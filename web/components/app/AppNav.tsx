@@ -14,7 +14,7 @@ import { LogoutButton } from "@/components/auth/LogoutButton";
  * Layout contract:
  *   - Mobile (<768px): a floating-island bottom bar (see
  *     components/navigation/BottomNav.tsx): Explore | Moments on the left,
- *     an elevated orange Match / Game Hub action in the centre, then
+ *     an elevated orange Feed action in the centre, then
  *     Messages | Profile on the right. Explore leads and is also the
  *     post-auth landing screen. The "Menu" drawer (opened from the top bar)
  *     holds the secondary destinations + sign out.
@@ -387,8 +387,9 @@ function MobileNavigation({
       {/* FLOATING ISLAND BAR - the "Midnight Slate & Orange" dock. The single
           fixed anchor, the safe-area inset (counted once, on the fixed
           container), the pill chrome (dark navy at 90% under a backdrop
-          frost, hairline slate border, shadow-2xl), the 2 tabs + elevated
-          orange Match / Game Hub action + 2 tabs layout, the unread badge
+          frost, hairline slate border, shadow-2xl), the strict grid-cols-5
+          layout (Explore | Moments | elevated orange Feed action | Messages
+          | Profile), the unread badge
           and the framer-motion whileTap tap springs ALL live in
           components/navigation/BottomNav.tsx. The old inline five-tab bar,
           its MobileTab / mobileTabClasses data and the UnreadBadge helper
