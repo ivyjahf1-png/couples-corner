@@ -9,7 +9,6 @@ import {
   claimTaskAction,
 } from "@/lib/actions/tasks";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
-import { MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 import { PageLock } from "@/components/app/PageHeader";
@@ -22,19 +21,11 @@ import { PageLock } from "@/components/app/PageHeader";
 type Mode = "upload" | "link";
 
 /**
- * Per-file cap, imported from the ONE shared source of truth.
- *
- * `MAX_MOMENT_VIDEO_BYTES` (lib/utils/media-upload.ts) is what the composer
- * guards against and what the `user-media` bucket's `file_size_limit`
- * (migration 054) enforces server-side. They MUST agree, so this form imports
- * the constant rather than re-declaring a number that could drift.
- *
- * The cap is 1 GB, not 100 MB: uploads now use the resumable TUS path
- * (lib/utils/direct-upload.ts), which chunks the file and resumes from the
- * last confirmed byte, so a large clip no longer dies when the connection
- * blips. The client check below is a fast, friendly pre-flight; the real
- * enforcement is still the bucket limit, so a member never watches a doomed
- * transfer complete only to be rejected afterwards.
+ * Upload readiness. Moment uploads have NO per-file size limit (see
+ * lib/utils/media-upload.ts): files of any size are accepted and transferred
+ * over the resumable TUS path, which chunks the file and resumes from the
+ * last confirmed byte. The `user-media` bucket's `file_size_limit` is likewise
+ * null (migration 059), so no server-side ceiling rejects them either.
  */
 
 /**
@@ -105,7 +96,7 @@ export function MomentUploadForm() {
   const ready =
     mode === "link"
       ? Boolean(linkUrl.trim()) && content.trim().length > 0 && linkCheck?.ok === true
-      : Boolean(file) && content.trim().length > 0 && file!.size <= MAX_MOMENT_VIDEO_BYTES;
+      : Boolean(file) && content.trim().length > 0;
 
   async function publish() {
     if (!ready || busy) return;
@@ -325,7 +316,7 @@ export function MomentUploadForm() {
             <span className="max-w-full truncate text-sm font-semibold text-white">
               {file ? file.name : "Choose a photo or short video"}
             </span>
-            <span className="text-[11px] text-ink-400">Up to 1 GB. Free — no coins required. JPG, PNG, WEBP, MP4 or MOV.</span>
+            <span className="text-[11px] text-ink-400">Any size. Free — no coins required. JPG, PNG, WEBP, MP4 or MOV.</span>
           </button>
 
           <input

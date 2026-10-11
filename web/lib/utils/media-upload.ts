@@ -8,22 +8,14 @@ export const USER_MEDIA_MIME_TYPES: readonly string[] = [...IMAGE_MIME_TYPES, ..
 export const PROFILE_PHOTO_MIME_TYPES: readonly string[] = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif"];
 
 /**
- * Single per-file ceiling for Moment videos, in bytes (1 GB).
- *
- * This is the ONE source of truth shared by the composer's pre-upload guard and
- * the `user-media` bucket's `file_size_limit` (migration 054). They MUST agree:
- * if the client allows more than the bucket accepts, the member watches a full
- * upload transfer and only then gets a server 413 — the exact "Network error"
- * this constant exists to prevent. Raising either side means raising both.
- *
- * Raised from 100 MB to 1 GB when uploads moved to the resumable TUS path
- * (lib/utils/direct-upload.ts). A single POST could not survive a dropped
- * connection, so large clips died mid-transfer; TUS chunks the file and resumes
- * from the last confirmed byte, which is what makes a 1 GB upload reliable on a
- * flaky mobile uplink. The bound is kept (rather than removed) so an accidental
- * multi-gigabyte pick is still rejected before it saturates the member's data.
+ * Moment video uploads have NO client-side per-file size limit: members may
+ * upload media of any size up to their account's storage quota. Uploads travel
+ * browser -> Supabase Storage over the resumable TUS path
+ * (lib/utils/direct-upload.ts), which chunks the file and resumes from the
+ * last confirmed byte, so even multi-gigabyte clips survive a flaky uplink.
+ * The `user-media` bucket's `file_size_limit` is likewise null (migration
+ * 059), so the server enforces no per-file ceiling either.
  */
-export const MAX_MOMENT_VIDEO_BYTES = 1024 * 1024 * 1024;
 
 export function validateMediaFile(file: { size: number; type: string }, profilePhoto = false): string | null {
   const types = profilePhoto ? PROFILE_PHOTO_MIME_TYPES : USER_MEDIA_MIME_TYPES;

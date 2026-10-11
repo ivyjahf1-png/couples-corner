@@ -30,7 +30,7 @@
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
-import { validateMediaFile, MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
+import { validateMediaFile } from "@/lib/utils/media-upload";
 
 export const USER_MEDIA_BUCKET = "user-media";
 export const PROFILE_PHOTOS_BUCKET = "photos";
@@ -122,7 +122,7 @@ function buildStoragePath(bucket: string, uid: string, fileName: string, pathPre
  * the ones we name, so this keys off the status code first and the message text
  * second, always falling back to the original message rather than a placeholder.
  */
-export function describeStorageError(error: unknown, limitBytes: number = MAX_MOMENT_VIDEO_BYTES): string {
+export function describeStorageError(error: unknown): string {
   const status =
     typeof (error as { status?: unknown })?.status === "number"
       ? (error as { status: number }).status
@@ -136,10 +136,8 @@ export function describeStorageError(error: unknown, limitBytes: number = MAX_MO
       ? (error as { message: string }).message
       : "";
 
-  const limitMb = Math.round(limitBytes / (1024 * 1024));
-
   if (status === 413 || /too large|exceed|payload too large|size/i.test(message)) {
-    return `That file is larger than the ${limitMb} MB limit. Please choose a shorter or smaller video.`;
+    return "That file could not be stored because the server rejected its size. Please try again, or contact support if it keeps happening.";
   }
   if (status === 401 || /jwt|expired|not authenticated/i.test(message)) {
     return "Your session expired while uploading. Please sign in again and retry.";

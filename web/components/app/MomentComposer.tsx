@@ -4,11 +4,10 @@ import { useRef, useState } from "react";
 import { Video, Send, Link as LinkIcon, Trash2 } from "lucide-react";
 import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/lib/utils/video-embed";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
-import { MAX_MOMENT_VIDEO_BYTES } from "@/lib/utils/media-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
 
-/** Human-readable file size, e.g. "48.2 MB", for the pre-upload guard message. */
+/** Human-readable file size, e.g. "48.2 MB", for upload status messages. */
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -28,9 +27,9 @@ function formatBytes(bytes: number): string {
  *
  * There is no `/api/upload/video` route and no `lib/actions/moments` module in
  * this codebase, so the draft's `fetch` + `createMomentAction` calls are
- * replaced with the above. File limits/types come from
- * `lib/utils/media-upload.ts` (250 MB, MP4/MOV/WebM et al.) and are enforced
- * inside the upload helper — no client-side size constant to drift.
+ * replaced with the above. Accepted types come from
+ * `lib/utils/media-upload.ts` (MP4/MOV/WebM et al., no size cap) and are
+ * enforced inside the upload helper.
  */
 export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
   const [body, setBody] = useState("");
@@ -62,19 +61,8 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     setLinkResult(null);
     setError(null);
 
-    // Pre-upload size guard. Catching an over-limit file HERE avoids the exact
-    // "Network error" on 1000014866.mp4: without it the whole file transfers,
-    // the bucket replies 413, and the composer shows a generic failure. Failing
-    // fast with a real message is cheaper for the member and the network.
-    if (file.size > MAX_MOMENT_VIDEO_BYTES) {
-      setError(
-        `That video is ${formatBytes(file.size)} — over the ${formatBytes(
-          MAX_MOMENT_VIDEO_BYTES
-        )} limit. Please choose a shorter or smaller clip.`
-      );
-      return;
-    }
-
+    // NO client-side size limit: files of any size are accepted and transferred
+    // over the resumable TUS path (see lib/utils/media-upload.ts).
     setUploading(true);
     setProgress(0);
     try {
