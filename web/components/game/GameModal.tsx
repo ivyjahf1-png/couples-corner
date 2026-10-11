@@ -93,9 +93,20 @@ export function GameLaunchButton({
  * The modal shell: fullscreen canvas, a minimal header (label + Close), and
  * the game iframe. Rendered ONLY by `GameModalProvider` below.
  *
- * `gameUrl` is a RESOLVED string by contract — the provider mounts this only
- * once the launch POST has returned, so there is no src-less frame and no
- * loading state to render here.
+ * THREE STATES, ALL RENDERED HERE.
+ *   loading — a spinner. `gameUrl` arrives before the iframe paints, and a
+ *             black frame for the ~300ms a real HTML5 build takes to boot reads
+ *             as a hang.
+ *   ready   — the game, once `onLoad` fires. NOT before: an iframe's `onLoad`
+ *             also fires for an error page, so load alone proves nothing.
+ *   failed  — a real message with a Close action.
+ *
+ * WHY THE LOAD TIMEOUT IS LOAD-BEARING. The route now preflights the embed, but
+ * that check fails OPEN on a network error — a provider outage must not
+ * permanently disable the suite. So the client keeps the backstop: if nothing
+ * has loaded in 15s the build is treated as dead and the fallback replaces the
+ * frame. Between the two checks a dead embed can never sit on screen
+ * indefinitely, which is what produced the "Not found at origin" screenshot.
  */
 export default function GameModal({
   gameUrl,
@@ -108,6 +119,13 @@ export default function GameModal({
   coinBalance: number | null;
   onClose: () => void;
 }) {
+  type LoadState = "loading" | "ready" | "failed";
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  /* Bumping this re-keys the iframe src so "Try again" forces the browser to
+     reload the embed from scratch — changing `src` is the only way to make it
+     re-request; resetting state alone leaves the already-loaded frame in place. */
+  const [reloadKey, setReloadKey] = useState(0);
+
   /* Escape closes — the one dismissal gesture that works identically on every
      surface the modal opens over (mirrors ProfileViewModal). */
   useEffect(() => {
@@ -117,6 +135,17 @@ export default function GameModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  /* A NEW URL IS A NEW LOAD. The provider reuses this component across games,
+     so without this reset a second launch would inherit the first one's `ready`
+     and flash game B's frame over the still-loading game A. */
+  useEffect(() => {
+    setLoadState("loading");
+    const timer = window.setTimeout(() => {
+      setLoadState((current) => (current === "loading" ? "failed" : current));
+    }, 15_000);
+    return () => window.clearTimeout(timer);
+  }, [gameUrl, reloadKey]);
 
   return (
     <div
@@ -133,24 +162,69 @@ export default function GameModal({
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-white/10 px-3 py-1 text-sm text-white"
+          className="rounded-full bg-white/10 px-3 py-1 text-sm text-white transition hover:bg-white/20"
         >
           Close
         </button>
       </div>
+
       {/* THE GAME. The wrapper is `flex-1 min-h-0` so it claims exactly the
           space left under the header and never overflows the dialog; the
           iframe then fills that box with `h-full w-full`. `border-0` removes
           the default frame. `allow` grants only what a browser game plausibly
           needs: audio that may start without a tap and keeping the screen
           awake during play. */}
-      <div className="flex min-h-0 flex-1 flex-col">
+      <div className="relative flex min-h-0 flex-1 flex-col">
         <iframe
-          src={gameUrl}
+          src={reloadKey === 0 ? gameUrl : `${gameUrl}${gameUrl.includes("?") ? "&" : "?"}retry=${reloadKey}`}
           title="Game Zone"
           className="h-full w-full border-0"
           allow="autoplay; fullscreen; screen-wake-lock"
+          onLoad={() => setLoadState("ready")}
+          onError={() => setLoadState("failed")}
         />
+
+        {loadState === "loading" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0b0f19]">
+            <span
+              className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-rose-500"
+              aria-hidden="true"
+            />
+            <p className="text-sm text-slate-400">Loading {gameTitle}…</p>
+          </div>
+        )}
+
+        {loadState === "failed" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#0b0f19] px-8 text-center">
+            <p className="text-4xl" aria-hidden="true">🎮</p>
+            <p className="text-base font-semibold text-white">
+              {gameTitle} couldn&apos;t start
+            </p>
+            <p className="max-w-sm text-sm text-slate-400">
+              The game build didn&apos;t respond. Check your connection and try
+              again, or pick another title from the Game Center.
+            </p>
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-5 py-2 text-sm font-bold text-white transition hover:brightness-110 active:scale-95"
+              >
+                Back to games
+              </button>
+              <button
+                type="button"
+                /* Retry re-keys the iframe src (reloadKey++), which is the only
+                   way to force the browser to re-request the embed — the load
+                   effect reruns and the 15s timeout restarts with it. */
+                onClick={() => setReloadKey((key) => key + 1)}
+                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                Try again
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

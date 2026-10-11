@@ -35,6 +35,66 @@ function providerConfig(): { baseUrl: string; token: string } | null {
   return { baseUrl: baseUrl.replace(/\/+$/, ""), token };
 }
 
+/**
+ * The literal body GameDistribution serves for an unknown/unpublished embed id.
+ * Checking for this string is the only way to detect a dead build, because the
+ * host answers with HTTP 200 — a status check alone passes a dead id cleanly.
+ */
+const DEAD_EMBED_SENTINEL = "Not found at origin";
+
+/**
+ * Confirm the embed actually resolves BEFORE handing a URL to the modal.
+ *
+ * WHY THIS EXISTS. Every embed id this project had ever been given — from two
+ * separate design briefs — answered `Not found at origin!` with a 200 status and
+ * a 49-byte body. The client could not tell that from a real game: the iframe
+ * "loads" successfully, `onLoad` fires, and the member stares at that sentence
+ * inside a fullscreen game frame with a coin counter and a Close button around
+ * it. Validating here means a dead build fails as a 503 the modal can present
+ * honestly, instead of as a screenshot-worthy defect.
+ *
+ * FAILS OPEN ON NETWORK ERROR, DELIBERATELY. A transient provider outage or a
+ * fetch that times out must not permanently disable the game suite — the embed
+ * may well be alive and merely unreachable from this server. Only a DEFINITIVE
+ * negative (200 + the sentinel body) blocks the launch. The client-side timeout
+ * in GameModal remains the backstop for that case.
+ */
+async function embedResolves(url: string): Promise<boolean> {
+  /* SAME-ORIGIN SELF-HOSTED BUILDS ARE ALWAYS PRESENT. A registry path that
+     is a relative URL (e.g. "/html5-games/ludo/index.html") is one of our own
+     files under public/ — Next serves it statically, so there is nothing to
+     probe and, crucially, no external host that could answer "Not found at
+     origin!". Skip the network round trip: a server fetch cannot even resolve a
+     relative URL, and the only failure mode that check guards against (the dead
+     external embed) cannot happen for a file we ship ourselves. */
+  if (url.startsWith("/")) return true;
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        redirect: "follow",
+        /* GameDistribution serves the sentinel to clients with no user agent. */
+        headers: { "user-agent": "Mozilla/5.0 (compatible; CouplesCorner/1.0)" },
+        cache: "no-store",
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!response.ok) return false;
+    const body = await response.text();
+    if (body.includes(DEAD_EMBED_SENTINEL)) return false;
+    /* A real embed is a full HTML document with a game manifest; the sentinel
+       page is 49 bytes. Anything that short is not a game. */
+    return body.length > 200;
+  } catch {
+    return true; // Unreachable, not proven dead — let the client decide.
+  }
+}
+
 export async function POST(request: Request) {
   const session = await getCurrentSessionUser();
   if (!session) {
@@ -87,6 +147,21 @@ export async function POST(request: Request) {
   // No provider configured — serve the public HTML5 Distribution embed URL
   // directly from the registry. The embed host delivers its own launch token
   // (via cookies/anonymous session) so no first-party build slot is needed.
+  //
+  // PREFLIGHTED. The embed is fetched here rather than trusted, so a dead build
+  // surfaces as a 503 the modal renders as a real message. Without this the
+  // member gets a fullscreen iframe reading "Not found at origin!" — which is
+  // exactly the defect this check exists for.
+  if (!(await embedResolves(game.path))) {
+    return NextResponse.json(
+      {
+        error:
+          "This game is temporarily unavailable. Our team is re-publishing it — please try another title for now.",
+      },
+      { status: 503 },
+    );
+  }
+
   return NextResponse.json({
     gameUrl: game.path,
     gameId: game.id,
