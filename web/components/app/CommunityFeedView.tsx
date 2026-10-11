@@ -174,16 +174,8 @@ export function CommunityFeedView({
         )}
       </div>
 
-      {/* Floating yellow "+" composer shortcut, fixed bottom-right above nav. */}
-      {canPost ? (
-        <a
-          href="/feed?compose=1"
-          aria-label="Create a post"
-          className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-amber-300 text-2xl font-black text-slate-950 shadow-[0_8px_24px_rgba(252,211,77,0.45)] transition hover:bg-amber-200 active:scale-95"
-        >
-          +
-        </a>
-      ) : null}
+      {/* Floating "+" composer removed — strict separation cleanup: the Feed timeline
+          keeps only the inline composer above; no floating action button. */}
 
       {/* THE FLOATING "+" LAUNCHER IS GONE.
 

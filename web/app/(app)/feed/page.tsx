@@ -102,6 +102,10 @@ export default async function FeedPage({
 
   // Fail-soft: a database problem degrades to the demo timeline rather than
   // erroring the whole route, so the tab still opens.
+  // Strict separation: Feed reads ONLY the posts table (text + photo posts).
+  // Video moments live exclusively in the moments table (media_type = 'video',
+  // rendered by /moments). The posts table carries no video rows, so no
+  // media_type filter is needed here — this query never touches moments.
   let posts: FeedPostView[] = demoFeedPosts;
   try {
     const feed = await getPublicFeed();

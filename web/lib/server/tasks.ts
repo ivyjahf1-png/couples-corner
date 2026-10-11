@@ -659,9 +659,12 @@ export async function getRecentMoments(
 
   // One query for the moments themselves — no embed, so no dependency on a
   // moments -> profiles relationship that does not exist.
+  // Strict separation: the Moment reel is VIDEO ONLY. Photos/text live on /feed
+  // (posts table). Without this filter, photo moments leak into the video reel.
   const { data: momentRows, error: momentsError } = await supabase
     .from("moments")
     .select("id, user_id, content, media_url, media_type, created_at")
+    .eq("media_type", "video")
     .order("created_at", { ascending: false })
     .limit(limit);
 

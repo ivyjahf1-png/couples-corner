@@ -230,7 +230,7 @@ const mobileTabs: MobileTab[] = [
   { href: "/moments", icon: "moments", navIcon: "moment", label: "Moment" },
   { href: "/feed", icon: "sparkle", navIcon: "feed", label: "Feed", raised: true },
   { href: "/messages", icon: "chat", navIcon: "messages", label: "Messages", showBadge: true },
-  { href: "/profile", icon: "profile", navIcon: "me", label: "Me" },
+  { href: "/profile", icon: "profile", navIcon: "me", label: "Profile" },
 ];
 
 /**

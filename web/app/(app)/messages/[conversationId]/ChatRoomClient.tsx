@@ -389,9 +389,9 @@ function MessageBubble({
      It lives on the ROW rather than on the bubble because the bubble also sits
      inside `MessageActionsMenu`, whose own trigger is a separate button —
      aligning the bubble alone would leave that button out of line. */
-  const rowClass = `flex w-full gap-2 ${
-    isMine ? "items-end justify-end text-right ml-auto" : "items-start justify-start text-left"
-  }`;
+  const rowClass = isMine
+    ? "w-full flex justify-end my-1 px-2"
+    : "w-full flex justify-start my-1 px-2";
 
   /* TOMBSTONE. A row the sender deleted-for-everyone keeps its place in the
      thread rather than vanishing: a silent gap would leave the other
@@ -435,18 +435,11 @@ function MessageBubble({
        reads as a flat block; the ramp gives it dimension and matches the
        industry-standard "my messages are orange" convention). */
     <div
-      className="flex justify-end w-full ml-auto mr-1 max-w-[80%] flex-col gap-1 break-words rounded-2xl px-3 pb-1.5 pt-2 text-sm leading-5"
-      style={{
-        backgroundColor: isMine ? THEME.own : "#1e293b",
-        backgroundImage: isMine
-          ? "linear-gradient(135deg, #fb923c 0%, #f97316 55%, #ea580c 100%)"
-          : undefined,
-        border: isMine ? "none" : "1px solid rgba(148, 163, 184, 0.25)",
-        color: THEME.ink,
-        /* Tail pointing at the avatar: squared off on the corner nearest the
-           sender, so incoming and outgoing read as two sides of one thread. */
-        borderRadius: isMine ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-      }}
+      className={
+        isMine
+          ? "max-w-[78%] bg-gradient-to-r from-orange-500 to-amber-600 text-white rounded-2xl rounded-br-none px-4 py-2.5 ml-auto text-sm shadow-md break-words"
+          : "max-w-[78%] bg-slate-800/90 text-white border border-white/10 rounded-2xl rounded-bl-none px-4 py-2.5 mr-auto text-sm shadow-md break-words"
+      }
     >
       <p className="whitespace-pre-wrap break-words text-sm leading-5">{body}</p>
       <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>{formatClock(message.created_at)}</span>

@@ -271,7 +271,7 @@ const QUICK_ACTIONS: QuickAction[] = [
  * route anymore. The click dispatches `openGame(id)` and the root-layout
  * provider mints the signed iframe URL.
  */
-const FEATURED_GAME_IDS = ["ludo", "mines", "spin-wheel"] as const;
+const FEATURED_GAME_IDS = ["ludo", "mines", "spin-wheel", "scratch"] as const;
 
 const GAMES = FEATURED_GAME_IDS.flatMap((id) => {
   const entry = HTML5_GAMES.find((game) => game.id === id);
@@ -289,8 +289,12 @@ const GAMES = FEATURED_GAME_IDS.flatMap((id) => {
  * only header rather than a second one stacked under a global bar.
  */
 export function ProfileHeader({ name }: { name: string }) {
+  void name;
   return (
     <div className="relative flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md">
+      {/* Fixed title "Profile" — never the personal username, so the header
+          reads as a tab title and cannot overflow on long names. */}
+      <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[55%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold text-white">Profile</h1>
       {/* The username is pinned to the row's centre line rather than laid out in
           flow. In flow it sat left of centre (nothing on the left, the settings
           button on the right), so it read as a stray label and re-centred itself
@@ -298,7 +302,6 @@ export function ProfileHeader({ name }: { name: string }) {
           centring measures it from the bar alone — it cannot shift during scroll
           or when an action appears. The settings link carries `ml-auto` because
           it is now the only in-flow child. */}
-      <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[55%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold text-white">{name}</h1>
       <Link
         href="/settings"
         aria-label="Settings"
@@ -549,7 +552,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               It is a containment fix, not a layout change: the 3-up grid is kept
               deliberately, because with exactly three titles a scroll rail would
               clip the last AND imply content that does not exist. */}
-          <ul className="mt-3 grid grid-cols-3 gap-2">
+          <ul className="mt-3 grid grid-cols-4 gap-2.5 my-3">
             {GAMES.map((game) => (
               <li key={game.id} className="min-w-0">
                 <GameLaunchButton
@@ -558,7 +561,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                      otherwise announces three identical bare numbers-of-a-game with
                      no idea which is which or what playing one involves. */
                   aria-label={`${game.title} — ${game.tagline}`}
-                  className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl p-1 transition hover:bg-white/[0.06] ${FOCUS}`}
+                  className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 p-2 text-center transition hover:bg-white/[0.06] ${FOCUS}`}
                 >
                   {/* THE TILE ARTWORK.
 
