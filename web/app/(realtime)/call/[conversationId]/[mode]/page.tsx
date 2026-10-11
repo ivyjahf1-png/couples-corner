@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { CallScreen } from "@/components/app/CallScreen";
+import { LazyCallScreen as CallScreen } from "@/components/app/LazyCallScreen";
 import { getCallPeerSummary } from "@/lib/server/messaging";
 import { getCurrentSessionUser } from "@/lib/server/session";
 

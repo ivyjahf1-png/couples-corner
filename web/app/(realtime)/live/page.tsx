@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { GoLiveRoom } from "@/components/app/GoLiveRoom";
+import { LazyGoLiveRoom as GoLiveRoom } from "@/components/app/LazyGoLiveRoom";
 import { getCurrentSessionUser } from "@/lib/server/session";
 
 export const dynamic = "force-dynamic";

@@ -6,10 +6,12 @@ import "../styles/splash.css";
 import "../styles/marquee.css";
 import { AuthModalProvider } from "@/components/auth/AuthModals";
 import { ProfileViewProvider } from "@/components/profile/ProfileViewModal";
-import { GameModalProvider } from "@/components/game/GameModal";
-import { GameCenterProvider } from "@/components/game/GameCenter";
-import { TruthOrDareModalProvider } from "@/components/game/TruthOrDareModal";
-import { GameLauncherProvider } from "@/components/game/GameLauncher";
+import {
+  LazyGameCenterProvider as GameCenterProvider,
+  LazyGameLauncherProvider as GameLauncherProvider,
+  LazyGameModalProvider as GameModalProvider,
+  LazyTruthOrDareModalProvider as TruthOrDareModalProvider,
+} from "@/components/game/LazyGameProviders";
 import { CallListenerProvider } from "@/providers/CallListenerProvider";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";

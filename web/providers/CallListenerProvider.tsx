@@ -235,7 +235,10 @@ export function CallListenerProvider() {
       }
 
       pollTimer = window.setInterval(() => {
-        if (!alive) return;
+        /* Hidden tabs do no polling work: a backgrounded page neither needs an
+           instant ring nor should burn radio/data re-reading a table whose
+           realtime channel will deliver the row on return to foreground. */
+        if (!alive || document.visibilityState !== "visible") return;
         void getIncomingCallsAction()
           .then((calls) => {
             if (!alive) return;
@@ -318,6 +321,9 @@ export function CallListenerProvider() {
     const supabase = getSupabaseClient();
     let alive = true;
     const checkForCalls = async () => {
+      /* Skip the network read while hidden — same rationale as the seed poll
+         above; realtime redelivers anything missed on refocus. */
+      if (!alive || document.visibilityState !== "visible") return;
       try {
         const { data, error } = await supabase
           .from("active_calls")
