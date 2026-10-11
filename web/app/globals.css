@@ -762,18 +762,18 @@ input::placeholder, textarea::placeholder {
     Keep the two in step — the values below are the shipped ones.
 
     DEEP NAVY + A REAL BLUR, per the floating-pill reference. `#0b0f19` at 95% is
-    the dark slate/navy card, and `blur(12px)` is the translucent frosted edge. */
+    the dark slate/navy card, and `blur(24px)` is the translucent frosted edge. */
 .app-bottom-nav {
-  /* rgb() form of `#0b0f19` at 90% — matches `bg-[#0b0f19]/90` on the element.
+  /* rgb() form of `#0b0f19` at 95% — matches `bg-[#0b0f19]/95` on the element.
      Keep the two in sync: this UNLAYERED declaration wins over the Tailwind
      utility, so the class is documentation and the opacity lives here. */
-  background-color: rgb(11 15 25 / 0.9);
+  background-color: rgb(11 15 25 / 0.95);
   color: #ffffff;
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
   /* POSITIONING LIVES ON THE BottomNavRegion WRAPPER (fixed, lifted `bottom-3`
-     = 0.75rem; the safe-area inset is padded by THE BAR ITSELF via
-     `pb-[env(safe-area-inset-bottom)]`), NOT HERE. A previous revision declared
+     = 0.75rem; the safe-area inset is carried by THAT WRAPPER as a bottom
+     margin), NOT HERE. A previous revision declared
      `position: fixed; left: 0; right: 0; bottom: ...` here too, which made the
      nav fixed INSIDE an already-fixed wrapper: the inner bar resolved against
      the viewport while the wrapper collapsed to zero height, so the floating
@@ -785,9 +785,10 @@ input::placeholder, textarea::placeholder {
 }
 
 /* Thumb-friendly tap targets + iPhone home-indicator clearance. The inset itself
-   is reserved by the Tailwind padding-bottom + env() utility on the nav
-   element in AppNav.tsx (Tailwind, so it stays with the component); no padding
-   is declared here, because a second reserve would double-count the inset. */
+   is reserved by the Tailwind margin-bottom + env() utility on the
+   BottomNavRegion wrapper in AppNav.tsx (Tailwind, so it stays with the
+   component); no padding is declared here, because a second reserve would
+   double-count the inset. */
 
 /* Slide-in "Menu" drawer (mobile only). */
 .app-drawer {
@@ -1156,7 +1157,7 @@ button,
 
 /* ========================================================================
    BOTTOM NAVIGATION PILLS
-   Active state = AMBER, not orange.
+   Active state = ORANGE (Midnight Slate & Orange dock).
 
    WHY THIS WAS RETINTED: the active tab was a saturated orange-to-red
    gradient with a strong outer glow. On the light profile surface that read as
@@ -1195,10 +1196,10 @@ button,
   border-radius: 9999px;
   /* RESTING LABEL. This rule is UNLAYERED, so it beats Tailwind's layered
      utilities — whatever colour sits here is what a resting tab actually
-     renders. `#5B6478` was tuned for the old white capsule; on the new solid
-     muted slate pill (`#241E44` in AppNav) it falls to ~2:1 and the labels
-     disappear. `#9B93AE` clears 4.6:1 against that fill. */
-  color: #9b93ae;
+     renders. MIDNIGHT SLATE: the dock fills with `#0b0f19` at 95%, where
+     slate-400 (`#94a3b8`, the value the component asks for) clears ~7.4:1 —
+     clearly "resting", never "disabled", and AA-compliant for the 11px label. */
+  color: #94a3b8;
   border: 1px solid transparent;
   transition: transform 0.15s ease, background-color 0.2s ease, border-color 0.2s ease,
     color 0.2s ease;
@@ -1206,31 +1207,27 @@ button,
   user-select: none;
 }
 .nav-pill:hover {
-  /* White text on the muted pill — the affordance stays visible without
-     introducing a bright surface beside the active orange. */
+  /* COLOUR ONLY. The spec's inactive state is slate-400 → white on hover, with
+     no wash: a white slab behind a resting tab competed with the active tab's
+     orange glow for the eye. `.nav-pill` transitions `color`, so the lift is
+     still animated. */
   color: #ffffff;
-  background-color: rgb(255 255 255 / 0.1);
 }
 .nav-pill:active:not(:disabled) {
   transform: translateY(1px);
 }
-/* ACTIVE — SOLID BRAND ORANGE, NOT A VIOLET WASH ON WHITE.
+/* ACTIVE — WHITE CAPTION + THE ORANGE ON THE ICON DISC.
 
-   The pairing this replaces (deep purple text on `#F1EDFA`) was written for a
-   white capsule. The capsule is now a muted dark slate, where a pale violet
-   fill would be the brightest object on the bar and would out-shout the app's
-   own accent. The active tab IS the accent: solid `#FF7A00` with a near-black
-   label (7.4:1), the same pair the raised centre tab uses, so "you are here"
-   is one consistent orange across the whole bar.
-
-   `background-color: transparent` IS DELIBERATE AND LOAD-BEARING. The orange now
-   lives on the tab's INNER CIRCLE (the `h-11 w-11 rounded-full` span in
-   `mobileTabClasses`), not on the tab itself — the reference shows a round
-   highlighted button, not a full-width bar. This rule is UNLAYERED, so if it
-   declared an orange fill here that fill would win over every Tailwind utility
-   on the element and paint a wide ellipse behind the circle, stretching it into
-   an oval. Keeping the tab transparent is what lets the circle stay round.
-   `color` and `border-color` stay orange so the label still reads as selected. */
+   The active tab carries no fill of its own: the accent lives on the tab's
+   INNER DISC (the `h-10 w-10 p-2.5 rounded-full` span in `mobileTabClasses`),
+   a translucent orange wash (`bg-orange-500/10`) under an orange glyph, haloed
+   by a rich 15px orange glow — the round highlighted button the reference
+   shows, not a full-width bar. This rule is UNLAYERED, so if it declared an
+   orange fill here that fill would win over every Tailwind utility on the
+   element and paint a wide slab behind the disc, stretching the highlight
+   across the whole tab. Keeping the tab transparent is what lets the disc stay
+   round; the caption itself stays WHITE (see the declaration below) for
+   legibility on the dock's navy. */
 .nav-pill--active,
 .nav-pill--active:hover {
   /* WHITE, not near-black. The label sits directly on the pill's navy now that
@@ -1266,7 +1263,12 @@ button,
   flex-direction: column;
   width: 100%;
   height: 100%;
-  min-height: 3.25rem;
+  /* 2.75rem (44px), NOT the 3.25rem it used to be. The dock's row is now h-11
+     (44px) so the bar's outer height stays inside the app's 5rem reserve with
+     the taller py-2.5 chrome; a 52px min-height would push the tab's content
+     column out through the bottom of the pill. 44px is also the WCAG AA touch
+     target minimum. */
+  min-height: 2.75rem;
   gap: 0.25rem;
   padding: 0.375rem 0.25rem;
 }

@@ -101,7 +101,7 @@ export const viewport: Viewport = {
      `env(safe-area-inset-*)` in the codebase silently resolves to 0px. The
      consequence is that all of these become decorative no-ops:
        • `MobileBackHeader`      padding-top + env()        (:147)
-       • `.app-bottom-nav`       `padding-bottom: env(safe-area-inset-bottom)` (globals.css:569)
+       • Bottom-nav region       margin-bottom + env()      (AppNav.tsx)
        • `MediaFeed`             bottom offset via calc() + env()
 
      So the feed's bottom bar, the caption, the action rail and the upload FAB are
@@ -112,8 +112,8 @@ export const viewport: Viewport = {
      `viewport-fit=cover` opts the page into drawing edge-to-edge, which is the
      precondition for the insets resolving to their real values. It is safe to
      add here: the elements that must clear the notch (`MobileBackHeader`) and
-     the home indicator (`.app-bottom-nav`) ALREADY carry the matching inset
-     classes, so nothing moves under the bars once the values become real.
+     the home indicator (the bottom-nav region's wrapper) ALREADY carry the
+     matching inset, so nothing moves under the bars once the values become real.
 
      Next.js emits this as `viewport-fit=cover` on the generated `<meta
      name="viewport">`. Without an explicit `width`/`initialScale` here, Next's

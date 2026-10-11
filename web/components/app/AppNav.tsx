@@ -274,16 +274,17 @@ function mobileTabClasses(active: boolean, raised = false) {
       "flex h-full w-full min-w-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 pt-1 pb-1 transition",
       "text-[11px] font-bold leading-none whitespace-nowrap",
       active
-        /* ORANGE, NOT PURPLE. The other four tabs signal selection with a violet
-             wash; this one is the primary destination and the reference calls for the
-             vibrant orange accent. Near-black label on orange clears 7.4:1, so the text
-             stays legible instead of going orange-on-orange. */
+        /* WHITE LABEL, NOT ORANGE. The accent lives on the icon disc below — a
+             translucent orange wash ringed by a glow — so the caption stays
+             white for maximum legibility on the dock's navy fill instead of
+             doubling the accent. */
           ? "text-white"
-          /* RESTING LABEL, RE-CHOSEN FOR THE MUTED SLATE PILL. `#5B6478` was tuned
-             for the old WHITE fill and drops to ~2:1 on `#241E44` — invisible.
-             `#9B93AE` clears 4.6:1 there; hover lifts to white so the affordance
-             stays discoverable without a second bright surface appearing. */
-          : "text-[#9B93AE] hover:bg-white/10 hover:text-white",
+          /* RESTING LABEL — MUTED SLATE, per the Midnight Slate & Orange spec.
+             `.nav-pill` in globals.css is UNLAYERED and paints the resting
+             colour, so it was retinted to slate-400 to match; this utility is
+             the component's half of that pair. Hover lifts to white — colour
+             only, no wash, so nothing competes with the active glow. */
+          : "text-slate-400 hover:text-white",
     ]
       .filter(Boolean)
       .join(" ");
@@ -520,16 +521,17 @@ export function BottomNavRegion(props: AppMobileNavProps) {
   // taps in the strip where the two overlap. See components/ui/layers.ts.
   // THE FLOATING LIFT LIVES HERE — the single fixed ancestor. `bottom-3`
   // lifts the pill 0.75rem above the bottom edge; the home-indicator inset is
-  // carried BY THE BAR ITSELF via `pb-[env(safe-area-inset-bottom)]` (the
-  // glass continues under the home indicator), so the inset is counted ONCE —
-  // never also here, or the two env() lookups stack into a doubled gap.
+  // carried BY THIS WRAPPER, as a bottom margin that pushes the whole dock up
+  // so the pill floats clear ABOVE the iOS home indicator. The inset is counted
+  // ONCE — the nav carries no safe-area padding of its own any more, or the two
+  // env() lookups stack into a doubled gap.
   // `left-4 right-4` give the pill real side gutters; `max-w-md mx-auto` caps
   // and centres it on the same axis the deck card and deck dock centre on.
   // `.app-bottom-nav` deliberately carries no positioning of its own: when
   // both this wrapper AND the nav were fixed, the offset applied twice and
   // the bar drifted.
   return (
-    <div className="fixed bottom-3 left-4 right-4 z-50 mx-auto max-w-md md:hidden">
+    <div className="fixed bottom-3 left-4 right-4 z-50 mx-auto mb-[env(safe-area-inset-bottom)] max-w-md md:hidden">
       <AppMobileNav {...props} />
     </div>
   );
@@ -540,7 +542,7 @@ export function BottomNavRegion(props: AppMobileNavProps) {
  * rendered as ONE SHARED FLOATING CAPSULE — a single rounded-full pill painted
  * by the `<nav>` itself (fill + border + blur + shadow), with five transparent
  * tab slots inside. Each tab's icon sits in its own transparent box; the ACTIVE
- * tab's icon gets a prominent circular orange disc + soft glowing halo. Hidden
+ * tab's icon sits in a translucent orange disc with a soft glowing halo. Hidden
  * from `md` up, where the fixed sidebar takes over.
  * The "Menu" drawer holds every destination that is not a tab.
  */
@@ -581,17 +583,18 @@ function MobileNavigation({
           runs the full height and this bar overlays it - AppMain carries the
           matching bottom padding so content is never hidden underneath. Do not
           convert either half back to in-flow without changing the other. */}
-      {/* FLOATING GLASS PILL — compact, low-profile container. `bg-[#0b0f19]/90
-          backdrop-blur-md` is the glassmorphism (90% fill so scrolling content
-          ghosts through); `border-white/10 shadow-2xl` lift it off that content;
-          `px-3 py-1.5` is the compact chrome; `pb-[env(safe-area-inset-bottom)]`
-          keeps the glass running under the iOS home indicator so the inset is
-          absorbed by the bar, not by page content. The unlayered `.app-bottom-nav`
-          rule in globals.css paints the same 90% fill — keep the two in sync or
-          the CSS wins and the class lies. */}
+      {/* FLOATING GLASS PILL — the Midnight Slate & Orange dock. The fill is
+          `#0b0f19` at 95% under a `backdrop-blur-xl` frost, so scrolling content
+          ghosts through; `border-white/10` is the hairline and the deep
+          `0 10px 30px` drop shadow lifts the dock off that content; `px-4 py-2.5`
+          is the chrome. The home-indicator inset now lives on the WRAPPER above
+          as a bottom margin, so the pill floats above the indicator instead of
+          running under it. The unlayered `.app-bottom-nav` rule in globals.css
+          paints the same 95% fill and the same 24px blur — keep the two in sync
+          or the CSS wins and the class lies. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/90 px-3 py-1.5 pb-[env(safe-area-inset-bottom)] shadow-2xl backdrop-blur-md"
+        className="app-bottom-nav mx-auto w-full rounded-full border border-white/10 bg-[#0b0f19]/95 px-4 py-2.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-xl"
       >
         {/* NO SHARED CAPSULE - TRANSPARENT LAYOUT WRAPPER ONLY.
 
@@ -614,14 +617,17 @@ function MobileNavigation({
             under 80px + env, or it covers them:
 
               bottom-3 (12px lift)
-            + pt-1.5 (6px) + inner py-0.5 (2px)
-            + h-12 row (48px)
-            + inner py-0.5 (2px)
-            = 70px + env   — 10px clear of the 5rem line on every device.
+            + the home-indicator inset, lifted by the wrapper's env() margin
+            + border (2px) + px-4 py-2.5 chrome (10px top + 10px bottom)
+            + h-11 row (44px)
+            = 78px + env   — 2px clear of the 5rem line on every device.
 
             The earlier `py-2 / h-14` build measured 84px + env and sat 4px OVER
             the Moment composer — the exact overlap this pass removes. Grow the
-            pill and you must grow every one of those reserves with it.
+            pill and you must grow every one of those reserves with it. This is
+            why the row dropped to h-11 when the chrome grew to py-2.5: the two
+            moves cancel, so the bar's own outer height is UNCHANGED (66px) and
+            every reserve above still fits exactly as before.
 
             WHY THE RESERVES ARE NAMED IN PROSE, NOT AS CLASSES: Tailwind scans
             COMMENTS for class candidates too, so a backticked arbitrary-value
@@ -631,7 +637,7 @@ function MobileNavigation({
             source code failed / Unexpected token" error this repo has fixed
             twice (see commits c9b1fa7 and 6f9db75). Never write an
             arbitrary-value class token in a comment here. */}
-        <div className="mx-auto max-w-lg px-1.5 py-0.5">
+        <div className="mx-auto max-w-lg px-1.5">
           {/* `grid-cols-5` MATCHES THE LENGTH OF `mobileTabs` (5). These two MUST
               change together: a stale column count would either squeeze four
               tabs into five tracks — leaving a dead gap at one end — or stretch
@@ -642,7 +648,7 @@ function MobileNavigation({
               gutter between neighbours (clearly separating the buttons) without
               eating the width the `whitespace-nowrap` "Messages" label needs on
               a narrow phone. */}
-          <ul className="mx-auto grid h-12 max-w-md grid-cols-5 gap-1">
+          <ul className="mx-auto grid h-11 max-w-md grid-cols-5 gap-1">
             {mobileTabs.map((item) => {
               const active = isActive(pathname, item);
               return (
@@ -688,12 +694,13 @@ function MobileNavigation({
     filled pill whose label is bold, and a 20px stroke-only glyph beside that
     weight reads heavier than its neighbours. */}
                     <span
-                      className={`relative flex h-9 w-9 items-center justify-center rounded-full transition ${
+                      className={`relative flex h-10 w-10 items-center justify-center rounded-full p-2.5 transition ${
                         active
-                          ? /* Pill-shaped dark dock active glow: rich orange halo on
-                               the Midnight Slate theme. */
-                            "scale-[1.04] bg-amber-500 text-white shadow-[0_0_20px_rgba(249,115,22,0.4)]"
-                          : "text-[#9B93AE]"
+                          ? /* Vibrant orange ring highlight + rich glowing shadow: a
+                               translucent orange wash under an orange glyph, haloed
+                               onto the Midnight Slate dock. */
+                            "scale-[1.04] bg-orange-500/10 text-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]"
+                          : "text-slate-400"
                       }`}
                     >
                       <NavIcon
