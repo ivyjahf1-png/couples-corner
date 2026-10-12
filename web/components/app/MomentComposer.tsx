@@ -6,7 +6,6 @@ import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
-import { notifyFailure } from "@/components/ui/FailureToasts";
 
 /**
  * MomentComposer — caption field + video upload button for the Moment screen.
@@ -56,21 +55,18 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     setLinkResult(null);
     setError(null);
 
-    // HARD 50MB cap. Files over the limit are refused BEFORE any bytes are
-    // sent, with a user-friendly toast explaining the limit and how to fix it
-    // (trim / pick a shorter clip). This supersedes the previous soft warning
-    // (which only advised). The picker is reset and the function returns early,
-    // so the composer stays idle and no upload is attempted.
-    const MAX_BYTES = 50 * 1024 * 1024;
-    if (file.size > MAX_BYTES) {
-      notifyFailure(
-        "File exceeds the 50MB maximum upload limit. Please select a shorter video or trim it."
+    // SOFT 50MB advisory. Files over the limit are flagged with an inline
+    // warning banner before the upload starts, but the upload still proceeds —
+    // this is a heads-up that the transfer may be slow, not a hard block.
+    const WARN_BYTES = 50 * 1024 * 1024;
+    if (file.size > WARN_BYTES) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1);
+      setWarning(
+        `This file is ${mb} MB — larger than the recommended 50 MB. The upload may take a while or fail on a slow connection, but it will continue.`
       );
+    } else {
       setWarning(null);
-      setError(null);
-      return;
     }
-    setWarning(null);
 
     setUploading(true);
     setProgress(0);
