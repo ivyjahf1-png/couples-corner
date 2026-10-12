@@ -120,6 +120,24 @@ export const viewport: Viewport = {
      Next.js emits this as `viewport-fit=cover` on the generated `<meta
      name="viewport">`. Without an explicit `width`/`initialScale` here, Next's
      defaults (`width=device-width, initial-scale=1`) still apply. */
+
+  /* ── `width` AND `initialScale` ARE STATED, NOT INHERITED ───────────────────
+     Next.js does supply these two by default, so this is not a behaviour change
+     — it is the pin that makes them a contract. That default is an
+     implementation detail of the framework version; stating the two values the
+     whole mobile layout is designed against means an upgrade cannot silently
+     alter the viewport every `env(safe-area-inset-*)` calculation and every
+     `dvh` in this app is measured against.
+
+     `maximumScale` IS DELIBERATELY ABSENT. Locking the scale (`maximumScale: 1`
+     or `user-scalable=no`) is the usual way to "stop the page jumping when the
+     keyboard opens", but it disables pinch-zoom for every visitor, which fails
+     WCAG 2.1 SC 1.4.4 (Resize Text) and strands anyone who needs to magnify the
+     copy — the opposite of what an app built around private messaging should do.
+     iOS Safari has ignored the property since iOS 10 anyway, so it would buy
+     nothing on the platform that usually motivates asking for it. */
+  width: "device-width",
+  initialScale: 1,
   viewportFit: "cover",
 };
 
@@ -141,12 +159,28 @@ export const viewport: Viewport = {
  * The values mirror :root/body in globals.css. If the palette there changes,
  * update the fallbacks below too — they are a pre-paint approximation, not a
  * source of truth.
+ *
+ * ── THESE HEX VALUES ARE THE POINT, NOT DECORATION ─────────────────────────
+ * They used to be `#080b18` / `#f8fafc`, matching NEITHER token. That is the
+ * subtler half of the very flash this block exists to prevent: the fallback
+ * painted one navy, globals.css then applied a slightly different one, and the
+ * seam between the two was visible as a colour shift at the top of the page on
+ * a cold cache — the paint was dark, but it was the WRONG dark, and a wrong
+ * pre-paint value is worse than none because it moves instead of settling.
+ *
+ * So they are now the literal values of `--background` (#0B1120) and
+ * `--foreground` (#ffffff) from `:root`. The gradient itself
+ * (`--background-gradient`) is deliberately NOT reproduced here: a gradient
+ * cannot be pre-painted by a flat colour, and `.app-canvas` layers it over this
+ * background the moment CSS lands. Matching the FLAT stop is what makes that
+ * handoff invisible; interpolating the gradient's first stop would not, because
+ * the two ends of the ramp are #0B1120 → #1E293B.
  */
 const CRITICAL_CSS = `
-  html { background-color: #080b18; color-scheme: dark; }
-  body { background-color: #080b18; color: #f8fafc; margin: 0; }
+  html { background-color: #0B1120; color-scheme: dark; }
+  body { background-color: #0B1120; color: #ffffff; margin: 0; }
   @media (prefers-color-scheme: light) {
-    html, body { background-color: #080b18; }
+    html, body { background-color: #0B1120; }
   }
 `.trim();
 
