@@ -6,13 +6,7 @@ import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
-
-/** Human-readable file size, e.g. "48.2 MB", for upload status messages. */
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
+import { notifyFailure } from "@/components/ui/FailureToasts";
 
 /**
  * MomentComposer — caption field + video upload button for the Moment screen.
@@ -62,18 +56,21 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     setLinkResult(null);
     setError(null);
 
-    // 50MB soft warning. Files of ANY size are still accepted and transferred
-    // over the resumable TUS path (see lib/utils/media-upload.ts) — this is an
-    // advisory heads-up, not a hard block, so a member with a large clip is told
-    // it may be slow rather than refused outright.
-    const WARN_BYTES = 50 * 1024 * 1024;
-    if (file.size > WARN_BYTES) {
-      setWarning(
-        `This file is ${formatBytes(file.size)} — larger than the recommended 50 MB. The upload may take a while on a slow connection, but it will continue.`
+    // HARD 50MB cap. Files over the limit are refused BEFORE any bytes are
+    // sent, with a user-friendly toast explaining the limit and how to fix it
+    // (trim / pick a shorter clip). This supersedes the previous soft warning
+    // (which only advised). The picker is reset and the function returns early,
+    // so the composer stays idle and no upload is attempted.
+    const MAX_BYTES = 50 * 1024 * 1024;
+    if (file.size > MAX_BYTES) {
+      notifyFailure(
+        "File exceeds the 50MB maximum upload limit. Please select a shorter video or trim it."
       );
-    } else {
       setWarning(null);
+      setError(null);
+      return;
     }
+    setWarning(null);
 
     setUploading(true);
     setProgress(0);
