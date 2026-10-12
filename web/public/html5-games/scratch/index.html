@@ -4,46 +4,91 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Scratch — Couples Corner</title>
-<!--
-  HTML5 BUILD SLOT — served at /html5-games/<slug>/index.html, which is exactly
-  the path the launcher registry (web/lib/game/registry.ts) hands to the iframe.
-  Drop the real build's files into public/html5-games/<slug>/ (replacing this
-  placeholder) and the GameModal picks it up with zero code changes: the URL is
-  minted server-side from the registry, never from the client.
-
-  This placeholder exists so the iframe never shows a raw 404 or the external
-  host's "Not found at origin!" page before the real build ships. It is
-  intentionally dependency-free: no CDN, no fonts, no JS, so it renders
-  instantly inside the sandboxed frame.
-
-  The launcher mints the URL with a signed `?cc_token=<uid>|<gameId>|<exp>.<hmac>`
-  query param. A real build can read it from `location.search` and POST it back
-  to a game API to prove who launched the session; it is short-lived (60 min).
--->
 <style>
   :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding: 24px; text-align: center;
-    background: #080b18; color: #f8fafc;
+    display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px;
+    background: #0F172A; color: #f8fafc; text-align: center;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
-  .glyph { font-size: 64px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
-  h1 { font-size: 20px; font-weight: 700; }
-  p { font-size: 13px; color: #a5a5b8; max-width: 34ch; line-height: 1.55; }
-  .tag {
-    margin-top: 4px; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase; color: #fcd34d;
-    border: 1px solid rgba(252, 211, 77, .3); background: rgba(252, 211, 77, .08);
-  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  canvas { touch-action: none; border-radius: 12px; background: #0b1220; border: 1px solid #1e293b; max-width: 100%; cursor: crosshair; }
+  .swatch { width: 30px; height: 30px; border-radius: 999px; cursor: pointer; border: 2px solid transparent; }
+  .swatch.active { border-color: #f8fafc; }
+  button { padding: 8px 16px; border-radius: 999px; border: 1px solid #FF5722; cursor: pointer;
+    background: rgba(255,87,34,.15); color: #ffd9cc; font-weight: 700; font-size: 13px; }
+  button:hover { background: rgba(255,87,34,.3); }
+  #msg { font-size: 13px; color: #94a3b8; }
 </style>
 </head>
 <body>
-  <div class="glyph" aria-hidden="true">🎨</div>
-  <h1>Scratch</h1>
-  <p>The canvas is being primed. It opens for play the moment the build ships.</p>
-  <span class="tag">Coming soon</span>
+  <h1>🎨 Scratch</h1>
+  <div class="row" id="palette"></div>
+  <div class="row">
+    <button id="undo">Undo</button>
+    <button id="clear">Clear</button>
+  </div>
+  <canvas id="pad" width="320" height="320" aria-label="Drawing canvas"></canvas>
+  <div id="msg">Pick a colour and draw — make and share your own art.</div>
+<script>
+(function () {
+  "use strict";
+  var COLORS = ["#FF5722", "#f8fafc", "#60a5fa", "#4ade80", "#facc15", "#c084fc", "#f472b6", "#0b1220"];
+  var canvas = document.getElementById("pad");
+  var ctx = canvas.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cssW = canvas.clientWidth || 320;
+  canvas.width = cssW * dpr; canvas.height = cssW * dpr; ctx.scale(dpr, dpr);
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  var color = COLORS[0], width = 8, drawing = false, last = null;
+  var history = [];
+
+  function snapshot() { history.push(canvas.toDataURL()); if (history.length > 20) history.shift(); }
+  function pos(e) {
+    var rect = canvas.getBoundingClientRect();
+    var pt = e.touches ? e.touches[0] : e;
+    return { x: pt.clientX - rect.left, y: pt.clientY - rect.top };
+  }
+  function start(e) { e.preventDefault(); snapshot(); drawing = true; last = pos(e); }
+  function move(e) {
+    if (!drawing) return; e.preventDefault();
+    var p = pos(e);
+    ctx.strokeStyle = color; ctx.lineWidth = width;
+    ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+    last = p;
+  }
+  function end() { drawing = false; }
+  canvas.addEventListener("mousedown", start); canvas.addEventListener("mousemove", move);
+  window.addEventListener("mouseup", end);
+  canvas.addEventListener("touchstart", start, { passive: false });
+  canvas.addEventListener("touchmove", move, { passive: false });
+  canvas.addEventListener("touchend", end);
+
+  var palette = document.getElementById("palette");
+  COLORS.forEach(function (c, i) {
+    var sw = document.createElement("div"); sw.className = "swatch" + (i === 0 ? " active" : "");
+    sw.style.background = c;
+    sw.addEventListener("click", function () {
+      color = c;
+      var all = palette.querySelectorAll(".swatch");
+      for (var k = 0; k < all.length; k++) all[k].classList.remove("active");
+      sw.classList.add("active");
+    });
+    palette.appendChild(sw);
+  });
+  document.getElementById("clear").addEventListener("click", function () { snapshot(); ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, cssW, cssW); });
+  document.getElementById("undo").addEventListener("click", function () {
+    var prev = history.pop(); if (!prev) return;
+    var img = new Image();
+    img.onload = function () { ctx.clearRect(0, 0, cssW, cssW); ctx.drawImage(img, 0, 0, cssW, cssW); };
+    img.src = prev;
+  });
+  ctx.fillStyle = "#0b1220"; ctx.fillRect(0, 0, cssW, cssW);
+})();
+</script>
 </body>
 </html>

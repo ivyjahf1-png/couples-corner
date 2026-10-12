@@ -125,6 +125,12 @@ export default function GameModal({
      reload the embed from scratch — changing `src` is the only way to make it
      re-request; resetting state alone leaves the already-loaded frame in place. */
   const [reloadKey, setReloadKey] = useState(0);
+  /* Full-screen toggle. Defaults to a CONTAINED glassmorphic card so the game
+     sits inside a dark rounded panel over a dimmed backdrop; toggling expands
+     the shell to fill the viewport for immersive play. This is a presentation
+     toggle only — it never touches the iframe src, so gameplay/load state is
+     completely unaffected by expanding or collapsing. */
+  const [fullscreen, setFullscreen] = useState(false);
 
   /* Escape closes — the one dismissal gesture that works identically on every
      surface the modal opens over (mirrors ProfileViewModal). */
@@ -149,32 +155,61 @@ export default function GameModal({
 
   return (
     <div
-      className="fixed inset-0 z-[300] flex flex-col bg-black"
+      className={[
+        "fixed inset-0 z-[300] flex flex-col bg-black/80 backdrop-blur-sm",
+        /* Contained mode: centre a glassmorphic card with breathing room.
+           Fullscreen mode: the card fills the viewport edge-to-edge. */
+        fullscreen ? "items-stretch p-0" : "items-center justify-center p-4",
+      ].join(" ")}
       role="dialog"
       aria-modal="true"
       aria-label="Game Zone"
     >
-      <div className="flex items-center justify-between border-b border-white/10 bg-[#0b0f19] p-3">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-bold text-white">{gameTitle}</span>
-          <span className="text-[10px] text-white/50">{coinBalance !== null ? `🪙 ${coinBalance.toLocaleString()}` : ""}</span>
+      <div
+        className={[
+          /* THE GLASSMORPHIC GAME CARD — dark Midnight Slate panel, slate
+             border, rounded, padded — exactly the container the brief asked
+             for. In fullscreen it becomes edge-to-edge and unrounded. */
+          "flex min-h-0 w-full max-w-3xl flex-col overflow-hidden border border-slate-800 bg-[#0F172A] shadow-2xl",
+          fullscreen ? "h-full max-w-none rounded-none p-0" : "h-[85vh] rounded-2xl p-2",
+        ].join(" ")}
+      >
+        <div className="mb-2 flex items-center justify-between rounded-xl border-b border-white/10 bg-[#0b0f19] px-3 py-2">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-bold text-white">{gameTitle}</span>
+            <span className="text-[10px] text-white/50">{coinBalance !== null ? `🪙 ${coinBalance.toLocaleString()}` : ""}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* FULL-SCREEN TOGGLE — presentation only; never touches the game. */}
+            <button
+              type="button"
+              onClick={() => setFullscreen((value) => !value)}
+              aria-pressed={fullscreen}
+              aria-label={fullscreen ? "Exit full screen" : "Enter full screen"}
+              className="rounded-full bg-white/10 px-3 py-1 text-sm text-white transition hover:bg-white/20"
+            >
+              {fullscreen ? "Exit full screen" : "Full screen"}
+            </button>
+            {/* BACK button — closes the modal and returns to the feed/profile
+                WITHOUT a route change (setOpen(null) only unmounts the dialog),
+                so the surrounding page state is preserved and never reloads. */}
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-full bg-white/10 px-3 py-1 text-sm text-white transition hover:bg-white/20"
+            >
+              Back
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full bg-white/10 px-3 py-1 text-sm text-white transition hover:bg-white/20"
-        >
-          Close
-        </button>
-      </div>
 
-      {/* THE GAME. The wrapper is `flex-1 min-h-0` so it claims exactly the
-          space left under the header and never overflows the dialog; the
-          iframe then fills that box with `h-full w-full`. `border-0` removes
-          the default frame. `allow` grants only what a browser game plausibly
-          needs: audio that may start without a tap and keeping the screen
-          awake during play. */}
-      <div className="relative flex min-h-0 flex-1 flex-col">
+        {/* THE GAME. The wrapper is `flex-1 min-h-0` so it claims exactly the
+            space left under the header and never overflows the dialog; the
+            iframe then fills that box with `h-full w-full`. `border-0` removes
+            the default frame. `allow` grants only what a browser game plausibly
+            needs: audio that may start without a tap and keeping the screen
+            awake during play. */}
+        <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
         <iframe
           src={reloadKey === 0 ? gameUrl : `${gameUrl}${gameUrl.includes("?") ? "&" : "?"}retry=${reloadKey}`}
           title="Game Zone"
@@ -225,6 +260,7 @@ export default function GameModal({
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

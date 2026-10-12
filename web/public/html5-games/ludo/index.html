@@ -4,47 +4,119 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Ludo — Couples Corner</title>
-<!--
-  HTML5 BUILD SLOT — served at /html5-games/ludo/index.html, which is exactly the
-  path the launcher registry (web/lib/game/registry.ts) hands to the iframe.
-  Drop the real build's files into public/html5-games/ludo/ (replacing this
-  placeholder) and the GameModal picks it up with zero code changes: the URL is
-  minted server-side from the registry, never from the client.
-
-  This placeholder exists so the iframe never shows a raw 404 before the real
-  build ships — the same "build in progress, never a 404" product decision the
-  removed player documented. It is intentionally dependency-free: no CDN, no
-  fonts, no JS, so it renders instantly inside the sandboxed frame.
-
-  The launcher mints the URL with a signed `?cc_token=<uid>|<gameId>|<exp>.<hmac>`
-  query param. A real build can read it from `location.search` and POST it back
-  to a game API to prove who launched the session; it is short-lived (60 min).
--->
 <style>
   :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding: 24px; text-align: center;
-    background: #080b18; color: #f8fafc;
+    gap: 12px; padding: 16px; text-align: center; background: #0F172A; color: #f8fafc;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
-  .glyph { font-size: 64px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
-  h1 { font-size: 20px; font-weight: 700; }
-  p { font-size: 13px; color: #a5a5b8; max-width: 34ch; line-height: 1.55; }
-  .tag {
-    margin-top: 4px; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase; color: #fcd34d;
-    border: 1px solid rgba(252, 211, 77, .3); background: rgba(252, 211, 77, .08);
-  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .stat { font-size: 12px; color: #94a3b8; }
+  .stat b { color: #FF5722; font-size: 14px; }
+  .stat.you b { color: #4ade80; }
+  canvas { touch-action: manipulation; border-radius: 12px; background: #0b1220; border: 1px solid #1e293b; max-width: 100%; height: auto; }
+  button { padding: 8px 16px; border-radius: 999px; border: 1px solid #FF5722; cursor: pointer;
+    background: rgba(255,87,34,.15); color: #ffd9cc; font-weight: 700; font-size: 13px;
+    transition: transform .08s ease, background .15s ease; }
+  button:active { transform: scale(.95); }
+  button:hover { background: rgba(255,87,34,.3); }
+  button:disabled { opacity: .4; cursor: default; }
+  #msg { font-size: 13px; font-weight: 700; min-height: 18px; }
+  #msg.win { color: #4ade80; } #msg.lose { color: #f87171; }
 </style>
 </head>
 <body>
-  <div class="glyph" aria-hidden="true">🎲</div>
-  <h1>Ludo</h1>
-  <p>The Ludo build is being prepared. Your game session is ready — the board
-     loads here the moment it ships.</p>
-  <span class="tag">Coming soon</span>
+  <h1>🎲 Ludo</h1>
+  <div class="row">
+    <span class="stat">Track <b id="trackLen">28</b></span>
+    <span class="stat you">You <b id="youPos">0</b></span>
+    <span class="stat">Rival <b id="rivalPos">0</b></span>
+    <button id="roll">Roll &amp; move</button>
+  </div>
+  <canvas id="board" width="320" height="320" aria-label="Ludo race track"></canvas>
+  <div id="msg">Race your token home before your rival does.</div>
+<script>
+(function () {
+  "use strict";
+  var SIZE = 14;            /* track squares around the loop */
+  var WIN = SIZE + 3;       /* squares to clear the track + finish run-in */
+  var canvas = document.getElementById("board");
+  var ctx = canvas.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cssW = canvas.clientWidth || 320;
+  canvas.width = cssW * dpr; canvas.height = cssW * dpr; ctx.scale(dpr, dpr);
+  var you = 0, rival = 0, busy = false, over = false;
+
+  function setMsg(text, cls) { var m = document.getElementById("msg"); m.textContent = text; m.className = cls || ""; }
+  function updateStats() {
+    document.getElementById("youPos").textContent = you;
+    document.getElementById("rivalPos").textContent = rival;
+  }
+
+  /* Square ring track: index 0..SIZE-1 around a rounded rectangle. */
+  function trackPoint(i) {
+    var pad = 26, side = cssW - pad * 2, seg = side / (SIZE / 4);
+    var segIdx = Math.floor(i / (SIZE / 4)) % 4, along = (i % (SIZE / 4)) / (SIZE / 4);
+    if (segIdx === 0) return { x: pad + side * along, y: pad };
+    if (segIdx === 1) return { x: pad + side, y: pad + side * along };
+    if (segIdx === 2) return { x: pad + side - side * along, y: pad + side };
+    return { x: pad, y: pad + side - side * along };
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, cssW, cssW);
+    /* Track background line. */
+    ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 14; ctx.lineJoin = "round";
+    var p0 = trackPoint(0), last = p0;
+    for (var i = 1; i <= SIZE; i++) { var p = trackPoint(i % SIZE); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; }
+    /* Track squares. */
+    for (var s = 0; s < SIZE; s++) {
+      var q = trackPoint(s); ctx.fillStyle = s % 2 ? "#334155" : "#475569";
+      ctx.fillRect(q.x - 5, q.y - 5, 10, 10);
+    }
+    /* Finish marker (top-right corner). */
+    ctx.fillStyle = "#FF5722"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillText("HOME", cssW - 10, cssW - 22);
+    /* Rival token (blue) drawn first so yours overlaps on a shared square. */
+    var rp = trackPoint(Math.min(rival, SIZE - 1));
+    ctx.beginPath(); ctx.fillStyle = "#3b82f6"; ctx.arc(rp.x - 6, rp.y - 6, 9, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#0b1220"; ctx.lineWidth = 2; ctx.stroke();
+    /* Your token (red/orange). */
+    var yp = trackPoint(Math.min(you, SIZE - 1));
+    ctx.beginPath(); ctx.fillStyle = "#FF5722"; ctx.arc(yp.x + 6, yp.y + 6, 9, 0, 7); ctx.fill();
+    ctx.strokeStyle = "#0b1220"; ctx.lineWidth = 2; ctx.stroke();
+  }
+
+  function roll() {
+    if (busy || over) return;
+    busy = true; document.getElementById("roll").disabled = true;
+    var d = 1 + Math.floor(Math.random() * 6);
+    var rd = 1 + Math.floor(Math.random() * 6);
+    setMsg("You rolled " + d + " · rival rolled " + rd + "…");
+    var steps = Math.max(d, rd), done = 0;
+    var iv = setInterval(function () {
+      if (you < WIN && d > 0) { you++; d--; }
+      else if (rival < WIN && rd > 0) { rival++; rd--; }
+      done++;
+      updateStats(); draw();
+      if (you >= WIN || rival >= WIN || done >= steps) {
+        clearInterval(iv); busy = false; document.getElementById("roll").disabled = false;
+        if (you >= WIN && rival >= WIN) { over = true; setMsg("🤝 Dead heat — both home!", "win"); }
+        else if (you >= WIN) { over = true; setMsg("🎉 You brought your token home!", "win"); }
+        else if (rival >= WIN) { over = true; setMsg("😤 Your rival got home first.", "lose"); }
+        else { setMsg("Your turn — Roll & move again."); }
+      }
+    }, 160);
+  }
+
+  document.getElementById("roll").addEventListener("click", roll);
+  updateStats(); draw();
+})();
+</script>
 </body>
 </html>

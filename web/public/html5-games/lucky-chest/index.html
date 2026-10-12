@@ -4,46 +4,81 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Lucky Chest — Couples Corner</title>
-<!--
-  HTML5 BUILD SLOT — served at /html5-games/<slug>/index.html, which is exactly
-  the path the launcher registry (web/lib/game/registry.ts) hands to the iframe.
-  Drop the real build's files into public/html5-games/<slug>/ (replacing this
-  placeholder) and the GameModal picks it up with zero code changes: the URL is
-  minted server-side from the registry, never from the client.
-
-  This placeholder exists so the iframe never shows a raw 404 or the external
-  host's "Not found at origin!" page before the real build ships. It is
-  intentionally dependency-free: no CDN, no fonts, no JS, so it renders
-  instantly inside the sandboxed frame.
-
-  The launcher mints the URL with a signed `?cc_token=<uid>|<gameId>|<exp>.<hmac>`
-  query param. A real build can read it from `location.search` and POST it back
-  to a game API to prove who launched the session; it is short-lived (60 min).
--->
 <style>
   :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding: 24px; text-align: center;
-    background: #080b18; color: #f8fafc;
+    gap: 14px; padding: 16px; text-align: center; background: #0F172A; color: #f8fafc;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
-  .glyph { font-size: 64px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
-  h1 { font-size: 20px; font-weight: 700; }
-  p { font-size: 13px; color: #a5a5b8; max-width: 34ch; line-height: 1.55; }
-  .tag {
-    margin-top: 4px; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase; color: #fcd34d;
-    border: 1px solid rgba(252, 211, 77, .3); background: rgba(252, 211, 77, .08);
-  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .stat { font-size: 12px; color: #94a3b8; } .stat b { color: #FF5722; font-size: 14px; }
+  #chests { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 320px; width: 100%; }
+  .chest { aspect-ratio: 1; border-radius: 14px; background: linear-gradient(160deg,#1e293b,#0b1220);
+    border: 1px solid #334155; display: flex; align-items: center; justify-content: center;
+    font-size: 44px; cursor: pointer; transition: transform .12s ease, box-shadow .2s ease, opacity .2s; }
+  .chest:active { transform: scale(.94); }
+  .chest.picked { box-shadow: 0 0 0 2px #FF5722, 0 0 22px rgba(255,87,34,.5); }
+  .chest.opened { opacity: .85; cursor: default; }
+  button { padding: 8px 16px; border-radius: 999px; border: 1px solid #FF5722; cursor: pointer;
+    background: rgba(255,87,34,.15); color: #ffd9cc; font-weight: 700; font-size: 13px; }
+  button:hover { background: rgba(255,87,34,.3); }
+  #msg { font-size: 14px; font-weight: 700; min-height: 20px; } #msg.win { color: #4ade80; } #msg.lose { color: #f87171; }
 </style>
 </head>
 <body>
-  <div class="glyph" aria-hidden="true">🎁</div>
-  <h1>Lucky Chest</h1>
-  <p>The chest is being locked. It opens for coins the moment the build ships.</p>
-  <span class="tag">Coming soon</span>
+  <h1>🎁 Lucky Chest</h1>
+  <div class="row">
+    <span class="stat">Coins <b id="coins">0</b></span>
+    <span class="stat">Tries <b id="tries">3</b></span>
+    <button id="reset">New round</button>
+  </div>
+  <div id="chests"></div>
+  <div id="msg">Pick a chest — find the coin stash before your tries run out.</div>
+<script>
+(function () {
+  "use strict";
+  var COUNT = 6;
+  var prizes = [
+    { g: "🪙", v: 100 }, { g: "💎", v: 500 }, { g: "🍀", v: 20 },
+    { g: "⭐", v: 250 }, { g: "💀", v: 0 }, { g: "🪙", v: 50 }
+  ];
+  var coffers, coins, tries, openedCount;
+  function setMsg(t, cls) { var m = document.getElementById("msg"); m.textContent = t; m.className = cls || ""; }
+  function stats() { document.getElementById("coins").textContent = coins; document.getElementById("tries").textContent = tries; }
+  function shuffle() {
+    var a = prizes.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+  function render() {
+    var wrap = document.getElementById("chests"); wrap.innerHTML = "";
+    coffers.forEach(function (c, i) {
+      var el = document.createElement("div");
+      el.className = "chest" + (c.opened ? " opened" : "");
+      el.textContent = c.opened ? c.g : "🎁";
+      if (!c.opened && tries > 0) el.addEventListener("click", function () { open(i); });
+      wrap.appendChild(el);
+    });
+  }
+  function open(i) {
+    if (tries <= 0) return;
+    var c = coffers[i]; if (c.opened) return;
+    c.opened = true; tries--; openedCount++;
+    coins += c.v; stats(); render();
+    if (c.v >= 500) setMsg("💎 JACKPOT! +" + c.v + " coins!", "win");
+    else if (c.v > 0) setMsg("+" + c.v + " coins! " + c.g, "win");
+    else setMsg("💀 Empty chest. Better luck next pick.", "lose");
+    if (tries === 0) setMsg("Out of tries — you banked " + coins + " coins. Tap New round.", "win");
+  }
+  function reset() { coffers = shuffle().map(function (p) { return { g: p.g, v: p.v, opened: false }; }); coins = 0; tries = 3; openedCount = 0; stats(); render(); setMsg("Pick a chest — find the coin stash before your tries run out."); }
+  document.getElementById("reset").addEventListener("click", reset);
+  reset();
+})();
+</script>
 </body>
 </html>

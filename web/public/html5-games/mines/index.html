@@ -4,39 +4,141 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Mines — Couples Corner</title>
-<!--
-  HTML5 BUILD SLOT — served at /html5-games/mines/index.html, the exact path the
-  launcher registry (web/lib/game/registry.ts) hands to the iframe. Replace this
-  placeholder with the real build's files; no code changes are needed anywhere.
-
-  Dependency-free on purpose: instant render inside the sandboxed iframe, no
-  404 before the build ships. See ludo/index.html for the cc_token contract.
--->
 <style>
   :root { color-scheme: dark; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding: 24px; text-align: center;
-    background: #080b18; color: #f8fafc;
+    gap: 12px; padding: 16px; text-align: center; background: #0F172A; color: #f8fafc;
     font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
   }
-  .glyph { font-size: 64px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
-  h1 { font-size: 20px; font-weight: 700; }
-  p { font-size: 13px; color: #a5a5b8; max-width: 34ch; line-height: 1.55; }
-  .tag {
-    margin-top: 4px; padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 700;
-    letter-spacing: .08em; text-transform: uppercase; color: #fcd34d;
-    border: 1px solid rgba(252, 211, 77, .3); background: rgba(252, 211, 77, .08);
-  }
+  h1 { font-size: 18px; font-weight: 700; }
+  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .stat { font-size: 12px; color: #94a3b8; }
+  .stat b { color: #FF5722; font-size: 14px; }
+  canvas { touch-action: manipulation; border-radius: 12px; background: #0b1220; border: 1px solid #1e293b; max-width: 100%; height: auto; }
+  button { padding: 8px 16px; border-radius: 999px; border: 1px solid #FF5722; cursor: pointer;
+    background: rgba(255,87,34,.15); color: #ffd9cc; font-weight: 700; font-size: 13px;
+    transition: transform .08s ease, background .15s ease; }
+  button:active { transform: scale(.95); }
+  button:hover { background: rgba(255,87,34,.3); }
+  #msg { font-size: 13px; font-weight: 700; min-height: 18px; }
+  #msg.win { color: #4ade80; }
+  #msg.lose { color: #f87171; }
 </style>
 </head>
 <body>
-  <div class="glyph" aria-hidden="true">💣</div>
-  <h1>Mines</h1>
-  <p>The Mines build is being prepared. Your game session is ready — the grid
-     loads here the moment it ships.</p>
-  <span class="tag">Coming soon</span>
+  <h1>💣 Mines</h1>
+  <div class="row">
+    <span class="stat">Mines <b id="minesLeft">10</b></span>
+    <span class="stat">Cleared <b id="cleared">0</b></span>
+    <button id="reset">New game</button>
+  </div>
+  <canvas id="board" width="320" height="320" aria-label="Mines board"></canvas>
+  <div id="msg">Tap a tile to start — clear every safe square.</div>
+<script>
+(function () {
+  "use strict";
+  var COLS = 8, ROWS = 8, MINE_COUNT = 10;
+  var canvas = document.getElementById("board");
+  var ctx = canvas.getContext("2d");
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  var cssW = canvas.clientWidth || 320;
+  canvas.width = cssW * dpr; canvas.height = cssW * dpr; ctx.scale(dpr, dpr);
+  var cell = cssW / COLS;
+  var grid, revealed, flagged, mineSet, started, gameOver, revealedCount;
+
+  function idx(c, r) { return r * COLS + c; }
+  function neighbors(i) {
+    var c = i % COLS, r = Math.floor(i / COLS), out = [];
+    for (var dc = -1; dc <= 1; dc++) for (var dr = -1; dr <= 1; dr++) {
+      if (!dc && !dr) continue;
+      var nc = c + dc, nr = r + dr;
+      if (nc >= 0 && nc < COLS && nr >= 0 && nr < ROWS) out.push(idx(nc, nr));
+    }
+    return out;
+  }
+  function placeMines(safe) {
+    mineSet = new Set();
+    var safeZone = new Set(neighbors(safe)); safeZone.add(safe);
+    while (mineSet.size < MINE_COUNT) {
+      var i = Math.floor(Math.random() * COLS * ROWS);
+      if (!safeZone.has(i)) mineSet.add(i);
+    }
+    for (var k = 0; k < COLS * ROWS; k++) grid[k] = mineSet.has(k) ? -1 : neighbors(k).filter(function (n) { return mineSet.has(n); }).length;
+  }
+  function reset() {
+    grid = new Array(COLS * ROWS).fill(0);
+    revealed = new Array(COLS * ROWS).fill(false);
+    flagged = new Array(COLS * ROWS).fill(false);
+    mineSet = new Set(); started = false; gameOver = false; revealedCount = 0;
+    setMsg("Tap a tile to start — clear every safe square.", "");
+    updateStats(); draw();
+  }
+  function reveal(i) {
+    if (revealed[i] || flagged[i] || gameOver) return;
+    revealed[i] = true; revealedCount++;
+    if (grid[i] === 0) neighbors(i).forEach(function (n) { if (!revealed[n]) reveal(n); });
+  }
+  function updateStats() {
+    var flags = flagged.reduce(function (a, b) { return a + (b ? 1 : 0); }, 0);
+    document.getElementById("minesLeft").textContent = MINE_COUNT - flags;
+    document.getElementById("cleared").textContent = revealedCount;
+  }
+  function setMsg(text, cls) { var m = document.getElementById("msg"); m.textContent = text; m.className = cls || ""; }
+  function lose() {
+    gameOver = true;
+    mineSet.forEach(function (m) { revealed[m] = true; });
+    draw(); setMsg("💥 Boom! Tap New game.", "lose");
+  }
+  function checkWin() {
+    if (revealedCount === COLS * ROWS - MINE_COUNT) { gameOver = true; setMsg("🎉 You cleared the board!", "win"); }
+  }
+  var NUM = [null, "#60a5fa", "#4ade80", "#f87171", "#c084fc", "#fb923c", "#22d3ee", "#facc15", "#fff"];
+  function draw() {
+    ctx.clearRect(0, 0, cssW, cssW);
+    for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) {
+      var i = idx(c, r), x = c * cell, y = r * cell;
+      if (revealed[i]) {
+        ctx.fillStyle = mineSet.has(i) ? "#7f1d1d" : "#111c30";
+        ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        if (mineSet.has(i)) { ctx.font = (cell * 0.6) + "px serif"; ctx.fillText("💣", x + cell / 2, y + cell / 2); }
+        else if (grid[i] > 0) { ctx.fillStyle = NUM[grid[i]]; ctx.font = "bold " + (cell * 0.55) + "px sans-serif"; ctx.fillText(grid[i], x + cell / 2, y + cell / 2); }
+      } else {
+        ctx.fillStyle = "#1e293b"; ctx.fillRect(x + 1, y + 1, cell - 2, cell - 2);
+        ctx.fillStyle = "#334155"; ctx.fillRect(x + 1, y + 1, cell - 2, 2);
+        if (flagged[i]) { ctx.font = (cell * 0.55) + "px serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("🚩", x + cell / 2, y + cell / 2); }
+      }
+    }
+  }
+  function cellAt(px, py) {
+    var rect = canvas.getBoundingClientRect();
+    var c = Math.floor((px - rect.left) / (rect.width / COLS));
+    var r = Math.floor((py - rect.top) / (rect.width / ROWS));
+    if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return null;
+    return idx(c, r);
+  }
+  function toggleFlag(i) { if (!revealed[i] && !gameOver) { flagged[i] = !flagged[i]; updateStats(); draw(); } }
+  canvas.addEventListener("click", function (e) {
+    if (gameOver) return;
+    var i = cellAt(e.clientX, e.clientY); if (i === null || flagged[i]) return;
+    if (!started) { started = true; placeMines(i); }
+    if (mineSet.has(i)) { lose(); return; }
+    reveal(i); updateStats(); checkWin(); draw();
+  });
+  canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); var i = cellAt(e.clientX, e.clientY); if (i !== null) toggleFlag(i); });
+  var pressTimer = null;
+  canvas.addEventListener("touchstart", function (e) {
+    var t = e.touches[0], i = cellAt(t.clientX, t.clientY); if (i === null) return;
+    pressTimer = setTimeout(function () { toggleFlag(i); }, 450);
+  }, { passive: true });
+  canvas.addEventListener("touchend", function () { if (pressTimer) clearTimeout(pressTimer); });
+  document.getElementById("reset").addEventListener("click", reset);
+  reset();
+})();
+</script>
 </body>
 </html>
