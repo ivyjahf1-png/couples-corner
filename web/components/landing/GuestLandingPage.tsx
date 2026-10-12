@@ -85,7 +85,18 @@ const STEPS: { step: string; title: string; body: string }[] = [
 
 export function GuestLandingPage() {
   return (
-    <div className="flex min-h-dvh flex-col bg-[#0B1120] text-foreground">
+    /* SCROLL REGION, matching the authenticated shell. The root `<body>` is
+       `h-dvh overflow-hidden` (a deliberate single-scroll-region model), and the
+       landing page is the ONE route rendered directly in that body — outside
+       `AppShell`, which normally supplies the scroll region. A bare `min-h-dvh`
+       here therefore grew past the viewport and was clipped by the body's
+       `overflow-hidden`, so every section below the fold was unreachable — the
+       "landing page won't scroll" symptom. `h-dvh overflow-y-auto` bounds this
+       page to the viewport and makes IT the scroll region, the same contract
+       `AppMain` (and `PageLock`, and the media feed) already follow, so the
+       whole marketing page scrolls smoothly to its footer without touching the
+       body-level overflow behaviour any authenticated route depends on. */
+    <div className="flex h-dvh flex-col overflow-y-auto overflow-x-hidden bg-[#0B1120] text-foreground">
       <SiteHeader />
       <main className="flex-1">
         {/* ── HERO ──────────────────────────────────────────────────────────

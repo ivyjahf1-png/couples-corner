@@ -256,11 +256,11 @@ export function BottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
   return (
     <MotionConfig reducedMotion="user">
       {/* THE SINGLE FIXED ANCHOR. Safe-area inset = this container's bottom
-          padding (counted once, see the header note); mb-4 is the graceful
+          padding (counted once, see the header note); bottom-2 is the graceful
           lift above the screen edge; z-50 must stay below the sheets' z-200. */}
       <nav
         aria-label="Primary"
-        className="app-bottom-nav fixed bottom-4 left-4 right-4 z-50 mx-auto w-[calc(100%-2rem)] max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="app-bottom-nav fixed bottom-2 left-4 right-4 z-50 mx-auto w-[calc(100%-2rem)] max-w-md pb-[env(safe-area-inset-bottom)] md:hidden"
       >
         {/* THE PILL — one shared capsule: dark navy at 90% under a heavy
             backdrop frost, hairline slate border, deep float shadow. It has NO

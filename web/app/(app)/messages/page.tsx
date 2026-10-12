@@ -105,25 +105,20 @@ export default async function MessagesPage() {
        block. `EmptyState` hardcodes the old dark palette and cannot be themed
        from the call site.
 
-       VIEWPORT-LOCKED WRAPPER — `h-[100dvh] w-full overflow-hidden flex flex-col`.
-       The height is stated in DVH against the VIEWPORT rather than inherited as
-       a percentage, because the chain above this element is not guaranteed to be
-       definite: the shell and `<main>` are content-sized flex items, and a
-       `height: 100%` on `PageLock` resolves to auto against an indefinite
-       parent. The failure mode is specific and ugly — the lock box grows to its
-       content, the body's `overflow-y-auto` has nothing to scroll past, and the
-       whole thing gets clipped by `<main>`'s `overflow-hidden`: an inbox whose
-       rows below the fold are simply unreachable. Stating 100dvh cuts that chain
-       entirely — the wrapper is bounded no matter what the ancestors do, so
-       `PageLock`'s `height: 100%` finally has a definite box to measure.
-
-       `overflow-hidden` + `flex-col` make containment structural: the only
-       element allowed to scroll is the list inside `PageLock`, never this box
-       and never the document. The wrapper is also a flex item of `<main>`, so
-       it SHRINKS when the viewport claim exceeds the space available (the demo
-       banner sits above it) instead of overflowing — the list absorbs the
-       difference and nothing is clipped. */
-    <div className="h-[100dvh] w-full overflow-hidden flex flex-col">
+       VIEWPORT-RELIANT WRAPPER — `flex-1 min-h-0 w-full overflow-hidden flex
+       flex-col`. This used to state `h-[100dvh]` against the raw viewport, which
+       is WRONG here: on phones the shell is `flex-1` of a body that also holds
+       the 4rem `MobileBackHeader`, so `AppMain`'s real height is `100dvh − 4rem`.
+       A wrapper still claiming a full `100dvh` overshot that box by the header's
+       height and its bottom — the tail of the `PageLock` scroll region — was
+       clipped by `<main>`'s `overflow-hidden`, making the last inbox rows
+       unreachable. `flex-1 min-h-0` instead fills exactly the space the flex
+       chain leaves (header already subtracted) and still resolves to a definite
+       height, so `PageLock`'s `height: 100%` has a real box to measure and its
+       own `overflow-y-auto` scrolls every row into view. The header subtraction
+       is owned by the shell's flex layout rather than duplicated as a magic
+       number here, so it stays correct if that header's height ever changes. */
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} />
     </div>
   );

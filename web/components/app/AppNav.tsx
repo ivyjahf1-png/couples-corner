@@ -294,17 +294,21 @@ export function AppMain({ children }: { children: React.ReactNode }) {
           : "overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]",
         inActiveConversation || isFullBleedSurface
           ? "p-0"
-          : // `pb-20` is the COMPENSATING PADDING for the now-`fixed` bottom bar.
-            // Because that bar left the flex flow, <main> spans the full viewport
-            // and the bar overlays its last 5rem; without this, the end of every
-            // page (and the feed's bottom composer) would sit permanently behind
-            // the navigation. `md:pb-0` drops it at tablet and up, where the bar
-            // is `md:hidden` and the sidebar rail takes over. The inner wrapper
-            // is `h-full`, so it measures the padded box and full-height pages
-            // (the media feed) shrink to clear the bar rather than hiding under
-            // it. The conversation route takes `p-0`: its bar is hidden entirely,
-            // so any padding here would be dead space.
-            "px-4 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
+          : // `pb-28` (7rem) is the COMPENSATING PADDING for the now-`fixed`
+            // bottom bar, which sits at `bottom-2` and grew a safe-area pad of
+            // its own. Because that bar left the flex flow, <main> spans the
+            // full viewport and the bar overlays its last stretch; without this,
+            // the end of every page (settings, "User feedback", the feed's
+            // bottom composer) would sit permanently behind the navigation on
+            // small screens. The 7rem clears the pill's full stack (pill height
+            // + the bottom-2 lift + the safe-area inset). `md:pb-0` drops it at
+            // tablet and up, where the bar is `md:hidden` and the sidebar rail
+            // takes over. The inner wrapper is `h-full`, so it measures the
+            // padded box and full-height pages (the media feed) shrink to clear
+            // the bar rather than hiding under it. The conversation route takes
+            // `p-0`: its bar is hidden entirely, so any padding here would be
+            // dead space.
+            "px-4 pb-[calc(7rem+env(safe-area-inset-bottom,0px))] pt-6 sm:px-6 md:px-8 md:pb-0 lg:px-10 xl:px-12",
       ].join(" ")}
     >
       <div className="mx-auto flex min-h-0 w-full max-w-[88rem] flex-1 flex-col">{children}</div>
