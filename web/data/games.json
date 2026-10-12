@@ -1,0 +1,16 @@
+[
+  {
+    "id": "ludo-superstar",
+    "title": "Ludo Classic",
+    "category": "Board",
+    "thumbnail": "/icons/games/ludo.png",
+    "iframeUrl": "/html5-games/ludo/index.html"
+  },
+  {
+    "id": "crown-and-conquest",
+    "title": "Crown and Conquest",
+    "category": "Strategy",
+    "thumbnail": "https://img.gamedistribution.com/b62dff933afd48ebb5b296219982905b-512x512.jpg",
+    "iframeUrl": "https://html5.gamedistribution.com/b62dff933afd48ebb5b296219982905b/?gd_sdk_referrer_url=https://couples-corner.vercel.app"
+  }
+]
