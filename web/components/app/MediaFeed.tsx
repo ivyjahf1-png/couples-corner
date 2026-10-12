@@ -1204,106 +1204,97 @@ export function MediaFeed({
             the reference puts identity bottom-left over the media. */}
         {current ? (
           <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(11.5rem_+_env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-              aria-label={`Open ${current.authorName ?? "profile"}`}
-              className="relative flex shrink-0 items-center"
-            >
-              {/* ORANGE RING ON THE AVATAR, to match the name beside it and the amber
-                  gradient ring already used on the profile hero (see
-                  ProfileScreen). Previously `ring-white/25`, which read as a
-                  neutral grey disc and left the avatar as the only cool-toned
-                  element in an otherwise warm cluster. `ring-orange-400/60` is
-                  deliberately lighter than the avatar's own photo edge so the
-                  ring never overpowers a dark portrait. */}
-                <span className="block h-9 w-9 overflow-hidden rounded-full ring-2 ring-orange-400/60">
-                <Avatar
-                  src={current.authorAvatarUrl}
-                  name={current.authorName ?? "Member"}
-                  className="h-full w-full text-xs"
-                />
-              </span>
-              {/* Live presence on the moment author. The own moment has nobody
-                  to indicate, so it renders no dot at all. */}
-              {current.isMine ? null : (
-                <PresenceDot online={authorOnline} size="sm" />
-              )}
-            </Link>
-            <div className="min-w-0 flex-1">
-              {/* ORANGE NAME, per the app's accent direction.
-
-                  The author's name was `text-white` on a `bg-slate-950/45`
-                  frosted panel, which made it indistinguishable from the
-                  timestamp directly beneath it — two lines of similar weight
-                  saying different things, with no visual hierarchy between
-                  "who" and "when".
-
-                  It now carries the same `orange-300` accent the Connect
-                  button and the active nav pill use, so the identity on the
-                  card is the warmest thing in the top-left cluster and the
-                  identity is the first thing the eye lands on. This is a
-                  lighter orange than the button's `orange-400` ring on
-                  purpose: the name sits on a dark glass panel at small size
-                  and needs the extra luminance to stay legible, while the
-                  button's ring needs saturation to read as a control. Same
-                  hue family, tuned per surface. */}
+          {/* ── UPLOADER BAR — TikTok / Reels profile card ────────────────────────────
+              Avatar (orange ring + superimposed follow badge) on the left, bold
+              @handle and a single truncated caption line stacked to its right.
+              This replaces the former avatar + name + timestamp + "Connect" pill
+              row with the industry-standard short-video uploader bar. All of the
+              existing follow plumbing is reused unchanged — same `toggleFollow`,
+              same `amFollowingAuthor` / `viewerId` / `followBusy` state, same
+              `current.isMine` self-post guard — so the two controls on the card
+              and the rail can never disagree about follow state. */}
+          <div className="flex items-start gap-3">
+            <div className="relative shrink-0">
               <Link
                 href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-                className="block truncate text-sm font-semibold text-orange-300 transition hover:text-orange-200"
+                aria-label={`Open ${current.authorName ?? "profile"}`}
+                className="relative flex items-center"
               >
-                {current.authorName ?? "Member"}
+                {/* AVATAR: circular, orange `#FF5722` ring (was a lighter
+                    `orange-400/60`), matching the accent direction of the app. */}
+                <span className="block h-10 w-10 overflow-hidden rounded-full border-2 border-[#FF5722]">
+                  <Avatar
+                    src={current.authorAvatarUrl}
+                    name={current.authorName ?? "Member"}
+                    className="h-full w-full text-xs"
+                  />
+                </span>
+                {/* Live presence on the moment author. The own moment has nobody
+                    to indicate, so it renders no dot at all. */}
+                {current.isMine ? null : (
+                  <PresenceDot online={authorOnline} size="sm" />
+                )}
               </Link>
-              <p className="truncate text-xs text-white/70">
-              {formatWhen(current.createdAt)}
-                {/* Story-style position within this author's own media. Shown
-                    only when they have more than one item in the feed. */}
-                {nav.total > 1 ? (
-                  <span className="ml-1.5 rounded-full bg-black/40 px-1.5 py-px text-[10px] font-semibold text-white/80">
-                    {nav.position}/{nav.total}
-                  </span>
-                ) : null}
-            </p>
+              {/* FOLLOW BADGE — a small vibrant-orange circular button
+                  superimposed on the bottom edge of the avatar. Solid `#FF5722`
+                  when unfollowed (the primary "connect" action), reverting to a
+                  muted white check once followed, mirroring the Connect pill it
+                  replaces. Hidden entirely for the viewer's own moment — you
+                  cannot follow yourself. */}
+              {!current.isMine ? (
+                <button
+                  type="button"
+                  onClick={toggleFollow}
+                  disabled={!viewerId || followBusy}
+                  aria-pressed={amFollowingAuthor}
+                  aria-label={
+                    amFollowingAuthor
+                      ? `Unfollow ${current.authorName ?? "this member"}`
+                      : `Follow ${current.authorName ?? "this member"}`
+                  }
+                  className={[
+                    "absolute -bottom-1 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border-2 border-slate-950 transition active:scale-95 disabled:opacity-50",
+                    amFollowingAuthor
+                      ? "bg-white/90 text-[#FF5722]"
+                      : "bg-[#FF5722] text-white shadow-[0_0_10px_rgba(255,87,34,0.6)]",
+                  ].join(" ")}
+                >
+                  {amFollowingAuthor ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3 w-3"
+                      aria-hidden
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <Plus className="h-3 w-3" strokeWidth={3} />
+                  )}
+                </button>
+              ) : null}
             </div>
-
-            {/* Connect control. ORANGE WHEN UNFOLLOWED, and that is the state change
-                that matters most: this is the primary action on the card, and
-                it was a hollow WHITE ring on a glass panel floating over
-                arbitrary photography — it inherited whatever was behind it and
-                frequently vanished against a light frame.
-
-                It now wears the same dating-app orange as the upload FAB, the
-                reaction chips and the active nav pill, so "the thing that makes
-                this person a connection" is the warmest object on the screen.
-                The hollow treatment is KEPT — an orange RING on transparent, not
-                a solid orange fill — because a solid fill at this size would
-                out-shout the media itself, and the ring still reports state
-                through `aria-pressed`.
-
-                Once connected it reverts to muted white glass: the orange is
-                what says "you have not connected yet", so keeping it lit after
-                the fact would make the two states look identical. */}
-            {current && !current.isMine ? (
-              <button
-                type="button"
-                onClick={toggleFollow}
-                disabled={!viewerId || followBusy}
-                aria-pressed={amFollowingAuthor}
-                aria-label={
-                  amFollowingAuthor
-                    ? `Unfollow ${current.authorName ?? "this member"}`
-                    : `Connect with ${current.authorName ?? "this member"}`
-                }
-                className={[
-                  "shrink-0 rounded-full px-3 py-1 text-[11px] font-bold transition active:scale-95 disabled:opacity-50",
-                  amFollowingAuthor
-                    ? "border border-white/25 bg-white/10 text-white/80"
-                    : "border-2 border-orange-400/80 bg-orange-500/15 text-orange-100 shadow-[0_0_14px_-4px_rgba(249,115,22,0.8)] hover:bg-orange-500/30 hover:text-white",
-                ].join(" ")}
+            <div className="min-w-0 flex-1 pb-0.5">
+              {/* BOLD HANDLE linking straight to the uploader's profile. */}
+              <Link
+                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
+                className="block truncate text-sm font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
               >
-                {amFollowingAuthor ? "Connected" : "Connect"}
-              </button>
-            ) : null}
+                @{current.authorName ?? "member"}
+              </Link>
+              {/* CAPTION: the video description, truncated to a single line. The
+                  fuller multi-line caption block further down the overlay is now
+                  redundant, so this is the caption's only home. */}
+              {current.content ? (
+                <p className="truncate text-xs text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  {current.content}
+                </p>
+              ) : null}
+            </div>
           </div>
           </div>
         ) : null}
@@ -1529,15 +1520,10 @@ export function MediaFeed({
               chromeClass,
             ].join(" ")}
           >
-            {/* Caption only, and only for a moment. `current` is null while the
-                sponsored card is on screen, so the test doubles as the
-                moment/sponsored discriminator - the card renders its own body
-                and needs no caption here. */}
-            {current?.content ? (
-              <p className="mt-2 line-clamp-3 max-w-xl text-sm leading-6 text-white/95">
-                {current.content}
-              </p>
-            ) : null}
+            {/* Caption has moved into the bottom-left uploader bar (avatar +
+                handle block above), rendered as a single truncated line per the
+                TikTok/Reels reference. The former standalone 3-line caption here
+                is removed so the description is never shown twice on one card. */}
             {/* Reward control, pinned above the bottom bar so it is reachable
                 while the feed is populated (the empty-state copy of the same
                 slot only renders when there is nothing to play). This container
