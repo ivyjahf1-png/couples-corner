@@ -30,5 +30,14 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  /* `public` is STATIC ASSET SPACE: Next copies it verbatim to the output and
+     never compiles it. The vendored HTML5 games under `public/html5-games/*`
+     ship their own upstream toolchain (Vite, React Router, vitest) whose
+     `*.config.ts` files those tools read AT THEIR OWN BUILD TIME - none of
+     those dependencies are installed here, so type-checking them in this
+     project fails with `TS2307: Cannot find module 'vite'` and blocks
+     `next build` outright. They are runtime-served files, not part of this
+     app's module graph (the game is embedded through a plain <iframe src>),
+     so excluding the directory is both safe and correct. */
+  "exclude": ["node_modules", "public"]
 }
