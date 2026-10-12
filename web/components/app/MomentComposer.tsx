@@ -38,6 +38,7 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── link parse helper ───────────────────────────────────────────────
@@ -61,8 +62,19 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     setLinkResult(null);
     setError(null);
 
-    // NO client-side size limit: files of any size are accepted and transferred
-    // over the resumable TUS path (see lib/utils/media-upload.ts).
+    // 50MB soft warning. Files of ANY size are still accepted and transferred
+    // over the resumable TUS path (see lib/utils/media-upload.ts) — this is an
+    // advisory heads-up, not a hard block, so a member with a large clip is told
+    // it may be slow rather than refused outright.
+    const WARN_BYTES = 50 * 1024 * 1024;
+    if (file.size > WARN_BYTES) {
+      setWarning(
+        `This file is ${formatBytes(file.size)} — larger than the recommended 50 MB. The upload may take a while on a slow connection, but it will continue.`
+      );
+    } else {
+      setWarning(null);
+    }
+
     setUploading(true);
     setProgress(0);
     try {
@@ -114,6 +126,7 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
     } finally {
       setUploading(false);
       setProgress(null);
+      setWarning(null);
     }
   }
 
@@ -245,6 +258,12 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
       {linkResult?.ok === false && body.trim() ? (
         <p role="alert" className="px-4 pb-3 text-xs text-amber-300">
           {linkResult.error} We only support YouTube, Instagram and TikTok links.
+        </p>
+      ) : null}
+
+      {warning ? (
+        <p role="alert" className="px-4 pb-3 text-xs text-amber-300">
+          {warning}
         </p>
       ) : null}
 
