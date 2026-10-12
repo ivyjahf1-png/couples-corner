@@ -38,6 +38,19 @@ export interface CatalogGame {
   thumbnail: string;
   /** The document loaded into the runner iframe. */
   iframeUrl: string;
+  /**
+   * Brand hex (e.g. "#22C55E") used to tint the tile gradient on the Arcade
+   * grid. Optional so a hand-authored entry that predates this field still
+   * passes validation; the grid falls back to a neutral slate when absent.
+   */
+  accent?: string;
+  /**
+   * Optional per-title glyph (e.g. "🎲"). Authored in `data/games.json` so the
+   * storefront and the profile tiles can show a distinct mark per game instead
+   * of one shared gamepad. Optional because the field post-dates the first
+   * entries; consumers fall back to a neutral glyph when it is absent.
+   */
+  emoji?: string;
 }
 
 /**
@@ -47,9 +60,19 @@ export interface CatalogGame {
  * the read. Filtering here means every consumer receives entries that genuinely
  * have a non-empty id and URL, and the `?? []` covers an empty or malformed
  * catalogue.
+ *
+ * WHY THE SOURCE IS CAST TO `unknown[]` FIRST. `catalogJson` is typed by
+ * inference from the literal, so every field it happens to contain — including
+ * the optional `accent`/`emoji`, which every current entry now carries — comes
+ * through as REQUIRED. A `game is CatalogGame` predicate demands `CatalogGame`
+ * be assignable to that parameter type, and an optional `accent?: string` is
+ * NOT assignable to an inferred `accent: string`. Reading through `unknown[]`
+ * keeps the predicate honest: the guard below is what actually checks each
+ * entry, so the element type on the way in must not pretend to already know
+ * the shape.
  */
 const CATALOG: readonly CatalogGame[] = (
-  Array.isArray(catalogJson) ? catalogJson : []
+  Array.isArray(catalogJson) ? (catalogJson as unknown[]) : []
 ).filter(
   (game): game is CatalogGame =>
     typeof game === "object" &&

@@ -4,8 +4,7 @@ import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import { RelationInviteCard } from "@/components/profile/RelationInviteCard";
 import { WalletTile } from "@/components/profile/WalletTile";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
-import { HTML5_GAMES } from "@/lib/game/registry";
-import { GameLaunchButton } from "@/components/game/GameModal";
+import { listGames, type CatalogGame } from "@/lib/game/catalog";
 
 /**
  * THE PROFILE SCREEN ("Me").
@@ -259,27 +258,25 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 /**
- * The titles promoted into the profile's Recommended Games row.
+ * The first eight catalog entries, in authored order — the profile's "Recommended
+ * Games" shelf.
  *
- * Resolved from `lib/game/registry` BY ID rather than re-declared, so the
- * title, gradient, glyph and tagline cannot drift out of step with the
- * launcher: change a name in the registry and both surfaces follow. The ids
- * come from the same list POST /api/game/launch validates against — a tile
- * here can never open a game the server would refuse.
+ * WHY FROM THE CATALOG AND NOT THE REGISTRY. The registry is the signed-launcher
+ * allow-list: its ids are the only ones `POST /api/game/launch` will mint a URL
+ * for, and its tiles open a modal. The Arcade (`/games`) and its runner are the
+ * browsable 28-game shelf, and they read `data/games.json` through the catalog
+ * module. Mapping the profile straight off `listGames()` is what keeps it in
+ * step with that shelf — add or rename a game in `data/games.json` and this row
+ * follows — and what lets each tile be a real `<Link>` into the runner rather
+ * than a modal bound to the launcher's allow-list.
  *
- * Each tile renders a `GameLaunchButton` (not a Link): there is no `/games`
- * route anymore. The click dispatches `openGame(id)` and the root-layout
- * provider mints the signed iframe URL.
+ * Eight tiles fill the existing 4-up grid on two rows with no rail, so the row
+ * neither clips nor implies content that does not exist.
  */
-const FEATURED_GAME_IDS = ["ludo", "mines", "spin-wheel", "scratch"] as const;
+const GAMES: CatalogGame[] = listGames().slice(0, 8);
 
-const GAMES = FEATURED_GAME_IDS.flatMap((id) => {
-  const entry = HTML5_GAMES.find((game) => game.id === id);
-  /* A missing id is a programming error, not a runtime condition: the ids above
-     are compile-time literals. flatMap skips rather than inventing a placeholder
-     — a tile with no registry entry has nothing honest to show. */
-  return entry ? [entry] : [];
-});
+/** Neutral tile colour when an entry has no `accent`. */
+const DEFAULT_ACCENT = "#475569";
 
 /**
  * Header bar pinned above the scroll region.
@@ -521,16 +518,18 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * between them anywhere.
        * ================================================================ */}
       <section aria-label="Games and features" className={SURFACE}>
-        {/* Band 1 — Recommended Games. A 3-up grid, one per registered HTML5
-            game, not a scroll rail: with three titles a rail would clip the
-            third and imply content that does not exist.
-            The tiles open the launcher modal via `GameLaunchButton` (see GAMES
-            above) — there is no `/games` route any more. */}
+        {/* Band 1 — Recommended Games. An 4-up grid of the first eight catalog
+            entries (see GAMES above), not a scroll rail: eight tiles fill two
+            rows exactly, so a rail would clip the eighth and imply content that
+            does not exist. Each tile is a real `<Link>` into the Arcade runner
+            at `/games/<id>` — the same catalog-driven flow the Game Center uses —
+            so the row maps directly off `data/games.json` and follows it when the
+            catalog changes. */}
         <div className="px-4 pb-4 pt-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-white">Recommended Games</h2>
             <Link
-              href="/store"
+              href="/games"
               aria-label="See all games"
               title="See all games"
               className={`flex h-8 w-8 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
@@ -555,12 +554,12 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           <ul className="mt-3 grid grid-cols-4 gap-2.5 my-3">
             {GAMES.map((game) => (
               <li key={game.id} className="min-w-0">
-                <GameLaunchButton
-                  gameId={game.id}
-                  /* The tagline is the tile's accessible name: a screen reader
-                     otherwise announces three identical bare numbers-of-a-game with
-                     no idea which is which or what playing one involves. */
-                  aria-label={`${game.title} — ${game.tagline}`}
+                <Link
+                  href={`/games/${game.id}`}
+                  /* The category is part of the tile's accessible name: a screen
+                     reader otherwise announces a row of identical bare game titles
+                     with no idea which is which. */
+                  aria-label={`${game.title} — ${game.category}`}
                   className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 p-2 text-center transition hover:bg-white/[0.06] ${FOCUS}`}
                 >
                   {/* THE TILE ARTWORK.
@@ -568,31 +567,34 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                      Three layers rather than a flat gradient block, because a bare
                      gradient is what made these read as empty placeholders:
 
-                       1. the game's OWN gradient from the registry (distinct per
-                          title, and the same one the hub card uses);
-                       2. a radial bloom behind the glyph, which stops the middle
+                       1. the game's OWN accent colour from the catalog, rendered as
+                          a diagonal gradient (the same value the Arcade grid uses,
+                          so a tile here and its card there match);
+                       2. a radial bloom behind the centre, which stops the middle
                           of the tile reading as flat colour;
-                       3. the game's own emoji glyph from the registry, centred.
+                       3. a centred gamepad glyph on top.
 
-                     `aria-hidden` because the tile's `aria-label` already names it
-                     and an emoji read aloud as a character is noise.
+                     `aria-hidden` because the tile's `aria-label` already names it.
 
-                     HONEST LIMITATION: there are no screenshot or photo assets in
-                     this repository — `public/` holds only the three app icons — so
-                     this is designed artwork built from the registry's own data,
-                     not photography. Drop PNGs at `public/html5-games/<id>/cover.png` and add
-                     an `image` field to `Html5Game` to swap in real
-                     screenshots; the tile is one `<img>` away from it. */}
+                     HONEST LIMITATION: most catalog entries ship no `thumbnail`
+                     (there are no screenshot assets in this repository — `public/`
+                     holds only the app icons and the eight local builds), so this
+                     is designed artwork built from the catalog's own accent colour.
+                     Add a `thumbnail` URL to an entry and the tile can render an
+                     `<img>` instead; the gradient stays as the loading backdrop. */}
                   <span
                     aria-hidden
-                    className={`relative block aspect-square w-full overflow-hidden rounded-xl bg-gradient-to-br ${game.gradient} shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
+                    className={`relative block aspect-square w-full overflow-hidden rounded-xl shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
+                    style={{
+                      background: `linear-gradient(135deg, ${game.accent ?? DEFAULT_ACCENT} 0%, rgba(15,23,42,0.9) 120%)`,
+                    }}
                   >
                     <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.38),transparent_62%)]" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[34px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
-                      {game.emoji}
+                    <span className="absolute inset-0 flex items-center justify-center text-[30px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
+                      {game.emoji ?? "🎮"}
                     </span>
                     {/* Bottom vignette so the glyph keeps its contrast against the
-                        lighter part of any gradient. */}
+                        lighter part of any accent gradient. */}
                     <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/25 to-transparent" />
                   </span>
                   {/* `line-clamp-1` + `title`: a long title ellipsizes to one line
@@ -603,7 +605,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                   >
                     {game.title}
                   </span>
-                </GameLaunchButton>
+                </Link>
               </li>
             ))}
           </ul>

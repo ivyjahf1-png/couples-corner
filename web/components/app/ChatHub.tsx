@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type TouchEvent as ReactTouchEvent } from "react";
 import Link from "next/link";
 import {
   Clock,
@@ -226,11 +226,11 @@ export function ChatHub({ chats, displayName }: ChatHubProps) {
 
   const committed = dragX < -120;
 
-  const onTouchStart = useCallback((e: TouchEvent, index: number) => {
+  const onTouchStart = useCallback((e: ReactTouchEvent, index: number) => {
     setActiveRow(index);
   }, []);
 
-  const onTouchMove = useCallback((e: TouchEvent, index: number) => {
+  const onTouchMove = useCallback((e: ReactTouchEvent, index: number) => {
     const x = e.touches?.[0]?.clientX ?? 0;
     if (activeRow !== index) return;
     setDragX(-(x - 300));
@@ -249,7 +249,7 @@ export function ChatHub({ chats, displayName }: ChatHubProps) {
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
       {/* Fixed header — Message + Filter/Search. */}
       <header className="flex shrink-0 items-center gap-1.5 border-b border-white/[0.06] bg-white/[0.04] px-4 py-2">
-        <Link href={`/messages/${chats[0]?.id ?? ""}`}>
+        <Link href={chats[0]?.href ?? "/messages"}>
           <h1 className="flex items-center gap-2 text-lg font-bold text-white">
             <Mail className="h-4 w-4 text-orange-300" aria-hidden />
             Message
@@ -328,7 +328,7 @@ export function ChatHub({ chats, displayName }: ChatHubProps) {
               ) : (
                 chats.map((chat) => (
                   <ConversationRow
-                    key={chat.id}
+                    key={chat.key}
                     chat={chat}
                   />
                 ))

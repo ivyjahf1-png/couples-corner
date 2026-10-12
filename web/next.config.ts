@@ -37,7 +37,16 @@ const nextConfig: NextConfig = {
       // id that is not in the catalogue calls `redirect("/dashboard")`, so
       // `/games/couples-ludo-advance` still lands on a real screen, and the
       // blanket redirect no longer has to exist to achieve that.
-      { source: "/games", destination: "/dashboard", permanent: false },
+      //
+      // ── WHY THE `/games` REDIRECT IS ALSO GONE ───────────────────────────
+      // `/games` used to point at the old hub. It is now the Arcade hub again:
+      // `app/(app)/games/page.tsx` maps the full catalogue from data/games.json
+      // with category filtering and a working iframe launcher. Next evaluates
+      // redirects BEFORE filesystem routes, so a `{ source: "/games" }` entry
+      // would have made the new hub unreachable — the exact failure the tree-
+      // wide `/games/:path*` redirect above caused for the detail page.
+      // Category filters live on the query string (`/games?category=Board`),
+      // which the hub reads via `searchParams`, so no route alias is needed.
     ];
   },
   // Server Action request body limit.

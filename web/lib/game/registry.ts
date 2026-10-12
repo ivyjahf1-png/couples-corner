@@ -244,3 +244,32 @@ export const DEFAULT_GAME_ID: string = HTML5_GAMES[0]!.id;
 export function findGame(gameId: string): Html5Game | undefined {
   return HTML5_GAMES.find((game) => game.id === gameId);
 }
+
+/* ------------------------------------------------------------------------- *
+ * THE CENTRAL GAME REGISTRY — the 28-game catalogue, re-exported.
+ *
+ * Two doors into one catalogue:
+ *   • THIS module is the launcher's signed allow-list (`/api/game/launch`,
+ *     the Game Modal). Its entries are the builds we host and control, plus
+ *     the three native couple games — the only titles the launch flow mints a
+ *     signed iframe URL for.
+ *   • `catalog.ts` is the full, browsable 28-title shelf behind `/games` and
+ *     the runner. It is the single source of truth for the storefront.
+ *
+ * They are deliberately NOT merged into one list. The launch URL embeds the
+ * signed-in member's uid (the wallet/coin balance reads it back), so folding
+ * every third-party GameDistribution embed into the allow-list would mint a
+ * session-bearing URL for an origin we do not control. Keeping the shelf in
+ * `catalog.ts` means a storefront edit can never change what the signed
+ * launcher will hand out.
+ *
+ * The re-exports below give consumers one import surface: `catalog.ts` for the
+ * shelf (and every registry iframe `path` points at its own local build in
+ * `public/`), and this module for the signed launcher.
+ * ------------------------------------------------------------------------- */
+export {
+  listGames as listCatalogGames,
+  findCatalogGame,
+  isSafeGameUrl,
+  type CatalogGame,
+} from "./catalog";
