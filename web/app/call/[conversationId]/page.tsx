@@ -1,13 +1,13 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
 
 /**
- * /call/[channelName] — the Agora RTC room for a live 1:1 call.
+ * /call/[conversationId] — the Agora RTC room for a live 1:1 call.
  *
- * The channel name in the URL is the shared room id both peers derive from
+ * The conversation id in the URL is the shared room id both peers derive from
  * their conversation. On mount we mint a fresh RTC token from
  * POST /api/agora-token (the App Certificate never leaves the server), join
  * the channel, publish the local mic + camera, subscribe to remote users, and
@@ -62,9 +62,9 @@ interface AgoraSdk {
 }
 
 export default function CallRoomPage() {
-  const params = useParams<{ channelName: string }>();
+  const params = useParams<{ conversationId: string }>();
   const router = useRouter();
-  const channelName = params?.channelName ? decodeURIComponent(params.channelName) : "";
+  const conversationId = params?.conversationId ? decodeURIComponent(params.conversationId) : "";
 
   const appId = process.env.NEXT_PUBLIC_AGORA_APP_ID ?? "";
 
@@ -121,7 +121,7 @@ export default function CallRoomPage() {
   }
 
   useEffect(() => {
-    if (!channelName || !appId) {
+    if (!conversationId || !appId) {
       setError(!appId ? "Video calling is not configured on this deployment." : "Missing call room.");
       setStatus("failed");
       return;
@@ -134,7 +134,7 @@ export default function CallRoomPage() {
         const res = await fetch("/api/agora-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channelName, uid: 0 }),
+          body: JSON.stringify({ conversationId, uid: 0 }),
         });
         if (!res.ok) {
           if (!cancelled) {
@@ -187,7 +187,7 @@ export default function CallRoomPage() {
           setRemoteUsers((current) => current.filter((u) => u.uid !== user.uid));
         });
 
-        await client.join(appId, channelName, token, 0);
+        await client.join(appId, conversationId, token, 0);
         await client.publish([audioTrack, videoTrack]);
 
         if (!cancelled && localRef.current) {
@@ -207,7 +207,7 @@ export default function CallRoomPage() {
     return () => {
       cancelled = true;
     };
-  }, [channelName, appId]);
+  }, [conversationId, appId]);
 
   if (status === "failed") {
     return (
