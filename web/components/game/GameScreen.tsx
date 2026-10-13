@@ -20,7 +20,7 @@ export function GameScreen({ game }: { game: CatalogGame }) {
         </div>
       </div>
       <div className="mt-4 rounded-3xl border border-white/10 p-3" style={{ background: `linear-gradient(160deg, ${game.accent}33, #0f172a)` }}>
-        <LocalGameRunner engine={game.engine} onWin={(n) => applyDelta(n)} onLose={(n) => applyDelta(-n)} />
+        <LocalGameRunner engine={game.engine} balance={balance} onWin={(n) => applyDelta(n)} onLose={(n) => applyDelta(-n)} />
       </div>
       <p className="mt-3 text-center text-[11px] text-white/50">Stake coins to play. Winnings are added to your Supabase game wallet.</p>
     </div>

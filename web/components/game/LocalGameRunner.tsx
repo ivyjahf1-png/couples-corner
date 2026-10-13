@@ -1,13 +1,13 @@
 "use client";
 import { ArcadeEngine, CardsEngine, SportsEngine } from "./engines/TableEngines";
-import { LudoEngine } from "./engines/LudoEngine";
+import { LudoSuperstar } from "./ludo/LudoSuperstar";
 import { MinesEngine } from "./engines/MinesEngine";
 import { SlotsEngine } from "./engines/SlotsEngine";
 import { WhotEngine } from "./engines/WhotEngine";
 import type { GameEngine } from "@/lib/game/catalog";
 
-export function LocalGameRunner({ engine, onWin, onLose }: { engine: GameEngine; onWin: (n: number) => void; onLose: (n: number) => void }) {
-  if (engine === "ludo") return <LudoEngine onWin={onWin} onLose={onLose} />;
+export function LocalGameRunner({ engine, balance, onWin, onLose }: { engine: GameEngine; balance?: number; onWin: (n: number) => void; onLose: (n: number) => void }) {
+  if (engine === "ludo") return <LudoSuperstar balance={balance ?? 10000} onWin={onWin} onLose={onLose} />;
   if (engine === "whot") return <WhotEngine onWin={onWin} onLose={onLose} />;
   if (engine === "mines") return <MinesEngine onWin={onWin} onLose={onLose} />;
   if (engine === "slots") return <SlotsEngine onWin={onWin} onLose={onLose} />;
