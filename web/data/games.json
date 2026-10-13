@@ -27,15 +27,6 @@
     "emoji": "🎡"
   },
   {
-    "id": "jewels-blitz",
-    "title": "Jewels Blitz",
-    "category": "Match-3",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/jewels-blitz/index.html",
-    "accent": "#A21CAF",
-    "emoji": "💎"
-  },
-  {
     "id": "scratch",
     "title": "Scratch Card",
     "category": "Arcade",
@@ -43,6 +34,15 @@
     "iframeUrl": "/html5-games/scratch/index.html",
     "accent": "#7C3AED",
     "emoji": "🎫"
+  },
+  {
+    "id": "jewels-blitz",
+    "title": "Jewels Blitz",
+    "category": "Match-3",
+    "thumbnail": "",
+    "iframeUrl": "/html5-games/jewels-blitz/index.html",
+    "accent": "#A21CAF",
+    "emoji": "💎"
   },
   {
     "id": "tile-match",

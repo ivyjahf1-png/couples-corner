@@ -35,6 +35,75 @@ interface GameRunnerProps {
 export function GameRunner({ gameId, title, category, gameUrl }: GameRunnerProps) {
   const [fullscreen, setFullscreen] = useState(false);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+
+  /**
+   * THE COIN BRIDGE â€" how a self-hosted game's Cash Out reaches Supabase.
+   *
+   * The iframe runs a static file with no session, so it cannot write the
+   * wallet itself. It posts `{ type: "game:cashout", coins }` up to this
+   * runner, which re-posts to `POST /api/game/cashout` with the member's own
+   * session and relays the resulting balance back down. Two guards keep the
+   * bridge honest: the message is accepted ONLY when `event.source` is this
+   * runner's own iframe window (another frame on the page cannot spend it),
+   * and the server re-validates the amount regardless of what the frame said.
+   *
+   * `game:ready` pushes the live server balance down on load, so the game
+   * shows the real wallet rather than a stale local number.
+   */
+  useEffect(() => {
+    function post(data: Record<string, unknown>) {
+      iframeRef.current?.contentWindow?.postMessage(data, "*");
+    }
+
+    async function pushWallet() {
+      try {
+        const res = await fetch("/api/wallet/purchase", { method: "GET" });
+        if (!res.ok) return;
+        const data = (await res.json()) as { coinBalance?: number };
+        if (typeof data.coinBalance === "number") {
+          post({ type: "game:wallet", coinBalance: data.coinBalance });
+        }
+      } catch {
+        /* Offline or signed out — the game falls back to its local balance. */
+      }
+    }
+
+    function onMessage(event: MessageEvent) {
+      if (event.source !== iframeRef.current?.contentWindow) return;
+      const data = event.data as { type?: string; coins?: number } | null;
+      if (data?.type === "game:ready") {
+        void pushWallet();
+        return;
+      }
+      if (data?.type !== "game:cashout") return;
+      const coins = data.coins;
+      if (typeof coins !== "number" || !Number.isInteger(coins)) return;
+
+      void (async () => {
+        try {
+          const res = await fetch("/api/game/cashout", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ coins }),
+          });
+          const payload = (await res.json()) as { coinBalance?: number; error?: string };
+          post({
+            type: "game:cashout",
+            ok: res.ok,
+            coinBalance: typeof payload.coinBalance === "number" ? payload.coinBalance : null,
+            error: res.ok ? null : (payload.error ?? "Cash-out failed"),
+          });
+          if (res.ok) void pushWallet();
+        } catch {
+          post({ type: "game:cashout", ok: false, coinBalance: null, error: "Network error" });
+        }
+      })();
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [gameId]);
 
   /**
    * THE NATIVE FULLSCREEN API, NOT A CSS FAUX-FULLSCREEN.
@@ -171,6 +240,7 @@ export function GameRunner({ gameId, title, category, gameUrl }: GameRunnerProps
       >
         <iframe
           key={gameId}
+          ref={iframeRef}
           src={gameUrl}
           title={title}
           className="h-full w-full border-0"

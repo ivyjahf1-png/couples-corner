@@ -1,122 +1,457 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
+<meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Ludo — Couples Corner</title>
+<title>Ludo Classic — Couples Corner</title>
 <style>
-  :root { color-scheme: dark; }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0B1120; --panel: #0F172A; --line: rgba(148,163,184,.16);
+    --red: #EF4444; --green: #22C55E; --yellow: #EAB308; --blue: #3B82F6;
+    --text: #E2E8F0; --dim: #94A3B8; --orange: #FF7A00;
+  }
   html, body { height: 100%; }
   body {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 12px; padding: 16px; text-align: center; background: #0F172A; color: #f8fafc;
-    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+    background: radial-gradient(1100px 560px at 50% -10%, #16213E 0%, var(--bg) 55%);
+    color: var(--text);
+    font: 600 14px/1.4 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; flex-direction: column; min-height: 100%; align-items: center;
+    -webkit-tap-highlight-color: transparent;
   }
-  h1 { font-size: 18px; font-weight: 700; }
-  .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: center; }
-  .stat { font-size: 12px; color: #94a3b8; }
-  .stat b { color: #FF5722; font-size: 14px; }
-  .stat.you b { color: #4ade80; }
-  canvas { touch-action: manipulation; border-radius: 12px; background: #0b1220; border: 1px solid #1e293b; max-width: 100%; height: auto; }
-  button { padding: 8px 16px; border-radius: 999px; border: 1px solid #FF5722; cursor: pointer;
-    background: rgba(255,87,34,.15); color: #ffd9cc; font-weight: 700; font-size: 13px;
-    transition: transform .08s ease, background .15s ease; }
-  button:active { transform: scale(.95); }
-  button:hover { background: rgba(255,87,34,.3); }
-  button:disabled { opacity: .4; cursor: default; }
-  #msg { font-size: 13px; font-weight: 700; min-height: 18px; }
-  #msg.win { color: #4ade80; } #msg.lose { color: #f87171; }
+  header { display: flex; align-items: center; justify-content: space-between;
+           padding: 14px 16px; width: 100%; max-width: 520px; }
+  h1 { font-size: 17px; letter-spacing: .24em; background: linear-gradient(90deg, var(--orange), #FFB37A);
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .wallet { background: rgba(255,122,0,.12); border: 1px solid rgba(255,122,0,.45); color: #FFD9B3;
+            padding: 5px 12px; border-radius: 999px; font-size: 13px; }
+  .board-wrap { position: relative; width: min(92vw, 460px); aspect-ratio: 1;
+                border-radius: 16px; overflow: hidden; border: 1px solid var(--line);
+                box-shadow: 0 22px 50px -26px rgba(0,0,0,.9); background: #0D1526; }
+  .board { display: grid; grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr);
+           width: 100%; height: 100%; }
+  .cell { position: relative; border: 1px solid rgba(15,23,42,.55);
+          display: flex; align-items: center; justify-content: center; }
+  .cell.track { background: #16203A; }
+  .cell.base { border: none; color: currentColor; }
+  .cell.base::before { content: ""; position: absolute; inset: 14%; border-radius: 10px;
+                       background: rgba(11,17,32,.75); border: 2px solid currentColor; opacity: .5; }
+  .cell.base.red { color: var(--red); background: rgba(239,68,68,.16); }
+  .cell.base.green { color: var(--green); background: rgba(34,197,94,.16); }
+  .cell.base.yellow { color: var(--yellow); background: rgba(234,171,8,.16); }
+  .cell.base.blue { color: var(--blue); background: rgba(59,130,246,.16); }
+  .cell.home.red { background: rgba(239,68,68,.75); }
+  .cell.home.green { background: rgba(34,197,94,.75); }
+  .cell.home.yellow { background: rgba(234,171,8,.75); }
+  .cell.home.blue { background: rgba(59,130,246,.75); }
+  .cell.start { box-shadow: inset 0 0 0 2px rgba(255,255,255,.35); }
+  .cell.start.red { background: rgba(239,68,68,.55); }
+  .cell.start.green { background: rgba(34,197,94,.55); }
+  .cell.start.yellow { background: rgba(234,171,8,.55); }
+  .cell.start.blue { background: rgba(59,130,246,.55); }
+  .cell.center { border: none; background: conic-gradient(from 0deg,
+      var(--red) 0deg 90deg, var(--green) 90deg 180deg, var(--yellow) 180deg 270deg,
+      var(--blue) 270deg 360deg); }
+
+  /* PAWNS */
+  .pawn { width: 72%; height: 72%; border-radius: 50%; position: relative; z-index: 2;
+          border: 2px solid rgba(255,255,255,.85); cursor: default;
+          box-shadow: 0 3px 6px rgba(0,0,0,.55); animation: land .28s ease; }
+  .pawn.red { background: radial-gradient(circle at 32% 28%, #FCA5A5, var(--red)); }
+  .pawn.green { background: radial-gradient(circle at 32% 28%, #86EFAC, var(--green)); }
+  .pawn.yellow { background: radial-gradient(circle at 32% 28%, #FDE047, var(--yellow)); }
+  .pawn.blue { background: radial-gradient(circle at 32% 28%, #93C5FD, var(--blue)); }
+  @keyframes land { 0% { transform: scale(.4); } 65% { transform: scale(1.18); } 100% { transform: scale(1); } }
+  .pawn.can-move { cursor: pointer; animation: pulse 1s ease-in-out infinite; z-index: 3; }
+  @keyframes pulse { 0%,100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,122,0,.75); }
+                     50% { transform: scale(1.12); box-shadow: 0 0 0 6px rgba(255,122,0,0); } }
+  .cell.stacked .pawn { width: 55%; height: 55%; }
+
+  /* HUD: dice + status */
+  .hud { display: flex; align-items: center; gap: 14px; width: 100%; max-width: 520px;
+         padding: 12px 16px 4px; }
+  .die { width: 64px; height: 64px; flex: 0 0 64px; border-radius: 14px; border: 1px solid var(--line);
+         background: linear-gradient(160deg, #17223E, #0E1526); font-size: 40px; line-height: 1;
+         display: flex; align-items: center; justify-content: center; cursor: pointer;
+         transition: border-color .15s, box-shadow .15s; color: var(--text); }
+  .die:not(:disabled):hover { border-color: var(--orange); box-shadow: 0 0 14px rgba(255,122,0,.4); }
+  .die:disabled { opacity: .5; cursor: default; }
+  .die.rolling { animation: tumble .55s ease; }
+  @keyframes tumble { 0% { transform: rotate(0) scale(1); } 25% { transform: rotate(-16deg) scale(1.12); }
+                      50% { transform: rotate(12deg) scale(.94); } 75% { transform: rotate(-8deg) scale(1.06); }
+                      100% { transform: rotate(0) scale(1); } }
+  .status { flex: 1; min-width: 0; }
+  .status .turn { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+  .status .msg { font-size: 15px; font-weight: 800; }
+  .status .msg.red { color: var(--red); } .status .msg.green { color: var(--green); }
+  .status .msg.yellow { color: var(--yellow); } .status .msg.blue { color: var(--blue); }
+  .hint { font-size: 12px; color: var(--dim); padding: 0 16px 14px; width: 100%; max-width: 520px; }
+  .overlay { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+             justify-content: center; gap: 10px; background: rgba(5,9,18,.86);
+             backdrop-filter: blur(6px); z-index: 9; text-align: center; padding: 20px; }
+  .overlay h2 { font-size: 34px; letter-spacing: .1em; }
+  .overlay button { border: none; border-radius: 999px; padding: 12px 28px; font: inherit;
+                    font-weight: 800; cursor: pointer; background: linear-gradient(90deg, var(--orange), #FF9A3D);
+                    color: #160800; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
-  <h1>🎲 Ludo</h1>
-  <div class="row">
-    <span class="stat">Track <b id="trackLen">28</b></span>
-    <span class="stat you">You <b id="youPos">0</b></span>
-    <span class="stat">Rival <b id="rivalPos">0</b></span>
-    <button id="roll">Roll &amp; move</button>
+<header>
+  <h1>LUDO CLASSIC</h1>
+  <div class="wallet">🎲 You are RED</div>
+</header>
+
+<div class="hud">
+  <button class="die" id="die" type="button" aria-label="Roll dice">⚀</button>
+  <div class="status">
+    <div class="turn" id="turnLabel">Your turn</div>
+    <div class="msg red" id="msg">Tap the die to roll</div>
   </div>
-  <canvas id="board" width="320" height="320" aria-label="Ludo race track"></canvas>
-  <div id="msg">Race your token home before your rival does.</div>
+</div>
+
+<div class="board-wrap">
+  <div class="board" id="board"></div>
+</div>
+
+<p class="hint" id="hint">Roll a 6 to release a pawn · land on an opponent to send it home · reach the centre with an exact roll</p>
+
+<div class="overlay hidden" id="overlay">
+  <h2 id="winTitle"></h2>
+  <button type="button" id="againBtn">Play Again</button>
+</div>
+
 <script>
-(function () {
-  "use strict";
-  var SIZE = 14;            /* track squares around the loop */
-  var WIN = SIZE + 3;       /* squares to clear the track + finish run-in */
-  var canvas = document.getElementById("board");
-  var ctx = canvas.getContext("2d");
-  var dpr = Math.min(window.devicePixelRatio || 1, 2);
-  var cssW = canvas.clientWidth || 320;
-  canvas.width = cssW * dpr; canvas.height = cssW * dpr; ctx.scale(dpr, dpr);
-  var you = 0, rival = 0, busy = false, over = false;
+"use strict";
+/* ------------------------------------------------------------------ *
+ * LUDO CLASSIC — full 4-quadrant board. Four home bases, a shared
+ * 52-cell clockwise track, six-cell home lanes into the centre,
+ * interactive pawn counters and an animated die. You play RED; the
+ * other three seats are simple bots so a solo member can play.
+ * ------------------------------------------------------------------ */
+const COLORS = ["red", "green", "yellow", "blue"];
+const NAMES = ["RED", "GREEN", "YELLOW", "BLUE"];
+const HUMAN = 0;
+const DICE = "⚀⚁⚂⚃⚄⚅";
 
-  function setMsg(text, cls) { var m = document.getElementById("msg"); m.textContent = text; m.className = cls || ""; }
-  function updateStats() {
-    document.getElementById("youPos").textContent = you;
-    document.getElementById("rivalPos").textContent = rival;
+/* The 52-cell clockwise track as [col, row] on the 15x15 board. */
+const TRACK = [
+  [6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],
+  [0,7],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],
+  [7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],
+  [14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],
+  [7,14],[6,14]
+];
+
+/* Per seat: start cell on the track, the 6-cell home lane (last cell is
+   the centre), and the four base parking slots — all [col, row]. */
+const PLAYERS = [
+  { start: 13, home: [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]], slots: [[2,2],[3,2],[2,3],[3,3]] },
+  { start: 26, home: [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]], slots: [[11,2],[12,2],[11,3],[12,3]] },
+  { start: 39, home: [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]], slots: [[11,11],[12,11],[11,12],[12,12]] },
+  { start: 0,  home: [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], slots: [[2,11],[3,11],[2,12],[3,12]] }
+];
+const BASES = [
+  { cls: "red", c0: 0, r0: 0 }, { cls: "green", c0: 9, r0: 0 },
+  { cls: "yellow", c0: 9, r0: 9 }, { cls: "blue", c0: 0, r0: 9 }
+];
+
+const key = (c, r) => c + "," + r;
+/* Start cells are safe squares — no capture happens on them. */
+const SAFE = new Set(PLAYERS.map((p) => key(TRACK[p.start][0], TRACK[p.start][1])));
+/* Every home-lane cell, for quick classification while painting the board. */
+const HOME_KEYS = new Set();
+PLAYERS.forEach((p) => p.home.forEach(([c, r]) => HOME_KEYS.add(key(c, r))));
+
+let pawns = [];      /* pawns[seat][i]: -1 base · 0..50 track offset · 51..56 home (56 = centre) */
+let turn = 0;        /* seat whose turn it is */
+let die = 0;
+let busy = false;    /* die rolling / bot thinking — input locked */
+let waiting = false; /* awaiting the human's pawn click */
+let sixStreak = 0;
+
+const boardEl = document.getElementById("board");
+const dieEl = document.getElementById("die");
+const msgEl = document.getElementById("msg");
+const turnEl = document.getElementById("turnLabel");
+const overlayEl = document.getElementById("overlay");
+const winTitleEl = document.getElementById("winTitle");
+
+/* --- BOARD PAINTING -------------------------------------------------- */
+const TRACK_MAP = new Map();
+TRACK.forEach(([c, r], i) => TRACK_MAP.set(key(c, r), i));
+const HOME_CLASS = new Map();
+PLAYERS.forEach((p, i) => p.home.forEach(([c, r]) => HOME_CLASS.set(key(c, r), COLORS[i])));
+const START_CLASS = new Map();
+PLAYERS.forEach((p, i) => { const [c, r] = TRACK[p.start]; START_CLASS.set(key(c, r), COLORS[i]); });
+
+function cellClass(c, r) {
+  for (const b of BASES) {
+    if (c >= b.c0 && c <= b.c0 + 5 && r >= b.r0 && r <= b.r0 + 5) return "base " + b.cls;
   }
-
-  /* Square ring track: index 0..SIZE-1 around a rounded rectangle. */
-  function trackPoint(i) {
-    var pad = 26, side = cssW - pad * 2, seg = side / (SIZE / 4);
-    var segIdx = Math.floor(i / (SIZE / 4)) % 4, along = (i % (SIZE / 4)) / (SIZE / 4);
-    if (segIdx === 0) return { x: pad + side * along, y: pad };
-    if (segIdx === 1) return { x: pad + side, y: pad + side * along };
-    if (segIdx === 2) return { x: pad + side - side * along, y: pad + side };
-    return { x: pad, y: pad + side - side * along };
+  const k = key(c, r);
+  if (TRACK_MAP.has(k)) {
+    const sc = START_CLASS.get(k);
+    return sc ? "track start " + sc : "track";
   }
+  if (HOME_CLASS.has(k)) return "home " + HOME_CLASS.get(k);
+  if (c >= 6 && c <= 8 && r >= 6 && r <= 8) return "center";
+  return "track";
+}
 
-  function draw() {
-    ctx.clearRect(0, 0, cssW, cssW);
-    /* Track background line. */
-    ctx.strokeStyle = "#1e293b"; ctx.lineWidth = 14; ctx.lineJoin = "round";
-    var p0 = trackPoint(0), last = p0;
-    for (var i = 1; i <= SIZE; i++) { var p = trackPoint(i % SIZE); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; }
-    /* Track squares. */
-    for (var s = 0; s < SIZE; s++) {
-      var q = trackPoint(s); ctx.fillStyle = s % 2 ? "#334155" : "#475569";
-      ctx.fillRect(q.x - 5, q.y - 5, 10, 10);
+let cellMap = new Map();
+function buildBoard() {
+  boardEl.innerHTML = "";
+  cellMap = new Map();
+  for (let r = 0; r < 15; r++) {
+    for (let c = 0; c < 15; c++) {
+      const d = document.createElement("div");
+      d.className = "cell " + cellClass(c, r);
+      d.dataset.k = key(c, r);
+      boardEl.appendChild(d);
+      cellMap.set(key(c, r), d);
     }
-    /* Finish marker (top-right corner). */
-    ctx.fillStyle = "#FF5722"; ctx.font = "bold 12px sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "top";
-    ctx.fillText("HOME", cssW - 10, cssW - 22);
-    /* Rival token (blue) drawn first so yours overlaps on a shared square. */
-    var rp = trackPoint(Math.min(rival, SIZE - 1));
-    ctx.beginPath(); ctx.fillStyle = "#3b82f6"; ctx.arc(rp.x - 6, rp.y - 6, 9, 0, 7); ctx.fill();
-    ctx.strokeStyle = "#0b1220"; ctx.lineWidth = 2; ctx.stroke();
-    /* Your token (red/orange). */
-    var yp = trackPoint(Math.min(you, SIZE - 1));
-    ctx.beginPath(); ctx.fillStyle = "#FF5722"; ctx.arc(yp.x + 6, yp.y + 6, 9, 0, 7); ctx.fill();
-    ctx.strokeStyle = "#0b1220"; ctx.lineWidth = 2; ctx.stroke();
   }
+}
 
-  function roll() {
-    if (busy || over) return;
-    busy = true; document.getElementById("roll").disabled = true;
-    var d = 1 + Math.floor(Math.random() * 6);
-    var rd = 1 + Math.floor(Math.random() * 6);
-    setMsg("You rolled " + d + " · rival rolled " + rd + "…");
-    var steps = Math.max(d, rd), done = 0;
-    var iv = setInterval(function () {
-      if (you < WIN && d > 0) { you++; d--; }
-      else if (rival < WIN && rd > 0) { rival++; rd--; }
-      done++;
-      updateStats(); draw();
-      if (you >= WIN || rival >= WIN || done >= steps) {
-        clearInterval(iv); busy = false; document.getElementById("roll").disabled = false;
-        if (you >= WIN && rival >= WIN) { over = true; setMsg("🤝 Dead heat — both home!", "win"); }
-        else if (you >= WIN) { over = true; setMsg("🎉 You brought your token home!", "win"); }
-        else if (rival >= WIN) { over = true; setMsg("😤 Your rival got home first.", "lose"); }
-        else { setMsg("Your turn — Roll & move again."); }
+/* --- PAWN PLACEMENT --------------------------------------------------- */
+function placeOf(seat, i) {
+  const pos = pawns[seat][i];
+  if (pos < 0) return PLAYERS[seat].slots[i];                       /* base */
+  if (pos <= 50) return TRACK[(PLAYERS[seat].start + pos) % 52];    /* track */
+  return PLAYERS[seat].home[pos - 51];                              /* home lane → centre */
+}
+
+let movable = [];   /* pawn indexes the current human turn may pick */
+
+function renderPawns() {
+  document.querySelectorAll(".board .pawn").forEach((el) => el.remove());
+  document.querySelectorAll(".cell.stacked").forEach((el) => el.classList.remove("stacked"));
+  for (let s = 0; s < 4; s++) {
+    for (let i = 0; i < 4; i++) {
+      const [c, r] = placeOf(s, i);
+      const cell = cellMap.get(key(c, r));
+      if (!cell) continue;
+      const p = document.createElement("div");
+      p.className = "pawn " + COLORS[s];
+      if (s === HUMAN && waiting && movable.includes(i)) {
+        p.classList.add("can-move");
+        p.addEventListener("click", () => choosePawn(i));
       }
-    }, 160);
+      cell.appendChild(p);
+    }
+  }
+  document.querySelectorAll(".board .cell").forEach((cell) => {
+    if (cell.querySelectorAll(".pawn").length > 1) cell.classList.add("stacked");
+  });
+}
+
+/* --- SOUND ----------------------------------------------------------- */
+let ac = null;
+function tone(freq, dur, type, vol) {
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.value = freq; o.connect(g); g.connect(ac.destination);
+    const t = ac.currentTime;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.start(t); o.stop(t + dur);
+  } catch (e) { /* silent until a gesture */ }
+}
+function tick()   { tone(660, .05, "triangle", .05); }
+function stepFx() { tone(440, .07, "sine", .05); }
+function capFx()  { tone(220, .25, "sawtooth", .09); setTimeout(() => tone(165, .3, "sawtooth", .08), 90); }
+function winFx()  { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => tone(f, .22, "sine", .08), i * 130)); }
+function haptic(p){ try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+/* --- TURN LOGIC ------------------------------------------------------- */
+let phase = "idle";   /* idle → roll allowed · rolling · pick · moving · over */
+
+function legalMoves(seat, d) {
+  const out = [];
+  pawns[seat].forEach((pos, i) => {
+    if (pos === -1) { if (d === 6) out.push(i); return; }   /* release needs a 6 */
+    if (pos >= 56) return;                                  /* already home */
+    if (pos + d <= 56) out.push(i);                         /* exact count to finish */
+  });
+  return out;
+}
+
+/* Send every opponent standing on this track cell back to base.
+   Safe squares (the four start cells) protect whoever stands on them. */
+function captureAt(seat, pos) {
+  const [c, r] = TRACK[(PLAYERS[seat].start + pos) % 52];
+  const k = key(c, r);
+  if (SAFE.has(k)) return 0;
+  let taken = 0;
+  for (let s = 0; s < 4; s++) {
+    if (s === seat) continue;
+    for (let i = 0; i < 4; i++) {
+      const op = pawns[s][i];
+      if (op < 0 || op > 50) continue;
+      const [oc, or] = TRACK[(PLAYERS[s].start + op) % 52];
+      if (key(oc, or) === k) { pawns[s][i] = -1; taken++; }
+    }
+  }
+  return taken;
+}
+
+function checkWin(seat) {
+  if (!pawns[seat].every((p) => p === 56)) return false;
+  phase = "over";
+  winTitleEl.textContent = (seat === HUMAN ? "YOU WIN! " : "") + NAMES[seat] + " WINS!";
+  winTitleEl.style.color = seat === HUMAN ? "var(--green)" : "var(--" + COLORS[seat] + ")";
+  overlayEl.classList.remove("hidden");
+  winFx(); haptic([60, 80, 60, 80, 140]);
+  return true;
+}
+
+function movePawn(i) {
+  phase = "moving";
+  waiting = false; movable = [];
+  const pos = pawns[turn][i];
+  pawns[turn][i] = pos === -1 ? 0 : pos + die;
+  renderPawns();
+  stepFx(); haptic(8);
+
+  let captured = false;
+  if (pawns[turn][i] <= 50 && captureAt(turn, pawns[turn][i]) > 0) {
+    captured = true;
+    renderPawns();
+    capFx(); haptic([40, 30, 60]);
   }
 
-  document.getElementById("roll").addEventListener("click", roll);
-  updateStats(); draw();
-})();
+  const finished = pawns[turn][i] === 56;
+  const extra = die === 6 || captured;   /* a 6 or a capture buys another roll */
+  if (checkWin(turn)) return;
+  setTimeout(() => endTurn(extra), finished || captured ? 550 : 380);
+}
+
+function endTurn(extra) {
+  movable = []; waiting = false;
+  if (!extra) { turn = (turn + 1) % 4; sixStreak = 0; }
+  phase = "idle";
+  renderPawns();
+  beginTurn();
+}
+
+/* --- DICE ------------------------------------------------------------- */
+function rollDice() {
+  if (phase !== "idle") return;
+  phase = "rolling";
+  dieEl.disabled = true;
+  dieEl.classList.add("rolling");
+  tick();
+  let flips = 0;
+  const iv = setInterval(() => {
+    dieEl.textContent = DICE[Math.floor(Math.random() * 6)];
+    if (++flips >= 8) {
+      clearInterval(iv);
+      finishRoll(1 + Math.floor(Math.random() * 6));
+    }
+  }, 70);
+}
+
+function finishRoll(d) {
+  die = d;
+  dieEl.classList.remove("rolling");
+  dieEl.textContent = DICE[d - 1];
+  haptic(12);
+
+  if (d === 6) {
+    sixStreak++;
+    if (sixStreak >= 3) {                     /* three sixes in a row: forfeit */
+      msgEl.textContent = "Three sixes — turn forfeited";
+      phase = "moving";
+      setTimeout(() => endTurn(false), 850);
+      return;
+    }
+  } else sixStreak = 0;
+
+  const moves = legalMoves(turn, d);
+  if (moves.length === 0) {
+    msgEl.textContent = "Rolled " + d + " — no move";
+    phase = "moving";
+    setTimeout(() => endTurn(false), 800);
+    return;
+  }
+  msgEl.textContent = "Rolled " + d + (moves.length > 1 && turn === HUMAN ? " — pick a pawn" : "");
+
+  if (turn === HUMAN) {
+    if (moves.length === 1) {
+      phase = "moving";
+      setTimeout(() => movePawn(moves[0]), 350);   /* only one legal move: auto-play it */
+    } else {
+      phase = "pick";
+      waiting = true;
+      movable = moves;
+      renderPawns();
+    }
+  } else {
+    phase = "moving";
+    setTimeout(() => botMove(moves), 550);
+  }
+}
+
+/* --- BOT: capture > finish > release > most progress ------------------- */
+function botMove(moves) {
+  let best = moves[0], bestScore = -Infinity;
+  for (const i of moves) {
+    const pos = pawns[turn][i];
+    const np = pos === -1 ? 0 : pos + die;
+    let score = np;
+    if (pos === -1) score += 60;
+    if (np > 50) score += 40;
+    if (np === 56) score += 250;
+    if (np <= 50) {
+      const k = key(TRACK[(PLAYERS[turn].start + np) % 52][0], TRACK[(PLAYERS[turn].start + np) % 52][1]);
+      if (!SAFE.has(k)) {
+        for (let s = 0; s < 4; s++) {
+          if (s === turn) continue;
+          for (let j = 0; j < 4; j++) {
+            const op = pawns[s][j];
+            if (op < 0 || op > 50) continue;
+            const [oc, or] = TRACK[(PLAYERS[s].start + op) % 52];
+            if (key(oc, or) === k) score += 120;   /* this move captures someone */
+          }
+        }
+      }
+    }
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  movePawn(best);
+}
+
+function choosePawn(i) {
+  if (phase !== "pick" || !movable.includes(i)) return;
+  movePawn(i);
+}
+
+/* --- TURN START + BOOT ------------------------------------------------- */
+function beginTurn() {
+  const mine = turn === HUMAN;
+  turnEl.textContent = mine ? "Your turn" : NAMES[turn] + " (bot)";
+  msgEl.className = "msg " + COLORS[turn];
+  msgEl.textContent = mine ? "Tap the die to roll" : NAMES[turn] + " is thinking…";
+  dieEl.disabled = !mine;
+  if (!mine) setTimeout(rollDice, 750);
+}
+
+function reset() {
+  pawns = [[-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1], [-1, -1, -1, -1]];
+  turn = 0; die = 0; phase = "idle"; waiting = false; movable = []; sixStreak = 0;
+  dieEl.textContent = DICE[0];
+  dieEl.classList.remove("rolling");
+  overlayEl.classList.add("hidden");
+  buildBoard();
+  renderPawns();
+  beginTurn();
+}
+
+dieEl.addEventListener("click", rollDice);
+document.getElementById("againBtn").addEventListener("click", reset);
+reset();
 </script>
 </body>
 </html>

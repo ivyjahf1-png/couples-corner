@@ -521,9 +521,9 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * between them anywhere.
        * ================================================================ */}
       <section aria-label="Games and features" className={SURFACE}>
-        {/* Band 1 — Recommended Games. An 4-up grid of the first eight catalog
-            entries (see GAMES above), not a scroll rail: eight tiles fill two
-            rows exactly, so a rail would clip the eighth and imply content that
+        {/* Band 1 — Recommended Games. A 4-up grid of the first four catalog
+            entries (see GAMES above), not a scroll rail: four tiles fill one
+            row exactly, so a rail would clip the fourth and imply content that
             does not exist. Each tile is a real `<Link>` into the Arcade runner
             at `/games/<id>` — the same catalog-driven flow the Game Center uses —
             so the row maps directly off `data/games.json` and follows it when the
