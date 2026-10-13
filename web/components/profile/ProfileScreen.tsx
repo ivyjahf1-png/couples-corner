@@ -258,7 +258,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 ];
 
 /**
- * The first eight catalog entries, in authored order — the profile's "Recommended
+ * The first four catalog entries, in authored order — the profile's "Recommended
  * Games" shelf.
  *
  * WHY FROM THE CATALOG AND NOT THE REGISTRY. The registry is the signed-launcher
@@ -270,10 +270,13 @@ const QUICK_ACTIONS: QuickAction[] = [
  * follows — and what lets each tile be a real `<Link>` into the runner rather
  * than a modal bound to the launcher's allow-list.
  *
- * Eight tiles fill the existing 4-up grid on two rows with no rail, so the row
- * neither clips nor implies content that does not exist.
+ * Four tiles exactly — they fill the existing 4-up grid on a single row, in
+ * authored order (the first four entries of `data/games.json`), with no rail.
+ * A four-tile row neither clips nor implies content that does not exist, and
+ * each tile is a real `<Link>` to `/games/<id>`, so it always opens a game that
+ * is actually in the catalogue.
  */
-const GAMES: CatalogGame[] = listGames().slice(0, 8);
+const GAMES: CatalogGame[] = listGames().slice(0, 4);
 
 /** Neutral tile colour when an entry has no `accent`. */
 const DEFAULT_ACCENT = "#475569";

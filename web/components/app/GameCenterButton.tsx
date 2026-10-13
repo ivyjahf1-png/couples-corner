@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { openGameCenter } from "@/components/game/GameCenter";
 
 /**
@@ -78,12 +79,13 @@ function clampToViewport(x: number, y: number): { x: number; y: number } {
  * navigation) require the "use client" boundary, so this component is safe
  * to nest inside any Server Component, such as the Discover page.
  *
- * The control is rendered as a <button> that dispatches `openGame()` (the
- * root-layout `GameModalProvider` mints the signed URL and renders the
- * fullscreen iframe modal) rather than a link to a games route: the old
- * `/games` hub was removed with the legacy Game Center, and a button is the
- * honest a11y semantic for "opens an overlay" — with no href, there is also no
- * half-hydrated route transition to strand.
+ * The control navigates to the Arcade hub (`/games`) rather than opening the
+ * legacy in-app Game Center modal: `/games` is the browsable 28-game shelf that
+ * reads `data/games.json`, so a tap lands the member on the real catalogue
+ * instead of an overlay bound to the old allow-list. It stays a `<button>` (not
+ * a `<Link>`) only because the pointer handlers own the drag; activation then
+ * calls `router.push("/games")`, and a real route transition is the point — it
+ * hands off to the server-rendered Arcade, so there is no overlay to strand.
  *
  * ── DRAGGABLE ────────────────────────────────────────────────────────────────
  * The button can be dragged anywhere on the viewport (mouse or touch) and
@@ -130,6 +132,8 @@ export function GameCenterButton({
      force. State rather than a ref because the wrapper's classes and inline
      styles are derived from it during render. */
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  /* Router for the Arcade hand-off: a tap (no drag) pushes `/games`. */
+  const router = useRouter();
   /* Mirror of the state, so the pointer-up handler can persist the FINAL
      position synchronously — reading state there would see the render-time
      value from before the last move event. */
@@ -245,8 +249,8 @@ export function GameCenterButton({
 
   function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
     /* A drag always ends in a click on mouse and touch; that click must not
-       launch a game. Keyboard activation has no preceding drag, so Enter still
-       opens the launcher. `preventDefault` also stops the button stealing focus
+       navigate. Keyboard activation has no preceding drag, so Enter still
+       opens the Arcade. `preventDefault` also stops the button stealing focus
        after a drag, which would leave a ring on a control the member was
        moving rather than activating. */
     if (draggedRef.current) {
@@ -254,7 +258,12 @@ export function GameCenterButton({
       draggedRef.current = false;
       return;
     }
-    openGameCenter();
+    /* HAND OFF TO THE ARCADE. `/games` is the server-rendered, catalogue-driven
+       hub — the full 28-game shelf read from `data/games.json` — so a tap now
+       navigates there instead of popping the legacy in-app Game Center modal.
+       The floating button no longer opens an overlay; it takes the member to
+       the browsable shelf, which is the single source of truth. */
+    router.push("/games");
   }
 
   return (
