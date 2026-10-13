@@ -27,15 +27,6 @@
     "emoji": "🎡"
   },
   {
-    "id": "scratch",
-    "title": "Scratch Card",
-    "category": "Arcade",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/scratch/index.html",
-    "accent": "#7C3AED",
-    "emoji": "🎫"
-  },
-  {
     "id": "jewels-blitz",
     "title": "Jewels Blitz",
     "category": "Match-3",
@@ -43,6 +34,15 @@
     "iframeUrl": "/html5-games/jewels-blitz/index.html",
     "accent": "#A21CAF",
     "emoji": "💎"
+  },
+  {
+    "id": "scratch",
+    "title": "Scratch Card",
+    "category": "Arcade",
+    "thumbnail": "",
+    "iframeUrl": "/html5-games/scratch/index.html",
+    "accent": "#7C3AED",
+    "emoji": "🎫"
   },
   {
     "id": "tile-match",
@@ -70,185 +70,5 @@
     "iframeUrl": "/html5-games/lucky-chest/index.html",
     "accent": "#D97706",
     "emoji": "🎁"
-  },
-  {
-    "id": "animals-merge",
-    "title": "Animals Merge",
-    "category": "Merge",
-    "thumbnail": "https://img.gamedistribution.com/a10a40a005fc4eb9ac97bb38b2836488-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/a10a40a005fc4eb9ac97bb38b2836488/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#16A34A",
-    "emoji": "🐾"
-  },
-  {
-    "id": "zombie-survival-dead-hunt",
-    "title": "Zombie Survival: Dead Hunt",
-    "category": "Action",
-    "thumbnail": "https://img.gamedistribution.com/1bf2fda77339412489ffa06dae12c087-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/1bf2fda77339412489ffa06dae12c087/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#65A30D",
-    "emoji": "🧟"
-  },
-  {
-    "id": "marble-maze",
-    "title": "Marble Maze",
-    "category": "Puzzle",
-    "thumbnail": "https://img.gamedistribution.com/500476821acf49d89fcdb425cbf48b81-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/500476821acf49d89fcdb425cbf48b81/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#0EA5E9",
-    "emoji": "🔮"
-  },
-  {
-    "id": "astro-merge",
-    "title": "Astro Merge",
-    "category": "Arcade",
-    "thumbnail": "https://img.gamedistribution.com/e533a86f09c4433587d8e9b949ad0c20-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/e533a86f09c4433587d8e9b949ad0c20/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#6366F1",
-    "emoji": "🚀"
-  },
-  {
-    "id": "bubble-pop-frenzy",
-    "title": "Bubble Pop Frenzy",
-    "category": "Match-3",
-    "thumbnail": "https://img.gamedistribution.com/ba6c9736d8144de78c4b2bccb5ae558c-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/ba6c9736d8144de78c4b2bccb5ae558c/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#EC4899",
-    "emoji": "🫧"
-  },
-  {
-    "id": "gin-rummy",
-    "title": "Gin Rummy Classic",
-    "category": "Cards",
-    "thumbnail": "https://img.gamedistribution.com/e814b536c417421b9d1edbf7958d2a07-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/e814b536c417421b9d1edbf7958d2a07/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#DC2626",
-    "emoji": "♠️"
-  },
-  {
-    "id": "daily-jigsaw",
-    "title": "Daily Jigsaw",
-    "category": "Puzzle",
-    "thumbnail": "https://img.gamedistribution.com/5eebb19f0fcd43849721b95ecf53a700-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/5eebb19f0fcd43849721b95ecf53a700/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#F97316",
-    "emoji": "🖼️"
-  },
-  {
-    "id": "word-sauce",
-    "title": "Word Sauce",
-    "category": "Word",
-    "thumbnail": "https://img.gamedistribution.com/8d8965a1f1af4d2b884e0bc48737925d-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/8d8965a1f1af4d2b884e0bc48737925d/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#14B8A6",
-    "emoji": "🔤"
-  },
-  {
-    "id": "klumen",
-    "title": "Klumen",
-    "category": "Puzzle",
-    "thumbnail": "https://img.gamedistribution.com/e24064f9b2594b189a8f504970436040-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/e24064f9b2594b189a8f504970436040/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#8B5CF6",
-    "emoji": "🌈"
-  },
-  {
-    "id": "crown-and-conquest",
-    "title": "Crown and Conquest",
-    "category": "Strategy",
-    "thumbnail": "https://img.gamedistribution.com/b62dff933afd48ebb5b296219982905b-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/b62dff933afd48ebb5b296219982905b/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#CA8A04",
-    "emoji": "👑"
-  },
-  {
-    "id": "snow-rush-3d",
-    "title": "Snow Rush 3D",
-    "category": "Arcade",
-    "thumbnail": "https://img.gamedistribution.com/e1e32230bdf040d69f4e367015e1c527-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/e1e32230bdf040d69f4e367015e1c527/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#38BDF8",
-    "emoji": "🏂"
-  },
-  {
-    "id": "tower-crash-3d",
-    "title": "Tower Crash 3D",
-    "category": "Arcade",
-    "thumbnail": "https://img.gamedistribution.com/b375b05ea29b40abaaf3606a2ff215ad-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/b375b05ea29b40abaaf3606a2ff215ad/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#F43F5E",
-    "emoji": "🏢"
-  },
-  {
-    "id": "tunnel-road",
-    "title": "Tunnel Road",
-    "category": "Racing",
-    "thumbnail": "https://img.gamedistribution.com/14e87fab0cbf44b6b3e57ddb77af5941-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/14e87fab0cbf44b6b3e57ddb77af5941/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#22D3EE",
-    "emoji": "🛣️"
-  },
-  {
-    "id": "merge-flowers",
-    "title": "Merge Flowers",
-    "category": "Merge",
-    "thumbnail": "https://img.gamedistribution.com/2e5863b7cc10444a88f72c81e74502f1-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/2e5863b7cc10444a88f72c81e74502f1/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#4ADE80",
-    "emoji": "🌸"
-  },
-  {
-    "id": "obby-on-a-bike",
-    "title": "Obby On a Bike",
-    "category": "Arcade",
-    "thumbnail": "https://img.gamedistribution.com/bc2f52c2d9d04e41aee48bef01075d22-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/bc2f52c2d9d04e41aee48bef01075d22/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#FB923C",
-    "emoji": "🚴"
-  },
-  {
-    "id": "cat-chaos-simulator",
-    "title": "Cat Chaos Simulator",
-    "category": "Simulation",
-    "thumbnail": "https://img.gamedistribution.com/427f3a980dfc48e69e4329acdb5b9d8b-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/427f3a980dfc48e69e4329acdb5b9d8b/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#A3E635",
-    "emoji": "🐱"
-  },
-  {
-    "id": "click-kitty-idle",
-    "title": "Click Kitty Idle",
-    "category": "Idle",
-    "thumbnail": "https://img.gamedistribution.com/e93bed2b602c4b5abf3b14f7ab532e18-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/e93bed2b602c4b5abf3b14f7ab532e18/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#F472B6",
-    "emoji": "🐈"
-  },
-  {
-    "id": "formula-racers",
-    "title": "Formula Racers",
-    "category": "Racing",
-    "thumbnail": "https://img.gamedistribution.com/0072a8afa16a480bb4fe52fbe59ea885-512x512.jpg",
-    "iframeUrl": "https://html5.gamedistribution.com/0072a8afa16a480bb4fe52fbe59ea885/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#EF4444",
-    "emoji": "🏎️"
-  },
-  {
-    "id": "gems-shooter",
-    "title": "Gems Shooter",
-    "category": "Puzzle",
-    "thumbnail": "https://img.gamedistribution.com/91230b6b403548a18407a5bc7a7c2e73-512x512.jpeg",
-    "iframeUrl": "https://html5.gamedistribution.com/91230b6b403548a18407a5bc7a7c2e73/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#06B6D4",
-    "emoji": "💠"
-  },
-  {
-    "id": "battledudes",
-    "title": "BattleDudes.io",
-    "category": "Action",
-    "thumbnail": "https://img.gamedistribution.com/5093a3a0c54649de8bf8391d26ea0a38-512x512.jpeg",
-    "iframeUrl": "https://html5.gamedistribution.com/5093a3a0c54649de8bf8391d26ea0a38/?gd_sdk_referrer_url=https://couples-corner.vercel.app",
-    "accent": "#84CC16",
-    "emoji": "🔫"
   }
 ]

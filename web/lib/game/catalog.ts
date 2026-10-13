@@ -105,31 +105,27 @@ export function findCatalogGame(gameId: string | undefined | null): CatalogGame 
 /**
  * Is this URL safe to load in an iframe `src`?
  *
- * Allow-list rather than deny-list. Blocking `javascript:` and `data:` is a
- * game of whack-a-mole — the property is forgiving of case and whitespace
- * (`JaVaScRiPt:`, `  javascript:`, `java\tscript:`) and new schemes appear. So
- * only two shapes are permitted: a root-relative path (one of our own files in
- * `public/`) or a real `http`/`https` URL. Everything else is rejected, which
- * makes the check exhaustive by construction instead of by enumeration.
+ * EVERY GAME IS SELF-HOSTED, so this is deliberately the NARROWEST possible
+ * allow-list: a single root-relative path into `public/`. There is no external
+ * branch any more. Third-party embeds were removed because cross-origin iframe
+ * hosts block our frame (they send `X-Frame-Options`/`frame-ancestors`), so an
+ * external `src` renders a blank game — which is strictly worse than refusing
+ * the entry here. Keeping the guard to same-origin paths means a stray
+ * `https://` left in `data/games.json` fails closed (the route 404s) instead of
+ * shipping a broken, blocked frame to a member.
  *
- * `new URL` does the parsing, so the scheme is normalised and lower-cased
- * before the comparison — hand-rolled `startsWith` checks do not do that and are
- * the usual way this kind of guard gets bypassed.
+ * A leading "//" is a protocol-relative URL that inherits the page scheme and
+ * therefore points at another origin, not at `public/`; it is rejected like any
+ * other absolute URL. Everything that is not a clean root-relative path fails,
+ * which makes the check exhaustive by construction rather than by enumeration.
  */
 export function isSafeGameUrl(url: string | undefined | null): boolean {
-  if (typeof url !== "string" || url.trim().length === 0) return false;
-
+  if (typeof url !== "string") return false;
   const candidate = url.trim();
+  if (candidate.length === 0) return false;
 
-  /* Same-origin build. Must be root-relative — a leading "//" is a
-     protocol-relative URL that inherits whatever scheme the page is on and is
-     therefore not a path at all, so it falls through to the parsed branch. */
-  if (candidate.startsWith("/") && !candidate.startsWith("//")) return true;
-
-  try {
-    const parsed = new URL(candidate);
-    return parsed.protocol === "https:" || parsed.protocol === "http:";
-  } catch {
-    return false;
-  }
+  /* Same-origin build: a single leading slash and nothing else scheme-like.
+     `startsWith("/") && !startsWith("//")` is what separates a path from a
+     protocol-relative URL. */
+  return candidate.startsWith("/") && !candidate.startsWith("//");
 }

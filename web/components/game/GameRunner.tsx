@@ -121,17 +121,16 @@ export function GameRunner({ gameId, title, category, gameUrl }: GameRunnerProps
           column, not fixed, so it scrolls with the stage rather than competing
           with the shell's fixed bottom nav.
 
-          ── BACK GOES TO /dashboard, NOT /games ────────────────────────────────
-          There is no `/games` route. The Game Center is a modal — `GameCenterProvider`
-          mounts `GameCenterSheet` from the root layout and it is opened by the
-          `openGameCenter()` event, not by navigating. Linking at a `/games` path
-          here would therefore be a 404, which is why the target is the dashboard
-          the suite's own entry points hang off. */}
+          ── BACK GOES TO THE ARCADE (/games), WHERE GAMES ARE BROWSED ──────
+          The profile shelf and the Arcade both link here through `/games/<id>`,
+          so returning to `/games` sends the member back to the shelf they picked
+          from rather than dead-ending on the dashboard. `/games` is a real route
+          (`app/(app)/games/page.tsx`) that renders the full self-hosted catalog. */}
       <div className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-[#0F172A] p-2.5">
         <div className="flex min-w-0 items-center gap-3">
           <Link
-            href="/dashboard"
-            aria-label="Back to the dashboard"
+            href="/games"
+            aria-label="Back to games"
             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white ${FOCUS}`}
           >
             <ArrowLeft className="h-5 w-5" aria-hidden />
