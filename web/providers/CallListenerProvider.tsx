@@ -372,7 +372,7 @@ export function CallListenerProvider() {
       dismiss();
       return;
     }
-    const target = `/call/${encodeURIComponent(ringing.channelName)}/${ringing.mode}`;
+    const target = `/call/${encodeURIComponent(ringing.channelName)}`;
     ringingIdRef.current = null;
     setRinging(null);
     setStatus("idle");

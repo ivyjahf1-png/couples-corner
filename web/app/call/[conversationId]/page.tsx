@@ -8,10 +8,12 @@ import { Mic, MicOff, PhoneOff, Video, VideoOff } from "lucide-react";
  * /call/[conversationId] — the Agora RTC room for a live 1:1 call.
  *
  * The conversation id in the URL is the shared room id both peers derive from
- * their conversation. On mount we mint a fresh RTC token from
- * POST /api/agora-token (the App Certificate never leaves the server), join
- * the channel, publish the local mic + camera, subscribe to remote users, and
- * render local + remote video with mute / camera / end-call controls.
+ * their conversation. On mount we fetch a fresh RTC token from the deployed
+ * Supabase Edge Function `generate-agora-token` (the App Certificate never
+ * leaves the server), join the channel with the public App ID
+ * (NEXT_PUBLIC_AGORA_APP_ID), publish the local mic + camera, subscribe to
+ * remote users, and render local + remote video with mute / camera / end-call
+ * controls.
  *
  * `agora-rtc-react` is imported dynamically: a static import would fail the
  * production build if the package is unavailable, and the SDK only runs in
@@ -131,19 +133,17 @@ export default function CallRoomPage() {
 
     (async () => {
       try {
-        const res = await fetch("/api/agora-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ conversationId, uid: 0 }),
+        const { getSupabaseClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.functions.invoke("generate-agora-token", {
+          body: { channelName: conversationId, uid: 0 },
         });
-        if (!res.ok) {
-          if (!cancelled) {
-            setError("Could not start the call (no token).");
-            setStatus("failed");
-          }
+        if (error) throw error;
+        const token = (data as { token?: string } | null)?.token;
+        if (!token || cancelled) {
+          if (!cancelled) throw new Error("Could not start the call (no token).");
           return;
         }
-        const { token } = (await res.json()) as { token: string };
 
         const mod = (await import("agora-rtc-react")) as unknown as {
           default?: AgoraSdk;

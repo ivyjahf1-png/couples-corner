@@ -13,9 +13,11 @@ import { startActiveCallAction, endActiveCallAction } from "@/lib/actions/calls"
  * finishes or is dismissed so the host can close its own modal/route.
  *
  * LIFECYCLE
- *  1. Fetch a fresh RTC token from POST /api/agora-token (never bundle the
+ *  1. Fetch a fresh RTC token from the deployed Supabase Edge Function
+ *     `generate-agora-token` via supabase.functions.invoke (never bundle the
  *     App Certificate in the client — tokens are minted server-side).
- *  2. 503 from that route means "Agora not configured on this deploy" — the
+ *     The public App ID (NEXT_PUBLIC_AGORA_APP_ID) joins alongside the token.
+ *  2. A token failure means "Agora not configured on this deploy" — the
  *     modal reports `unconfigured` and the host should fall back to the
  *     built-in peer-to-peer `CallScreen` (WebRTC over Supabase Realtime),
  *     so calls keep working on deploys that never set Agora keys.
@@ -216,29 +218,23 @@ export function VideoCallModal({
       setStatus("loading");
       setError(null);
       let token = "";
-      let appId = "";
+      let appId = process.env.NEXT_PUBLIC_AGORA_APP_ID ?? "";
       try {
-        const res = await fetch("/api/agora-token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channelName, uid }),
+        if (!appId) throw new Error("Live calling is not configured on this deployment.");
+        const { getSupabaseClient } = await import("@/lib/supabase/client");
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.functions.invoke("generate-agora-token", {
+          body: { channelName, uid },
         });
-        if (res.status === 503) {
-          if (!cancelled) {
-            setStatus("unconfigured");
-            setError("Live calling is not configured on this deployment.");
-          }
-          return;
-        }
-        if (!res.ok) throw new Error(`Token request failed (${res.status})`);
-        const data = (await res.json()) as { token?: string; appId?: string };
-        if (!data.token || !data.appId) throw new Error("Token request failed");
-        token = data.token;
-        appId = data.appId;
+        if (error) throw error;
+        token = (data as { token?: string } | null)?.token ?? "";
+        if (!token) throw new Error("Could not start the call (no token).");
       } catch (err) {
         if (!cancelled) {
-          setStatus("failed");
-          setError(err instanceof Error ? err.message : "Could not start the call.");
+          const msg = err instanceof Error ? err.message : "Could not start the call.";
+          const unconfigured = /not configured/i.test(msg);
+          setStatus(unconfigured ? "unconfigured" : "failed");
+          setError(msg);
         }
         return;
       }
