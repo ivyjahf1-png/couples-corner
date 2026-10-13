@@ -74,11 +74,10 @@ const MAX_CASHOUT_COINS = 100_000;
 /**
  * Credit game winnings onto the member's wallet (SERVER ONLY).
  *
- * THE WRITE PATH FOR SELF-HOSTED CASH-OUTS. The static games in
- * `public/html5-games/` have no session, so they post their payout up to
- * `GameRunner`, which calls `POST /api/game/cashout` — and that route calls
- * this function with the session's own uid. The client never names the
- * account it is crediting.
+ * THE WRITE PATH FOR LOCAL GAME WINS. The native React engines post wins via
+ * `useGameWallet`, which upserts `game_wallets` directly — and server-side
+ * callers credit via this function with the session's own uid. The client
+ * never names the account it is crediting.
  *
  * THE WRITE IS A COMPARE-AND-SWAP, not a blind increment: the row is updated
  * only if `coin_balance` still equals the value read a line earlier, so two

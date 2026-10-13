@@ -6,12 +6,6 @@ import "../styles/splash.css";
 import "../styles/marquee.css";
 import { AuthModalProvider } from "@/components/auth/AuthModals";
 import { ProfileViewProvider } from "@/components/profile/ProfileViewModal";
-import {
-  LazyGameCenterProvider as GameCenterProvider,
-  LazyGameLauncherProvider as GameLauncherProvider,
-  LazyGameModalProvider as GameModalProvider,
-  LazyTruthOrDareModalProvider as TruthOrDareModalProvider,
-} from "@/components/game/LazyGameProviders";
 import { CallListenerProvider } from "@/providers/CallListenerProvider";
 import RootLoading from "./root-loading";
 import { MobileBackHeader } from "@/components/app/MobileBackHeader";
@@ -203,18 +197,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             `openProfileView(userId)` without threading props through server
             component boundaries. Renders null until an open event fires. */}
         <ProfileViewProvider />
-        {/* THE HTML5 GAME LAUNCHER. Mounted beside the profile modal so ANY
-            surface (floating Game button, feed star, profile tiles) opens a
-            game via `openGame(gameId)` without threading props through server
-            component boundaries. Renders null until a launch event fires. */}
-        <GameModalProvider />
-        {/* THE MATCHMAKING GAME SUITE. Tabbed center (`openGameCenter()`),
-            native Truth-or-Dare swiper (`openTruthOrDare()`), and the
-            fullscreen launcher sheet (`openGameSheet()`) — same event-driven
-            mounting as the iframe modal above. */}
-        <GameCenterProvider />
-        <TruthOrDareModalProvider />
-        <GameLauncherProvider />
         {/* THE GLOBAL INCOMING-CALL LISTENER. Subscribes to
             `public.active_calls` filtered by `receiver_id` (plus a 12s poll as
             a fallback for blocked realtime) for as long as the member is signed

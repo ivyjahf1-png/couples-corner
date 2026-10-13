@@ -4,7 +4,6 @@ import { useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/app/Avatar";
 import { profileViewClick } from "@/components/profile/ProfileViewModal";
-import { openGame } from "@/components/game/GameModal";
 import { ReportDialog } from "@/components/app/ReportDialog";
 import { ConfirmationDialog } from "@/components/app/ConfirmationDialog";
 import { Icon } from "@/components/landing/Icon";
@@ -395,7 +394,7 @@ export function PostCard({ post }: { post: FeedPostView }) {
         </button>
         <button
           type="button"
-          onClick={() => openGame()}
+          onClick={() => router.push("/games")}
           aria-label="Play games"
           className="flex min-h-11 items-center justify-center text-slate-300 transition hover:text-amber-200 active:scale-95"
         >

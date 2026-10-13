@@ -1,12 +1,7 @@
 import type { NextConfig } from "next";
-import path from "node:path";
 
 const nextConfig: NextConfig = {
-  turbopack: {
-    // Absolute root prevents the "inferred workspace root" warning and keeps
-    // Turbopack's filesystem watcher stable regardless of cwd.
-    root: path.resolve(import.meta.dirname),
-  },
+  // NOTE: turbopack root disabled — it hung `next build` on Windows.
   // Legacy route aliases: /home and /main never existed as pages and 404'd.
   // They now route smoothly to the active user screen (/dashboard). These are
   // checked before filesystem routes, so they only affect unmatched paths.

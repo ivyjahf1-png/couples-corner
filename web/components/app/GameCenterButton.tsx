@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { openGameCenter } from "@/components/game/GameCenter";
 
 /**
  * Compact Game Center badge, for use INSIDE a card's header area.
@@ -20,10 +19,7 @@ import { openGameCenter } from "@/components/game/GameCenter";
  * caller positions, so the same component works on the Discover card and on any
  * other card-shaped surface without a second set of offsets to maintain.
  *
- * Kept as a <button> now that there is no `/games` route to navigate to: both
- * forms dispatch `openGame()` and the root-layout `GameModalProvider` does the
- * rest, so the control is a real button in the a11y tree instead of a link
- * pretending to be one.
+ * Kept as a <button> that routes to `/games` — the commercial Game Center shelf.
  */
 export function GameCenterBadge({
   /** Visible caption beside the glyph. */
@@ -37,11 +33,12 @@ export function GameCenterBadge({
   ariaLabel?: string;
   className?: string;
 }) {
+  const router = useRouter();
   return (
     <div className={className}>
       <button
         type="button"
-        onClick={() => openGameCenter()}
+        onClick={() => router.push("/games")}
         className="nm-raised group inline-flex items-center gap-1.5 rounded-full border border-sky-400/40 bg-[#0F172A]/90 px-3 py-1.5 text-white backdrop-blur transition duration-150 hover:border-sky-300/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1120]"
         title="Game Center"
         aria-label={ariaLabel}

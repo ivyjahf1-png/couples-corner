@@ -1,74 +1,15 @@
 [
-  {
-    "id": "ludo-superstar",
-    "title": "Ludo Classic",
-    "category": "Board",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/ludo/index.html",
-    "accent": "#E11D48",
-    "emoji": "🎲"
-  },
-  {
-    "id": "mines",
-    "title": "Mines",
-    "category": "Puzzle",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/mines/index.html",
-    "accent": "#2563EB",
-    "emoji": "💣"
-  },
-  {
-    "id": "spin-wheel",
-    "title": "Spin Wheel",
-    "category": "Arcade",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/spin-wheel/index.html",
-    "accent": "#F59E0B",
-    "emoji": "🎡"
-  },
-  {
-    "id": "scratch",
-    "title": "Scratch Card",
-    "category": "Arcade",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/scratch/index.html",
-    "accent": "#7C3AED",
-    "emoji": "🎫"
-  },
-  {
-    "id": "jewels-blitz",
-    "title": "Jewels Blitz",
-    "category": "Match-3",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/jewels-blitz/index.html",
-    "accent": "#A21CAF",
-    "emoji": "💎"
-  },
-  {
-    "id": "tile-match",
-    "title": "Tile Match",
-    "category": "Puzzle",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/tile-match/index.html",
-    "accent": "#0891B2",
-    "emoji": "🧩"
-  },
-  {
-    "id": "whot",
-    "title": "Whot! Card Battle",
-    "category": "Cards",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/whot/index.html",
-    "accent": "#059669",
-    "emoji": "🃏"
-  },
-  {
-    "id": "lucky-chest",
-    "title": "Lucky Chest",
-    "category": "Arcade",
-    "thumbnail": "",
-    "iframeUrl": "/html5-games/lucky-chest/index.html",
-    "accent": "#D97706",
-    "emoji": "🎁"
-  }
+  { "id": "ludo-superstar", "title": "Ludo Superstar", "category": "Board", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/ludo-superstar.jpg", "banner": "/games/banners/ludo-superstar.jpg", "iframeUrl": "local:ludo-superstar", "engine": "ludo", "accent": "#E11D48", "emoji": "L", "tagline": "4-player classic board battle" },
+  { "id": "whot-classic", "title": "Whot! Classic", "category": "Cards", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/whot-classic.jpg", "banner": "/games/banners/whot-classic.jpg", "iframeUrl": "local:whot-classic", "engine": "whot", "accent": "#059669", "emoji": "W", "tagline": "Nigeria's favourite card battle" },
+  { "id": "fortune-tiger", "title": "Fortune Tiger", "category": "Slots", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/fortune-tiger.jpg", "banner": "/games/banners/fortune-tiger.jpg", "iframeUrl": "local:fortune-tiger", "engine": "slots", "accent": "#F59E0B", "emoji": "T", "tagline": "Spin for golden fortunes" },
+  { "id": "fortune-gems", "title": "Fortune Gems", "category": "Slots", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/fortune-gems.jpg", "banner": "/games/banners/fortune-gems.jpg", "iframeUrl": "local:fortune-gems", "engine": "slots", "accent": "#A21CAF", "emoji": "G", "tagline": "Match gems, win big" },
+  { "id": "poker-ace", "title": "Poker Ace", "category": "Cards", "badge": "New", "levelRequired": 1, "thumbnail": "/games/banners/poker-ace.jpg", "banner": "/games/banners/poker-ace.jpg", "iframeUrl": "local:poker-ace", "engine": "cards", "accent": "#1D4ED8", "emoji": "P", "tagline": "High-stakes card showdown" },
+  { "id": "gates-of-olympus", "title": "Gates of Olympus", "category": "Slots", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/gates-of-olympus.jpg", "banner": "/games/banners/gates-of-olympus.jpg", "iframeUrl": "local:gates-of-olympus", "engine": "slots", "accent": "#7C3AED", "emoji": "Z", "tagline": "Zeus multipliers up to x500" },
+  { "id": "football-champion", "title": "Football Champion", "category": "Sports", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/football-champion.jpg", "banner": "/games/banners/football-champion.jpg", "iframeUrl": "local:football-champion", "engine": "sports", "accent": "#16A34A", "emoji": "F", "tagline": "Penalty shootout glory" },
+  { "id": "mines", "title": "Mines", "category": "Arcade", "badge": "Hot", "levelRequired": 1, "thumbnail": "/games/banners/mines.jpg", "banner": "/games/banners/mines.jpg", "iframeUrl": "local:mines", "engine": "mines", "accent": "#2563EB", "emoji": "M", "tagline": "Dodge mines, stack multipliers" },
+  { "id": "sphinx-magic", "title": "Sphinx Magic", "category": "Slots", "badge": "", "levelRequired": 2, "thumbnail": "/games/banners/sphinx-magic.jpg", "banner": "/games/banners/sphinx-magic.jpg", "iframeUrl": "local:sphinx-magic", "engine": "slots", "accent": "#B45309", "emoji": "S", "tagline": "Ancient Egyptian treasures" },
+  { "id": "wealthy-tiger", "title": "Wealthy Tiger", "category": "Slots", "badge": "", "levelRequired": 2, "thumbnail": "/games/banners/wealthy-tiger.jpg", "banner": "/games/banners/wealthy-tiger.jpg", "iframeUrl": "local:wealthy-tiger", "engine": "slots", "accent": "#EA580C", "emoji": "W", "tagline": "Prosperity spins await" },
+  { "id": "world-goal", "title": "World Goal", "category": "Sports", "badge": "", "levelRequired": 3, "thumbnail": "/games/banners/world-goal.jpg", "banner": "/games/banners/world-goal.jpg", "iframeUrl": "local:world-goal", "engine": "sports", "accent": "#0891B2", "emoji": "G", "tagline": "World-cup shootout frenzy" },
+  { "id": "dragon-vs-tiger", "title": "Dragon vs Tiger", "category": "Cards", "badge": "", "levelRequired": 4, "thumbnail": "/games/banners/dragon-vs-tiger.jpg", "banner": "/games/banners/dragon-vs-tiger.jpg", "iframeUrl": "local:dragon-vs-tiger", "engine": "cards", "accent": "#DC2626", "emoji": "D", "tagline": "Pick a side, double or nothing" },
+  { "id": "fishing-star", "title": "Fishing Star", "category": "Arcade", "badge": "", "levelRequired": 8, "thumbnail": "/games/banners/fishing-star.jpg", "banner": "/games/banners/fishing-star.jpg", "iframeUrl": "local:fishing-star", "engine": "arcade", "accent": "#0EA5E9", "emoji": "F", "tagline": "Deep-sea jackpot hunt" }
 ]

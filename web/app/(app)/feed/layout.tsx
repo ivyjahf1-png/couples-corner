@@ -83,12 +83,10 @@ export default function FeedLayout({ children }: { children: ReactNode }) {
   return (
     /* PLAIN ROOT ELEMENT. No iframe, no WebView, no inner "device" wrapper, and
        no component that renders a preview of the app inside itself — verified by
-       inspection: the only `<iframe>`s in the codebase are `MediaEmbed` (a
+       inspection: the only `<iframe>` in the codebase is `MediaEmbed` (a
        click-to-load third-party VIDEO player, scoped to no allow-same-origin and
-       no allow-top-navigation) and `GameModal` (the fullscreen HTML5 game
-       launcher). `GameModal` mounts only on demand — its provider renders null
-       until a member opens a game — so neither frame exists on this route by
-       default, and neither points at this app.
+       no allow-top-navigation). The Game Center (`/games`) runs native local
+       React game engines — no iframes — so no frame exists on this route.
 
        `bg-slate-950` matches `AppShell`'s canvas so the screen paints its own
        surface even if a panel is briefly shorter than the viewport, instead of
