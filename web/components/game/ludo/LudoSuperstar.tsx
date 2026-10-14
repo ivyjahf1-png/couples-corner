@@ -1,8 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { applyMove, chooseAiMove, freshGame, movableTokens, rollDice, LUDO_NAMES, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
 import { freshPowerUps, potFor, type LudoPhase, type PowerUpState } from "@/lib/ludo/match";
 import { LudoBoard } from "./LudoBoard";
+import { LudoDice } from "./LudoDice";
 import { BettingLobby, Matchmaking, WinScreen } from "./LudoScreens";
 import { CallButton, ChatOverlay } from "./LudoOverlays";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
@@ -17,6 +19,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   const [powers, setPowers] = useState<PowerUpState>(() => freshPowerUps());
   const [rolling, setRolling] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const [matchId] = useState(() => `ludo-${Date.now().toString(36)}`);
   const [claimed, setClaimed] = useState(false);
   const snapshot = useRef<LudoGameState | null>(null);
@@ -172,27 +175,81 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   }
   return (
     <div className="flex flex-col gap-3">
+      {/* Turn HUD: glass pills + active glow ring + animated timer bar */}
       <div className="flex items-center gap-2">
-        {(["YOU", "Blue", "Green", "Yellow"] as const).map((n, i) => (
-          <span key={n} className={`flex-1 rounded-full px-2 py-1 text-center text-[11px] font-black ${game.turn === i ? "bg-amber-400 text-black" : "bg-white/10 text-white/70"}`}>
-            {n} · {game.players[i as LudoColor]!.finished}/4
-          </span>
-        ))}
+        {(["YOU", "Blue", "Green", "Yellow"] as const).map((n, i) => {
+          const active = game.turn === i;
+          return (
+            <div
+              key={n}
+              className={`relative flex-1 overflow-hidden rounded-2xl border px-2 py-1.5 text-center text-[11px] font-black backdrop-blur-md ${
+                active
+                  ? "border-amber-300/70 bg-amber-400/20 text-amber-200 shadow-[0_0_16px_rgba(251,191,36,.5)]"
+                  : "border-white/10 bg-white/5 text-white/60"
+              }`}
+            >
+              <span className="relative z-10">
+                {n} · {game.players[i as LudoColor]!.finished}/4
+              </span>
+              {active ? (
+                <motion.div
+                  key={`timer-${i}-${game.log.length}`}
+                  className="absolute bottom-0 left-0 h-1 bg-gradient-to-r from-amber-300 to-brand-500"
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: 12, ease: "linear" }}
+                />
+              ) : null}
+            </div>
+          );
+        })}
       </div>
       <LudoBoard state={game} selectable={myTurn ? selectable : []} onSelect={pickToken} />
+      {/* Control bar: 3D dice, roll pill, icon tray */}
       <div className="flex items-center justify-center gap-3">
-        <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-3xl">{DICE_FACES[game.dice - 1]}</span>
+        <div
+          className={`flex h-16 w-16 items-center justify-center rounded-2xl border ${
+            myTurn
+              ? "border-amber-300/70 shadow-[0_0_20px_rgba(251,191,36,.6)]"
+              : "border-white/10"
+          } bg-white/5 backdrop-blur-md`}
+        >
+          <LudoDice value={game.dice} rolling={rolling} />
+        </div>
         <button type="button" onClick={doRoll} disabled={!myTurn || rolling || !game.canRoll}
-          className="rounded-full bg-rose-500 px-8 py-2.5 text-sm font-black text-white disabled:opacity-40">
+          className="rounded-full bg-gradient-to-b from-brand-400 to-brand-600 px-8 py-3 text-sm font-black text-white shadow-[0_6px_20px_rgba(249,115,22,.55)] ring-1 ring-white/20 backdrop-blur-md disabled:opacity-40">
           {rolling ? "Rolling…" : myTurn ? "ROLL" : `${LUDO_NAMES[game.turn]}…`}
         </button>
-        <CallButton channelName={matchId} />
-        <button type="button" onClick={() => setChatOpen((v) => !v)} className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-lg" aria-label="Chat">💬</button>
+        <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 backdrop-blur-md">
+          <CallButton channelName={matchId} />
+          <button type="button" onClick={() => setChatOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base" aria-label="Chat">💬</button>
+          <button type="button" onClick={() => setEmojiOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base" aria-label="Emojis">😀</button>
+        </div>
       </div>
+      {emojiOpen ? (
+        <div className="flex flex-wrap justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 p-2 backdrop-blur-md">
+          {["😂", "😡", "👏", "😍", "🍀", "🔥", "👍", "😭"].map((e) => (
+            <button key={e} type="button" onClick={() => setEmojiOpen(false)} className="rounded-full bg-white/10 px-2.5 py-1 text-lg">{e}</button>
+          ))}
+        </div>
+      ) : null}
+      {/* Power-up pills */}
       <div className="grid grid-cols-3 gap-2">
-        <button type="button" onClick={() => usePower("undo")} disabled={powers.undo <= 0} className="rounded-xl bg-white/10 py-2 text-xs font-black text-white disabled:opacity-40">Undo ×{powers.undo}</button>
-        <button type="button" onClick={() => usePower("roll2")} disabled={powers.roll2 <= 0} className="rounded-xl bg-white/10 py-2 text-xs font-black text-white disabled:opacity-40">Roll+2 ×{powers.roll2}</button>
-        <button type="button" onClick={() => usePower("hilo")} disabled={powers.hilo <= 0} className="rounded-xl bg-white/10 py-2 text-xs font-black text-white disabled:opacity-40">Hi-Lo ×{powers.hilo}</button>
+        <button type="button" onClick={() => usePower("undo")} disabled={powers.undo <= 0}
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 py-2 text-xs font-black text-white backdrop-blur-md disabled:opacity-40">
+          ↩️ Undo
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-1 text-[9px] font-black text-black">{powers.undo}</span>
+        </button>
+        <button type="button" onClick={() => usePower("roll2")} disabled={powers.roll2 <= 0}
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 py-2 text-xs font-black text-white backdrop-blur-md disabled:opacity-40">
+          🎲 Roll+2
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-1 text-[9px] font-black text-black">{powers.roll2}</span>
+        </button>
+        <button type="button" onClick={() => usePower("hilo")} disabled={powers.hilo <= 0}
+          className="flex items-center justify-center gap-1.5 rounded-2xl border border-white/10 bg-white/5 py-2 text-xs font-black text-white backdrop-blur-md disabled:opacity-40">
+          🔼 Hi-Lo
+          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-1 text-[9px] font-black text-black">{powers.hilo}</span>
+        </button>
       </div>
       {myTurn && selectable.length > 0 ? <p className="text-center text-xs font-bold text-amber-300">Tap a glowing token to move {game.dice}.</p> : null}
       <p className="text-center text-[11px] text-white/60">Pot: {pot.toLocaleString()} coins · {game.log[game.log.length - 1]}</p>
