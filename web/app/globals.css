@@ -1845,6 +1845,11 @@ button,
 @keyframes game-winner-slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 @media (prefers-reduced-motion: reduce) { .game-winner-track { animation: none; } }
 
+/* Game Center special-offer marquee. The text is duplicated in the DOM and
+   translated -50% so the scroll loops seamlessly. Reduced-motion users get a
+   static, still-fully-readable line instead. */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
 /* Live-room chat + gift feed line.
    New lines pop in rather than appearing instantly, so a gift reads as an
    EVENT in the feed instead of just another row of text. The small upward
