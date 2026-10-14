@@ -142,6 +142,7 @@ const alwaysTrue = () => true;
  * like/delete are honest visual states until the Server Actions land.
  */
 export function PostCard({ post }: { post: FeedPostView }) {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   // Seeded from the server payload, which now reads real `post_likes` rows (see
   // `getPublicFeed`). This used to be local-only state with a `TODO(Firebase)`, so

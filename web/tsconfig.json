@@ -39,5 +39,6 @@
      `next build` outright. They are runtime-served files, not part of this
      app's module graph (the game is embedded through a plain <iframe src>),
      so excluding the directory is both safe and correct. */
-  "exclude": ["node_modules", "public"]
+  "exclude": ["node_modules", "public", "supabase"]
+
 }

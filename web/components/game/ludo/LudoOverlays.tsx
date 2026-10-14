@@ -14,7 +14,8 @@ export function ChatOverlay({ matchId, onClose }: { matchId: string; onClose: ()
     setDraft("");
     if (isSupabaseConfigured()) {
       const sb = getSupabaseClient();
-      void sb.from("ludo_messages").insert({ match_id: matchId, text: t }).then(() => undefined).catch(() => undefined);
+    const insertP = sb.from("ludo_messages").insert({ match_id: matchId, text: t });
+    void insertP.then(() => undefined).catch(() => undefined);
     }
   }
   return (
