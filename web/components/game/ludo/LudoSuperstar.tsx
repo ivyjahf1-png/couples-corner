@@ -27,7 +27,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
     if (!isSupabaseConfigured()) return;
     const sb = getSupabaseClient();
     const insertP = sb.from("ludo_matches").upsert({ id: matchId, state: g, updated_at: new Date().toISOString() }, { onConflict: "id" });
-    void insertP.then(() => undefined).catch(() => undefined);
+    void Promise.resolve(insertP).catch(() => undefined);
   }, [matchId]);
 
   useEffect(() => {
