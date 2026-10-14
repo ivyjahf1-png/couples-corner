@@ -6,6 +6,8 @@ import { freshPowerUps, potFor, type LudoPhase, type PowerUpState } from "@/lib/
 import { LudoBoard } from "./LudoBoard";
 import { LudoDice } from "./LudoDice";
 import { BettingLobby, Matchmaking, WinScreen, type LudoMode, type PlayerCount, type SeedColor } from "./LudoScreens";
+import { narrateMove } from "@/lib/game/ludoAudio";
+import type { SeedStyleId } from "@/lib/game/seedStyles";
 import { CallButton, ChatOverlay } from "./LudoOverlays";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -17,6 +19,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   const [players, setPlayers] = useState<PlayerCount>(4);
   const [mode, setMode] = useState<LudoMode>("classic");
   const [seed, setSeed] = useState<SeedColor>(0);
+  const [seedStyle, setSeedStyle] = useState<SeedStyleId>("classic");
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
   const [selectable, setSelectable] = useState<number[]>([]);
   const [powers, setPowers] = useState<PowerUpState>(() => freshPowerUps());
@@ -91,6 +94,8 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   function pickToken(idx: number) {
     if (!myTurn || !selectable.includes(idx)) return;
     snapshot.current = JSON.parse(JSON.stringify(game)) as LudoGameState;
+    // Human step-counting narration ("1…2…3…") as the pawn hops.
+    narrateMove(game.dice);
     setGame((g) => {
       const ng: LudoGameState = { ...g, players: JSON.parse(JSON.stringify(g.players)) as LudoGameState["players"] };
       const res = applyMove(ng, 0, idx, ng.dice);
@@ -122,6 +127,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
           ng.log = [...ng.log, `${LUDO_NAMES[ng.turn]} rolled ${d} — no moves.`];
         } else {
           const res = applyMove(ng, ng.turn, mv, d);
+          narrateMove(d);
           ng.log = [...ng.log, res.message];
           if (ng.players[ng.turn]!.finished === 4) {
             ng.winner = ng.turn;
@@ -162,7 +168,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   }
 
   if (phase === "menu" || phase === "lobby") {
-    return <BettingLobby balance={balance} bet={bet} setBet={setBet} players={players} setPlayers={setPlayers} mode={mode} setMode={setMode} seed={seed} setSeed={setSeed} onConfirm={startMatchmaking} />;
+    return <BettingLobby balance={balance} bet={bet} setBet={setBet} players={players} setPlayers={setPlayers} mode={mode} setMode={setMode} seed={seed} setSeed={setSeed} seedStyle={seedStyle} setSeedStyle={setSeedStyle} onConfirm={startMatchmaking} />;
   }
   if (phase === "matchmaking") return <Matchmaking bet={bet} onCancel={() => setPhase("lobby")} />;
   if (phase === "win") {
@@ -202,7 +208,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
           );
         })}
       </div>
-      <LudoBoard state={game} selectable={myTurn ? selectable : []} onSelect={pickToken} />
+      <LudoBoard state={game} selectable={myTurn ? selectable : []} onSelect={pickToken} localSeat={0} />
       {/* Control bar: 3D dice, roll pill, icon tray */}
       <div className="flex items-center justify-center gap-3">
         <div

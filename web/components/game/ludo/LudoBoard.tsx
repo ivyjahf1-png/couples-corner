@@ -104,13 +104,19 @@ export function LudoBoard({
   state,
   selectable,
   onSelect,
+  localSeat = 0,
 }: {
   state: LudoGameState;
   selectable: number[];
   onSelect: (i: number) => void;
+  /** Which seat the local player occupies — the board rotates so their home base sits bottom-left. */
+  localSeat?: number;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
+  // Player-centric orientation: rotate the board so the local player's home
+  // base always sits on the bottom-left of the screen.
+  const orientDeg = ((3 - (((localSeat % 4) + 4) % 4)) % 4) * 90;
   const prevSteps = useRef<number[]>([]);
   const [bursts, setBursts] = useState<Burst[]>([]);
 
@@ -198,7 +204,7 @@ export function LudoBoard({
           <div
             className="relative h-full w-full rounded-[26px]"
             style={{
-              transform: "rotateX(15deg)",
+              transform: `rotate(${orientDeg}deg) rotateX(15deg)`,
               transformStyle: "preserve-3d",
               background:
                 "radial-gradient(120% 120% at 30% 20%, #4a3418 0%, #2a1c0c 55%, #150d04 100%)",

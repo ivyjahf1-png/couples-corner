@@ -107,6 +107,15 @@ export function LudoDice({ value, rolling, active = false }: { value: number; ro
         <div style={{ transform: "rotateX(90deg) translateZ(32px)" }}><Face n={5} /></div>
         <div style={{ transform: "rotateX(-90deg) translateZ(32px)" }}><Face n={6} /></div>
       </motion.div>
+      {/* Clear numeric overlay so the roll value is never ambiguous */}
+      {!rolling ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-b from-rose-400 to-red-600 text-sm font-black text-white shadow-[0_2px_8px_rgba(244,63,94,.7)] ring-2 ring-white/70"
+        >
+          {value}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import { Avatar } from "@/components/app/Avatar";
 import { BETS } from "@/lib/ludo/match";
+import { SEED_STYLES, type SeedStyleId } from "@/lib/game/seedStyles";
 
 export type LudoMode = "classic" | "power";
 export type PlayerCount = 2 | 4;
@@ -71,6 +72,8 @@ export function BettingLobby({
   setMode,
   seed,
   setSeed,
+  seedStyle,
+  setSeedStyle,
   onConfirm,
 }: {
   balance: number;
@@ -82,6 +85,8 @@ export function BettingLobby({
   setMode: (m: LudoMode) => void;
   seed: SeedColor;
   setSeed: (s: SeedColor) => void;
+  seedStyle: SeedStyleId;
+  setSeedStyle: (s: SeedStyleId) => void;
   onConfirm: () => void;
 }) {
   return (
@@ -141,6 +146,53 @@ export function BettingLobby({
                   style={{ background: `radial-gradient(circle at 35% 30%, #ffffffcc, ${c.hex} 60%, #00000066)` }}
                 />
                 <span className={`text-[11px] font-black ${on ? "text-white" : "text-white/70"}`}>{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Seed Style selector — bold high-gloss pawn themes */}
+      <div className="mt-4">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/50">Seed Style</p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          {SEED_STYLES.map((s) => {
+            const on = seedStyle === s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setSeedStyle(s.id)}
+                aria-pressed={on}
+                className={`flex flex-col items-center gap-1.5 rounded-2xl border px-2 py-2.5 transition active:scale-95 ${
+                  on
+                    ? "border-white/70 bg-white/15 shadow-[0_0_16px_rgba(255,255,255,0.35)]"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
+                <span
+                  className="relative flex h-8 w-8 items-center justify-center"
+                  style={{ filter: on ? s.glow : "none" }}
+                >
+                  {/* glossy pawn preview */}
+                  <span
+                    className="absolute left-1/2 top-0 h-3 w-3 -translate-x-1/2 rounded-full"
+                    style={{ background: s.swatch, boxShadow: s.shadow }}
+                  />
+                  <span
+                    className="absolute bottom-0 h-5 w-5"
+                    style={{
+                      background: s.swatch,
+                      borderRadius: "48% 48% 50% 50% / 60% 60% 40% 40%",
+                      boxShadow: s.shadow,
+                    }}
+                  />
+                  <span
+                    className="pointer-events-none absolute inset-0 rounded-full"
+                    style={{ background: s.gloss, mixBlendMode: "screen", opacity: 0.6 }}
+                  />
+                </span>
+                <span className={`text-[11px] font-black ${on ? "text-white" : "text-white/70"}`}>{s.name}</span>
               </button>
             );
           })}
