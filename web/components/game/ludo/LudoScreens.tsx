@@ -5,6 +5,15 @@ import { BETS } from "@/lib/ludo/match";
 
 export type LudoMode = "classic" | "power";
 export type PlayerCount = 2 | 4;
+/** Index into the engine's color palette (0 Red, 1 Blue, 2 Green, 3 Yellow). */
+export type SeedColor = 0 | 1 | 2 | 3;
+
+const SEED_COLORS: Array<{ v: SeedColor; label: string; hex: string }> = [
+  { v: 0, label: "Red", hex: "#E11D48" },
+  { v: 1, label: "Blue", hex: "#2563EB" },
+  { v: 2, label: "Green", hex: "#16A34A" },
+  { v: 3, label: "Yellow", hex: "#F59E0B" },
+];
 
 const GLASS = "rounded-3xl border border-white/10 bg-white/5 p-5 text-center backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,.45)]";
 
@@ -60,6 +69,8 @@ export function BettingLobby({
   setPlayers,
   mode,
   setMode,
+  seed,
+  setSeed,
   onConfirm,
 }: {
   balance: number;
@@ -69,12 +80,14 @@ export function BettingLobby({
   setPlayers: (p: PlayerCount) => void;
   mode: LudoMode;
   setMode: (m: LudoMode) => void;
+  seed: SeedColor;
+  setSeed: (s: SeedColor) => void;
   onConfirm: () => void;
 }) {
   return (
     <div className={`${GLASS} bg-gradient-to-b from-[#2b1245]/80 to-[#101a3a]/80`}>
       <p className="text-xs font-bold uppercase tracking-widest text-amber-300">Betting Lobby</p>
-      <p className="mt-1 bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text text-2xl font-black text-transparent">Ludo Superstar</p>
+      <p className="mt-1 bg-gradient-to-b from-amber-200 to-amber-500 bg-clip-text text-2xl font-black text-transparent">Couple&rsquo;s ⭐ Ludo</p>
       <p className="mt-1 text-xs text-white/60">Balance: {balance.toLocaleString()} coins · Winner takes the pot</p>
       <div className="mt-4 grid grid-cols-2 gap-2">
         {BETS.map((b) => (
@@ -106,6 +119,33 @@ export function BettingLobby({
           { v: "power", label: "Power", sub: "⚡Aero" },
         ]}
       />
+      <div className="mt-4">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/50">Pawn Color</p>
+        <div className="mt-2 grid grid-cols-4 gap-2">
+          {SEED_COLORS.map((c) => {
+            const on = seed === c.v;
+            return (
+              <button
+                key={c.v}
+                type="button"
+                onClick={() => setSeed(c.v)}
+                aria-pressed={on}
+                className={`flex flex-col items-center gap-1 rounded-2xl border px-2 py-2.5 transition active:scale-95 ${
+                  on
+                    ? "border-white/70 bg-white/15 shadow-[0_0_16px_rgba(255,255,255,0.35)]"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
+                <span
+                  className="h-6 w-6 rounded-full ring-2 ring-white/70"
+                  style={{ background: `radial-gradient(circle at 35% 30%, #ffffffcc, ${c.hex} 60%, #00000066)` }}
+                />
+                <span className={`text-[11px] font-black ${on ? "text-white" : "text-white/70"}`}>{c.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <button type="button" onClick={onConfirm} disabled={balance < bet}
         className="mt-5 w-full rounded-full bg-gradient-to-b from-brand-400 to-brand-600 py-3 text-sm font-black text-white shadow-[0_6px_20px_rgba(249,115,22,.55)] ring-1 ring-white/20 disabled:opacity-40">
         {balance < bet ? "Not enough coins" : `Find Match · ${bet.toLocaleString()} coins`}

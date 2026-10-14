@@ -5,7 +5,7 @@ import { applyMove, chooseAiMove, freshGame, movableTokens, rollDice, LUDO_NAMES
 import { freshPowerUps, potFor, type LudoPhase, type PowerUpState } from "@/lib/ludo/match";
 import { LudoBoard } from "./LudoBoard";
 import { LudoDice } from "./LudoDice";
-import { BettingLobby, Matchmaking, WinScreen, type LudoMode, type PlayerCount } from "./LudoScreens";
+import { BettingLobby, Matchmaking, WinScreen, type LudoMode, type PlayerCount, type SeedColor } from "./LudoScreens";
 import { CallButton, ChatOverlay } from "./LudoOverlays";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -16,6 +16,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   const [bet, setBet] = useState(100);
   const [players, setPlayers] = useState<PlayerCount>(4);
   const [mode, setMode] = useState<LudoMode>("classic");
+  const [seed, setSeed] = useState<SeedColor>(0);
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
   const [selectable, setSelectable] = useState<number[]>([]);
   const [powers, setPowers] = useState<PowerUpState>(() => freshPowerUps());
@@ -50,7 +51,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
     onLose(bet);
     setPhase("matchmaking");
     window.setTimeout(() => {
-      const g = freshGame();
+      const g = freshGame(seed);
       setGame(g);
       setPowers(freshPowerUps());
       setSelectable([]);
@@ -71,12 +72,6 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
         window.clearInterval(timer);
         const d = rollDice();
         setGame((g) => {
-          if (d === 6 && g.consecutiveSixes + 1 >= 3) {
-            const ng: LudoGameState = { ...g, dice: d, consecutiveSixes: 0, canRoll: true, turn: ((g.turn + 1) % 4) as LudoColor, log: [...g.log, "Three 6s — turn skipped!"] };
-            setSelectable([]);
-            sync(ng);
-            return ng;
-          }
           const ng: LudoGameState = { ...g, dice: d, consecutiveSixes: d === 6 ? g.consecutiveSixes + 1 : 0, canRoll: false, log: g.log };
           const moves = movableTokens(ng, ng.turn, d);
           setSelectable(ng.turn === 0 ? moves : []);
@@ -167,7 +162,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   }
 
   if (phase === "menu" || phase === "lobby") {
-    return <BettingLobby balance={balance} bet={bet} setBet={setBet} players={players} setPlayers={setPlayers} mode={mode} setMode={setMode} onConfirm={startMatchmaking} />;
+    return <BettingLobby balance={balance} bet={bet} setBet={setBet} players={players} setPlayers={setPlayers} mode={mode} setMode={setMode} seed={seed} setSeed={setSeed} onConfirm={startMatchmaking} />;
   }
   if (phase === "matchmaking") return <Matchmaking bet={bet} onCancel={() => setPhase("lobby")} />;
   if (phase === "win") {

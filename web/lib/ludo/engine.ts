@@ -17,14 +17,16 @@ export interface LudoGameState {
   consecutiveSixes: number;
   winner: LudoColor | null;
   log: string[];
+  /** Which palette color the human (player 0) is seeded as. Rendering-only. */
+  seedColor: LudoColor;
 }
 
 export function freshPlayer(): LudoPlayerState {
   return { tokens: [{ steps: -1 }, { steps: -1 }, { steps: -1 }, { steps: -1 }], finished: 0 };
 }
 
-export function freshGame(): LudoGameState {
-  return { players: [freshPlayer(), freshPlayer(), freshPlayer(), freshPlayer()], turn: 0, dice: 6, canRoll: true, consecutiveSixes: 0, winner: null, log: ["Red starts. Roll a 6 to leave base."] };
+export function freshGame(seed: LudoColor = 0): LudoGameState {
+  return { players: [freshPlayer(), freshPlayer(), freshPlayer(), freshPlayer()], turn: 0, dice: 6, canRoll: true, consecutiveSixes: 0, winner: null, log: [`${LUDO_NAMES[seed]} starts. Roll a 6 to leave base.`], seedColor: seed };
 }
 
 export function trackCell(color: LudoColor, steps: number): number | null {

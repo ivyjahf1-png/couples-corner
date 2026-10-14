@@ -112,10 +112,12 @@ const RIGHT_TABS: DockTab[] = [
 ];
 
 /**
- * THE CENTRE ACTION — Feed. Solid vibrant-orange circle (bg-[#FF5722]) with a
- * soft radial glow, elevated proud of the pill's top edge.
+ * THE CENTRE ACTION — Match / Game hub. Solid vibrant-orange circle
+ * (bg-[#FF5722]) with a soft radial glow, elevated proud of the pill's top
+ * edge. Rides the Love / Heart glyph (NavIcon `match`) in the app's orange
+ * accent theme.
  */
-const CENTRE_ACTION = { href: "/feed", label: "Feed", navIcon: "feed" } as const;
+const CENTRE_ACTION = { href: "/feed", label: "Match", navIcon: "match" } as const;
 
 /**
  * Tab active-state check, same rules the sidebar/drawer `isActive` uses:

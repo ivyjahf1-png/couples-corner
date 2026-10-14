@@ -25,13 +25,15 @@ function Face({ n }: { n: number }) {
     <div
       className="absolute inset-0 grid place-items-center rounded-[18%]"
       style={{
-        background: "linear-gradient(145deg,#ffffff 0%,#f1f5f9 45%,#cbd5e1 100%)",
+        // Crisp, high-contrast face: bright near-white with a soft warm
+        // highlight so the cube never reads as dark/black.
+        background: "radial-gradient(120% 120% at 30% 25%, #ffffff 0%, #fdfdfd 40%, #eef2f7 78%, #dfe6ef 100%)",
         boxShadow:
-          "inset 0 0 0 2px rgba(255,255,255,.9), inset 0 -6px 12px rgba(100,116,139,.35), inset 0 6px 12px rgba(255,255,255,.6)",
+          "inset 0 0 0 2px rgba(255,255,255,1), inset 0 -6px 12px rgba(120,132,150,.28), inset 0 6px 12px rgba(255,255,255,.75)",
         backfaceVisibility: "hidden",
       }}
     >
-      <div className="grid h-full w-full grid-cols-3 grid-rows-3 place-items-center p-[18%]">
+      <div className="grid h-full w-full grid-cols-3 grid-rows-3 place-items-center p-[16%]">
         {PIPS[n]!.map(([c, r], i) => (
           <div
             key={i}
@@ -39,10 +41,12 @@ function Face({ n }: { n: number }) {
             style={{
               gridColumn: c + 1,
               gridRow: r + 1,
-              width: 5,
-              height: 5,
-              background: "radial-gradient(circle at 35% 30%, #64748b, #0f172a 70%)",
-              boxShadow: "inset 0 -1px 2px rgba(255,255,255,.35), 0 1px 1px rgba(255,255,255,.6)",
+              width: 8,
+              height: 8,
+              // Bold, clearly-visible pips: solid ink-black with a subtle
+              // top sheen and a light halo so they pop on the bright face.
+              background: "radial-gradient(circle at 34% 30%, #3a4252 0%, #0b1220 70%)",
+              boxShadow: "inset 0 -1px 2px rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.5)",
             }}
           />
         ))}
