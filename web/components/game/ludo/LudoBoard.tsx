@@ -56,6 +56,15 @@ const CORNERS: Record<number, { x: number; y: number }> = {
   3: { x: 0, y: 9 },
 };
 
+// Direction of travel along each color's home corridor (entry → center goal).
+// Rendered as a chevron on the corridor's entry tile.
+const HOME_ARROW: Record<number, string> = {
+  0: "↓", // column 7, rows 1→5 (downward)
+  1: "→", // row 7, cols 1→5 (rightward)
+  2: "↑", // column 7, rows 13→9 (upward)
+  3: "←", // row 7, cols 13→9 (leftward)
+};
+
 function posFor(color: LudoColor, tokenIdx: number, steps: number): { x: number; y: number } {
   if (steps === -1) {
     const s = BASE_SPOTS[color]![tokenIdx]!;
@@ -261,21 +270,55 @@ export function LudoBoard({
               <div className="absolute inset-0 flex items-center justify-center text-lg">★</div>
             </div>
 
-            {/* ---- Home columns (colored final runs) ---- */}
+            {/* ---- Home columns (colored final runs) with arrows + locks ---- */}
             {([0, 1, 2, 3] as LudoColor[]).map((c) =>
               HOME_PATH[c]!.map((h, i) => (
-                <div
-                  key={`home-${c}-${i}`}
-                  className="absolute rounded-[6px]"
-                  style={{
-                    left: h[0] * CELL + 2,
-                    top: h[1] * CELL + 2,
-                    width: CELL - 4,
-                    height: CELL - 4,
-                    background: `linear-gradient(150deg, ${LUDO_COLORS[c]}, ${LUDO_COLORS[c]}99)`,
-                    boxShadow: "inset 0 2px 0 rgba(255,255,255,.3), 0 2px 4px rgba(0,0,0,.4)",
-                  }}
-                />
+                <div key={`home-${c}-${i}`} className="absolute">
+                  <div
+                    className="rounded-[6px]"
+                    style={{
+                      left: h[0] * CELL + 2,
+                      top: h[1] * CELL + 2,
+                      width: CELL - 4,
+                      height: CELL - 4,
+                      background: `linear-gradient(150deg, ${LUDO_COLORS[c]}, ${LUDO_COLORS[c]}99)`,
+                      boxShadow:
+                        "inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 4px rgba(0,0,0,.45), 0 2px 5px rgba(0,0,0,.45)",
+                    }}
+                  />
+                  {/* metallic lock badge — the corridor is only traversed by the owner's pawns */}
+                  <span
+                    className="absolute flex items-center justify-center text-[10px] leading-none"
+                    style={{
+                      left: h[0] * CELL + 2,
+                      top: h[1] * CELL + 2,
+                      width: CELL - 4,
+                      height: CELL - 4,
+                      color: "rgba(255,240,200,0.85)",
+                      textShadow: "0 1px 2px rgba(0,0,0,.8)",
+                      filter: "drop-shadow(0 0 2px rgba(246,211,101,0.8))",
+                    }}
+                  >
+                    🔒
+                  </span>
+                  {/* directional entry arrow on the first corridor tile */}
+                  {i === 0 ? (
+                    <span
+                      className="absolute flex items-center justify-center font-black"
+                      style={{
+                        left: h[0] * CELL + 2,
+                        top: h[1] * CELL + 2,
+                        width: CELL - 4,
+                        height: CELL - 4,
+                        color: "#fde68a",
+                        fontSize: 16,
+                        textShadow: "0 0 6px rgba(251,191,36,0.9), 0 1px 2px rgba(0,0,0,.9)",
+                      }}
+                    >
+                      {HOME_ARROW[c]}
+                    </span>
+                  ) : null}
+                </div>
               )),
             )}
 
@@ -393,6 +436,21 @@ export function LudoBoard({
                         transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
                       />
                     ) : null}
+                    {/* landing drop-shadow — shrinks + fades as the pawn hops up */}
+                    <motion.div
+                      key={`shadow-${t.color}-${t.idx}-${t.steps}`}
+                      className="pointer-events-none absolute rounded-full"
+                      style={{
+                        left: -11,
+                        top: 8,
+                        width: 22,
+                        height: 7,
+                        background: "radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,0) 70%)",
+                      }}
+                      initial={{ scale: 1, opacity: 0.85 }}
+                      animate={{ scale: [1, 0.55, 0.8, 1], opacity: [0.85, 0.3, 0.5, 0.85] }}
+                      transition={{ duration: 0.55, times: [0, 0.35, 0.72, 1], ease: "easeOut" }}
+                    />
                     <motion.div
                       key={`hop-${t.color}-${t.idx}-${t.steps}`}
                       className="relative cursor-pointer"
