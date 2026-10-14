@@ -5,7 +5,7 @@ import { applyMove, chooseAiMove, freshGame, movableTokens, rollDice, LUDO_NAMES
 import { freshPowerUps, potFor, type LudoPhase, type PowerUpState } from "@/lib/ludo/match";
 import { LudoBoard } from "./LudoBoard";
 import { LudoDice } from "./LudoDice";
-import { BettingLobby, Matchmaking, WinScreen } from "./LudoScreens";
+import { BettingLobby, Matchmaking, WinScreen, type LudoMode, type PlayerCount } from "./LudoScreens";
 import { CallButton, ChatOverlay } from "./LudoOverlays";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
@@ -14,6 +14,8 @@ export const DICE_FACES = ["⚀", "⚁", "⚂", "⚃", "⚄", "⚅"];
 export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onWin: (n: number) => void; onLose: (n: number) => void }) {
   const [phase, setPhase] = useState<LudoPhase>("menu");
   const [bet, setBet] = useState(100);
+  const [players, setPlayers] = useState<PlayerCount>(4);
+  const [mode, setMode] = useState<LudoMode>("classic");
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
   const [selectable, setSelectable] = useState<number[]>([]);
   const [powers, setPowers] = useState<PowerUpState>(() => freshPowerUps());
@@ -23,7 +25,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   const [matchId] = useState(() => `ludo-${Date.now().toString(36)}`);
   const [claimed, setClaimed] = useState(false);
   const snapshot = useRef<LudoGameState | null>(null);
-  const pot = potFor(bet, 4);
+  const pot = potFor(bet, players);
   const myTurn = game.turn === 0 && phase === "board" && !game.winner;
 
   const sync = useCallback((g: LudoGameState) => {
@@ -165,13 +167,14 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
   }
 
   if (phase === "menu" || phase === "lobby") {
-    return <BettingLobby balance={balance} bet={bet} setBet={(b) => { setBet(b); setPhase("lobby"); }} onConfirm={startMatchmaking} />;
+    return <BettingLobby balance={balance} bet={bet} setBet={setBet} players={players} setPlayers={setPlayers} mode={mode} setMode={setMode} onConfirm={startMatchmaking} />;
   }
   if (phase === "matchmaking") return <Matchmaking bet={bet} onCancel={() => setPhase("lobby")} />;
   if (phase === "win") {
     const won = game.winner === 0;
     return <WinScreen winnerName={won ? "You" : `${LUDO_NAMES[game.winner ?? 1]} (CPU)`} pot={won ? pot : 0}
-      onClaim={() => { if (!claimed && won) { onWin(pot); setClaimed(true); } setPhase("lobby"); }} />;
+      onClaim={() => { if (!claimed && won) { onWin(pot); setClaimed(true); } setPhase("lobby"); }}
+      onRematch={() => startMatchmaking()} />;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -214,7 +217,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
               : "border-white/10"
           } bg-white/5 backdrop-blur-md`}
         >
-          <LudoDice value={game.dice} rolling={rolling} />
+          <LudoDice value={game.dice} rolling={rolling} active={myTurn} />
         </div>
         <button type="button" onClick={doRoll} disabled={!myTurn || rolling || !game.canRoll}
           className="rounded-full bg-gradient-to-b from-brand-400 to-brand-600 px-8 py-3 text-sm font-black text-white shadow-[0_6px_20px_rgba(249,115,22,.55)] ring-1 ring-white/20 backdrop-blur-md disabled:opacity-40">
@@ -222,6 +225,7 @@ export function LudoSuperstar({ balance, onWin, onLose }: { balance: number; onW
         </button>
         <div className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2 py-1.5 backdrop-blur-md">
           <CallButton channelName={matchId} />
+          <a href={`/call/${encodeURIComponent(matchId)}`} className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-b from-sky-400 to-sky-600 text-white shadow-[0_0_14px_rgba(14,165,233,.5)]" aria-label="Video call during play">📹</a>
           <button type="button" onClick={() => setChatOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base" aria-label="Chat">💬</button>
           <button type="button" onClick={() => setEmojiOpen((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-base" aria-label="Emojis">😀</button>
         </div>

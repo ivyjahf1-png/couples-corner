@@ -51,7 +51,7 @@ function Face({ n }: { n: number }) {
   );
 }
 
-export function LudoDice({ value, rolling }: { value: number; rolling: boolean }) {
+export function LudoDice({ value, rolling, active = false }: { value: number; rolling: boolean; active?: boolean }) {
   const face = FACE_ROT[Math.min(6, Math.max(1, value))] ?? FACE_ROT[1]!;
   // Add full spins while rolling so it tumbles, then settle on the face.
   const spin = rolling ? 3 : 0;
@@ -61,8 +61,30 @@ export function LudoDice({ value, rolling }: { value: number; rolling: boolean }
   };
   return (
     <div className="relative h-16 w-16" style={{ perspective: "600px" }}>
+      {/* Pulsing turn glow rings — only while it's the active player's turn */}
+      {active ? (
+        <>
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -inset-2 rounded-3xl border-2 border-amber-300/80"
+            animate={{ scale: [1, 1.15, 1], opacity: [0.9, 0.25, 0.9] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute -inset-3 rounded-[26px] border border-amber-200/50"
+            animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0, 0.5] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+          />
+        </>
+      ) : null}
       {/* shadow on the table */}
-      <div className="absolute -bottom-1 left-1/2 h-3 w-12 -translate-x-1/2 rounded-full bg-black/50 blur-md" />
+      <motion.div
+        aria-hidden
+        className="absolute -bottom-2 left-1/2 h-3 w-12 -translate-x-1/2 rounded-full bg-black/60 blur-md"
+        animate={rolling ? { scale: [1, 0.7, 1], opacity: [0.6, 0.3, 0.6] } : { scale: 1, opacity: 0.6 }}
+        transition={rolling ? { duration: 0.5, repeat: Infinity, ease: "linear" } : { duration: 0.2 }}
+      />
       <motion.div
         className="relative h-full w-full"
         style={{ transformStyle: "preserve-3d" }}
