@@ -19,6 +19,11 @@ import { PREFETCH_AHEAD, useReconnectPrefetch, useVideoPrefetch } from "@/lib/ho
 import { setFollowAction } from "@/lib/actions/follow";
 import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
+import { EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
+import { GiftDrawer } from "@/components/app/GiftDrawer";
+import { sendGiftAction } from "@/lib/actions/commerce";
+import type { GiftItem } from "@/lib/giftCatalog";
+import { Coins } from "lucide-react";
 import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 
@@ -209,6 +214,13 @@ export function MediaFeed({
     // Clamp so a position past the end appends rather than creating a gap, and
     // so a negative position cannot produce an unreachable card.
     const at = Math.min(Math.max(sponsoredPosition, 0), out.length);
+  const [index, setIndex] = useState(0);
+  const [muted, setMuted] = useState(true);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [giftDrawerOpen, setGiftDrawerOpen] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
+  const [heartBursts, setHeartBursts] = useState<{id:number;x:number;y:number;}[]>([]);
+  // Active card, derived from scrollTop (see the listener below).
     out.splice(at, 0, { kind: "sponsored" as const, key: SPONSORED_CARD_KEY });
     return out;
   }, [feed, sponsoredSlot, sponsoredPosition]);
@@ -846,8 +858,6 @@ export function MediaFeed({
       setCommentDraft("");
       setSendError(null);
     });
-  }
-
   function sendQuickMessage() {
     if (!current || !draft.trim()) return;
     const body = draft.trim().slice(0, MAX_CAPTION);
@@ -1658,6 +1668,16 @@ export function MediaFeed({
               ) : null}
             </RailItem>
 
+<RailItem>
+  <ActionButton label="Send a gift" onClick={openGiftDrawer}>
+    <span className="flex items-center gap-1">
+      <Coins className="h-6 w-6" />
+      <span className="text-xs">Tip</span>
+    </span>
+  </ActionButton>
+</RailItem>
+
+
             <RailItem count={reactions}>
               {/* The rail heart is the SAME control as the "love" chip in the
                   reaction row — same kind, same handler, same state. It used to be
@@ -1739,6 +1759,21 @@ export function MediaFeed({
             ) : null}
           </div>
         </>
+</>
+      )}
+
+      {/* Gift drawer - opens as a bottom sheet from the action rail. */}
+      {giftDrawerOpen && current ? (
+        <GiftDrawer
+          open={giftDrawerOpen}
+          onClose={closeGiftDrawer}
+          conversationId={current.id}
+          coinBalance={coinBalance}
+          signedIn={Boolean(viewerId)}
+        />
+      ) : null}
+
+      {/* ------------------------------------------- pinned Moments upload FAB
       )}
 
       {/* ------------------------------------------- pinned Moments upload FAB
@@ -2039,6 +2074,45 @@ export function MediaFeed({
                     placeholder="Add a comment..."
                     className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/55 focus:border-orange-400/60 focus:outline-none"
                   />
+<input
+                    id="moment-comment"
+                    value={commentDraft}
+                    onChange={(event) => setCommentDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        // This is an <input>, not a textarea, so Enter is
+                        // unambiguously "send" rather than a newline.
+                        event.preventDefault();
+                        postComment();
+                      }
+<EmojiPickerDrawer
+                  onPick={insertEmoji}
+                  onBackspace={() => setCommentDraft((prev) => prev.slice(0, -1))}
+                />
+
+                    }}
+
+                    maxLength={500}
+                    placeholder="Add a comment..."
+                    className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/55 focus:border-orange-400/60 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEmojiPickerOpen(true)}
+                    aria-label="Open emoji picker"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/10 text-white transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400/60"
+                  >
+                    <span aria-hidden className="text-lg">😊</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={postComment}
+                    disabled={!commentDraft.trim() || isPending}
+                    aria-label="Post comment"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-orange-400/60 bg-orange-500 text-white shadow-[0_0_16px_-2px_rgba(249,115,22,0.8)] transition-transform hover:bg-orange-400 active:scale-95 disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
                   <button
                     type="button"
                     onClick={postComment}
@@ -2058,6 +2132,43 @@ export function MediaFeed({
     </FeedActiveProvider>
   );
 }
+  /** Insert an emoji into the comment draft and close the picker. */
+  function insertEmoji(emoji: string) {
+    setCommentDraft((prev) => (prev ? prev + emoji : emoji));
+    setEmojiPickerOpen(false);
+  }
+
+  /** Open the gift drawer for the active uploader. */
+  function openGiftDrawer() {
+    setGiftDrawerOpen(true);
+  }
+
+  /** Close the gift drawer. */
+  function closeGiftDrawer() {
+    setGiftDrawerOpen(false);
+  }
+
+  /** Spawn a floating heart burst at the given coordinates. */
+  function spawnHeartBursts(x: number, y: number, count: number) {
+    const now = Date.now();
+    const bursts = Array.from({ length: count }, () => ({
+      id: now + Math.random() * 10000,
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.5) * 18 - 6,
+      life: 1,
+    }));
+    setHeartBursts((prev) => [...prev, ...bursts]);
+  }
+
+  function updateHeartBursts() {
+    setHeartBursts((prev) => prev.filter((b) => b.life > 0));
+  }
+function insertEmoji(emoji        ) {
+    setCommentDraft((prev) => (prev ? prev + emoji : emoji));
+    setEmojiPickerOpen(false);
+  }
 
 /**
  * The media surface. Images and videos share a full-bleed object-cover box, so
@@ -2620,8 +2731,43 @@ function MediaSurface({
           onError={() => {
             setReady(false);
             setFailed(true);
+onError={() => {
+            setReady(false);
+            setFailed(true);
+          }}
+          onDoubleClick={(event) => {
+            // Double-tap the video to trigger floating heart burst animations at
+            // the tap coordinates, surfacing the uploader as the focal point.
+            event.preventDefault();
+            spawnHeartBursts(event.clientX, event.clientY, 8);
           }}
           className={surfaceClass}
+          }}
+          className={surfaceClass}
+/>
+        {/* Floating heart bursts - triggered by double-tap on video. */}
+        <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
+          {heartBursts.map((burst) => (
+            <div
+              key={burst.id}
+              className="absolute left-0 top-0 pointer-events-none select-none"
+              style={{
+                left: `${burst.x}px`,
+                top: `${burst.y}px`,
+                animation: `float-up ${320 + Math.random() * 280}ms ease-out forwards`,
+              }}
+            >
+              <span
+                aria-hidden
+                className="text-2xl sm:text-4xl md:text-5xl"
+                style={{ filter: `drop-shadow(0 2px 6px rgba(255,50,0,0.8)) drop-shadow(0 0 ${8 + 4 * burst.life}px rgba(255,200,0,${0.3 + burst.life * 0.4}))` }}
+              >
+                ❤️
+              </span>
+            </div>
+          ))}
+        </div>
+        {/* Tap to play / pause.
         />
         {/* Tap to play / pause.
             This is a real <button> covering the media rather than an onClick on

@@ -632,6 +632,18 @@ input::placeholder, textarea::placeholder {
   to {
     transform: rotate(360deg);
   }
+@keyframes float-up {
+  0% {
+    transform: translateY(0) scale(0.4);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-120px) scale(1.4);
+    opacity: 0;
+  }
+}
+
+
 }
 
 .story-ring-gradient {
