@@ -373,8 +373,12 @@ export function ChatHub({ chats, displayName }: { chats: InboxChat[]; displayNam
         </div>
       </header>
 
-      {/* The scroll region owns everything below the header. */}
-      <div className="min-h-0 flex-1 overflow-y-auto pb-4">
+      {/* The scroll region owns everything below the header.
+          `pb-28` (7rem) clears the FIXED bottom dock so the last conversation
+          rows are never stranded behind it; the region stays
+          `flex-1 min-h-0 overflow-y-auto` so vertical scrolling is never locked
+          on any device height. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-28 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {/* 2. STORIES */}
         <StoriesRow chats={visible} />
 

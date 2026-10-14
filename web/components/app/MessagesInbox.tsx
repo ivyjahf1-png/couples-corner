@@ -335,7 +335,14 @@ export function MessagesInbox({
       </div>
 
       {/* ── E. MAIN LIST (the ONLY vertical scroll region) ─────────── */}
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+      {/* `pb-28` (7rem) clears the FIXED bottom dock (BottomNav.tsx: 74px pill
+          lifted `bottom-4` + its safe-area inset). `/messages` is a full-bleed
+          surface, so <main> applies `p-0` and does NOT add the shell's `pb-20`
+          compensation — the scroll region has to reserve the bar itself, or the
+          last conversation rows sit unreachable behind it. The region stays
+          `flex-1 min-h-0 overflow-y-auto` so vertical scrolling is never locked,
+          and the extra bottom padding only adds reachable space, never clips. */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-28 [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
         {tab === "chat" ? (
           visibleChats.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
