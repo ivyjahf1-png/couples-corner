@@ -612,6 +612,46 @@ input::placeholder, textarea::placeholder {
   }
 }
 
+/* ------------------------------------------------------------------------------
+   Story rings — the animated gradient that marks an ACTIVE status circle.
+
+   A conic gradient sweeps a full turn on a loop so an uploaded story reads as
+   "live" at a glance, distinguishing it from the static conversation circles
+   beside it. The spinning layer is an absolutely positioned disc BEHIND the
+   avatar (which sits on an inset dark disc), so only the outer ~3px band is
+   ever visible and the avatar itself never rotates — spinning the media would
+   be nauseating and would also rotate the face/photo.
+
+   The gradient is authored as a closed loop (`#FF7A00` at both 0deg and 360deg)
+   so the rotation never shows a hard seam as it wraps.
+
+   Reduced motion: the animation stops but the gradient stays, so the ring is
+   still visibly a brand-orange ring — it just no longer moves.
+   -------------------------------------------------------------------------- */
+@keyframes story-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.story-ring-gradient {
+  background: conic-gradient(
+    from 0deg,
+    #ff7a00 0deg,
+    #ffcf6e 90deg,
+    #ff5722 180deg,
+    #ff9a3c 270deg,
+    #ff7a00 360deg
+  );
+  animation: story-ring-spin 3.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-ring-gradient {
+    animation: none;
+  }
+}
+
 /* ----------------------------------------------------------------------------
    Theme lock — Couples Corner uses a light orange & white theme. OS-level
    dark mode is intentionally NOT honored; the palette is authored directly

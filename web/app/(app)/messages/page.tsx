@@ -119,7 +119,7 @@ export default async function MessagesPage() {
        is owned by the shell's flex layout rather than duplicated as a magic
        number here, so it stays correct if that header's height ever changes. */
     <div className="flex h-full min-h-0 w-full flex-col overflow-hidden">
-      <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} />
+      <MessagesInbox chats={chats} visitors={stats.visitors} expiredCount={0} userId={user.uid} />
     </div>
   );
 }

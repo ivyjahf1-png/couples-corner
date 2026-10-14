@@ -16,6 +16,7 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { Avatar, PresenceDot } from "@/components/app/Avatar";
+import { StoryAvatar } from "@/components/story/StoryAvatar";
 
 /**
  * MessagesInbox — the private inbox, rebuilt to the reference layout.
@@ -105,10 +106,13 @@ export function MessagesInbox({
   chats,
   visitors,
   expiredCount,
+  userId,
 }: {
   chats: InboxChat[];
   visitors: number;
   expiredCount: number;
+  /** The signed-in member's uid — drives the "Your Story" upload path + RLS. */
+  userId?: string;
 }) {
   const [tab, setTab] = useState<TabKey>("chat");
   const [sortMode, setSortMode] = useState<SortMode>("recent");
@@ -218,17 +222,8 @@ export function MessagesInbox({
         {/* ── B. STORIES / RECENT CONTACTS ─────────────────────────── */}
         <section className="pt-3">
           <div className="flex gap-4 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {/* Your Story */}
-            <div className="flex w-16 shrink-0 flex-col items-center gap-1.5">
-              <button
-                type="button"
-                className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-dashed border-white/20 bg-white/5 text-2xl font-light text-ink-300"
-                aria-label="Your story"
-              >
-                +
-              </button>
-              <span className="w-full truncate text-center text-xs text-ink-300">Your story</span>
-            </div>
+            {/* Your Story — dashed "+"/active ring + upload + shared viewer */}
+            <StoryAvatar userId={userId} />
 
             {stories.map((c, i) => (
               <Link
