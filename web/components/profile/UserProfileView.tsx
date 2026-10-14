@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MoreHorizontal, Copy, Play, Pause, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Play, Pause } from "lucide-react";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { ProfileChatButton, ProfileFollowButton } from "@/components/profile/PublicProfileActions";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { isPresenceOnline } from "@/lib/presence";
@@ -80,17 +81,9 @@ function hobbyIcon(label: string): string {
 }
 const TONES = ["bg-amber-100 text-amber-800","bg-purple-100 text-purple-800","bg-sky-100 text-sky-800","bg-emerald-100 text-emerald-800","bg-rose-100 text-rose-800"];
 
-/** "♀ " / "♂ " prefix for the age pill; "" for any other or absent value. */
-function genderSymbol(gender: string | null): string {
-  if (gender === "female") return "♀ ";
-  if (gender === "male") return "♂ ";
-  return "";
-}
-
 export function UserProfileView({ view }: { view: PublicProfileView }) {
   const router = useRouter();
   const [tab, setTab] = useState<"About Me" | "Honor" | "Relation">("About Me");
-  const [copied, setCopied] = useState(false);
   /* Which frame of the (max four) header gallery is showing, tagged with the
      uid it belongs to. Keyed BY UID rather than reset in an effect: when a
      different member renders into this instance the uid no longer matches and
@@ -127,7 +120,6 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
   const cover = selectablePhotos.length > 0 ? (photos[activePhoto] ?? null) : null;
   const hobbies = [...view.interests, ...view.lifestyle].map((label, i) => ({ label, icon: hobbyIcon(label), tone: TONES[i % TONES.length] }));
   function goBack() { if (window.history.length > 1) router.back(); else router.replace("/discover"); }
-  async function copyId() { try { await navigator.clipboard.writeText(view.uid); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setCopied(false); } }
 
   /* `photoSel` is keyed by uid: when a different member renders into this
      instance, `photoSel.uid` no longer matches and the fallback `0` below puts
@@ -224,27 +216,17 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
         ) : null}
       </div>
 
-      <div className="relative z-30 -mt-16 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-5 pb-6 pt-6 md:pb-8 [contain:layout_style]">
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-white">{view.name}</h1>
-          <span className="flex items-center text-emerald-400" title="Verified member"><CheckCircle2 className="h-5 w-5 fill-emerald-500 text-slate-950" /></span>
-        </div>
-        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-          {view.age !== null ? (<span className="inline-flex items-center rounded-full border border-pink-500/30 bg-pink-500/20 px-3 py-0.5 text-xs font-semibold text-pink-300">{genderSymbol(view.gender)}{view.age}</span>) : null}
-          {view.distanceLabel ? (<span className="inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/20 px-3 py-0.5 text-xs font-semibold text-emerald-300">{view.distanceLabel}</span>) : null}
-          {view.country ? (<span className="inline-flex items-center rounded-full border border-amber-500/30 bg-amber-500/20 px-3 py-0.5 text-xs font-semibold text-amber-300">{view.country}</span>) : null}
-        </div>
-        <div className="mt-3 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-slate-400">
-            <span>ID:{view.uid.slice(0, 9)}</span>
-            <button type="button" onClick={copyId} className="p-1 transition hover:text-white" aria-label="Copy ID"><Copy className="h-3.5 w-3.5" /></button>
-            {copied && <span className="text-[10px] text-emerald-400">Copied!</span>}
-          </div>
-          <div className="flex items-center gap-1.5 rounded-full border border-white/5 bg-slate-800/80 px-3 py-1">
-            <span className={isOnline ? "h-2 w-2 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_6px_1px_rgba(52,211,153,0.7)]" : "h-2 w-2 rounded-full bg-slate-500"} />
-            <span className="text-xs font-medium text-white">{isOnline ? "Online" : "Offline"}</span>
-          </div>
-        </div>
+      <div className="relative z-30 -mt-16 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-0 pb-6 pt-2 md:pb-8 [contain:layout_style]">
+        <ProfileHeader
+          name={view.name}
+          online={isOnline}
+          gender={view.gender}
+          age={view.age}
+          distanceLabel={view.distanceLabel}
+          country={view.country}
+          uid={view.uid}
+          statusBadge={view.statusBadge}
+        />
         <div className="mt-6 flex items-center gap-6 border-b border-white/10 pb-3 text-sm font-semibold">
           {(["About Me", "Honor", "Relation"] as const).map((t) => (
             <button key={t} type="button" onClick={() => setTab(t)} className={t === tab ? "relative text-white transition" : "relative text-slate-400 transition hover:text-slate-200"}>
@@ -359,7 +341,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
            home-indicator strip below it (double-counting pushed the buttons
            clear of the bar they sit on). Kept `md:`-only for iPads, which have
            a real inset but no bottom bar. */
-        <div className="z-50 mx-auto mb-[calc(80px_+_env(safe-area-inset-bottom))] flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/95 p-4 md:mb-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
+        <div className="z-50 mx-auto mb-[calc(80px_+_env(safe-area-inset-bottom))] flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/70 p-4 backdrop-blur-xl md:mb-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
           <div className="flex-1"><ProfileChatButton recipientId={view.uid} recipientName={view.name} /></div>
           <div className="flex-1"><ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} /></div>
         </div>
