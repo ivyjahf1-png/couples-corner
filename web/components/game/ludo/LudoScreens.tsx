@@ -152,10 +152,10 @@ export function BettingLobby({
         </div>
       </div>
 
-      {/* Seed Style selector — bold high-gloss pawn themes */}
+      {/* Pawn Style selector — bold high-gloss 3D pawn themes */}
       <div className="mt-4">
-        <p className="text-[11px] font-bold uppercase tracking-widest text-white/50">Seed Style</p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-widest text-white/50">Pawn Style</p>
+        <div className="mt-2 grid grid-cols-4 gap-2">
           {SEED_STYLES.map((s) => {
             const on = seedStyle === s.id;
             return (

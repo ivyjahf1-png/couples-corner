@@ -127,6 +127,120 @@ export function narrateMove(steps: number, stepMs = 260): void {
   });
 }
 
+/**
+ * Dice roll rattle — a quick cluster of wooden clicks, like shaking a die in
+ * a cup before it lands. ~0.6s, matching the dice tumble animation.
+ */
+export function playDiceRoll(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    for (let i = 0; i < 9; i += 1) {
+      const t = now + i * 0.06 + Math.random() * 0.03;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(160 + Math.random() * 420, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.09, t + 0.005);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.08);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Capture: a descending "woosh" as the token is knocked homeward, then a thud. */
+export function playCapture(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.exponentialRampToValueAtTime(90, now + 0.28);
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.13, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.35);
+    const o2 = ctx.createOscillator();
+    const g2 = ctx.createGain();
+    o2.type = "sine";
+    o2.frequency.setValueAtTime(140, now + 0.22);
+    o2.frequency.exponentialRampToValueAtTime(50, now + 0.42);
+    g2.gain.setValueAtTime(0.0001, now + 0.22);
+    g2.gain.exponentialRampToValueAtTime(0.2, now + 0.25);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    o2.connect(g2).connect(ctx.destination);
+    o2.start(now + 0.22);
+    o2.stop(now + 0.52);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Safe-tile entry: a gentle two-note bell chime (E→B). */
+export function playSafeChime(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    ([659.25, 987.77] as const).forEach((f, i) => {
+      const t = now + i * 0.12;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(f, t);
+      gain.gain.setValueAtTime(0.0001, t);
+      gain.gain.exponentialRampToValueAtTime(0.15, t + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.55);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.6);
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Home / victory fanfare — a bright ascending arpeggio. `full` adds extra
+ * notes and longer sustain for winning the whole match.
+ */
+export function playHomeFanfare(full = false): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const now = ctx.currentTime;
+    const notes = full ? [523.25, 659.25, 783.99, 1046.5, 1318.5] : [523.25, 659.25, 783.99];
+    notes.forEach((f, i) => {
+      const t = now + i * 0.11;
+      (["triangle", "sine"] as const).forEach((type) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f, t);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(type === "sine" ? 0.09 : 0.12, t + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + (full ? 0.7 : 0.45));
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + (full ? 0.75 : 0.5));
+      });
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Unlock audio on the first user gesture (required by mobile browsers). */
 export function primeAudio(): void {
   const ctx = getCtx();

@@ -9,6 +9,7 @@ import {
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
+import { getSeedStyle, type SeedStyleId } from "@/lib/game/seedStyles";
 
 const CELL = 34;
 const GRID = 15;
@@ -104,20 +105,30 @@ export function LudoBoard({
   state,
   selectable,
   onSelect,
-  localSeat = 0,
+  activeSeat = 0,
+  seedStyleId,
 }: {
   state: LudoGameState;
   selectable: number[];
   onSelect: (i: number) => void;
-  /** Which seat the local player occupies — the board rotates so their home base sits bottom-left. */
-  localSeat?: number;
+  /** Seat whose turn it is — the board animates to re-orient so that player's home
+   * base sits bottom-left, matching Ludo Superstar's client-centric view. */
+  activeSeat?: number;
+  /** Pawn theme chosen in the lobby; applied to the local player's (seat 0) pawns. */
+  seedStyleId?: SeedStyleId;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  // Player-centric orientation: rotate the board so the local player's home
-  // base always sits on the bottom-left of the screen.
-  const orientDeg = ((3 - (((localSeat % 4) + 4) % 4)) % 4) * 90;
+  // Player-centric orientation: rotate the board so the active player's home
+  // base always sits on the bottom-left of the screen. The CSS transition on
+  // the board element smooths the re-orient between turns.
+  const orientDeg = ((3 - (((activeSeat % 4) + 4) % 4)) % 4) * 90;
+  const skin = seedStyleId ? getSeedStyle(seedStyleId) : null;
   const prevSteps = useRef<number[]>([]);
+  // Sticky per-pawn hop animations: once a hop keyframe sequence is built it must
+  // survive re-renders (burst cleanup, dice ticks, AI turns) until it finishes,
+  // otherwise flipping `animate` back to a scalar target mid-flight truncates it.
+  const hopAnims = useRef<Record<string, { xs: number[]; ys: number[]; dur: number }>>({});
   const [bursts, setBursts] = useState<Burst[]>([]);
 
   // Responsively scale the fixed-size board down to fit its container.
@@ -205,6 +216,7 @@ export function LudoBoard({
             className="relative h-full w-full rounded-[26px]"
             style={{
               transform: `rotate(${orientDeg}deg) rotateX(15deg)`,
+              transition: "transform .65s cubic-bezier(.34,1.25,.5,1)",
               transformStyle: "preserve-3d",
               background:
                 "radial-gradient(120% 120% at 30% 20%, #4a3418 0%, #2a1c0c 55%, #150d04 100%)",
@@ -415,13 +427,60 @@ export function LudoBoard({
               const dx = (t.stackIndex - (t.stackCount - 1) / 2) * (t.stackCount > 1 ? 7 : 0);
               const dy = (t.stackIndex - (t.stackCount - 1) / 2) * (t.stackCount > 1 ? 5 : 0);
               const col = LUDO_COLORS[t.color];
+              const mine = t.color === 0 && skin !== null;
+              // Per-cell parabolic hop: when this pawn advanced since the last render
+              // (prevSteps still holds the pre-move values until the capture-detect
+              // effect below commits), animate through each intermediate cell with an
+              // apex between cells instead of gliding linearly across the board.
+              const flatIdx = t.color * 4 + t.idx;
+              const prevS = prevSteps.current[flatIdx];
+              const pawnKey = `${t.color}-${t.idx}`;
+              if (
+                typeof prevS === "number" &&
+                t.steps > prevS &&
+                t.steps >= 0 &&
+                prevS >= -1
+              ) {
+                const xs: number[] = [];
+                const ys: number[] = [];
+                const start = posFor(t.color, t.idx, prevS);
+                xs.push(start.x + CELL / 2 + dx);
+                ys.push(start.y + CELL / 2 + dy);
+                for (let s = prevS + 1; s <= t.steps; s += 1) {
+                  const p = posFor(t.color, t.idx, s);
+                  const tx = p.x + CELL / 2 + dx;
+                  const ty = p.y + CELL / 2 + dy;
+                  const px = xs[xs.length - 1]!;
+                  const py = ys[ys.length - 1]!;
+                  // Midpoint apex then landing — a parabola per cell.
+                  xs.push((px + tx) / 2, tx);
+                  ys.push(Math.min(py, ty) - 20, ty);
+                }
+                hopAnims.current[pawnKey] = {
+                  xs,
+                  ys,
+                  dur: Math.min(1.8, (t.steps - prevS) * 0.26),
+                };
+              }
+              const hopPath = hopAnims.current[pawnKey];
               return (
                 <motion.div
                   key={`pawn-${t.color}-${t.idx}`}
                   className="absolute"
                   style={{ left: 0, top: 0 }}
-                  animate={{ x: t.x + CELL / 2 + dx, y: t.y + CELL / 2 + dy }}
-                  transition={{ type: "spring", stiffness: 320, damping: 24, mass: 0.7 }}
+                  animate={
+                    hopPath
+                      ? { x: hopPath.xs, y: hopPath.ys }
+                      : { x: t.x + CELL / 2 + dx, y: t.y + CELL / 2 + dy }
+                  }
+                  transition={
+                    hopPath
+                      ? { duration: hopPath.dur, ease: "easeInOut" }
+                      : { type: "spring", stiffness: 320, damping: 24, mass: 0.7 }
+                  }
+                  onAnimationComplete={() => {
+                    delete hopAnims.current[pawnKey];
+                  }}
                 >
                   <div
                     className="absolute"
@@ -471,19 +530,34 @@ export function LudoBoard({
                       <div
                         className="absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 rounded-full"
                         style={{
-                          background: `radial-gradient(circle at 38% 30%, #ffffffcc, ${col} 55%, #00000066 130%)`,
-                          boxShadow: "0 2px 3px rgba(0,0,0,.5), inset 0 -1px 2px rgba(0,0,0,.4)",
+                          background: mine
+                            ? skin!.swatch
+                            : `radial-gradient(circle at 38% 30%, #ffffffcc, ${col} 55%, #00000066 130%)`,
+                          boxShadow: mine
+                            ? `${skin!.glow}, ${skin!.shadow}`
+                            : "0 2px 3px rgba(0,0,0,.5), inset 0 -1px 2px rgba(0,0,0,.4)",
                         }}
                       />
                       <div
                         className="absolute bottom-0 left-0 h-[18px] w-[26px]"
                         style={{
-                          background: `radial-gradient(circle at 36% 28%, #ffffffb3, ${col} 48%, #00000077 135%)`,
+                          background: mine
+                            ? skin!.swatch
+                            : `radial-gradient(circle at 36% 28%, #ffffffb3, ${col} 48%, #00000077 135%)`,
                           borderRadius: "48% 48% 50% 50% / 60% 60% 40% 40%",
-                          boxShadow:
-                            "0 6px 10px rgba(0,0,0,.55), inset 0 -3px 6px rgba(0,0,0,.45), inset 0 3px 6px rgba(255,255,255,.35)",
+                          boxShadow: mine
+                            ? `${skin!.glow}, ${skin!.shadow}`
+                            : "0 6px 10px rgba(0,0,0,.55), inset 0 -3px 6px rgba(0,0,0,.45), inset 0 3px 6px rgba(255,255,255,.35)",
                         }}
-                      />
+                      >
+                        {/* high-gloss highlight streak for the selected seed theme */}
+                        {mine ? (
+                          <span
+                            className="pointer-events-none absolute inset-x-1 top-[2px] h-[7px] rounded-full opacity-80"
+                            style={{ background: skin!.gloss }}
+                          />
+                        ) : null}
+                      </div>
                     </motion.div>
                     {t.stackCount > 1 && t.stackIndex === t.stackCount - 1 ? (
                       <div
