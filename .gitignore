@@ -88,3 +88,9 @@ tsc_*.txt
 build_*.txt
 .vercel
 .env*
+
+# Local dev helper scripts & build markers (session artifacts)
+web/tsc-detached.bat
+web/build-detached.bat
+web/tsc.marker
+web/build.marker

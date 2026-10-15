@@ -1,12 +1,28 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { Volume2, VolumeX, Flame, Zap, ShieldAlert, Trophy, RotateCcw } from "lucide-react";
+import type { SelectedCar, SelectedTrack } from "@/components/game/racing/RacingHub";
+
+// ── Track surface palettes (asphalt / wet / cyber) ────────────────────
+const SURFACE_STYLES: Record<"asphalt" | "wet" | "cyber", { sky: string; road: string; lane: string }> = {
+  asphalt: { sky: "#020617", road: "#0f172a", lane: "#06b6d4" },
+  wet: { sky: "#050d1a", road: "#0b1e33", lane: "#7dd3fc" },
+  cyber: { sky: "#070316", road: "#1a0b3d", lane: "#e879f9" },
+};
+
+function hexToRgba(hex: string, alpha: number): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return `rgba(34,211,238,${alpha})`;
+  const n = parseInt(m[1]!, 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
+};
 
 // ── 4D/5D Spatial Audio Synthesizer for Racing Engine ─────────────────
 class Racing4DAudio {
   private ctx: AudioContext | null = null;
   private engineOsc: OscillatorNode | null = null;
   private engineGain: GainNode | null = null;
+  private panner: StereoPannerNode | null = null;
   private isMuted: boolean = false;
 
   constructor() {
@@ -39,8 +55,17 @@ class Racing4DAudio {
 
     this.engineGain.gain.setValueAtTime(0.15, this.ctx.currentTime);
 
-    this.engineOsc.connect(filter);
-    filter.connect(this.engineGain);
+    // Spatial lane panning: the engine drone follows the car across the road
+    if (typeof this.ctx.createStereoPanner === "function") {
+      this.panner = this.ctx.createStereoPanner();
+      this.panner.pan.setValueAtTime(0, this.ctx.currentTime);
+      this.engineOsc.connect(filter);
+      filter.connect(this.panner);
+      this.panner.connect(this.engineGain);
+    } else {
+      this.engineOsc.connect(filter);
+      filter.connect(this.engineGain);
+    }
     this.engineGain.connect(this.ctx.destination);
 
     this.engineOsc.start();
@@ -50,6 +75,12 @@ class Racing4DAudio {
     if (this.isMuted || !this.ctx || !this.engineOsc) return;
     const freq = 80 + speedRatio * 320; // 80Hz to 400Hz idle-to-max engine pitch
     this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+  }
+
+  /** Pans the engine drone with the car's lane for 4D spatial presence. */
+  public updateSpatialPan(pan: number) {
+    if (this.isMuted || !this.ctx || !this.panner) return;
+    this.panner.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), this.ctx.currentTime, 0.08);
   }
 
   public playNitroWarpSound() {
@@ -94,12 +125,28 @@ class Racing4DAudio {
       this.engineOsc.disconnect();
       this.engineOsc = null;
     }
+    if (this.panner) {
+      this.panner.disconnect();
+      this.panner = null;
+    }
   }
 }
 
 const audioEngine = new Racing4DAudio();
 
-export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => void; onLose?: (coins: number) => void }) {
+export function RacingEngine({
+  onWin,
+  onLose,
+  car,
+  track,
+  upgrades,
+}: {
+  onWin?: (coins: number) => void;
+  onLose?: (coins: number) => void;
+  car?: SelectedCar;
+  track?: SelectedTrack;
+  upgrades?: { nitro: number; armor: number };
+}) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isGameOver, setIsGameOver] = useState(false);
@@ -113,6 +160,16 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
   const obstaclesRef = useRef<Array<{ lane: number; y: number; speed: number; color: string }>>([]);
   const roadOffsetRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
+  const armorChargesRef = useRef(0);
+  const crashedRef = useRef(false);
+
+  const [armorLeft, setArmorLeft] = useState(0);
+
+  // Showroom loadout: dealership paint, top speed, tank upgrades, track theme
+  const maxSpeed = car?.speed ?? 320;
+  const maxNitro = 100 + (upgrades?.nitro ?? 0) * 25;
+  const surfaceStyle = SURFACE_STYLES[track?.surface ?? "asphalt"];
+  const bodyColor = car?.color ?? "#22d3ee";
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -125,18 +182,25 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
     setIsGameOver(false);
     setScore(0);
     setSpeed(140);
-    setNitro(100);
+    setNitro(maxNitro);
     playerLaneRef.current = 1;
     obstaclesRef.current = [];
+    armorChargesRef.current = upgrades?.armor ?? 0;
+    setArmorLeft(upgrades?.armor ?? 0);
+    crashedRef.current = false;
     audioEngine.startEngineSound();
-    setMsg("Race Active! Dodge traffic and engage Nitro warp!");
+    setMsg(
+      track
+        ? `Race active on ${track.name}! Dodge traffic and engage Nitro warp!`
+        : "Race Active! Dodge traffic and engage Nitro warp!",
+    );
   };
 
   const triggerNitro = () => {
     if (nitro < 20 || !isPlaying || isGameOver) return;
 
     setNitro((n) => Math.max(0, n - 35));
-    setSpeed((s) => Math.min(320, s + 60));
+    setSpeed((s) => Math.min(maxSpeed, s + 60));
     audioEngine.playNitroWarpSound();
 
     if (window.navigator?.vibrate) {
@@ -171,7 +235,8 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
       // Update Road Speed & Progression
       roadOffsetRef.current = (roadOffsetRef.current + speed * dt * 4) % 80;
       setScore((s) => s + Math.floor(speed * dt * 0.5));
-      audioEngine.updateRPM(speed / 320);
+      audioEngine.updateRPM(speed / maxSpeed);
+      audioEngine.updateSpatialPan((playerLaneRef.current - 1) * 0.6);
 
       // Spawn Obstacles
       if (Math.random() < 0.035) {
@@ -198,15 +263,27 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
         const oX = laneX[obs.lane]!;
         // Collision Detection Box
         if (Math.abs(obs.y - playerY) < 65 && Math.abs(oX - pX) < 40) {
-          // CRASH HIT
-          audioEngine.playCrashImpact();
-          audioEngine.stopEngineSound();
-          if (window.navigator?.vibrate) window.navigator.vibrate([150, 50, 200]);
+          if (armorChargesRef.current > 0) {
+            // ARMOR PLATE absorbs the impact — glancing blow, race continues
+            armorChargesRef.current -= 1;
+            setArmorLeft(armorChargesRef.current);
+            obs.y = canvas.height + 500; // shunt the traffic car off-screen
+            setSpeed((s) => Math.max(80, s - 40));
+            audioEngine.playCrashImpact();
+            if (window.navigator?.vibrate) window.navigator.vibrate(80);
+            setMsg(`ARMOR PLATE ABSORBED IMPACT! ${armorChargesRef.current} plate(s) remaining.`);
+          } else if (!crashedRef.current) {
+            // CRASH HIT (guarded so a multi-car pile-up only settles once)
+            crashedRef.current = true;
+            audioEngine.playCrashImpact();
+            audioEngine.stopEngineSound();
+            if (window.navigator?.vibrate) window.navigator.vibrate([150, 50, 200]);
 
-          setIsGameOver(true);
-          setIsPlaying(false);
-          onLose?.(100);
-          setMsg("CRASH DETECTED! 4D Chassis Structural Failure.");
+            setIsGameOver(true);
+            setIsPlaying(false);
+            onLose?.(100);
+            setMsg("CRASH DETECTED! 4D Chassis Structural Failure.");
+          }
         }
       });
 
@@ -217,11 +294,11 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 1. Dynamic Horizon Cyber-Grid & Road
-      ctx.fillStyle = "#020617";
+      ctx.fillStyle = surfaceStyle.sky;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Perspective Road Track
-      ctx.fillStyle = "#0f172a";
+      ctx.fillStyle = surfaceStyle.road;
       ctx.beginPath();
       ctx.moveTo(canvas.width * 0.2, 0);
       ctx.lineTo(canvas.width * 0.8, 0);
@@ -230,7 +307,7 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
       ctx.fill();
 
       // Road Lane Markers (4D Moving Lines)
-      ctx.strokeStyle = "#06b6d4";
+      ctx.strokeStyle = surfaceStyle.lane;
       ctx.setLineDash([30, 30]);
       ctx.lineDashOffset = -roadOffsetRef.current;
       ctx.lineWidth = 4;
@@ -282,13 +359,13 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
 
       // Neon Underglow Pulse
       const glowGrad = ctx.createRadialGradient(0, 30, 5, 0, 30, 45);
-      glowGrad.addColorStop(0, "rgba(6,182,212,0.8)");
+      glowGrad.addColorStop(0, hexToRgba(bodyColor, 0.8));
       glowGrad.addColorStop(1, "transparent");
       ctx.fillStyle = glowGrad;
       ctx.fillRect(-45, -10, 90, 80);
 
-      // Player Car Chassis
-      ctx.fillStyle = "#22d3ee";
+      // Player Car Chassis (dealership paint)
+      ctx.fillStyle = bodyColor;
       ctx.beginPath();
       ctx.roundRect(-22, -30, 44, 75, 10);
       ctx.fill();
@@ -299,7 +376,7 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
 
       // Headlights
       ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#38bdf8";
+      ctx.shadowColor = bodyColor;
       ctx.shadowBlur = 15;
       ctx.fillRect(-18, -28, 10, 6);
       ctx.fillRect(8, -28, 10, 6);
@@ -314,16 +391,23 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
     return () => {
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     };
-  }, [isPlaying, isGameOver, speed, onLose]);
+  }, [isPlaying, isGameOver, speed, onLose, maxSpeed, surfaceStyle, bodyColor]);
 
   return (
     <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border-2 border-cyan-500/30 bg-slate-950 p-4 shadow-[0_0_50px_rgba(6,182,212,0.15)] select-none">
       
       {/* Dynamic Header */}
       <div className="mb-3 flex w-full items-center justify-between border-b border-cyan-500/20 pb-3">
-        <div className="flex items-center gap-2">
-          <Zap className="h-5 w-5 text-cyan-400 animate-pulse" />
-          <span className="text-xs font-black tracking-widest text-cyan-300">APEX VELOCITY 4D</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <Zap className="h-5 w-5 text-cyan-400 animate-pulse" />
+            <span className="text-xs font-black tracking-widest text-cyan-300">APEX VELOCITY 4D</span>
+          </div>
+          {(car || track) && (
+            <p className="truncate text-[9px] font-bold text-slate-400">
+              {car?.name ?? "Stock Racer"} · {track?.name ?? "Open Road"}
+            </p>
+          )}
         </div>
         <button
           type="button"
@@ -335,7 +419,7 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
       </div>
 
       {/* Telemetry Dashboard Stats */}
-      <div className="mb-3 grid w-full grid-cols-3 gap-2 text-center">
+      <div className="mb-3 grid w-full grid-cols-4 gap-2 text-center">
         <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
           <span className="text-[9px] font-black text-slate-400">SPEED</span>
           <p className="text-lg font-black text-cyan-300">{speed} <span className="text-[10px]">KM/H</span></p>
@@ -346,7 +430,11 @@ export function RacingEngine({ onWin, onLose }: { onWin?: (coins: number) => voi
         </div>
         <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
           <span className="text-[9px] font-black text-slate-400">NITRO</span>
-          <p className="text-lg font-black text-rose-400">{nitro}%</p>
+          <p className="text-lg font-black text-rose-400">{Math.round((nitro / maxNitro) * 100)}%</p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-2">
+          <span className="text-[9px] font-black text-slate-400">ARMOR</span>
+          <p className="text-lg font-black text-emerald-300">{armorLeft}</p>
         </div>
       </div>
 

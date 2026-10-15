@@ -1,4 +1,4 @@
-import { RacingEngine } from "./RacingEngine";
+import { RacingEngine } from "../engines/RacingEngine";
 
 export function RacingView() {
   return (
