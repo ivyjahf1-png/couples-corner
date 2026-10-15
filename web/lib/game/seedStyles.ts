@@ -20,7 +20,7 @@ export interface SeedStyle {
   sheen: string;
   /** Outer glow / rim light. */
   glow: string;
-  /** Rim shadow to sell 3D depth. */
+  /** Rim shadow to sell 5D depth. */
   shadow: string;
 }
 
