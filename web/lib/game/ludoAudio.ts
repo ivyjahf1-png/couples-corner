@@ -19,9 +19,14 @@
 const VOICE_CLIP_BASE = "/games/audio/steps";
 let audioCtx: AudioContext | null = null;
 let clipAvailable: boolean | null = null; // unknown until first probe
+/** Global mute for every WebAudio cue + speech channel (header 🔊 toggle). */
+let muted = false;
+
+export function setAudioMuted(next: boolean): void { muted = next; }
+export function isAudioMuted(): boolean { return muted; }
 
 function getCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || muted) return null;
   try {
     const Ctor =
       (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
@@ -58,7 +63,7 @@ export function playStepTick(freq = 520): void {
 
 /** Play a bundled voice clip if it exists; returns false if unavailable. */
 function playClip(n: number): Promise<boolean> {
-  if (clipAvailable === false) return Promise.resolve(false);
+  if (muted || clipAvailable === false) return Promise.resolve(false);
   return new Promise((resolve) => {
     try {
       const el = new Audio(`${VOICE_CLIP_BASE}/${n}.mp3`);
@@ -80,7 +85,7 @@ function playClip(n: number): Promise<boolean> {
 }
 
 function speak(n: number): void {
-  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  if (muted || typeof window === "undefined" || !("speechSynthesis" in window)) return;
   try {
     const u = new SpeechSynthesisUtterance(String(n));
     u.rate = 1.05;
@@ -254,5 +259,84 @@ export function primeAudio(): void {
     } catch {
       /* ignore */
     }
+  }
+}
+
+/**
+ * HEAVY WOODEN DICE ROLL — the signature sound of a commercial Ludo title.
+ *
+ * Synthesised in three layers over ~0.9 s of WebAudio:
+ *  1. A low-frequency rumble thump: white noise through a low-pass filter with
+ *     a fast attack / medium decay — the "dice hit the wooden board" weight.
+ *  2. Six to eight randomised wooden CLATTER clicks: short noise bursts through
+ *     narrow band-pass filters (0.9–2.7 kHz, Q≈2.5) scheduled with jittered
+ *     timing and decaying amplitude — pucks bouncing and tumbling.
+ *  3. A quiet settle tap at the end so the roll lands with finality.
+ *
+ * Gated by the module mute flag via getCtx().
+ */
+export function playWoodRoll(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const DUR = 0.95;
+    const now = ctx.currentTime;
+    // One shared white-noise buffer, re-used by every layer.
+    const len = Math.max(1, Math.ceil(ctx.sampleRate * DUR));
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i += 1) data[i] = Math.random() * 2 - 1;
+
+    // Layer 1 — low rumble thump.
+    const thump = ctx.createBufferSource();
+    thump.buffer = buf;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(320, now);
+    lp.frequency.exponentialRampToValueAtTime(120, now + 0.3);
+    const g0 = ctx.createGain();
+    g0.gain.setValueAtTime(0.0001, now);
+    g0.gain.exponentialRampToValueAtTime(0.45, now + 0.02);
+    g0.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
+    thump.connect(lp).connect(g0).connect(ctx.destination);
+    thump.start(now);
+    thump.stop(now + 0.4);
+
+    // Layer 2 — wooden clatter clicks.
+    const clicks = 7;
+    for (let i = 0; i < clicks; i += 1) {
+      const t = now + 0.04 + i * (0.045 + Math.random() * 0.075);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.setValueAtTime(900 + Math.random() * 1800, t);
+      bp.Q.setValueAtTime(2.4 + Math.random() * 1.4, t);
+      const g = ctx.createGain();
+      const amp = 0.3 * (1 - i / (clicks + 2)) * (0.55 + Math.random() * 0.45);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(amp, t + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.1);
+      src.connect(bp).connect(g).connect(ctx.destination);
+      src.start(t);
+      src.stop(t + 0.13);
+    }
+
+    // Layer 3 — final settle tap.
+    const tap = ctx.createBufferSource();
+    tap.buffer = buf;
+    const bp2 = ctx.createBiquadFilter();
+    bp2.type = "bandpass";
+    bp2.frequency.setValueAtTime(640, now + 0.62);
+    bp2.Q.setValueAtTime(1.6, now + 0.62);
+    const g2 = ctx.createGain();
+    g2.gain.setValueAtTime(0.0001, now + 0.62);
+    g2.gain.exponentialRampToValueAtTime(0.22, now + 0.628);
+    g2.gain.exponentialRampToValueAtTime(0.0001, now + 0.78);
+    tap.connect(bp2).connect(g2).connect(ctx.destination);
+    tap.start(now + 0.62);
+    tap.stop(now + 0.82);
+  } catch {
+    /* ignore */
   }
 }

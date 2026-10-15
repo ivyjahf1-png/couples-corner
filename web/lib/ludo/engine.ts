@@ -1,7 +1,16 @@
 export type LudoColor = 0 | 1 | 2 | 3;
-export const LUDO_COLORS = ["#E11D48", "#2563EB", "#16A34A", "#F59E0B"] as const;
-export const LUDO_NAMES = ["Red", "Blue", "Green", "Yellow"] as const;
-export const START_INDEX: readonly number[] = [0, 13, 26, 39];
+/**
+ * Quadrant-consistent geometry (15×15 board, see TRACK_PATH in LudoBoard):
+ * seat 0 Red   → BOTTOM-LEFT base, left home corridor,  start cell 13 = (1,8)
+ * seat 1 Blue  → BOTTOM-RIGHT base, bottom corridor,     start cell 26 = (8,13)
+ * seat 2 Yellow→ TOP-RIGHT base, right corridor,         start cell 39 = (13,6)
+ * seat 3 Green → TOP-LEFT base, top corridor,            start cell 0  = (6,1)
+ * Turn order 0→1→2→3 then laps the board once (BL → BR → TR → TL).
+ */
+export const LUDO_COLORS = ["#E11D48", "#2563EB", "#F59E0B", "#16A34A"] as const;
+export const LUDO_NAMES = ["Red", "Blue", "Yellow", "Green"] as const;
+export const START_INDEX: readonly number[] = [13, 26, 39, 0];
+/** Start squares {13,26,39,0} plus their +8 star tiles {21,34,47,8}. */
 export const SAFE_CELLS: ReadonlySet<number> = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 export const TRACK_LEN = 52;
 export const HOME_STRETCH = 6;
@@ -91,28 +100,5 @@ export function applyMove(state: LudoGameState, color: LudoColor, tokenIdx: numb
 
 export function rollDice(): number { return 1 + Math.floor(Math.random() * 6); }
 
-export function chooseAiMove(state: LudoGameState, color: LudoColor, dice: number): number | null {
-  const options = movableTokens(state, color, dice);
-  if (options.length === 0) return null;
-  const score = (idx: number): number => {
-    const t = state.players[color]!.tokens[idx]!;
-    if (t.steps === -1) return 60 + dice;
-    const next = t.steps + dice;
-    if (next === FINISH_STEP) return 100;
-    const cell = trackCell(color, next);
-    if (cell !== null && !SAFE_CELLS.has(cell)) {
-      const foes = occupantsAt(state, cell, color);
-      if (foes.length === 1) return 90;
-      if (foes.length > 1) return -50;
-    }
-    if (cell !== null && SAFE_CELLS.has(cell)) return 40;
-    return next;
-  };
-  let best = options[0]!;
-  let bestScore = -Infinity;
-  for (const idx of options) {
-    const s = score(idx) + Math.random() * 4;
-    if (s > bestScore) { bestScore = s; best = idx; }
-  }
-  return best;
-}
+/* AI has moved to ./bots.ts (personality profiles, thinking delays, style-weighted
+ * scoring). This engine file only owns rules + geometry. */

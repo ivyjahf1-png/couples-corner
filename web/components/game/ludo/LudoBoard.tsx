@@ -1,22 +1,27 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  LUDO_COLORS,
-  SAFE_CELLS,
-  START_INDEX,
-  trackCell,
-  type LudoColor,
-  type LudoGameState,
-} from "@/lib/ludo/engine";
-import { getSeedStyle, type SeedStyleId } from "@/lib/game/seedStyles";
+import { motion } from "framer-motion";
+import { FINISH_STEP, LUDO_COLORS, LUDO_NAMES, SAFE_CELLS, START_INDEX, trackCell, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
+import { LudoDice } from "./LudoDice";
 
-const CELL = 34;
+/**
+ * LudoBoard — the beveled 3D wood board.
+ *
+ * Geometry: a 15×15 SVG grid (viewBox units = cells) painted under a floating
+ * HTML layer for pawns + the glowing centre dice hub.
+ *  - 52-cell main track (TRACK_PATH) indexed exactly like engine.trackCell:
+ *    cell 0 = (6,1) Green start … cell 13 = (1,8) Red start … etc.
+ *  - Four 6×6 corner bases with white yards + sockets.
+ *  - 6-cell home corridors per colour; the last corridor cell sits on the
+ *    matching centre triangle, so corridors read as continuous to the goal.
+ *  - Star tiles on every SAFE cell; coloured fill + white star on starts.
+ *
+ * The centre holds a frosted glass hub with the 3D die and a "Tap to Roll"
+ * label — click it to roll (enabled only when the local side may act).
+ */
 const GRID = 15;
-const SIZE = CELL * GRID;
 
-// 52-cell main track as grid coordinates (col, row) in a 15x15 board.
-const TRACK_PATH: Array<[number, number]> = [
+/** 52-cell main track as (col,row) grid coordinates. */
+const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
   [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
   [0, 7], [0, 8],
@@ -31,58 +36,79 @@ const TRACK_PATH: Array<[number, number]> = [
   [7, 0], [6, 0],
 ];
 
+/** Base block origins (col,row) per seat: 0 BL · 1 BR · 2 TR · 3 TL. */
+const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0] };
+
+/** Pawn socket CENTRES (grid units) inside each 6×6 base. */
+const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  0: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]],
+  1: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]],
+  2: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]],
+  3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]],
+};
+
+/** Home corridors (6 cells each, last cell sits on the centre triangle). */
+const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
+  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
+  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+};
+
+const START_SET: ReadonlySet<number> = new Set(START_INDEX);
+
+const WOOD_FRAME: React.CSSProperties = {
+  background:
+    "repeating-linear-gradient(93deg, rgba(0,0,0,.16) 0 3px, rgba(255,255,255,.05) 3px 7px), linear-gradient(150deg,#7c5a31 0%,#5a3d1d 45%,#3f2a12 100%)",
+  boxShadow:
+    "inset 0 3px 0 rgba(255,224,170,.35), inset 0 -6px 12px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.4), 0 22px 48px rgba(0,0,0,.55)",
+};
+
 function trackXY(index: number): { x: number; y: number } {
-  const c = TRACK_PATH[((index % 52) + 52) % 52]!;
-  return { x: c[0] * CELL, y: c[1] * CELL };
+  const n = TRACK_PATH.length;
+  const c = TRACK_PATH[((index % n) + n) % n]!;
+  return { x: c[0] + 0.5, y: c[1] + 0.5 };
 }
 
-const BASE_SPOTS: Record<number, Array<[number, number]>> = {
-  0: [[2, 2], [3.6, 2], [2, 3.6], [3.6, 3.6]],
-  1: [[11, 2], [12.6, 2], [11, 3.6], [12.6, 3.6]],
-  2: [[11, 11], [12.6, 11], [11, 12.6], [12.6, 12.6]],
-  3: [[2, 11], [3.6, 11], [2, 12.6], [3.6, 12.6]],
-};
-
-const HOME_PATH: Record<number, Array<[number, number]>> = {
-  0: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
-  1: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
-  2: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],
-  3: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]],
-};
-
-const CORNERS: Record<number, { x: number; y: number }> = {
-  0: { x: 0, y: 0 },
-  1: { x: 9, y: 0 },
-  2: { x: 9, y: 9 },
-  3: { x: 0, y: 9 },
-};
-
-// Direction of travel along each color's home corridor (entry → center goal).
-// Rendered as a chevron on the corridor's entry tile.
-const HOME_ARROW: Record<number, string> = {
-  0: "↓", // column 7, rows 1→5 (downward)
-  1: "→", // row 7, cols 1→5 (rightward)
-  2: "↑", // column 7, rows 13→9 (upward)
-  3: "←", // row 7, cols 13→9 (leftward)
-};
-
+/** Pawn CENTRE coordinates (grid units) for any token position. */
 function posFor(color: LudoColor, tokenIdx: number, steps: number): { x: number; y: number } {
-  if (steps === -1) {
+  if (steps < 0) {
     const s = BASE_SPOTS[color]![tokenIdx]!;
-    return { x: s[0] * CELL, y: s[1] * CELL };
+    return { x: s[0], y: s[1] };
   }
   if (steps <= 50) {
     const cell = trackCell(color, steps);
-    return cell === null ? { x: 7 * CELL, y: 7 * CELL } : trackXY(cell);
+    return cell === null ? { x: 7.5, y: 7.5 } : trackXY(cell);
   }
-  if (steps < 57) {
+  if (steps < FINISH_STEP) {
     const h = HOME_PATH[color]![steps - 51]!;
-    return { x: h[0] * CELL, y: h[1] * CELL };
+    return { x: h[0] + 0.5, y: h[1] + 0.5 };
   }
-  return { x: 7 * CELL, y: 7 * CELL };
+  return { x: 7.5, y: 7.5 };
+}
+
+/** 5-pointed star polygon points around (cx, cy). */
+function starPoints(cx: number, cy: number, r: number): string {
+  const inner = r * 0.42;
+  const pts: string[] = [];
+  for (let i = 0; i < 10; i += 1) {
+    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? r : inner;
+    pts.push(`${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`);
+  }
+  return pts.join(" ");
+}
+
+/** Direction chevron for a corridor's first cell (toward the centre goal). */
+function chevronPoints(color: number, col: number, row: number): string {
+  if (color === 0) return `${col + 0.32},${row + 0.28} ${col + 0.68},${row + 0.5} ${col + 0.32},${row + 0.72}`;
+  if (color === 1) return `${col + 0.28},${row + 0.68} ${col + 0.5},${row + 0.32} ${col + 0.72},${row + 0.68}`;
+  if (color === 2) return `${col + 0.68},${row + 0.28} ${col + 0.32},${row + 0.5} ${col + 0.68},${row + 0.72}`;
+  return `${col + 0.28},${row + 0.32} ${col + 0.72},${row + 0.32} ${col + 0.5},${row + 0.68}`;
 }
 
 interface Pawn {
+  key: string;
   color: LudoColor;
   idx: number;
   steps: number;
@@ -93,88 +119,14 @@ interface Pawn {
   stackCount: number;
 }
 
-interface Burst { id: number; x: number; y: number; }
-
-const WOOD_TILE: React.CSSProperties = {
-  background: "linear-gradient(150deg,#5b4326 0%,#3a2a14 45%,#241708 100%)",
-  boxShadow:
-    "inset 0 2px 0 rgba(255,225,170,.28), inset 0 -3px 6px rgba(0,0,0,.55), 0 4px 8px rgba(0,0,0,.45)",
-};
-
-export function LudoBoard({
-  state,
-  selectable,
-  onSelect,
-  activeSeat = 0,
-  seedStyleId,
-}: {
-  state: LudoGameState;
-  selectable: number[];
-  onSelect: (i: number) => void;
-  /** Seat whose turn it is — the board animates to re-orient so that player's home
-   * base sits bottom-left, matching Ludo Superstar's client-centric view. */
-  activeSeat?: number;
-  /** Pawn theme chosen in the lobby; applied to the local player's (seat 0) pawns. */
-  seedStyleId?: SeedStyleId;
-}) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-  // Player-centric orientation: rotate the board so the active player's home
-  // base always sits on the bottom-left of the screen. The CSS transition on
-  // the board element smooths the re-orient between turns.
-  const orientDeg = ((3 - (((activeSeat % 4) + 4) % 4)) % 4) * 90;
-  const skin = seedStyleId ? getSeedStyle(seedStyleId) : null;
-  const prevSteps = useRef<number[]>([]);
-  // Sticky per-pawn hop animations: once a hop keyframe sequence is built it must
-  // survive re-renders (burst cleanup, dice ticks, AI turns) until it finishes,
-  // otherwise flipping `animate` back to a scalar target mid-flight truncates it.
-  const hopAnims = useRef<Record<string, { xs: number[]; ys: number[]; dur: number }>>({});
-  const [bursts, setBursts] = useState<Burst[]>([]);
-
-  // Responsively scale the fixed-size board down to fit its container.
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const apply = () => setScale(Math.min(1, el.clientWidth / SIZE));
-    apply();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(apply);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  // Detect captures (a token returning to base) and spawn particle bursts.
-  useEffect(() => {
-    const cur: number[] = [];
-    (state.players as Array<{ tokens: Array<{ steps: number }> }>).forEach((p) =>
-      p.tokens.forEach((t) => cur.push(t.steps)),
-    );
-    const prev = prevSteps.current;
-    if (prev.length === cur.length) {
-      const fresh: Burst[] = [];
-      cur.forEach((s, k) => {
-        if (prev[k]! >= 0 && s === -1) {
-          const color = Math.floor(k / 4) as LudoColor;
-          const i = k % 4;
-          const p = posFor(color, i, prev[k]!);
-          fresh.push({ id: Date.now() + k * 7 + Math.random(), x: p.x + CELL / 2, y: p.y + CELL / 2 });
-        }
-      });
-      if (fresh.length) {
-        setBursts((b) => [...b, ...fresh]);
-        const ids = new Set(fresh.map((f) => f.id));
-        window.setTimeout(() => setBursts((b) => b.filter((x) => !ids.has(x.id))), 800);
-      }
-    }
-    prevSteps.current = cur;
-  }, [state]);
-
-  // Build pawn list with stacking offsets.
-  const pawns: Pawn[] = [];
-  (state.players as Array<{ tokens: Array<{ steps: number }> }>).forEach((p, c) => {
+function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[] {
+  const raw: Pawn[] = [];
+  (state.players as LudoGameState["players"][number][]).forEach((p, c) => {
     p.tokens.forEach((t, i) => {
+      if (t.steps >= FINISH_STEP) return;
       const pos = posFor(c as LudoColor, i, t.steps);
-      pawns.push({
+      raw.push({
+        key: `${c}-${i}`,
         color: c as LudoColor,
         idx: i,
         steps: t.steps,
@@ -186,391 +138,246 @@ export function LudoBoard({
       });
     });
   });
-  const counts: Record<string, number> = {};
-  pawns.forEach((t) => {
-    const k = `${t.x},${t.y}`;
-    counts[k] = (counts[k] ?? 0) + 1;
-  });
-  const seen: Record<string, number> = {};
-  pawns.forEach((t) => {
-    const k = `${t.x},${t.y}`;
-    const si = seen[k] ?? 0;
-    seen[k] = si + 1;
-    t.stackIndex = si;
-    t.stackCount = counts[k]!;
-  });
+  // Stack pawns that share a cell (safe-tile alliances / post-capture guards).
+  const groups = new Map<string, Pawn[]>();
+  for (const p of raw) {
+    const k = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+    const g = groups.get(k);
+    if (g) g.push(p);
+    else groups.set(k, [p]);
+  }
+  for (const g of groups.values()) {
+    g.forEach((p, i) => {
+      p.stackIndex = i;
+      p.stackCount = g.length;
+    });
+  }
+  return raw;
+}
 
+export function LudoBoard({
+  state,
+  selectable,
+  onSelect,
+  dice,
+  rolling,
+  canRollNow,
+  onRoll,
+  hubLabel,
+}: {
+  state: LudoGameState;
+  selectable: readonly number[];
+  onSelect: (tokenIdx: number) => void;
+  dice: number;
+  rolling: boolean;
+  canRollNow: boolean;
+  onRoll: () => void;
+  /** Centre-hub caption: "Tap to Roll" / "Rolling…" / "{Name} to roll". */
+  hubLabel: string;
+}) {
+  const pawns = buildPawns(state, selectable);
   return (
-    <div ref={wrapRef} className="w-full" style={{ perspective: "1000px" }}>
-      <div style={{ height: SIZE * scale }} className="relative w-full">
-        <div
-          className="absolute left-0 top-0"
+    <div className="relative select-none">
+      {/* Beveled wooden frame (grain + light/shadow bevel via layered CSS) */}
+      <div className="relative rounded-[7%] p-[3.4%]" style={WOOD_FRAME}>
+        <div className="relative overflow-hidden rounded-[4%] shadow-[inset_0_2px_12px_rgba(0,0,0,.6)] ring-1 ring-black/60">
+          <svg viewBox="0 0 15 15" className="block h-auto w-full" role="img" aria-label="Ludo Superstar 3D board">
+            <defs>
+  <linearGradient id="ls-track" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stopColor="#FFFDF4" />
+    <stop offset="1" stopColor="#EDE4CC" />
+  </linearGradient>
+  <linearGradient id="ls-yard" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stopColor="#FFFDF6" />
+    <stop offset="1" stopColor="#E9E0C9" />
+  </linearGradient>
+  {([0, 1, 2, 3] as const).map((c) => (
+    <linearGradient key={c} id={`ls-c${c}`} x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stopColor="#ffffff" stopOpacity="0.55" />
+      <stop offset="0.38" stopColor={LUDO_COLORS[c]!} />
+      <stop offset="1" stopColor={LUDO_COLORS[c]!} />
+    </linearGradient>
+  ))}
+</defs>
+{/* surface base (guards hairline seams between tiles) */}
+<rect x="0" y="0" width="15" height="15" fill="#241708" />
+{/* corner bases: coloured block + white yard + sockets + active glow */}
+{([0, 1, 2, 3] as const).map((c) => {
+  const q = BASE_QUAD[c]!;
+  const active = state.turn === c && state.winner === null;
+  return (
+    <g key={`base-${c}`}>
+      <rect x={q[0]} y={q[1]} width={6} height={6} fill={`url(#ls-c${c})`} stroke="#2A1E0F" strokeWidth={0.07} />
+      <rect
+        x={q[0] + 0.7}
+        y={q[1] + 0.7}
+        width={4.6}
+        height={4.6}
+        rx={0.45}
+        fill="url(#ls-yard)"
+        stroke="rgba(0,0,0,.3)"
+        strokeWidth={0.06}
+      />
+      {BASE_SPOTS[c]!.map(([sx, sy], i) => (
+        <circle
+          key={i}
+          cx={sx}
+          cy={sy}
+          r={0.62}
+          fill={LUDO_COLORS[c]!}
+          stroke="rgba(255,255,255,.8)"
+          strokeWidth={0.07}
+          opacity={0.92}
+        />
+      ))}
+      {active ? (
+        <rect
+          x={q[0] + 0.14}
+          y={q[1] + 0.14}
+          width={5.72}
+          height={5.72}
+          rx={0.22}
+          fill="none"
+          stroke="#FDE68A"
+          strokeWidth={0.14}
+          style={{ filter: "drop-shadow(0 0 2px rgba(253,230,138,.95))" }}
+        />
+      ) : null}
+    </g>
+  );
+})}
+{/* 52 track cells: ivory tiles, dark star tiles, coloured start squares */}
+{TRACK_PATH.map(([col, row], i) => {
+  const isStart = START_SET.has(i);
+  const isSafe = SAFE_CELLS.has(i);
+  return (
+    <g key={`trk-${i}`}>
+      <rect
+        x={col}
+        y={row}
+        width={1}
+        height={1}
+        fill={isStart ? LUDO_COLORS[START_INDEX.indexOf(i)]! : "url(#ls-track)"}
+        stroke="#3A2B15"
+        strokeWidth={0.05}
+      />
+      {isSafe ? (
+        <polygon
+          points={starPoints(col + 0.5, row + 0.5, isStart ? 0.36 : 0.3)}
+          fill={isStart ? "#FFFFFF" : "#2A1E0F"}
+          opacity={isStart ? 0.95 : 0.85}
+        />
+      ) : null}
+    </g>
+  );
+})}
+{/* home corridors (outer cells) with direction chevrons on the entry tile */}
+{([0, 1, 2, 3] as const).flatMap((c) =>
+  HOME_PATH[c]!.map(([col, row], j) => {
+    const inCentre = col >= 6 && col <= 8 && row >= 6 && row <= 8;
+    if (inCentre) return null; // corridor tip sits on the matching centre triangle
+    return (
+      <g key={`home-${c}-${j}`}>
+        <rect x={col} y={row} width={1} height={1} fill={`url(#ls-c${c})`} stroke="#3A2B15" strokeWidth={0.05} />
+        {j === 0 ? <polygon points={chevronPoints(c, col, row)} fill="#FFFFFF" opacity={0.9} /> : null}
+      </g>
+    );
+  }),
+)}
+{/* centre goal: four triangles meeting at the star emblem */}
+<polygon points="6,6 9,6 7.5,7.5" fill={LUDO_COLORS[3]!} stroke="#2A1E0F" strokeWidth={0.05} />
+<polygon points="9,6 9,9 7.5,7.5" fill={LUDO_COLORS[2]!} stroke="#2A1E0F" strokeWidth={0.05} />
+<polygon points="9,9 6,9 7.5,7.5" fill={LUDO_COLORS[1]!} stroke="#2A1E0F" strokeWidth={0.05} />
+<polygon points="6,9 6,6 7.5,7.5" fill={LUDO_COLORS[0]!} stroke="#2A1E0F" strokeWidth={0.05} />
+<polygon points={starPoints(7.5, 7.5, 0.92)} fill="#FFF7E0" stroke="rgba(0,0,0,.3)" strokeWidth={0.04} opacity={0.95} />
+          </svg>
+          <div className="absolute inset-0">
+            {pawns.map((p) => {
+  const dx = p.stackCount > 1 ? (p.stackIndex - (p.stackCount - 1) / 2) * 0.24 : 0;
+  const col = LUDO_COLORS[p.color]!;
+  return (
+    <motion.button
+      key={p.key}
+      type="button"
+      aria-label={`${LUDO_NAMES[p.color]} pawn ${p.idx + 1}`}
+      disabled={!p.movable}
+      onClick={() => {
+        if (p.movable) onSelect(p.idx);
+      }}
+      initial={false}
+      animate={{ left: `${((p.x + dx) / GRID) * 100}%`, top: `${(p.y / GRID) * 100}%` }}
+      transition={{ type: "spring", stiffness: 230, damping: 24, mass: 0.6 }}
+      className="absolute z-20 aspect-square cursor-default place-items-center"
+      style={{ width: `${(100 / GRID) * 0.74}%`, transform: "translate(-50%,-50%)" }}
+    >
+      <motion.span
+        key={`hop-${p.steps}`}
+        className="relative block h-full w-full"
+        initial={{ scale: 0.78, y: -7 }}
+        animate={{ scale: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 430, damping: 15 }}
+      >
+        <span
+          className="absolute bottom-[2%] left-1/2 h-[24%] w-[86%] -translate-x-1/2 rounded-[50%]"
+          style={{ background: "radial-gradient(ellipse, rgba(0,0,0,.5), transparent 70%)" }}
+        />
+        <span
+          className="absolute left-1/2 top-0 h-[46%] w-[46%] -translate-x-1/2 rounded-full"
           style={{
-            width: SIZE,
-            height: SIZE,
-            transform: `scale(${scale})`,
-            transformOrigin: "top left",
+            background: `radial-gradient(circle at 35% 30%, #fff, ${col} 62%, rgba(0,0,0,.55) 130%)`,
+            boxShadow: "0 2px 3px rgba(0,0,0,.5), inset 0 -1px 2px rgba(0,0,0,.4)",
           }}
-        >
-          <div
-            className="relative h-full w-full rounded-[26px]"
-            style={{
-              transform: `rotate(${orientDeg}deg) rotateX(15deg)`,
-              transition: "transform .65s cubic-bezier(.34,1.25,.5,1)",
-              transformStyle: "preserve-3d",
-              background:
-                "radial-gradient(120% 120% at 30% 20%, #4a3418 0%, #2a1c0c 55%, #150d04 100%)",
-              boxShadow:
-                "0 30px 60px rgba(0,0,0,.6), inset 0 0 0 3px rgba(246,211,101,.5), inset 0 0 40px rgba(0,0,0,.6)",
-            }}
-          >
-            {/* ---- Colored home base quadrants ---- */}
-            {([0, 1, 2, 3] as LudoColor[]).map((c) => {
-              const corner = CORNERS[c]!;
-              const col = LUDO_COLORS[c];
-              return (
-                <div key={`base-${c}`}>
-                  <div
-                    className="absolute rounded-[18px]"
-                    style={{
-                      left: corner.x * CELL,
-                      top: corner.y * CELL,
-                      width: 6 * CELL,
-                      height: 6 * CELL,
-                      background: `linear-gradient(150deg, ${col} 0%, ${col}cc 60%, #00000055 100%)`,
-                      boxShadow:
-                        "inset 0 3px 0 rgba(255,255,255,.35), inset 0 -4px 10px rgba(0,0,0,.5), 0 6px 14px rgba(0,0,0,.5)",
-                    }}
-                  />
-                  <div
-                    className="absolute rounded-[16px]"
-                    style={{
-                      left: (corner.x + 1) * CELL,
-                      top: (corner.y + 1) * CELL,
-                      width: 4 * CELL,
-                      height: 4 * CELL,
-                      background:
-                        "linear-gradient(160deg,#fdf6e3 0%,#e7dcc2 60%,#cbbf9d 100%)",
-                      boxShadow: "inset 0 2px 6px rgba(0,0,0,.25)",
-                    }}
-                  />
-                  {BASE_SPOTS[c]!.map((s, i) => (
-                    <div
-                      key={`pad-${c}-${i}`}
-                      className="absolute rounded-full"
-                      style={{
-                        left: s[0] * CELL + 4,
-                        top: s[1] * CELL + 4,
-                        width: CELL - 8,
-                        height: CELL - 8,
-                        background: `radial-gradient(circle at 40% 35%, ${col}, ${col}aa 70%, #00000066)`,
-                        boxShadow: "inset 0 -3px 6px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.4)",
-                      }}
-                    />
-                  ))}
-                </div>
-              );
-            })}
-
-            {/* ---- Center gold home ---- */}
-            <div
-              className="absolute"
-              style={{ left: 6 * CELL, top: 6 * CELL, width: 3 * CELL, height: 3 * CELL, transformStyle: "preserve-3d" }}
-            >
-              <div
-                className="h-full w-full"
-                style={{
-                  background: "linear-gradient(150deg,#fde68a 0%,#f6d365 40%,#b8860b 100%)",
-                  clipPath: "polygon(50% 4%, 96% 50%, 50% 96%, 4% 50%)",
-                  boxShadow: "0 8px 20px rgba(0,0,0,.5), inset 0 0 20px rgba(255,255,255,.35)",
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center text-lg">★</div>
-            </div>
-
-            {/* ---- Home columns (colored final runs) with arrows + locks ---- */}
-            {([0, 1, 2, 3] as LudoColor[]).map((c) =>
-              HOME_PATH[c]!.map((h, i) => (
-                <div key={`home-${c}-${i}`} className="absolute">
-                  <div
-                    className="rounded-[6px]"
-                    style={{
-                      left: h[0] * CELL + 2,
-                      top: h[1] * CELL + 2,
-                      width: CELL - 4,
-                      height: CELL - 4,
-                      background: `linear-gradient(150deg, ${LUDO_COLORS[c]}, ${LUDO_COLORS[c]}99)`,
-                      boxShadow:
-                        "inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 4px rgba(0,0,0,.45), 0 2px 5px rgba(0,0,0,.45)",
-                    }}
-                  />
-                  {/* metallic lock badge — the corridor is only traversed by the owner's pawns */}
-                  <span
-                    className="absolute flex items-center justify-center text-[10px] leading-none"
-                    style={{
-                      left: h[0] * CELL + 2,
-                      top: h[1] * CELL + 2,
-                      width: CELL - 4,
-                      height: CELL - 4,
-                      color: "rgba(255,240,200,0.85)",
-                      textShadow: "0 1px 2px rgba(0,0,0,.8)",
-                      filter: "drop-shadow(0 0 2px rgba(246,211,101,0.8))",
-                    }}
-                  >
-                    🔒
-                  </span>
-                  {/* directional entry arrow on the first corridor tile */}
-                  {i === 0 ? (
-                    <span
-                      className="absolute flex items-center justify-center font-black"
-                      style={{
-                        left: h[0] * CELL + 2,
-                        top: h[1] * CELL + 2,
-                        width: CELL - 4,
-                        height: CELL - 4,
-                        color: "#fde68a",
-                        fontSize: 16,
-                        textShadow: "0 0 6px rgba(251,191,36,0.9), 0 1px 2px rgba(0,0,0,.9)",
-                      }}
-                    >
-                      {HOME_ARROW[c]}
-                    </span>
-                  ) : null}
-                </div>
-              )),
-            )}
-
-            {/* ---- Main 52-cell track ---- */}
-            {Array.from({ length: 52 }, (_, i) => {
-              const { x, y } = trackXY(i);
-              const isStart = (START_INDEX as readonly number[]).includes(i);
-              const isSafe = SAFE_CELLS.has(i);
-              const startColor = (START_INDEX as readonly number[]).indexOf(i);
-              return (
-                <div key={`cell-${i}`}>
-                  {isStart ? (
-                    <div
-                      className="absolute rounded-[7px]"
-                      style={{
-                        left: x + 1,
-                        top: y + 1,
-                        width: CELL - 2,
-                        height: CELL - 2,
-                        background: `linear-gradient(150deg, ${LUDO_COLORS[startColor as LudoColor]}, #00000055)`,
-                        boxShadow:
-                          "inset 0 2px 0 rgba(255,255,255,.35), inset 0 -2px 5px rgba(0,0,0,.5), 0 3px 6px rgba(0,0,0,.45)",
-                      }}
-                    />
-                  ) : isSafe ? (
-                    <div
-                      className="absolute flex items-center justify-center rounded-[7px] text-[13px] font-black text-amber-900"
-                      style={{
-                        left: x + 1,
-                        top: y + 1,
-                        width: CELL - 2,
-                        height: CELL - 2,
-                        background: "linear-gradient(150deg,#fff7d6 0%,#f6d365 45%,#caa53a 100%)",
-                        boxShadow:
-                          "inset 0 2px 0 rgba(255,255,255,.6), inset 0 -3px 6px rgba(120,80,10,.5), 0 3px 7px rgba(0,0,0,.5)",
-                        textShadow: "0 1px 0 rgba(255,255,255,.5)",
-                      }}
-                    >
-                      ★
-                    </div>
-                  ) : (
-                    <div
-                      className="absolute rounded-[7px]"
-                      style={{ ...WOOD_TILE, left: x + 1, top: y + 1, width: CELL - 2, height: CELL - 2 }}
-                    />
-                  )}
-                </div>
-              );
-            })}
-
-            {/* ---- Glass sheen overlay ---- */}
-            <div
-              className="pointer-events-none absolute inset-0 rounded-[26px]"
-              style={{
-                background:
-                  "linear-gradient(115deg, rgba(255,255,255,.14) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.06) 100%)",
-              }}
-            />
-
-            {/* ---- Capture particle bursts ---- */}
-            <AnimatePresence>
-              {bursts.map((b) => (
-                <div key={b.id} className="pointer-events-none absolute" style={{ left: b.x, top: b.y }}>
-                  {Array.from({ length: 10 }, (_, d) => {
-                    const ang = (d / 10) * Math.PI * 2;
-                    const dist = 26 + Math.random() * 18;
-                    return (
-                      <motion.span
-                        key={d}
-                        className="absolute h-2 w-2 rounded-full"
-                        style={{
-                          background: "radial-gradient(circle,#fff,#fbbf24 60%,#f97316)",
-                          boxShadow: "0 0 8px #fbbf24",
-                        }}
-                        initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                        animate={{ x: Math.cos(ang) * dist, y: Math.sin(ang) * dist, opacity: 0, scale: 0.2 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.7, ease: "easeOut" }}
-                      />
-                    );
-                  })}
-                </div>
-              ))}
-            </AnimatePresence>
-
-            {/* ---- Pawns ---- */}
-            {pawns.map((t) => {
-              const dx = (t.stackIndex - (t.stackCount - 1) / 2) * (t.stackCount > 1 ? 7 : 0);
-              const dy = (t.stackIndex - (t.stackCount - 1) / 2) * (t.stackCount > 1 ? 5 : 0);
-              const col = LUDO_COLORS[t.color];
-              const mine = t.color === 0 && skin !== null;
-              // Per-cell parabolic hop: when this pawn advanced since the last render
-              // (prevSteps still holds the pre-move values until the capture-detect
-              // effect below commits), animate through each intermediate cell with an
-              // apex between cells instead of gliding linearly across the board.
-              const flatIdx = t.color * 4 + t.idx;
-              const prevS = prevSteps.current[flatIdx];
-              const pawnKey = `${t.color}-${t.idx}`;
-              if (
-                typeof prevS === "number" &&
-                t.steps > prevS &&
-                t.steps >= 0 &&
-                prevS >= -1
-              ) {
-                const xs: number[] = [];
-                const ys: number[] = [];
-                const start = posFor(t.color, t.idx, prevS);
-                xs.push(start.x + CELL / 2 + dx);
-                ys.push(start.y + CELL / 2 + dy);
-                for (let s = prevS + 1; s <= t.steps; s += 1) {
-                  const p = posFor(t.color, t.idx, s);
-                  const tx = p.x + CELL / 2 + dx;
-                  const ty = p.y + CELL / 2 + dy;
-                  const px = xs[xs.length - 1]!;
-                  const py = ys[ys.length - 1]!;
-                  // Midpoint apex then landing — a parabola per cell.
-                  xs.push((px + tx) / 2, tx);
-                  ys.push(Math.min(py, ty) - 20, ty);
-                }
-                hopAnims.current[pawnKey] = {
-                  xs,
-                  ys,
-                  dur: Math.min(1.8, (t.steps - prevS) * 0.26),
-                };
-              }
-              const hopPath = hopAnims.current[pawnKey];
-              return (
-                <motion.div
-                  key={`pawn-${t.color}-${t.idx}`}
-                  className="absolute"
-                  style={{ left: 0, top: 0 }}
-                  animate={
-                    hopPath
-                      ? { x: hopPath.xs, y: hopPath.ys }
-                      : { x: t.x + CELL / 2 + dx, y: t.y + CELL / 2 + dy }
-                  }
-                  transition={
-                    hopPath
-                      ? { duration: hopPath.dur, ease: "easeInOut" }
-                      : { type: "spring", stiffness: 320, damping: 24, mass: 0.7 }
-                  }
-                  onAnimationComplete={() => {
-                    delete hopAnims.current[pawnKey];
-                  }}
-                >
-                  <div
-                    className="absolute"
-                    style={{ transform: "translate(-50%,-50%) translateZ(20px)", transformStyle: "preserve-3d" }}
-                  >
-                    {t.movable ? (
-                      <motion.div
-                        className="absolute rounded-full"
-                        style={{
-                          left: -17,
-                          top: -17,
-                          width: 34,
-                          height: 34,
-                          border: "2.5px solid #fff",
-                          boxShadow: "0 0 14px rgba(255,255,255,.9)",
-                        }}
-                        animate={{ scale: [1, 1.18, 1], opacity: [0.7, 1, 0.7] }}
-                        transition={{ duration: 1.1, repeat: Infinity, ease: "easeInOut" }}
-                      />
-                    ) : null}
-                    {/* landing drop-shadow — shrinks + fades as the pawn hops up */}
-                    <motion.div
-                      key={`shadow-${t.color}-${t.idx}-${t.steps}`}
-                      className="pointer-events-none absolute rounded-full"
-                      style={{
-                        left: -11,
-                        top: 8,
-                        width: 22,
-                        height: 7,
-                        background: "radial-gradient(ellipse at center, rgba(0,0,0,.55), rgba(0,0,0,0) 70%)",
-                      }}
-                      initial={{ scale: 1, opacity: 0.85 }}
-                      animate={{ scale: [1, 0.55, 0.8, 1], opacity: [0.85, 0.3, 0.5, 0.85] }}
-                      transition={{ duration: 0.55, times: [0, 0.35, 0.72, 1], ease: "easeOut" }}
-                    />
-                    <motion.div
-                      key={`hop-${t.color}-${t.idx}-${t.steps}`}
-                      className="relative cursor-pointer"
-                      style={{ width: 26, height: 26 }}
-                      initial={{ y: 0, scaleX: 1, scaleY: 1 }}
-                      animate={{ y: [0, -30, -6, 0], scaleY: [1, 1.2, 0.8, 1], scaleX: [1, 0.9, 1.12, 1] }}
-                      transition={{ duration: 0.55, times: [0, 0.35, 0.72, 1], ease: "easeOut" }}
-                      onClick={() => {
-                        if (t.movable) onSelect(t.idx);
-                      }}
-                    >
-                      <div
-                        className="absolute left-1/2 top-0 h-3.5 w-3.5 -translate-x-1/2 rounded-full"
-                        style={{
-                          background: mine
-                            ? skin!.swatch
-                            : `radial-gradient(circle at 38% 30%, #ffffffcc, ${col} 55%, #00000066 130%)`,
-                          boxShadow: mine
-                            ? `${skin!.glow}, ${skin!.shadow}`
-                            : "0 2px 3px rgba(0,0,0,.5), inset 0 -1px 2px rgba(0,0,0,.4)",
-                        }}
-                      />
-                      <div
-                        className="absolute bottom-0 left-0 h-[18px] w-[26px]"
-                        style={{
-                          background: mine
-                            ? skin!.swatch
-                            : `radial-gradient(circle at 36% 28%, #ffffffb3, ${col} 48%, #00000077 135%)`,
-                          borderRadius: "48% 48% 50% 50% / 60% 60% 40% 40%",
-                          boxShadow: mine
-                            ? `${skin!.glow}, ${skin!.shadow}`
-                            : "0 6px 10px rgba(0,0,0,.55), inset 0 -3px 6px rgba(0,0,0,.45), inset 0 3px 6px rgba(255,255,255,.35)",
-                        }}
-                      >
-                        {/* high-gloss highlight streak for the selected seed theme */}
-                        {mine ? (
-                          <span
-                            className="pointer-events-none absolute inset-x-1 top-[2px] h-[7px] rounded-full opacity-80"
-                            style={{ background: skin!.gloss }}
-                          />
-                        ) : null}
-                      </div>
-                    </motion.div>
-                    {t.stackCount > 1 && t.stackIndex === t.stackCount - 1 ? (
-                      <div
-                        className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-black/80 px-1 text-[9px] font-black text-amber-300"
-                        style={{ transform: "translateZ(24px)" }}
-                      >
-                        ×{t.stackCount}
-                      </div>
-                    ) : null}
-                  </div>
-                </motion.div>
-              );
-            })}
+        />
+        <span
+          className="absolute bottom-0 left-1/2 h-[56%] w-[84%] -translate-x-1/2"
+          style={{
+            borderRadius: "48% 48% 50% 50% / 62% 62% 38% 38%",
+            background: `radial-gradient(circle at 36% 26%, rgba(255,255,255,.8), ${col} 55%, rgba(0,0,0,.55) 135%)`,
+            boxShadow:
+              "0 6px 10px rgba(0,0,0,.55), inset 0 -3px 5px rgba(0,0,0,.45), inset 0 3px 5px rgba(255,255,255,.4)",
+          }}
+        />
+        <span
+          className="absolute bottom-[16%] left-1/2 h-[14%] w-[42%] -translate-x-1/2 rounded-full opacity-70"
+          style={{ background: "linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,0))" }}
+        />
+      </motion.span>
+      {p.movable ? (
+        <motion.span
+          className="pointer-events-none absolute inset-[-22%] rounded-full ring-2 ring-amber-300"
+          animate={{ scale: [1, 1.16, 1], opacity: [0.95, 0.4, 0.95] }}
+          transition={{ repeat: Infinity, duration: 1.1 }}
+        />
+      ) : null}
+      {p.stackCount > 1 && p.stackIndex === p.stackCount - 1 ? (
+        <span className="absolute -right-1 -top-1 rounded-full bg-black/80 px-1 text-[8px] font-black leading-4 text-amber-300">
+          ×{p.stackCount}
+        </span>
+      ) : null}
+    </motion.button>
+  );
+})}
+{/* Glowing centre dice hub — tap to roll */}
+<button
+  type="button"
+  onClick={onRoll}
+  disabled={!canRollNow}
+  aria-label="Roll the dice"
+  className={`absolute left-1/2 top-1/2 z-10 flex aspect-square w-[31%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full border backdrop-blur-md transition active:scale-95 ${
+    canRollNow
+      ? "cursor-pointer border-sky-300/70 bg-slate-900/60 shadow-[0_0_36px_rgba(56,189,248,.55),inset_0_0_26px_rgba(56,189,248,.22)]"
+      : "cursor-default border-white/15 bg-slate-900/50 shadow-[inset_0_0_20px_rgba(0,0,0,.5)]"
+  }`}
+>
+  <LudoDice value={dice} rolling={rolling} active={canRollNow} size={44} />
+  <span
+    className={`text-[9px] font-black uppercase tracking-[.14em] sm:text-[10px] ${
+      canRollNow ? "text-sky-200" : "text-white/70"
+    }`}
+  >
+    {hubLabel}
+  </span>
+</button>
           </div>
         </div>
       </div>

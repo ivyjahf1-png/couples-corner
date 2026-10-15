@@ -1,124 +1,115 @@
 "use client";
 import { motion } from "framer-motion";
 
-const PIPS: Record<number, Array<[number, number]>> = {
-  1: [[1, 1]],
-  2: [[0, 0], [2, 2]],
-  3: [[0, 0], [1, 1], [2, 2]],
-  4: [[0, 0], [2, 0], [0, 2], [2, 2]],
-  5: [[0, 0], [2, 0], [1, 1], [0, 2], [2, 2]],
-  6: [[0, 0], [2, 0], [0, 1], [2, 1], [0, 2], [2, 2]],
-};
-
-// Rotation that brings each face to the front (facing viewer).
+/**
+ * LudoDice — realistic 3D die with a multi-axis tumble.
+ *
+ * A CSS cube (perspective + preserve-3d) with six pip faces. Opposite faces
+ * sum to 7: front 1 / back 6, right 3 / left 4, top 2 / bottom 5. While
+ * `rolling`, framer-motion throws the cube through ~2.5 turns on both axes
+ * plus a vertical bounce, then lands exactly on the face for `value`.
+ */
 const FACE_ROT: Record<number, { x: number; y: number }> = {
   1: { x: 0, y: 0 },
-  2: { x: 0, y: -90 },
-  3: { x: 0, y: 180 },
+  2: { x: -90, y: 0 },
+  3: { x: 0, y: -90 },
   4: { x: 0, y: 90 },
-  5: { x: -90, y: 0 },
-  6: { x: 90, y: 0 },
+  5: { x: 90, y: 0 },
+  6: { x: 0, y: 180 },
 };
 
-function Face({ n }: { n: number }) {
+/** Pip layout per face on a 3×3 grid (0 = top-left … 8 = bottom-right). */
+const PIPS: Record<number, readonly number[]> = {
+  1: [4],
+  2: [0, 8],
+  3: [0, 4, 8],
+  4: [0, 2, 6, 8],
+  5: [0, 2, 4, 6, 8],
+  6: [0, 2, 3, 5, 6, 8],
+};
+
+const FACE_STYLE: React.CSSProperties = {
+  background: "linear-gradient(145deg,#ffffff 0%,#f4f1e8 55%,#dcd6c4 100%)",
+  boxShadow: "inset 0 0 0.4rem rgba(0,0,0,.18), inset 0.12rem 0.12rem 0.3rem rgba(255,255,255,.9)",
+};
+
+function Face({ value, transform }: { value: number; transform: string }) {
   return (
     <div
-      className="absolute inset-0 grid place-items-center rounded-[18%]"
-      style={{
-        // Crisp, high-contrast face: bright near-white with a soft warm
-        // highlight so the cube never reads as dark/black.
-        background: "radial-gradient(120% 120% at 30% 25%, #ffffff 0%, #fdfdfd 40%, #eef2f7 78%, #dfe6ef 100%)",
-        boxShadow:
-          "inset 0 0 0 2px rgba(255,255,255,1), inset 0 -6px 12px rgba(120,132,150,.28), inset 0 6px 12px rgba(255,255,255,.75)",
-        backfaceVisibility: "hidden",
-      }}
+      className="absolute grid h-full w-full grid-cols-3 grid-rows-3 gap-[8%] rounded-[14%] p-[12%]"
+      style={{ ...FACE_STYLE, transform, backfaceVisibility: "hidden" }}
+      aria-hidden
     >
-      <div className="grid h-full w-full grid-cols-3 grid-rows-3 place-items-center p-[16%]">
-        {PIPS[n]!.map(([c, r], i) => (
-          <div
-            key={i}
-            className="rounded-full"
-            style={{
-              gridColumn: c + 1,
-              gridRow: r + 1,
-              width: 8,
-              height: 8,
-              // Bold, clearly-visible pips: solid ink-black with a subtle
-              // top sheen and a light halo so they pop on the bright face.
-              background: "radial-gradient(circle at 34% 30%, #3a4252 0%, #0b1220 70%)",
-              boxShadow: "inset 0 -1px 2px rgba(255,255,255,.35), 0 1px 2px rgba(0,0,0,.5)",
-            }}
-          />
-        ))}
-      </div>
+      {Array.from({ length: 9 }, (_, i) => (
+        <span key={i} className="grid place-items-center">
+          {PIPS[value]!.includes(i) ? (
+            <span
+              className="h-[70%] w-[70%] rounded-full"
+              style={{
+                background: "radial-gradient(circle at 35% 30%, #4b5563, #111827 70%)",
+                boxShadow: "inset 0 1px 1px rgba(255,255,255,.35), 0 1px 1px rgba(255,255,255,.5)",
+              }}
+            />
+          ) : null}
+        </span>
+      ))}
     </div>
   );
 }
 
-export function LudoDice({ value, rolling, active = false }: { value: number; rolling: boolean; active?: boolean }) {
+export function LudoDice({
+  value,
+  rolling,
+  active = false,
+  size = 46,
+}: {
+  value: number;
+  rolling: boolean;
+  active?: boolean;
+  /** Cube edge length in px. */
+  size?: number;
+}) {
   const face = FACE_ROT[Math.min(6, Math.max(1, value))] ?? FACE_ROT[1]!;
-  // High-polish 3D tumble: multi-axis spins + vertical bounce while rolling,
-  // then spring-settle on the result face with a landing squash.
-  const spin = rolling ? 4 : 0;
-  const target = {
-    rotateX: face.x + spin * 360 + (rolling ? 0 : 360 * 2),
-    rotateY: face.y + spin * 360,
-  };
+  // Land rotation = the face itself; during the roll add ~2.5 full turns so the
+  // cube visibly tumbles before settling.
+  const idle = { rotateX: face.x, rotateY: face.y };
+  const animate = rolling
+    ? { rotateX: [0, 900 + face.x, face.x], rotateY: [0, 1080 + face.y, face.y], y: [0, -16, 0] }
+    : idle;
+
   return (
-    <div className="relative h-20 w-20" style={{ perspective: "800px" }}>
-      {/* Prominent turn glow rings — unmissable active-player signal */}
-      {active ? (
-        <>
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -inset-2 rounded-3xl border-[3px] border-amber-300"
-            style={{ boxShadow: "0 0 24px rgba(251,191,36,.8), inset 0 0 12px rgba(251,191,36,.35)" }}
-            animate={{ scale: [1, 1.12, 1], opacity: [1, 0.35, 1] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            aria-hidden
-            className="pointer-events-none absolute -inset-4 rounded-[28px] border-2 border-amber-200/60"
-            style={{ boxShadow: "0 0 32px rgba(251,191,36,.45)" }}
-            animate={{ scale: [1, 1.22, 1], opacity: [0.6, 0, 0.6] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.25 }}
-          />
-        </>
-      ) : null}
-      {/* physics bounce shadow on the table */}
-      <motion.div
-        aria-hidden
-        className="absolute -bottom-3 left-1/2 h-3.5 w-14 -translate-x-1/2 rounded-full bg-black/70 blur-md"
-        animate={rolling ? { scale: [1, 0.6, 1.1, 0.75, 1], opacity: [0.7, 0.3, 0.65, 0.35, 0.7], y: [0, -2, 0, -1, 0] } : { scale: 1, opacity: 0.7, y: 0 }}
-        transition={rolling ? { duration: 0.7, repeat: Infinity, ease: "easeOut" } : { duration: 0.25 }}
-      />
+    <div
+      className="relative grid place-items-center"
+      style={{ perspective: 640, width: size, height: size }}
+      aria-hidden
+    >
       <motion.div
         className="relative h-full w-full"
-        style={{ transformStyle: "preserve-3d", filter: "drop-shadow(0 10px 18px rgba(0,0,0,.55))" }}
-        animate={rolling ? { ...target, y: [0, -22, 0, -12, 0], scale: [1, 1.06, 0.98, 1.03, 1] } : { ...target, y: 0, scale: 1 }}
+        style={{ transformStyle: "preserve-3d" }}
+        initial={idle}
+        animate={animate}
         transition={
           rolling
-            ? { duration: 0.7, repeat: Infinity, ease: "easeOut" }
-            : { type: "spring", stiffness: 140, damping: 11, mass: 1.1 }
+            ? { duration: 1, times: [0, 0.62, 1], ease: [0.22, 0.9, 0.3, 1] }
+            : { type: "spring", stiffness: 130, damping: 14 }
         }
       >
-        {/* six faces of a cube, half = 32px */}
-        <div style={{ transform: "translateZ(32px)" }}><Face n={1} /></div>
-        <div style={{ transform: "rotateY(90deg) translateZ(32px)" }}><Face n={2} /></div>
-        <div style={{ transform: "rotateY(180deg) translateZ(32px)" }}><Face n={3} /></div>
-        <div style={{ transform: "rotateY(-90deg) translateZ(32px)" }}><Face n={4} /></div>
-        <div style={{ transform: "rotateX(90deg) translateZ(32px)" }}><Face n={5} /></div>
-        <div style={{ transform: "rotateX(-90deg) translateZ(32px)" }}><Face n={6} /></div>
+        <Face value={1} transform={`translateZ(${size / 2}px)`} />
+        <Face value={6} transform={`rotateY(180deg) translateZ(${size / 2}px)`} />
+        <Face value={3} transform={`rotateY(90deg) translateZ(${size / 2}px)`} />
+        <Face value={4} transform={`rotateY(-90deg) translateZ(${size / 2}px)`} />
+        <Face value={2} transform={`rotateX(90deg) translateZ(${size / 2}px)`} />
+        <Face value={5} transform={`rotateX(-90deg) translateZ(${size / 2}px)`} />
       </motion.div>
-      {/* Clear numeric overlay so the roll value is never ambiguous */}
-      {!rolling ? (
-        <span
-          aria-hidden
-          className="pointer-events-none absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-b from-rose-400 to-red-600 text-sm font-black text-white shadow-[0_2px_8px_rgba(244,63,94,.7)] ring-2 ring-white/70"
-        >
-          {value}
-        </span>
-      ) : null}
+      {/* Soft contact shadow under the cube */}
+      <span
+        className="pointer-events-none absolute -bottom-[14%] left-1/2 h-[16%] w-[78%] -translate-x-1/2 rounded-[50%]"
+        style={{
+          background: `radial-gradient(ellipse at center, ${
+            active ? "rgba(56,189,248,.55)" : "rgba(0,0,0,.55)"
+          } , transparent 70%)`,
+        }}
+      />
     </div>
   );
 }
