@@ -1058,6 +1058,9 @@ export function MediaFeed({
             `justify-center` centers it in the row; the options menu stays right
             via absolute positioning. `pointer-events-auto` only on the pill itself. */}
         <div className="pointer-events-none flex items-center justify-center gap-2 px-16 pt-3 sm:pt-4">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/15 bg-slate-950/40 px-3 py-1.5 backdrop-blur-xl">
+            <span className="text-lg font-black tracking-[0.2em] text-white">Moment</span>
+          </div>
           {topRightSlot ? (
             <div className="pointer-events-auto absolute left-3 top-3 sm:left-5 sm:top-4">{topRightSlot}</div>
           ) : (
@@ -1690,14 +1693,7 @@ export function MediaFeed({
               ) : null}
             </RailItem>
 
-<RailItem>
-  <ActionButton label="Send a gift" onClick={openGiftDrawer}>
-    <span className="flex items-center gap-1">
-      <Coins className="h-6 w-6" />
-      <span className="text-xs">Tip</span>
-    </span>
-  </ActionButton>
-</RailItem>
+
 
 
             <RailItem count={reactions}>

@@ -132,9 +132,15 @@ export function MessagesInbox({
         tagline: "Top match",
         grad: "from-brand-500 to-purple-600",
         avatarUrl: c.avatarUrl as string,
+        userId: c.userId ?? null,
         href: c.href,
       }));
-    const demo = DEMO_MATCHES.map((m) => ({ ...m, avatarUrl: null as string | null, href: "/discover" }));
+    const demo = DEMO_MATCHES.map((m) => ({
+      ...m,
+      avatarUrl: null as string | null,
+      userId: null as string | null,
+      href: "/discover",
+    }));
     return [...real, ...demo];
   }, [chats]);
 
@@ -226,21 +232,22 @@ export function MessagesInbox({
             <StoryAvatar userId={userId} />
 
             {stories.map((c, i) => (
-              <Link
-                key={c.key}
-                href={c.href}
-                className="flex w-16 shrink-0 flex-col items-center gap-1.5"
-              >
+              <div className="relative flex w-16 shrink-0 flex-col items-center gap-1.5">
+                <span className="absolute -bottom-10 right-1/2 -translate-x-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-brand-500 text-white shadow-lg transition hover:bg-brand-600">
+                  <span className="flex h-full w-full items-center justify-center rounded-full bg-brand-500 text-white">
+                    <MessageCircle className="h-4 w-4" />
+                  </span>
+                </span>
                 <span className="relative">
                   <span className={`block rounded-full ring-2 ${STORY_RINGS[i % STORY_RINGS.length]}`}>
                     <Avatar name={c.name} src={c.avatarUrl} kind={c.kind} size="lg" />
                   </span>
                   <PresenceDot online={c.isOnline} size="sm" />
                 </span>
-                <span className="w-full truncate text-center text-xs text-ink-200">
+                <span className="relative w-full truncate text-center text-xs text-ink-200">
                   {c.name.split(" ")[0]}
                 </span>
-              </Link>
+              </div>
             ))}
           </div>
         </section>
@@ -284,7 +291,7 @@ export function MessagesInbox({
                   <p className="truncate text-[11px] text-brand-300">{m.tagline}</p>
                   <div className="mt-2 flex gap-1.5">
                     <Link
-                      href={m.href}
+                      href={m.userId ? `/profile/${m.userId}` : m.href}
                       className="flex flex-1 items-center justify-center rounded-lg bg-white/15 px-2 py-1 text-[11px] font-semibold text-white backdrop-blur transition hover:bg-white/25"
                     >
                       View
