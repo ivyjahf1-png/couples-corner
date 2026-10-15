@@ -74,6 +74,41 @@ class Sensory4DEngine {
     });
   }
 
+  public playSkyrocketWarp() {
+    if (this.isMuted || !this.ctx) return;
+    const t = this.ctx.currentTime;
+    try {
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.setValueAtTime(440, t);
+      osc.frequency.exponentialRampToValueAtTime(1800, t + 0.12);
+      gain.gain.setValueAtTime(0.45, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.2);
+      const noise = this.ctx.createBufferSource();
+      const nBuf = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.1, this.ctx.sampleRate);
+      const nData = nBuf.getChannelData(0);
+      for (let i = 0; i < nBuf.length; i++) nData[i] = Math.random() * 2 - 1;
+      noise.buffer = nBuf;
+      const nf = this.ctx.createBiquadFilter();
+      nf.type = "bandpass";
+      nf.frequency.setValueAtTime(2200, t);
+      nf.Q.setValueAtTime(2, t);
+      const ng = this.ctx.createGain();
+      ng.gain.setValueAtTime(0.18, t);
+      ng.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+      noise.connect(nf);
+      nf.connect(ng);
+      ng.connect(this.ctx.destination);
+      noise.start(t);
+      noise.stop(t + 0.1);
+    } catch { /* ignore */ }
+  }
+
   public playSensoryDefeat() {
     if (this.isMuted || !this.ctx) return;
     const osc = this.ctx.createOscillator();
@@ -96,6 +131,12 @@ class Sensory4DEngine {
 
 const sensoryEngine = new Sensory4DEngine();
 
+// 4D/5D Arrow jump mappings: landing on these tiles cats the pawn forward
+// and triggers playSkyrocketWarp (4D spatial warp sound).
+const ARROW_JUMPS: Record<number, number> = {
+  15: 33, 33: 42,  42: 47,  10: 22,  38: 48,  47: 57,  // arrow tile jumps
+};
+
 export function LudoEngine({ onWin, onLose }: { onWin: (n: number) => void; onLose: (n: number) => void }) {
   const [pos, setPos] = useState([0, 0, 0, 0]);
   const [turn, setTurn] = useState(0);
@@ -103,7 +144,10 @@ export function LudoEngine({ onWin, onLose }: { onWin: (n: number) => void; onLo
   const [msg, setMsg] = useState("4D Sensory Matrix Active. Tap to roll.");
   const [started, setStarted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isRolling, setIsRolling] = useState(false);
+  const [isRolling, setIsRolling] = useState(false);  // 4D/5D rolling state
+  const [rechargeModal, setRechargeModal] = useState(false);  // recharge prompt
+  const [comboCharges, setComboCharges] = useState(3); // 3/3
+  const [comboActive, setComboActive] = useState(false);
   const [particlePulse, setParticlePulse] = useState(false);
 
   const toggleSound = () => {
@@ -158,10 +202,101 @@ export function LudoEngine({ onWin, onLose }: { onWin: (n: number) => void; onLo
       }
 
       const nextTurn = (turn + 1) % 4;
-      setTurn(nextTurn);
-      setMsg(active ? `Rolled ${d}. Dynamic advancement calculated.` : `CPU ${PLAYER_NAMES[nextTurn]} rolling matrix active... (${d})`);
+
+      // ── 4D ARROW TELEPORTATION: landing on arrow tile cats pawn forward ──
+      let jumped = false;
+      for (const [tile, jumpTo] of Object.entries(ARROW_JUMPS)) {
+        if (nextPos[me] === Number(tile)) {
+          sensoryEngine.playSkyrocketWarp();
+          nextPos[me] = Math.min(57, jumpTo);
+          if (window.navigator?.vibrate) window.navigator.vibrate([120, 40, 120, 40, 160]);
+          jumped = true;
+          setMsg(`4D SKYFLARE CATAPULT! ${PLAYER_NAMES[me]} warped from ${tile} → ${jumpTo}.`);
+          break;
+        }
+      }
+      if (jumped && nextPos[me] >= 57) {
+        sensoryEngine.playSensoryVictory();
+        if (window.navigator?.vibrate) window.navigator.vibrate([180, 80, 180, 80, 320]);
+        onWin(500);
+        setMsg(`4D RESONANCE ACHIEVED: SKYFLARE VICTORY! +500 Coins. +${comboCharges} Combo charge(s)!`);
+        setComboCharges(3);
+        return;
+      }
+      if (jumped && nextPos[me] > 0) { setComboCharges(c => Math.max(0, c - 1)); }
+
+      if (nextPos[me] >= 57) {
+        sensoryEngine.playSensoryVictory();
+        if (window.navigator?.vibrate) window.navigator.vibrate([150, 80, 150, 80, 300]);
+        onWin(500);
+        setMsg(`4D RESONANCE ACHIEVED: Victory! +500 Coins.`);
+        setComboCharges(3);
+        return;
+      }
     }, 450);
   }
+
+  // ── 4D/5D TACTICAL COMBO BOOST ─────────────────────────────────────────
+  function useComboBoost() {
+    if (isRolling) return;
+    if (comboCharges <= 0 && !rechargeModal) {
+      // Combo depleted: prompt to buy coins/gems to recharge the 4D booster
+      setRechargeModal(true);
+      return;
+    }
+    setComboActive(true);
+
+    // Guarantee a high roll: 5 or 6 with haptic spike
+    const hapticPulse = [40, 30, 40, 30, 60, 30];
+    if (window.navigator?.vibrate) window.navigator.vibrate(hapticPulse);
+
+    setTimeout(() => {
+      setComboActive(false);
+      const roll = comboCharges > 0 ? (Math.random() < 0.66 ? 5 + Math.floor(Math.random() * 2) : Math.floor(Math.random() * 6) + 1) : dice;
+      setDice(roll);
+      sensoryEngine.playSensoryDiceRoll();
+
+      const me = 0;
+      const active = turn === me;
+      const nextPos = [...pos];
+      const dist = Math.min(57, nextPos[me] + roll);
+      nextPos[me] = dist;
+
+      // Arrow warp bonus if it lands on an arrow tile
+      let jumped = false;
+      let jumpedTile = 0;
+      let jumpedTo = 0;
+      for (const [tile, jumpTo] of Object.entries(ARROW_JUMPS)) {
+        if (nextPos[me] === Number(tile)) {
+          sensoryEngine.playSkyrocketWarp();
+          nextPos[me] = Math.min(57, jumpTo);
+          if (window.navigator?.vibrate) window.navigator.vibrate([120, 40, 120, 40, 160]);
+          jumped = true;
+          break;
+        }
+      }
+
+      setPos(nextPos);
+      if (jumped) {
+        setComboCharges(c => Math.max(0, c - 1));
+        setMsg(`4D SKYFLARE CATAPULT! Combo Boost +${roll}! Pawn warped from ${jumpedTile} → ${jumpedTo}!`);
+      } else if (dist >= 57) {
+        sensoryEngine.playSensoryVictory();
+        if (window.navigator?.vibrate) window.navigator.vibrate([180, 80, 180, 80, 320]);
+        onWin(500);
+        setMsg(`4D RESONANCE ACHIEVED: Victory! +500 Coins.`);
+        setComboCharges(3);
+      } else {
+        setMsg(`Tactical Combo Boost: rolled ${roll} (combo ${comboCharges - (jumped ? 1 : 0)}).`);
+        setComboCharges(c => Math.max(0, c - 1));
+        const nt = (turn + 1) % 4;
+        setTurn(nt);
+      }
+    }, 450);
+  }
+
+  // ── 4D/5D COMBO RECHARGE MODAL ─────────────────────────────────────────
+  const closeRecharge = () => setRechargeModal(false);
 
   return (
     <div className={`relative overflow-hidden rounded-3xl border-2 border-cyan-500/30 bg-gradient-to-br from-slate-950 via-slate-900 to-black p-6 shadow-[0_0_50px_rgba(6,182,212,0.15)] backdrop-blur-2xl transition-all duration-500 ${particlePulse ? "ring-4 ring-cyan-400/50 shadow-cyan-500/30" : ""}`}>
@@ -229,6 +364,68 @@ export function LudoEngine({ onWin, onLose }: { onWin: (n: number) => void; onLo
       <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/30 px-4 py-3 text-center text-xs font-bold text-cyan-200 backdrop-blur-md shadow-inner">
         {msg}
       </div>
+
+      {/* ── 4D Tactical Combo Boost ──────────────────────────────────────── */}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={useComboBoost}
+          disabled={isRolling || comboActive}
+          className={`flex items-center gap-2 rounded-2xl px-5 py-3 font-black tracking-[0.12em] text-white shadow-lg transition-all duration-300 active:scale-95 ${
+            comboActive
+              ? "bg-gradient-to-r from-amber-500 to-orange-600 shadow-orange-500/50 animate-pulse"
+              : "bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 hover:shadow-orange-500/40 hover:scale-[1.02]"
+          } disabled:opacity-40 disabled:cursor-not-allowed`}
+        >
+          <Sparkles className="h-4 w-4" />
+          {comboActive ? "CHARGING 4D BOOST..." : "TACTICAL COMBO BOOST"}
+          <span className="text-xs opacity-80">({comboCharges}/3)</span>
+        </button>
+        <button
+          type="button"
+          onClick={rollDice}
+          disabled={isRolling}
+          className="w-full max-w-sm rounded-2xl bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 py-4 text-sm font-black tracking-[0.155em] text-white shadow-[0_0_30px_rgba(37,99,235,0.4)] transition-all duration-300 active:scale-95 disabled:opacity-50"
+        >
+          {isRolling ? "PROCESSING 4D MATRIX..." : "ENGAGE 4D SENSORY ROLL"}
+        </button>
+      </div>
+
+      {/* ── 4D/5D COMBO RECHARGE MODAL ───────────────────────────────────── */}
+      {rechargeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-md"
+          onClick={closeRecharge}
+        >
+          <div
+            className="relative w-full max-w-sm rounded-3xl border border-amber-400/40 bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 p-8 text-center shadow-[0_0_60px_rgba(251,146,60,0.3)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/20">
+              <Sparkles className="h-7 w-7 text-amber-400" />
+            </div>
+            <h3 className="text-xl font-black text-amber-200">4D COMBO REBOOT NEEDED</h3>
+            <p className="mt-2 text-sm text-slate-300">Your tactical boost capacitor is empty. Buy coins or gem shards to recharge the 4D/5D booster and keep catapulting.</p>
+            <div className="mt-5 flex justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => { /* placeholder for coin UI */ setRechargeModal(false); }}
+                className="rounded-2xl bg-gradient-to-r from-amber-600 to-orange-600 px-6 py-3 font-black text-white shadow-lg hover:scale-105 transition"
+              >
+                Buy 500 Coins
+              </button>
+              <button
+                type="button"
+                onClick={() => { /* placeholder for gem UI */ setRechargeModal(false); }}
+                className="rounded-2xl bg-gradient-to-r from-emerald-600 to-green-600 px-6 py-3 font-black text-white shadow-lg hover:scale-105 transition"
+              >
+                Use Gems
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
