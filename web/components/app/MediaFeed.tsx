@@ -1759,7 +1759,6 @@ export function MediaFeed({
             ) : null}
           </div>
         </>
-</>
       )}
 
       {/* Gift drawer - opens as a bottom sheet from the action rail. */}
@@ -1772,9 +1771,6 @@ export function MediaFeed({
           signedIn={Boolean(viewerId)}
         />
       ) : null}
-
-      {/* ------------------------------------------- pinned Moments upload FAB
-      )}
 
       {/* ------------------------------------------- pinned Moments upload FAB
           Deliberately OUTSIDE the `current ?` card block above. It used to live
@@ -2074,28 +2070,6 @@ export function MediaFeed({
                     placeholder="Add a comment..."
                     className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/55 focus:border-orange-400/60 focus:outline-none"
                   />
-<input
-                    id="moment-comment"
-                    value={commentDraft}
-                    onChange={(event) => setCommentDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        // This is an <input>, not a textarea, so Enter is
-                        // unambiguously "send" rather than a newline.
-                        event.preventDefault();
-                        postComment();
-                      }
-<EmojiPickerDrawer
-                  onPick={insertEmoji}
-                  onBackspace={() => setCommentDraft((prev) => prev.slice(0, -1))}
-                />
-
-                    }}
-
-                    maxLength={500}
-                    placeholder="Add a comment..."
-                    className="h-11 min-w-0 flex-1 rounded-full border border-white/10 bg-white/10 px-4 py-2.5 text-sm text-white placeholder:text-white/55 focus:border-orange-400/60 focus:outline-none"
-                  />
                   <button
                     type="button"
                     onClick={() => setEmojiPickerOpen(true)}
@@ -2113,16 +2087,13 @@ export function MediaFeed({
                   >
                     <Send className="h-4 w-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={postComment}
-                    disabled={!commentDraft.trim() || isPending}
-                    aria-label="Post comment"
-                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-orange-400/60 bg-orange-500 text-white shadow-[0_0_16px_-2px_rgba(249,115,22,0.8)] transition-transform hover:bg-orange-400 active:scale-95 disabled:opacity-40"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
                 </div>
+                <EmojiPickerDrawer
+                  open={emojiPickerOpen}
+                  onClose={() => setEmojiPickerOpen(false)}
+                  onPick={insertEmoji}
+                  onBackspace={() => setCommentDraft((prev) => prev.slice(0, -1))}
+                />
               </div>
             ) : null}
           </div>
@@ -2164,10 +2135,6 @@ export function MediaFeed({
 
   function updateHeartBursts() {
     setHeartBursts((prev) => prev.filter((b) => b.life > 0));
-  }
-function insertEmoji(emoji        ) {
-    setCommentDraft((prev) => (prev ? prev + emoji : emoji));
-    setEmojiPickerOpen(false);
   }
 
 /**
