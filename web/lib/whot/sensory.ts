@@ -129,6 +129,59 @@ export function whotCall(): void {
   } catch { /* ignore */ }
 }
 
+/** Hold On chirp. */
+export function whotHold(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    tone(ctx, "triangle", 880, t, 0.09, 0.14, 1174);
+    tone(ctx, "triangle", 1174, t + 0.09, 0.12, 0.14, 1568);
+  } catch { /* ignore */ }
+}
+
+/** Pick alarm. */
+export function whotPick(count = 2): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    const steps = Math.min(Math.max(count, 2), 8);
+    for (let i = 0; i < steps; i++) { tone(ctx, "sawtooth", 300 + i * 90, t + i * 0.07, 0.09, 0.10); }
+  } catch { /* ignore */ }
+}
+
+/** Skip zap. */
+export function whotSkip(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    tone(ctx, "square", 740, t, 0.10, 0.12, 180);
+  } catch { /* ignore */ }
+}
+
+/** Market wave. */
+export function whotMarket(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    [392, 494, 587, 784].forEach((f, i) => { tone(ctx, "sine", f, t + i * 0.08, 0.20, 0.12); });
+  } catch { /* ignore */ }
+}
+
+/** Declare chirp. */
+export function whotDeclare(): void {
+  const ctx = getCtx();
+  if (!ctx) return;
+  try {
+    const t = ctx.currentTime;
+    tone(ctx, "triangle", 659.25, t, 0.10, 0.15);
+    tone(ctx, "triangle", 987.77, t + 0.09, 0.18, 0.16);
+  } catch { /* ignore */ }
+}
+
 /** Turn-clock tick — sharp, quiet, urgent in the last seconds. */
 export function whotTick(urgent = false): void {
   const ctx = getCtx();
@@ -190,7 +243,12 @@ export type HapticKind =
   | "tap"        // button presses, card select
   | "select"     // card lifted from hand
   | "slap"       // heavy card lands on the table
+  | "hold"       // Hold On extra turn
+  | "pick"       // Pick Two/Three rattle
+  | "skip"       // Skip buzz
+  | "market"     // General Market wave
   | "call"       // WHOT crown declaration
+  | "declare"    // WHOT called at one card
   | "error"      // illegal play buzz
   | "win";       // victory celebration
 
@@ -198,17 +256,31 @@ const HAPTIC_PATTERNS: Record<HapticKind, number | number[]> = {
   tap: 10,
   select: 8,
   slap: [18, 30, 12],
+  hold: [24, 40, 24],
+  pick: [20, 40, 20, 40, 34],
+  skip: [46],
+  market: [16, 30, 16, 30, 16, 30, 40],
   call: [30, 50, 90],
+  declare: [26, 40, 60],
   error: [40, 60, 40],
   win: [60, 90, 140, 90, 200],
 };
 
+/** Pick-penalty rattle that grows with the pile. */
+export function pickHaptic(count: number): number[] {
+  const reps = Math.min(Math.max(Math.ceil(count / 2), 2), 5);
+  const out: number[] = [];
+  for (let i = 0; i < reps; i++) { out.push(18 + i * 4, 36); }
+  out.push(34);
+  return out;
+}
+
 /** Fire a haptic pulse — silently ignored where unsupported. */
-export function haptic(kind: HapticKind): void {
+export function haptic(kind: HapticKind, pattern?: number | number[]): void {
   if (typeof window === "undefined") return;
   try {
     const nav = navigator as Navigator & { vibrate?: (p: number | number[]) => boolean };
-    if (typeof nav.vibrate === "function") nav.vibrate(HAPTIC_PATTERNS[kind]);
+    if (typeof nav.vibrate === "function") nav.vibrate(pattern ?? HAPTIC_PATTERNS[kind]);
   } catch { /* ignore */ }
 }
 
