@@ -70,6 +70,10 @@ const ART_BY_ID: Record<string, { bg: string; subject: string }> = {
     bg: "radial-gradient(120% 130% at 22% 18%, #38bdf8 0%, #0284c7 42%, #052436 84%), linear-gradient(120deg,#02121c,#053544)",
     subject: "🎣",
   },
+  "apex-racing": {
+    bg: "radial-gradient(120% 130% at 78% 20%, #22d3ee 0%, #0e7490 42%, #04121a 84%), linear-gradient(120deg,#020d14,#0a2a3a)",
+    subject: "🏎",
+  },
 };
 
 function gameArt(g: CatalogGame): { bg: string; subject: string } {
