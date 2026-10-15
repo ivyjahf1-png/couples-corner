@@ -323,7 +323,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
            documents its own stack: 74px of pill (16px lift + 58px chrome) plus
            the centre button's overhang up to 79px, all inside the app-wide
            5rem (80px) + `env(safe-area-inset-bottom)` reserve the rest of the
-           app sits at. Reserving exactly `calc(80px + env(...))` therefore puts
+           app sits at. Reserving exactly `calc(80px + safe-area-inset)` therefore puts
            this bar's bottom edge flush under the dock's TALLEST element (the
            raised centre button) and 6px clear of the pill itself on every
            device - never overlapping it, never floating above it.

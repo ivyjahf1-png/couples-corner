@@ -1018,7 +1018,7 @@ export function MediaFeed({
              absolutely-positioned chrome sits directly on top of the video the
              member rotated specifically to watch. */
           /* `inset-0`, NOT `inset-x-0 top-0`. The bottom-left creator card
-             below is `absolute bottom-[calc(13rem_+_env(...))]` and resolves
+             below is `absolute bottom-52 plus safe-area` and resolves
              against THIS element. The header's in-flow content is a single
              ~48px row, so a top-anchored header measured `bottom` up from that
              stub and the card landed entirely above the section's top edge,
