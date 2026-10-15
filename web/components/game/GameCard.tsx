@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Flame, Gamepad2, Lock, Sparkles } from "lucide-react";
+import { Coins, Flame, Gamepad2, Lock, Sparkles } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
 import type { CatalogGame } from "@/lib/game/catalog";
 
@@ -79,6 +79,18 @@ function gameArt(g: CatalogGame): { bg: string; subject: string } {
       subject: g.emoji,
     }
   );
+}
+
+/**
+ * Deterministic per-game coin pot (no backend field exists on the catalog).
+ * Derived from the game's id so it is stable across renders and devices,
+ * formatted with thousand separators for the gold pot pill.
+ */
+function coinPotFor(g: CatalogGame): string {
+  let h = 0;
+  for (let i = 0; i < g.id.length; i++) h = (h * 31 + g.id.charCodeAt(i)) >>> 0;
+  const pot = 5000 + (h % 95000);
+  return pot.toLocaleString("en-US");
 }
 
 /** Golden laurel wreath framing the winner avatar (decorative SVG). */
@@ -219,6 +231,12 @@ export function GameCard({
         {/* category chip */}
         <span className="absolute right-3 top-3 rounded-full bg-black/45 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white/85">
           {g.category}
+        </span>
+
+        {/* Gold coin pot — top-center under the art ridge */}
+        <span className="absolute left-1/2 top-3 flex -translate-x-1/2 items-center gap-1 rounded-full border border-amber-200/60 bg-gradient-to-b from-amber-300 to-orange-500 px-2.5 py-0.5 text-[10px] font-black text-[#2b1000] shadow-[0_0_14px_rgba(251,191,36,0.8)]">
+          <Coins className="h-3 w-3" aria-hidden />
+          {coinPotFor(g)}
         </span>
 
         {/* Hot / New floating glowing pill — bottom-right */}

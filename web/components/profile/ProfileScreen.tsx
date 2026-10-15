@@ -282,6 +282,23 @@ const GAMES: CatalogGame[] = listGames().slice(0, 4);
 const DEFAULT_ACCENT = "#475569";
 
 /**
+ * Rich 3D badge glyph per game — the commercial-art stand-in for the miniature
+ * game art cards. Keyed by catalog id so each tile shows its mascot (3D dice
+ * for Ludo, cards for Whot, tiger for Fortune Tiger, helmet for Apex Racing)
+ * rather than the catalog's flat single-letter `emoji`.
+ */
+const TILE_BADGE: Record<string, string> = {
+  "ludo-superstar": "🎲",
+  "whot-classic": "🃏",
+  "fortune-tiger": "🐯",
+  "apex-racing": "🏎",
+};
+
+function tileBadge(game: CatalogGame): string {
+  return TILE_BADGE[game.id] ?? game.emoji ?? "🎮";
+}
+
+/**
  * Header bar pinned above the scroll region.
  *
  * Rendered into `PageLock`'s `head` slot so it stays fixed while the body
@@ -567,36 +584,56 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                 >
                   {/* THE TILE ARTWORK.
 
-                     Three layers rather than a flat gradient block, because a bare
-                     gradient is what made these read as empty placeholders:
+                     High-gloss miniature game art: four layers rather than a flat
+                     gradient block, because a bare gradient is what made these
+                     read as empty placeholders:
 
                        1. the game's OWN accent colour from the catalog, rendered as
                           a diagonal gradient (the same value the Arcade grid uses,
                           so a tile here and its card there match);
                        2. a radial bloom behind the centre, which stops the middle
                           of the tile reading as flat colour;
-                       3. a centred gamepad glyph on top.
+                       3. a centred 3D game badge glyph (dice / cards / tiger /
+                          helmet — see TILE_BADGE) floating over a gold ring
+                          medallion, with a gloss highlight sweeping the top;
+                       4. the game's HOT/NEW badge as a glowing mini-pill pinned
+                          to the tile's top-left.
 
                      `aria-hidden` because the tile's `aria-label` already names it.
 
-                     HONEST LIMITATION: most catalog entries ship no `thumbnail`
-                     (there are no screenshot assets in this repository — `public/`
-                     holds only the app icons and the eight local builds), so this
-                     is designed artwork built from the catalog's own accent colour.
-                     Add a `thumbnail` URL to an entry and the tile can render an
-                     `<img>` instead; the gradient stays as the loading backdrop. */}
+                     HONEST LIMITATION: most catalog entries ship no usable
+                     `thumbnail` (there are no screenshot assets in this
+                     repository — `public/` holds only the app icons and the eight
+                     local builds), so this is designed artwork built from the
+                     catalog's own accent colour. Add a real art URL to an entry
+                     and the tile can render an `<img>` instead; the gradient
+                     stays as the loading backdrop. */}
                   <span
                     aria-hidden
-                    className={`relative block aspect-square w-full overflow-hidden rounded-xl shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
+                    className={`relative block aspect-square w-full overflow-hidden rounded-xl border border-white/20 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
                     style={{
                       background: `linear-gradient(135deg, ${game.accent ?? DEFAULT_ACCENT} 0%, rgba(15,23,42,0.9) 120%)`,
                     }}
                   >
                     <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.38),transparent_62%)]" />
-                    <span className="absolute inset-0 flex items-center justify-center text-[30px] leading-none drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
-                      {game.emoji ?? "🎮"}
+                    <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
+                    {game.badge ? (
+                      <span
+                        className={`absolute left-1 top-1 rounded-full px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-white ${
+                          game.badge === "New"
+                            ? "bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.9)]"
+                            : "bg-gradient-to-r from-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.9)]"
+                        }`}
+                      >
+                        {game.badge}
+                      </span>
+                    ) : null}
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-[26px] leading-none ring-2 ring-amber-300/80 drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
+                        {tileBadge(game)}
+                      </span>
                     </span>
-                    {/* Bottom vignette so the glyph keeps its contrast against the
+                    {/* Bottom vignette so the badge keeps its contrast against the
                         lighter part of any accent gradient. */}
                     <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/25 to-transparent" />
                   </span>
