@@ -1017,7 +1017,18 @@ export function MediaFeed({
              LANDSCAPE. In a ~360px-tall landscape viewport this stack of
              absolutely-positioned chrome sits directly on top of the video the
              member rotated specifically to watch. */
-          "landscape-hide-chrome pointer-events-none absolute inset-x-0 top-0 z-40 shrink-0",
+          /* `inset-0`, NOT `inset-x-0 top-0`. The bottom-left creator card
+             below is `absolute bottom-[calc(13rem_+_env(...))]` and resolves
+             against THIS element. The header's in-flow content is a single
+             ~48px row, so a top-anchored header measured `bottom` up from that
+             stub and the card landed entirely above the section's top edge,
+             clipped away - which is why the uploader avatar, handle, Follow
+             pill and caption never showed. The box stays `pointer-events-none`
+             so a full-height header still intercepts no taps: only its
+             `pointer-events-auto` children (search pill, options menu, creator
+             card) do, and in-flow children still lay out from the top exactly
+             as before. */
+          "landscape-hide-chrome pointer-events-none absolute inset-0 z-40 shrink-0",
           chromeClass,
         ].join(" ")}
       >
@@ -1221,10 +1232,10 @@ export function MediaFeed({
              and only this one needed the extra clearance. */}
         {/* BOTTOM-LEFT CREATOR CARD — frosted glass, per the reference.
             Avatar + name + timestamp + orange-ringed Connect pill, pinned above
-            the message bar (bottom ~11rem clears bar + nav). Was top-anchored;
+            the message bar (bottom 13rem clears bar + nav). Was top-anchored;
             the reference puts identity bottom-left over the media. */}
         {current ? (
-          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(11.5rem_+_env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
+          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(13rem_+_env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
           {/* ── UPLOADER BAR — TikTok / Reels profile card ────────────────────────────
               Avatar (orange ring + superimposed follow badge) on the left, bold
               @handle and a single truncated caption line stacked to its right.
@@ -1596,23 +1607,23 @@ export function MediaFeed({
               /* `landscape-hide-chrome` — the rail is a column of `bottom-44`
                  offsets that has no room to exist in a short landscape
                  viewport, and it would sit over the video. */
-              /* ── RAISED TO 15rem / 16rem ────────────────────────────────────────────
+              /* ── RAISED TO 17rem / 18rem ────────────────────────────────────────────
                  The rail, the FAB and the bottom bar are ONE right-hand
                  column, so they are positioned as a stack measured from the
                  floor upward:
 
-                     nav            0   – 80px
-                     bottom bar    80   – 164px   (reactions + message input)
-                     FAB          176   – 232px   (56px tall, 11rem offset)
-                     this rail    240   – ~480px  (4 x 48px + gaps)
+                     nav            0   – 71px   (pill + centre button)
+                     bottom bar    96   – 180px   (pagination + message input)
+                     FAB          208   – 264px   (56px tall, 13rem offset)
+                     this rail    272   – ~652px  (up to 6 x 48px + gaps)
 
                  At its previous `11rem` (176px) the rail's bottom edge sat
                  exactly on the FAB's bottom edge, so the two overlapped
-                 outright once the FAB was raised. `15rem` (240px) restores an
-                 8px gap and keeps the four actions clear of the message input
+                 outright once the FAB was raised. `17rem` (272px) restores an
+                 8px gap and keeps the actions clear of the message input
                  they were crowding.
 
-                 `sm:16rem` holds the same relationship on wider screens, where
+                 `sm:18rem` holds the same relationship on wider screens, where
                  the reaction row and input are the same height but the gutter
                  is wider. */
               /* `z-30`, NOT `z-20`. The card's media stack is `relative z-20`, so a
@@ -1623,7 +1634,7 @@ export function MediaFeed({
                  the layer order a property of the design rather than an accident
                  of file order. The same z-30 the top bar and composer already
                  use, so all chrome now shares one layer above the media. */
-              "landscape-hide-chrome absolute bottom-[calc(15rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3 sm:bottom-[calc(16rem_+_env(safe-area-inset-bottom))] sm:right-4",
+              "landscape-hide-chrome absolute bottom-[calc(17rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex flex-col items-center gap-3 sm:bottom-[calc(18rem_+_env(safe-area-inset-bottom))] sm:right-4",
               chromeClass,
             ].join(" ")}
           >
@@ -1801,7 +1812,7 @@ export function MediaFeed({
           // is a different, redder orange, which made the FAB look like it
           // belonged to a different theme than the nav beneath it.
           //
-          // `11rem` (176px). THIS REVERTS MY OWN CHANGE, which was the bug.
+          // `13rem` (208px) - raised from 11rem when the composer moved to 6rem.
           //
           // I moved this from 7rem DOWN to 5.5rem in an earlier pass on the
           // instruction to "shift the FAB downward". That was wrong, and the
@@ -1814,14 +1825,14 @@ export function MediaFeed({
           // 88-144px sat squarely inside it, crowding the input that is the
           // one control that must always be reachable.
           //
-          // `11rem` = 176px puts the button's bottom edge 12px clear of the
-          // bar's 164px top edge. `env()` is ADDED rather than swapped in, so
+          // `13rem` = 208px puts the button's bottom edge 28px clear of the
+          // bar's 180px top edge. `env()` is ADDED rather than swapped in, so
           // the clearance holds on a device with a home indicator.
           //
           // The `sm:` variant is dropped for the same reason as everywhere else
           // in this file: the nav is `md:hidden`, so a second offset is one
           // more number to keep in step with nothing.
-          className="landscape-hide-chrome absolute bottom-[calc(11rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
+          className="landscape-hide-chrome absolute bottom-[calc(13rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
         >
           <Plus className="h-7 w-7" />
         </Link>
@@ -1842,17 +1853,21 @@ export function MediaFeed({
                the message input were half-covered on every phone, and the input
                is the one control that must always be reachable.
 
-               `bottom-[calc(5rem_+_env(safe-area-inset-bottom))]` clears the 5rem
-               (80px) tab bar and ADDS the home-indicator inset rather than
-               swapping it in, so the clearance holds on an iPhone where the bar
-               is taller than 5rem. The trailing `pb` shrinks to a small pad: the
-               space that used to separate the bar from the screen edge is now
-               consumed by the nav it sits above.
+               `bottom-[calc(6rem_+_env(safe-area-inset-bottom))]` (96px) puts the
+               input pill's lower edge near 104px + inset, ~30px above the dock's
+               real top edge (bottom-2 + pill, ~66px; the centre button
+               protrudes to ~71px). The old 5rem offset dropped the bar into the
+               dock's shadow band, where the z-50 nav could cover the input's tap
+               target. The inset is ADDED rather than swapped in, so the
+               clearance grows further on an iPhone with a home indicator. The
+               trailing `pb` shrinks to a small pad: the space that used to
+               separate the bar from the screen edge is now consumed by the nav
+               it sits above.
 
                There is deliberately NO `sm:` variant. The bar is `md:hidden` and
                the sidebar rail takes over at md, so a second offset would only be
                another number to keep in step with the nav's height. */
-            "bottom-[calc(5rem_+_env(safe-area-inset-bottom))] px-3 pb-2 sm:px-5",
+            "bottom-[calc(6rem_+_env(safe-area-inset-bottom))] px-3 pb-2 sm:px-5",
             chromeClass,
           ].join(" ")}
         >
