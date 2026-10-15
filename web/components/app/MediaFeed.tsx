@@ -858,6 +858,8 @@ export function MediaFeed({
       setCommentDraft("");
       setSendError(null);
     });
+  }
+
   function sendQuickMessage() {
     if (!current || !draft.trim()) return;
     const body = draft.trim().slice(0, MAX_CAPTION);
@@ -1864,7 +1866,7 @@ export function MediaFeed({
               the only control (the message pill) that must stay reachable. */}
           {/* Message trigger.
 
-              /* VIBRANT ORANGE ACCENT, DELIBERATELY LOUD.
+              VIBRANT ORANGE ACCENT, DELIBERATELY LOUD.
 
                  This was `border-white/10 bg-white/10` — the same muted glass as
                  every other overlay on the screen. Over a bright photo that
@@ -2729,8 +2731,6 @@ function MediaSurface({
             </div>
           ))}
         </div>
-        {/* Tap to play / pause.
-        />
         {/* Tap to play / pause.
             This is a real <button> covering the media rather than an onClick on
             the <video> itself. Two reasons:
