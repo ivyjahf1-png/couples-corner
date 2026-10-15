@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Heart, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Loader2, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Plus, Send, Share2, Volume2, VolumeX, Coins, Loader2, Trash2 } from "lucide-react";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import {
   setMomentReactionAction,
@@ -21,9 +21,6 @@ import { shareOrCopy } from "@/lib/utils/share";
 import { notifySuccess } from "@/components/ui/FailureToasts";
 import { EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
 import { GiftDrawer } from "@/components/app/GiftDrawer";
-import { sendGiftAction } from "@/lib/actions/commerce";
-import type { GiftItem } from "@/lib/giftCatalog";
-import { Coins } from "lucide-react";
 import type { MomentCommentView, MomentView, ReactionKind, ReactionTally } from "@/lib/moments";
 import { parseVideoEmbedUrl } from "@/lib/utils/video-embed";
 
@@ -214,13 +211,6 @@ export function MediaFeed({
     // Clamp so a position past the end appends rather than creating a gap, and
     // so a negative position cannot produce an unreachable card.
     const at = Math.min(Math.max(sponsoredPosition, 0), out.length);
-  const [index, setIndex] = useState(0);
-  const [muted, setMuted] = useState(true);
-  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
-  const [giftDrawerOpen, setGiftDrawerOpen] = useState(false);
-  const [coinBalance, setCoinBalance] = useState(0);
-  const [heartBursts, setHeartBursts] = useState<{id:number;x:number;y:number;}[]>([]);
-  // Active card, derived from scrollTop (see the listener below).
     out.splice(at, 0, { kind: "sponsored" as const, key: SPONSORED_CARD_KEY });
     return out;
   }, [feed, sponsoredSlot, sponsoredPosition]);
@@ -228,6 +218,10 @@ export function MediaFeed({
   // Active card, derived from scrollTop (see the listener below).
   const [index, setIndex] = useState(0);
   const [muted, setMuted] = useState(true);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [giftDrawerOpen, setGiftDrawerOpen] = useState(false);
+  const [coinBalance, setCoinBalance] = useState(0);
+  const [heartBursts, setHeartBursts] = useState<{id:number;x:number;y:number;}[]>([]);
   // Engagement overrides keyed by moment id. Seeded from the server payload,
   // then superseded by the authoritative result of each action.
   //
@@ -873,6 +867,40 @@ export function MediaFeed({
       setSendError(null);
       if (result.conversationId) router.push(`/messages/${result.conversationId}`);
     });
+  }
+
+  /** Insert an emoji into the comment draft and close the picker. */
+  function insertEmoji(emoji: string) {
+    setCommentDraft((prev) => (prev ? prev + emoji : emoji));
+    setEmojiPickerOpen(false);
+  }
+
+  /** Open the gift drawer for the active uploader. */
+  function openGiftDrawer() {
+    setGiftDrawerOpen(true);
+  }
+
+  /** Close the gift drawer. */
+  function closeGiftDrawer() {
+    setGiftDrawerOpen(false);
+  }
+
+  /** Spawn a floating heart burst at the given coordinates. */
+  function spawnHeartBursts(x: number, y: number, count: number) {
+    const now = Date.now();
+    const bursts = Array.from({ length: count }, () => ({
+      id: now + Math.random() * 10000,
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.5) * 18 - 6,
+      life: 1,
+    }));
+    setHeartBursts((prev) => [...prev, ...bursts]);
+  }
+
+  function updateHeartBursts() {
+    setHeartBursts((prev) => prev.filter((b) => b.life > 0));
   }
 
   return (
@@ -2105,40 +2133,6 @@ export function MediaFeed({
     </FeedActiveProvider>
   );
 }
-  /** Insert an emoji into the comment draft and close the picker. */
-  function insertEmoji(emoji: string) {
-    setCommentDraft((prev) => (prev ? prev + emoji : emoji));
-    setEmojiPickerOpen(false);
-  }
-
-  /** Open the gift drawer for the active uploader. */
-  function openGiftDrawer() {
-    setGiftDrawerOpen(true);
-  }
-
-  /** Close the gift drawer. */
-  function closeGiftDrawer() {
-    setGiftDrawerOpen(false);
-  }
-
-  /** Spawn a floating heart burst at the given coordinates. */
-  function spawnHeartBursts(x: number, y: number, count: number) {
-    const now = Date.now();
-    const bursts = Array.from({ length: count }, () => ({
-      id: now + Math.random() * 10000,
-      x,
-      y,
-      vx: (Math.random() - 0.5) * 18,
-      vy: (Math.random() - 0.5) * 18 - 6,
-      life: 1,
-    }));
-    setHeartBursts((prev) => [...prev, ...bursts]);
-  }
-
-  function updateHeartBursts() {
-    setHeartBursts((prev) => prev.filter((b) => b.life > 0));
-  }
-
 /**
  * The media surface. Images and videos share a full-bleed object-cover box, so
  * the viewer never letterboxes or shifts layout between media types.
