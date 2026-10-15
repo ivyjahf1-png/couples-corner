@@ -2698,9 +2698,6 @@ function MediaSurface({
           onError={() => {
             setReady(false);
             setFailed(true);
-onError={() => {
-            setReady(false);
-            setFailed(true);
           }}
           onDoubleClick={(event) => {
             // Double-tap the video to trigger floating heart burst animations at
@@ -2709,9 +2706,7 @@ onError={() => {
             spawnHeartBursts(event.clientX, event.clientY, 8);
           }}
           className={surfaceClass}
-          }}
-          className={surfaceClass}
-/>
+        />
         {/* Floating heart bursts - triggered by double-tap on video. */}
         <div className="pointer-events-none absolute inset-0 z-30 overflow-hidden">
           {heartBursts.map((burst) => (
