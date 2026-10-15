@@ -1,11 +1,17 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Crown, MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut, Smartphone } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut, Smartphone } from "lucide-react";
 
 /**
- * WhotTopBar — the in-game header chrome: back arrow, crowned
- * "WHOT 4 PLAYERS" title, audio toggle, settings gear and ⋯ menu.
+ * WhotTopBar — in-game ACTION CLUSTER (deliberately NOT a header any more).
+ *
+ * This bar used to be a full second header: its own back arrow plus the
+ * crowned "WHOT 4 PLAYERS" title sat directly under GameScreen's single
+ * Back · title · coins bar — stacked chrome rows and two back buttons on one
+ * screen. The HEADER CLEANUP removed the back button and the title block:
+ * `GameScreen` owns the only header on the game viewport now. What remains is
+ * the table's control cluster, right-aligned above the felt: audio toggle,
+ * settings gear and the ⋯ menu (restart / leave).
  *
  * Settings popover = sound switch + motion (gyro tilt) opt-in + house rules;
  * ⋯ menu = restart / leave. A fixed transparent scrim closes either popover.
@@ -33,32 +39,10 @@ export function WhotTopBar({
   onRestart: () => void;
   onLeave: () => void;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState<null | "settings" | "menu">(null);
 
   return (
-    <div className="relative flex items-center gap-2">
-      <button
-        type="button"
-        aria-label="Back"
-        onClick={() => router.back()}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/8 text-white backdrop-blur-md transition hover:bg-white/15 active:scale-95"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
-
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-amber-400 to-yellow-600 shadow-[0_0_12px_rgba(245,158,11,.6)]">
-          <Crown className="h-3.5 w-3.5 fill-white text-white" />
-        </span>
-        <span className="min-w-0 text-center">
-          <span className="block truncate text-[11px] font-black uppercase tracking-[.18em] text-white">
-            Whot 4 Players
-          </span>
-          <span className="block truncate text-[10px] font-bold text-white/55">4 Seats · Classic Rules</span>
-        </span>
-      </div>
-
+    <div className="relative z-40 flex items-center justify-end gap-1.5">
       <div className="flex shrink-0 items-center gap-1.5">
         <button
           type="button"

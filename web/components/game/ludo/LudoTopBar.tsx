@@ -1,13 +1,17 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Heart, MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut } from "lucide-react";
 
 /**
- * LudoTopBar — the in-game header chrome: back arrow, Couples Corner heart
- * badge with the "4 Players · 3D Ludo" subtitle, plus audio / settings / menu
- * actions. The generic GameScreen header sits above this one; this bar is the
- * game's own immersive header (reference: Ludo Superstar's top strip).
+ * LudoTopBar — in-game ACTION CLUSTER (deliberately NOT a header any more).
+ *
+ * This bar used to be a full second header: its own back arrow plus the
+ * "Couples Corner · 4 Players · 3D Ludo" title sat directly under GameScreen's
+ * single Back · title · coins bar — stacked chrome rows and two back buttons
+ * on one screen. The HEADER CLEANUP removed the back button and the title
+ * block: `GameScreen` owns the only header on the game viewport now. What
+ * remains is the game's control cluster, right-aligned above the board:
+ * audio toggle, house-rules settings and the ⋯ menu (restart / leave).
  *
  * Settings popover = house rules + sound switch; ⋯ menu = restart / leave.
  * A fixed transparent scrim closes either popover.
@@ -30,32 +34,10 @@ export function LudoTopBar({
   onRestart: () => void;
   onLeave: () => void;
 }) {
-  const router = useRouter();
   const [open, setOpen] = useState<null | "settings" | "menu">(null);
 
   return (
-    <div className="relative flex items-center gap-2">
-      <button
-        type="button"
-        aria-label="Back"
-        onClick={() => router.back()}
-        className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/12 bg-white/8 text-white backdrop-blur-md transition hover:bg-white/15 active:scale-95"
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
-
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-2">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500 to-red-700 shadow-[0_0_12px_rgba(244,63,94,.55)]">
-          <Heart className="h-3.5 w-3.5 fill-white text-white" />
-        </span>
-        <span className="min-w-0 text-center">
-          <span className="block truncate text-[11px] font-black uppercase tracking-[.18em] text-white">
-            Couples Corner
-          </span>
-          <span className="block truncate text-[10px] font-bold text-white/55">4 Players · 3D Ludo</span>
-        </span>
-      </div>
-
+    <div className="relative z-40 flex items-center justify-end gap-1.5">
       <div className="flex shrink-0 items-center gap-1.5">
         <button
           type="button"

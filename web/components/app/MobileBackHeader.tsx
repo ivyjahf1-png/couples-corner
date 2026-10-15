@@ -55,6 +55,12 @@ export function MobileBackHeader() {
     "profile", // own profile + /profile/<uid>
     "likes",
     "discover",
+    /* `/games` and `/games/<gameId>` join the list for the HEADER CLEANUP: the
+       Game Center hub draws `GameCenterHeader` and every game screen draws
+       `GameScreen`'s single Back · title · coins bar. This global bar stacked a
+       second chrome row (and a second back arrow, alongside the engines' own
+       top bars) above each game — two or three headers on one phone screen. */
+    "games",
     /* `/explore` is NOT in this list even though it suppresses the back arrow and
        the "Home" link: it renders THIS bar in its bare form — centred title only —
        so it must keep reaching the markup below. */

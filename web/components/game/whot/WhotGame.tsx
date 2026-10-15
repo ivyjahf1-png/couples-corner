@@ -531,7 +531,7 @@ export function WhotGame({
   const thinking = busy && game.turn !== 0 && phase === "play" && winner === null ? status : null;
 
   return (
-    <div className="relative flex h-[640px] max-h-[78vh] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl">
+    <div className="relative flex h-full min-h-[34rem] w-full flex-col overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl">
       <div className="px-3 pt-3">
         <WhotTopBar
           soundOn={soundOn}
