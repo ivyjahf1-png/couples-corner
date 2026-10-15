@@ -57,46 +57,49 @@ function Face({ n }: { n: number }) {
 
 export function LudoDice({ value, rolling, active = false }: { value: number; rolling: boolean; active?: boolean }) {
   const face = FACE_ROT[Math.min(6, Math.max(1, value))] ?? FACE_ROT[1]!;
-  // Add full spins while rolling so it tumbles, then settle on the face.
-  const spin = rolling ? 3 : 0;
+  // High-polish 3D tumble: multi-axis spins + vertical bounce while rolling,
+  // then spring-settle on the result face with a landing squash.
+  const spin = rolling ? 4 : 0;
   const target = {
-    rotateX: face.x + spin * 360,
-    rotateY: face.y + spin * 270,
+    rotateX: face.x + spin * 360 + (rolling ? 0 : 360 * 2),
+    rotateY: face.y + spin * 360,
   };
   return (
-    <div className="relative h-16 w-16" style={{ perspective: "600px" }}>
-      {/* Pulsing turn glow rings — only while it's the active player's turn */}
+    <div className="relative h-20 w-20" style={{ perspective: "800px" }}>
+      {/* Prominent turn glow rings — unmissable active-player signal */}
       {active ? (
         <>
           <motion.div
             aria-hidden
-            className="pointer-events-none absolute -inset-2 rounded-3xl border-2 border-amber-300/80"
-            animate={{ scale: [1, 1.15, 1], opacity: [0.9, 0.25, 0.9] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            className="pointer-events-none absolute -inset-2 rounded-3xl border-[3px] border-amber-300"
+            style={{ boxShadow: "0 0 24px rgba(251,191,36,.8), inset 0 0 12px rgba(251,191,36,.35)" }}
+            animate={{ scale: [1, 1.12, 1], opacity: [1, 0.35, 1] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
           />
           <motion.div
             aria-hidden
-            className="pointer-events-none absolute -inset-3 rounded-[26px] border border-amber-200/50"
-            animate={{ scale: [1, 1.25, 1], opacity: [0.5, 0, 0.5] }}
-            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+            className="pointer-events-none absolute -inset-4 rounded-[28px] border-2 border-amber-200/60"
+            style={{ boxShadow: "0 0 32px rgba(251,191,36,.45)" }}
+            animate={{ scale: [1, 1.22, 1], opacity: [0.6, 0, 0.6] }}
+            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut", delay: 0.25 }}
           />
         </>
       ) : null}
-      {/* shadow on the table */}
+      {/* physics bounce shadow on the table */}
       <motion.div
         aria-hidden
-        className="absolute -bottom-2 left-1/2 h-3 w-12 -translate-x-1/2 rounded-full bg-black/60 blur-md"
-        animate={rolling ? { scale: [1, 0.7, 1], opacity: [0.6, 0.3, 0.6] } : { scale: 1, opacity: 0.6 }}
-        transition={rolling ? { duration: 0.5, repeat: Infinity, ease: "linear" } : { duration: 0.2 }}
+        className="absolute -bottom-3 left-1/2 h-3.5 w-14 -translate-x-1/2 rounded-full bg-black/70 blur-md"
+        animate={rolling ? { scale: [1, 0.6, 1.1, 0.75, 1], opacity: [0.7, 0.3, 0.65, 0.35, 0.7], y: [0, -2, 0, -1, 0] } : { scale: 1, opacity: 0.7, y: 0 }}
+        transition={rolling ? { duration: 0.7, repeat: Infinity, ease: "easeOut" } : { duration: 0.25 }}
       />
       <motion.div
         className="relative h-full w-full"
-        style={{ transformStyle: "preserve-3d" }}
-        animate={target}
+        style={{ transformStyle: "preserve-3d", filter: "drop-shadow(0 10px 18px rgba(0,0,0,.55))" }}
+        animate={rolling ? { ...target, y: [0, -22, 0, -12, 0], scale: [1, 1.06, 0.98, 1.03, 1] } : { ...target, y: 0, scale: 1 }}
         transition={
           rolling
-            ? { duration: 0.5, repeat: Infinity, ease: "linear" }
-            : { type: "spring", stiffness: 120, damping: 12, mass: 0.9 }
+            ? { duration: 0.7, repeat: Infinity, ease: "easeOut" }
+            : { type: "spring", stiffness: 140, damping: 11, mass: 1.1 }
         }
       >
         {/* six faces of a cube, half = 32px */}

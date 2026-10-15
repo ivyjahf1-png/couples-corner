@@ -221,7 +221,6 @@ export function MediaFeed({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [giftDrawerOpen, setGiftDrawerOpen] = useState(false);
   const [coinBalance, setCoinBalance] = useState(0);
-  const [heartBursts, setHeartBursts] = useState<{id:number;x:number;y:number;}[]>([]);
   // Engagement overrides keyed by moment id. Seeded from the server payload,
   // then superseded by the authoritative result of each action.
   //
@@ -883,24 +882,6 @@ export function MediaFeed({
   /** Close the gift drawer. */
   function closeGiftDrawer() {
     setGiftDrawerOpen(false);
-  }
-
-  /** Spawn a floating heart burst at the given coordinates. */
-  function spawnHeartBursts(x: number, y: number, count: number) {
-    const now = Date.now();
-    const bursts = Array.from({ length: count }, () => ({
-      id: now + Math.random() * 10000,
-      x,
-      y,
-      vx: (Math.random() - 0.5) * 18,
-      vy: (Math.random() - 0.5) * 18 - 6,
-      life: 1,
-    }));
-    setHeartBursts((prev) => [...prev, ...bursts]);
-  }
-
-  function updateHeartBursts() {
-    setHeartBursts((prev) => prev.filter((b) => b.life > 0));
   }
 
   return (
@@ -2118,12 +2099,13 @@ export function MediaFeed({
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
-                <EmojiPickerDrawer
-                  open={emojiPickerOpen}
-                  onClose={() => setEmojiPickerOpen(false)}
+                {emojiPickerOpen ? (
+                  <EmojiPickerDrawer
+                    onClose={() => setEmojiPickerOpen(false)}
                   onPick={insertEmoji}
                   onBackspace={() => setCommentDraft((prev) => prev.slice(0, -1))}
                 />
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -2180,6 +2162,27 @@ function MediaSurface({
   // Lets the parent sync its own mute icon when recovery grants sound, so the
   // control never claims "muted" while the video is actually audible.
   const onRequestUnmute = useRef<(() => void) | null>(null);
+
+  /** Floating hearts on double-tap. Local to each card so bursts never leak across moments. */
+  const [heartBursts, setHeartBursts] = useState<
+    Array<{ id: number; x: number; y: number; vx: number; vy: number; life: number }>
+  >([]);
+  /** Spawn a floating heart burst at the given coordinates. */
+  function spawnHeartBursts(x: number, y: number, count: number) {
+    const now = Date.now();
+    const bursts = Array.from({ length: count }, () => ({
+      id: now + Math.random() * 10000,
+      x,
+      y,
+      vx: (Math.random() - 0.5) * 18,
+      vy: (Math.random() - 0.5) * 18 - 6,
+      life: 1,
+    }));
+    setHeartBursts((prev) => [...prev, ...bursts]);
+    window.setTimeout(() => {
+      setHeartBursts((prev) => prev.filter((b) => Date.now() - b.id < 1000).slice(-24));
+    }, 1200);
+  }
 
   /** Reveal the media surface. Idempotent — every decode event calls it. */
   const reveal = useCallback(() => setReady(true), []);
