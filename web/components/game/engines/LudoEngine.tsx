@@ -307,7 +307,7 @@ export function LudoEngine({
         } else {
           sensoryEngine.playSensoryDefeat();
           onLose(100);
-          setMsg(${SEATS[seat]!.name} warped home first.);
+          setMsg(`${SEATS[seat]!.name} warped home first.`);
         }
         return;
       }
@@ -402,9 +402,9 @@ export function LudoEngine({
           disabled={isRolling || winner !== null || !isHumanTurn}
           className="flex flex-1 items-center justify-center gap-3 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 py-3.5 shadow-lg active:scale-95 disabled:opacity-50"
         >
-          <span className="text-xl font-black text-white">{isRolling ? "🎲..." : DICE: ${dice}}</span>
+          <span className="text-xl font-black text-white">{isRolling ? "🎲..." : `DICE: ${dice}`}</span>
           <span className="text-xs font-black tracking-widest text-amber-100">
-            {isRolling ? "ROLLING..." : !isHumanTurn ? ${SEATS[turn]!.name}... : "TAP TO ROLL"}
+            {isRolling ? "ROLLING..." : {notisHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"}
           </span>
         </button>
       </div>
