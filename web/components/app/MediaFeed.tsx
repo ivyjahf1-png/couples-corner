@@ -1053,125 +1053,14 @@ export function MediaFeed({
 
             So the top padding here is a plain, even `0.75rem`: this overlay sits
             below the header and just needs breathing room. */}
-        {/* FLOATING LOCATION PILL — centered near the top, per the reference.
-            Dark translucent pill with pin icon: "Discover Nearby, Austin, TX".
-            `justify-center` centers it in the row; the options menu stays right
-            via absolute positioning. `pointer-events-auto` only on the pill itself. */}
-        <div className="pointer-events-none flex items-center justify-center gap-2 px-16 pt-3 sm:pt-4">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-white/15 bg-slate-950/40 px-3 py-1.5 backdrop-blur-xl">
-            <span className="text-lg font-black tracking-[0.2em] text-white">Moment</span>
-          </div>
+        {/* AAA CLEAN TOP — no header clutter. The media is full-bleed edge-to-edge;
+            the "Moment" pill, "Discover Nearby" box and 3-dot menu are removed.
+            The options menu (share/report/delete) lives in the comment sheet. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex items-center justify-end px-3 pt-3 sm:px-5 sm:pt-4">
           {topRightSlot ? (
-            <div className="pointer-events-auto absolute left-3 top-3 sm:left-5 sm:top-4">{topRightSlot}</div>
-          ) : (
-            <div className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/60 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-xl">
-              <span aria-hidden className="text-orange-400">📍</span> Discover Nearby, Austin, TX
-            </div>
-          )}
-          <div className="pointer-events-auto absolute right-3 top-3 sm:right-5 sm:top-4">
-          {/* Per-card options menu (copy link / report). */}
-          {current ? (
-            <div className="relative shrink-0">
-              {/* Same orange-ring glass circle as the action rail below, so the
-                  top-bar menu reads as part of that control family. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen((open) => !open);
-                  // Clear a previous failure as the member re-opens the menu:
-                  // that is where they came to retry, so a stale error would
-                  // still be on screen when the action they want sits under it.
-                  setDeleteError(null);
-                }}
-                aria-label="Moment options"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/80 bg-black/40 text-white shadow-lg backdrop-blur-md transition-transform hover:bg-black/55 active:scale-95"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
-                  <circle cx="12" cy="5" r="1.8" />
-                  <circle cx="12" cy="12" r="1.8" />
-                  <circle cx="12" cy="19" r="1.8" />
-                </svg>
-              </button>
-              {menuOpen ? (
-                <div
-                  role="menu"
-                  aria-label="Moment options"
-                  className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      const url = `${window.location.origin}/?moment=${current.id}`;
-                      const outcome = await shareOrCopy({
-                        title: "Couple's Corner",
-                        message: `${current.authorName ?? "Someone"} shared a moment on Couple's Corner. ${url}`,
-                      });
-                      if (outcome === "copied") notifySuccess("Link copied to clipboard");
-                      if (outcome === "failed") {
-                        setSendError("Couldn't share or copy this link. Please try again.");
-                      }
-                      // "shared" is already confirmed by the OS sheet, and a
-                      // dismissed sheet is not an error worth reporting.
-                    }}
-                    className="block w-full px-4 py-2.5 text-left text-sm text-white transition hover:bg-white/10"
-                  >
-                    Share / copy link
-                  </button>
-                  <Link
-                    href={`/profile/${current.userId}`}
-                    role="menuitem"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-white transition hover:bg-white/10"
-                  >
-                    View {current.authorName ?? "creator"}
-                  </Link>
-
-                  {/* Owner-only delete, inside the menu rather than on the card.
-                      Destructive actions belong in a menu: a free-standing
-                      button one stray tap from the reaction row is how a member
-                      loses a post they meant to scroll past. Hiding it here is a
-                      courtesy — the enforcement is server-side in deleteMoment,
-                      which scopes every query to the session uid, so a member
-                      who reaches this by any other route still cannot delete
-                      somebody else's moment. */}
-                  {current.isMine ? (
-                    <>
-                      {/* Hairline above the destructive row, so it reads as a
-                          separate group rather than a fourth peer option. */}
-                      <span aria-hidden className="my-1 block h-px bg-white/10" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          // Close first: the confirmation dialog is modal, and a
-                          // menu left open behind it would be a stray click
-                          // target on the way back.
-                          setMenuOpen(false);
-                          void deleteActiveMoment();
-                        }}
-                        disabled={deleteBusy}
-                        className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-rose-300 transition hover:bg-rose-500/15 disabled:opacity-50"
-                      >
-                        <span>Delete Moment</span>
-                        {deleteBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        )}
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
+            <div className="pointer-events-auto">{topRightSlot}</div>
           ) : null}
-          </div>
         </div>
-
         {/* Delete failure notice.
             Lives in the overlay rather than in the options menu because the menu
             is closed the moment a delete is attempted — an error rendered inside
@@ -1659,42 +1548,18 @@ export function MediaFeed({
 
                 It sits ABOVE the heart, not below, matching the reference order
                 (Follow, Like, Comments, Share, Audio). */}
-              <RailItem>
-                {current && !current.isMine ? (
-                  <ActionButton
-                  label={
-                    amFollowingAuthor
-                      ? `Unfollow ${current.authorName ?? "this member"}`
-                      : `Follow ${current.authorName ?? "this member"}`
-                  }
-                  active={amFollowingAuthor}
-                  disabled={!viewerId || followBusy}
-                  onClick={toggleFollow}
-                >
-                  <span className={!amFollowingAuthor && viewerId ? "rounded-full ring-2 ring-orange-400 ring-offset-2 ring-offset-transparent drop-shadow-[0_0_8px_rgba(249,115,22,0.8)]" : "contents"}>
-                  {amFollowingAuthor ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-6 w-6"
-                      aria-hidden
-                    >
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  ) : (
-                    <Plus className="h-6 w-6" />
-                  )}
-                  </span>
-                </ActionButton>
-              ) : null}
+          {/* AAA rail — EXACTLY 4 icons: upload (+), like, comments, mute.
+              Follow lives in the creator line above the message bar;
+              share lives in the options menu. No other buttons here. */}
+            <RailItem>
+              <Link
+                href="/task/upload-moment"
+                aria-label="Upload a moment"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/80 bg-black/40 text-white shadow-lg backdrop-blur-md transition-transform hover:bg-black/55 active:scale-95"
+              >
+                <Plus className="h-6 w-6" />
+              </Link>
             </RailItem>
-
-
-
 
             <RailItem count={reactions}>
               {/* The rail heart is the SAME control as the "love" chip in the
@@ -1734,47 +1599,20 @@ export function MediaFeed({
               </ActionButton>
             </RailItem>
 
-            {/* Share sits in the rail rather than only behind the overflow
-                menu: it is a primary, frequent action, and burying it one
-                menu deep is the main reason members did not share moments.
+            {/* Share REMOVED from the rail (AAA cleanup): share/copy-link lives
+                behind the top-right options menu only, so the rail holds
+                EXACTLY upload / like / comments / mute. */}
 
-                The URL is built inline to match the overflow menu's handler
-                exactly, so both entry points produce byte-identical links —
-                `shareOrCopy` returns a plain status string, not an object. */}
+            {/* Mute toggle — 4th and final rail icon. Always rendered so the
+                AAA 4-icon column is stable on photo cards too. */}
             <RailItem>
               <ActionButton
-                label="Share this moment"
-                onClick={async () => {
-                  const url = `${window.location.origin}/?moment=${current?.id ?? ""}`;
-                  const outcome = await shareOrCopy({
-                    title: "Couple's Corner",
-                    message: `${current?.authorName ?? "Someone"} shared a moment on Couple's Corner. ${url}`,
-                  });
-                  if (outcome === "copied") notifySuccess("Link copied to clipboard");
-                  if (outcome === "failed") {
-                    setSendError("Couldn't share or copy this link. Please try again.");
-                  }
-                }}
+                label={muted ? "Unmute" : "Mute"}
+                onClick={() => setMuted((m) => !m)}
               >
-                <Share2 className="h-6 w-6" />
+                {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
               </ActionButton>
             </RailItem>
-
-            {/* Optional chained because the rail is a moment-only affordance and
-                `current` is null while the sponsored card holds the screen. The
-                enclosing `current ?` block already keeps the rail off that card;
-                the `?.` is here so the narrowing survives into this nested
-                closure, where TypeScript cannot see the guard. */}
-            {current?.mediaType === "video" ? (
-              <RailItem>
-                <ActionButton
-                  label={muted ? "Unmute" : "Mute"}
-                  onClick={() => setMuted((m) => !m)}
-                >
-                  {muted ? <VolumeX className="h-6 w-6" /> : <Volume2 className="h-6 w-6" />}
-                </ActionButton>
-              </RailItem>
-            ) : null}
           </div>
         </>
       )}
@@ -1790,49 +1628,8 @@ export function MediaFeed({
         />
       ) : null}
 
-      {/* ------------------------------------------- pinned Moments upload FAB
-          Deliberately OUTSIDE the `current ?` card block above. It used to live
-          inside the action rail, which meant the primary "share something" entry
-          point vanished on an empty feed - exactly when a new member most needs
-          it. Now it is a sibling of the media stage and renders whenever there is
-          a viewer, empty feed or not. Pinned bottom-right and lifted clear of
-          both the composer and the app's bottom tab bar. */}
-      {viewerId ? (
-        <Link
-          href="/task/upload-moment"
-          aria-label="Upload a moment"
-          // Solid `bg-orange-500` rather than the orange -> #FF5722 gradient this
-          // wore before. The bottom tab bar marks its active item in the same
-          // orange, so the primary "share something" action and the navigation
-          // highlight now read as one colour system. The gradient's second stop
-          // is a different, redder orange, which made the FAB look like it
-          // belonged to a different theme than the nav beneath it.
-          //
-          // `13rem` (208px) - raised from 11rem when the composer moved to 6rem.
-          //
-          // I moved this from 7rem DOWN to 5.5rem in an earlier pass on the
-          // instruction to "shift the FAB downward". That was wrong, and the
-          // symptom is exactly what is now reported: 5.5rem (88px) put this
-          // 56px button at 88-144px, which is INSIDE the bottom bar's band.
-          //
-          // The bottom bar is lifted 5rem plus the home-indicator inset (80px) and stacks the
-          // reaction row, its `mb-2` and the message input above that pad —
-          // roughly 84px of content, so it occupies ~80-164px. The FAB at
-          // 88-144px sat squarely inside it, crowding the input that is the
-          // one control that must always be reachable.
-          //
-          // `13rem` = 208px puts the button's bottom edge 28px clear of the
-          // bar's 180px top edge. `env()` is ADDED rather than swapped in, so
-          // the clearance holds on a device with a home indicator.
-          //
-          // The `sm:` variant is dropped for the same reason as everywhere else
-          // in this file: the nav is `md:hidden`, so a second offset is one
-          // more number to keep in step with nothing.
-          className="landscape-hide-chrome absolute bottom-[calc(13rem_+_env(safe-area-inset-bottom))] right-3 z-40 flex h-14 w-14 items-center justify-center rounded-full border border-orange-300/50 bg-orange-500 text-white shadow-xl shadow-orange-950/50 ring-4 ring-slate-950/40 transition hover:bg-orange-400 hover:scale-105 active:scale-95 sm:right-4"
-        >
-          <Plus className="h-7 w-7" />
-        </Link>
-      ) : null}
+      {/* Upload FAB REMOVED (AAA cleanup): upload now lives as the top icon
+          of the 4-icon action rail, so a second floating + button is clutter. */}
 
       {/* --------------------------------- bottom bar: reactions + messaging */}
       {current ? (

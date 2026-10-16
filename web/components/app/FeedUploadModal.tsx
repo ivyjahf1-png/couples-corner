@@ -2,8 +2,7 @@
 
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { createFeedPostAction, createFeedMomentAction } from "@/lib/actions/profile";
-import { uploadMediaDirect } from "@/lib/utils/direct-upload";
+import { uploadFeedPhoto, createFeedPost } from "@/lib/supabase/feed";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { SHEET_SHELL, SHEET_PANEL_RELATIVE } from "@/components/ui/layers";
 
@@ -96,8 +95,11 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
       // the same origin and JWT as the auth call above, with `publicUrl`
       // derived afterwards by `getPublicUrl` (pure string construction, no
       // second request) — then `createFeedPostAction` stores it in `posts`.
-      const uploaded = await uploadMediaDirect(uid, file);
-      if (!uploaded.ok) { setError(uploaded.error); return; }
+      const publicUrl = await uploadFeedPhoto(uid, file);
+      if (!publicUrl) {
+        setError("Upload failed. Please try again.");
+        return;
+      }
 
       // Bytes are up. What remains is the post row itself — a distinct phase so a
       // member watching the bar can see it reached 100% and the sheet did not
@@ -160,26 +162,7 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
 
          `createFeedPostAction` calls `revalidatePath("/feed")`, which is what
          makes the new card appear without a manual refresh. */
-      const published = await createFeedPostAction(uid, caption.trim(), [uploaded.publicUrl]);
-      if (!published.ok) {
-        setError(published.error ?? "Could not publish your post.");
-        return;
-      }
-
-      const momentType = uploaded.mediaType === "video" ? "video" : "image";
-      const shared = await createFeedMomentAction(
-        uid,
-        uploaded.publicUrl,
-        momentType,
-        caption.trim()
-      );
-      if (!shared.ok) {
-        /* NOT a publish failure. The post is already live in the timeline and
-           the member can see it, so reporting an error here would tell them
-           their upload failed when it demonstrably succeeded. Logged instead so
-           a broken syndication stays traceable. */
-        console.error("[feed] post published but moment syndication failed", shared.error);
-      }
+      await createFeedPost(uid, caption.trim(), [publicUrl]);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish your post.");

@@ -1,28 +1,22 @@
 "use client";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { LudoDice } from "./LudoDice";
 
-/**
- * LudoSplash — a 10-second "4D/5D" opening cinematic shown once before the
- * hub. Two tumbling 3D dice (reusing {@link LudoDice}) float over a dynamic
- * particle-glow field while a WebAudio "tumble" loop rattles in the
- * background. A countdown ring drains over `SECONDS` and the whole thing
- * auto-advances to the hub — or the player can "Tap to skip" at any time.
- *
- * Audio is best-effort: browsers block autoplay until a user gesture, so we
- * try to resume the context and never throw if it stays suspended.
- */
 const SECONDS = 10;
 
-/** Lightweight WebAudio dice-tumble: a looping filtered-noise rattle. */
+/** 5D WebAudio API Synthesizer: Generates rhythmic dice tumbling and background melodic arpeggios */
 function useTumbleAudio(active: boolean) {
   const ref = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!active || typeof window === "undefined") return;
-    const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return;
+
     let ctx: AudioContext;
     try {
       ctx = new AudioCtx();
@@ -32,58 +26,65 @@ function useTumbleAudio(active: boolean) {
     ref.current = ctx;
     void ctx.resume().catch(() => undefined);
 
-    // White-noise buffer (2s) reused by the loop.
-    const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    // Melodic Arpeggio Notes (C - E - G - B - C)
+    const notes = [261.63, 329.63, 392.0, 493.88, 523.25];
+    let noteStep = 0;
 
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
+    // Rhythmic Melodic Loop
+    const musicInterval = setInterval(() => {
+      if (ctx.state === "suspended") void ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    const bandpass = ctx.createBiquadFilter();
-    bandpass.type = "bandpass";
-    bandpass.frequency.value = 900;
-    bandpass.Q.value = 0.7;
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(notes[noteStep % notes.length]!, ctx.currentTime);
 
-    // Slow LFO sweeping the filter gives the "tumbling" character.
-    const lfo = ctx.createOscillator();
-    const lfoGain = ctx.createGain();
-    lfo.frequency.value = 6.5;
-    lfoGain.gain.value = 550;
-    lfo.connect(lfoGain);
-    lfoGain.connect(bandpass.frequency);
+      gain.gain.setValueAtTime(0.04, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 0.6);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
 
-    source.connect(bandpass);
-    bandpass.connect(gain);
-    gain.connect(ctx.destination);
-    source.start();
-    lfo.start();
+      osc.start();
+      osc.stop(ctx.currentTime + 0.35);
+      noteStep++;
+    }, 380);
+
+    // Dice Tumbling Rattle Generator
+    const tumbleInterval = setInterval(() => {
+      if (ctx.state === "suspended") void ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(140 + Math.random() * 220, ctx.currentTime);
+
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start();
+      osc.stop(ctx.currentTime + 0.06);
+    }, 180);
 
     return () => {
-      try {
-        gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-        source.stop(ctx.currentTime + 0.35);
-        lfo.stop(ctx.currentTime + 0.35);
-      } catch {
-        /* noop */
-      }
+      clearInterval(musicInterval);
+      clearInterval(tumbleInterval);
       ref.current = null;
-      window.setTimeout(() => void ctx.close().catch(() => undefined), 400);
+      window.setTimeout(() => void ctx.close().catch(() => undefined), 300);
     };
   }, [active]);
 
   useEffect(() => {
-    if (ref.current && ref.current.state === "suspended") void ref.current.resume().catch(() => undefined);
+    if (ref.current && ref.current.state === "suspended") {
+      void ref.current.resume().catch(() => undefined);
+    }
   });
 }
 
-
-/** A field of glowing particles drifting upward behind the dice. */
+/** Field of glowing floating particles drifting upward behind the 3D dice */
 function ParticleGlow() {
   const particles = useMemo(
     () =>
@@ -107,13 +108,13 @@ function ParticleGlow() {
           className="absolute bottom-[-12%] rounded-full"
           style={
             {
-              left: `${p.left}%`,
+              left: ${p.left}%,
               width: p.size,
               height: p.size,
-              background: `radial-gradient(circle, hsla(${p.hue},95%,70%,.95), hsla(${p.hue},95%,60%,0) 70%)`,
-              boxShadow: `0 0 ${p.size * 2.4}px hsla(${p.hue},95%,65%,.85)`,
-              animation: `ludo-float ${p.duration}s linear ${p.delay}s infinite`,
-              "--drift": `${p.drift}px`,
+              background: radial-gradient(circle, hsla(${p.hue},95%,70%,.95), hsla(${p.hue},95%,60%,0) 70%),
+              boxShadow: 0 0 ${p.size * 2.4}px hsla(${p.hue},95%,65%,.85),
+              animation: ludo-float ${p.duration}s linear ${p.delay}s infinite,
+              "--drift": ${p.drift}px,
             } as React.CSSProperties
           }
         />
@@ -163,15 +164,15 @@ export function LudoSplash({ onDone }: { onDone: () => void }) {
           finish();
         }
       }}
-      className="relative grid h-full w-full place-items-center overflow-hidden rounded-3xl bg-[#05060f] text-white"
-      aria-label="Ludo Superstar intro — tap to skip"
+      className="fixed inset-0 z-50 flex h-[100dvh] w-screen flex-col items-center justify-center overflow-hidden bg-[#05060f] text-white select-none"
+      aria-label="Couple's ⭐ Ludo intro — tap to skip"
     >
       <ParticleGlow />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(circle at 50% 42%, rgba(99,102,241,.35), transparent 55%), radial-gradient(circle at 50% 60%, rgba(244,114,182,.22), transparent 60%)",
+            "radial-gradient(circle at 50% 42%, rgba(245,158,11,.35), transparent 55%), radial-gradient(circle at 50% 60%, rgba(244,114,182,.22), transparent 60%)",
         }}
         aria-hidden
       />
@@ -217,18 +218,18 @@ export function LudoSplash({ onDone }: { onDone: () => void }) {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.35 }}
-            className="text-4xl font-black tracking-tight sm:text-5xl"
-            style={{ textShadow: "0 0 28px rgba(129,140,248,.85)" }}
+            className="text-4xl font-black tracking-tight sm:text-5xl text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400"
+            style={{ textShadow: "0 0 28px rgba(245,158,11,.6)" }}
           >
-            LUDO SUPERSTAR
+            COUPLE'S ⭐ LUDO
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="mt-2 text-sm font-bold uppercase tracking-[0.4em] text-indigo-200/80"
+            className="mt-2 text-xs font-bold uppercase tracking-[0.4em] text-amber-200/80"
           >
-            4D · 5D Sensory Hub
+            4D · 5D Sensory Gaming Hub
           </motion.p>
         </div>
 
@@ -240,7 +241,7 @@ export function LudoSplash({ onDone }: { onDone: () => void }) {
               cy="26"
               r="22"
               fill="none"
-              stroke="#a5b4fc"
+              stroke="#F59E0B"
               strokeWidth="4"
               strokeLinecap="round"
               strokeDasharray={2 * Math.PI * 22}
@@ -262,7 +263,7 @@ export function LudoSplash({ onDone }: { onDone: () => void }) {
           e.stopPropagation();
           setMuted((m) => !m);
         }}
-        className="absolute right-3 top-3 z-20 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-bold text-white/80"
+        className="absolute right-4 top-4 z-20 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-bold text-amber-300 backdrop-blur-md active:scale-95"
       >
         {muted ? "Sound off" : "Sound on"}
       </button>
