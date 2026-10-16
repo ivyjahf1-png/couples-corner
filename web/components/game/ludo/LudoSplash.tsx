@@ -108,13 +108,13 @@ function ParticleGlow() {
           className="absolute bottom-[-12%] rounded-full"
           style={
             {
-              left: ${p.left}%,
-              width: p.size,
-              height: p.size,
-              background: radial-gradient(circle, hsla(${p.hue},95%,70%,.95), hsla(${p.hue},95%,60%,0) 70%),
-              boxShadow: 0 0 ${p.size * 2.4}px hsla(${p.hue},95%,65%,.85),
-              animation: ludo-float ${p.duration}s linear ${p.delay}s infinite,
-              "--drift": ${p.drift}px,
+              left: `${p.left}%`,
+              width: `${p.size}px`,
+              height: `${p.size}px`,
+              background: `radial-gradient(circle, hsla(${p.hue},95%,70%,.95), hsla(${p.hue},95%,60%,0) 70%)`,
+              boxShadow: `0 0 ${p.size * 2.4}px hsla(${p.hue},95%,65%,.85)`,
+              animation: `ludo-float ${p.duration}s linear ${p.delay}s infinite`,
+              "--drift": `${p.drift}px`,
             } as React.CSSProperties
           }
         />

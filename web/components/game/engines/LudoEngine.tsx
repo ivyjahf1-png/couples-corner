@@ -272,8 +272,8 @@ export function LudoEngine({
       if (hilo) {
         const high = roll >= 4;
         const correct = (hilo === "high") === high;
-        if (correct) { setBonusCoins((b) => b + 1200); setMsg(HI-LO WIN! Rolled ${roll} (${high ? "HIGH" : "LOW"}). +1200 coins 🎯); }
-        else { setMsg(HI-LO miss. Rolled ${roll} (${high ? "HIGH" : "LOW"}).); }
+        if (correct) { setBonusCoins((b) => b + 1200); setMsg(`HI-LO WIN! Rolled ${roll} (${high ? "HIGH" : "LOW"}). +1200 coins 🎯`); }
+        else { setMsg(`HI-LO miss. Rolled ${roll} (${high ? "HIGH" : "LOW"}). No bonus.`); }
         setHiloPending(null);
       }
 
@@ -303,7 +303,7 @@ export function LudoEngine({
         if (seat === humanSeat) {
           sensoryEngine.playSensoryVictory();
           onWin(500 + bonusCoins);
-          setMsg(COUPLE'S ⭐ VICTORY! Reached home. +${500 + bonusCoins} coins 🏆);
+          setMsg(`COUPLE'S ⭐ VICTORY! Reached home. +${500 + bonusCoins} coins 🏆`);
         } else {
           sensoryEngine.playSensoryDefeat();
           onLose(100);
@@ -313,11 +313,11 @@ export function LudoEngine({
       }
 
       const base = r.jumped
-        ? ${SEATS[seat]!.name} rolled ${move} → SKYFLARE warp!
-        : ${SEATS[seat]!.name} rolled ${move}.;
+        ? `${SEATS[seat]!.name} rolled ${move} → SKYFLARE warp!`
+        : `${SEATS[seat]!.name} rolled ${move}.`;
       if (!hilo) setMsg(base + comboMsg);
 
-      if (roll === 6) { setMsg((hilo ? "" : base + comboMsg) + " Rolled a 6 — extra turn!"); return; }
+      if (roll === 6) { setMsg(`${hilo ? "" : base + comboMsg} Rolled a 6 — extra turn!`); return; }
       setTurn((t) => (t + 1) % seats);
     }, 500);
   }
@@ -335,7 +335,7 @@ export function LudoEngine({
     if (coins < POWER_COSTS.hilo) { setRechargeModal(true); return; }
     setCoins((c) => c - POWER_COSTS.hilo);
     setHiloPending(pick);
-    setMsg(HI-LO locked: guessing ${pick.toUpperCase()}. Roll to settle!);
+    setMsg(`HI-LO locked: guessing ${pick.toUpperCase()}. Roll to settle!`);
   }
 
   function buyUndo() {
