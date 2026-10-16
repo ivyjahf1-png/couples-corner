@@ -2,9 +2,26 @@
 import { useState } from "react";
 import { Sparkles, Trophy, Shield, Zap, Flame, Users, Play, Plus, Minus, Settings } from "lucide-react";
 
-export function LudoHub({ onStartMatch }: { onStartMatch: (mode: string, bet: number, players: number) => void }) {
+export type LudoGameMode = "classic" | "aero" | "tally";
+export type LudoMatchType = "2p" | "4p" | "friends" | "team" | "cpu";
+export type LudoAiLevel = "easy" | "mid" | "hard";
+
+export interface LudoMatchConfig {
+  mode: LudoGameMode;
+  matchType: LudoMatchType;
+  players: number;
+  bet: number;
+  aiLevel: LudoAiLevel;
+}
+
+/** Coin cost of each consumable power-up (kept in sync with LudoEngine). */
+export const POWER_COSTS = { roll2: 300, undo: 500, hilo: 800 } as const;
+
+export function LudoHub({ onStartMatch }: { onStartMatch: (config: LudoMatchConfig) => void }) {
   const [activeTab, setActiveTab] = useState<"home" | "liveMatch">("home");
-  const [gameMode, setGameMode] = useState<"classic" | "aero" | "tally">("classic");
+  const [gameMode, setGameMode] = useState<LudoGameMode>("classic");
+  const [matchType, setMatchType] = useState<LudoMatchType>("4p");
+  const [aiLevel, setAiLevel] = useState<LudoAiLevel>("mid");
   const [playerCount, setPlayerCount] = useState<number>(4);
   const [betAmount, setBetAmount] = useState<number>(10000000); // 10M
 
@@ -150,27 +167,64 @@ export function LudoHub({ onStartMatch }: { onStartMatch: (mode: string, bet: nu
 
           {/* Match Configuration Card */}
           <div className="flex flex-col gap-4 rounded-3xl border border-cyan-500/30 bg-slate-900/80 p-5 shadow-2xl backdrop-blur-md">
-            {/* Player Count Toggles */}
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPlayerCount(2)}
-                className={`rounded-xl py-2.5 text-xs font-black transition ${
-                  playerCount === 2 ? "bg-amber-500 text-slate-950 shadow-lg" : "bg-white/5 text-white hover:bg-white/10"
-                }`}
-              >
-                2 Players
-              </button>
-              <button
-                type="button"
-                onClick={() => setPlayerCount(4)}
-                className={`rounded-xl py-2.5 text-xs font-black transition ${
-                  playerCount === 4 ? "bg-indigo-600 text-white shadow-lg" : "bg-white/5 text-white hover:bg-white/10"
-                }`}
-              >
-                4 Players
-              </button>
+            {/* Match Type Selector */}
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[10px] font-black tracking-widest text-slate-400">MATCH TYPE</span>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "2p", name: "2 PLAYERS", icon: "👥" },
+                  { id: "4p", name: "4 PLAYERS", icon: "🎮" },
+                  { id: "friends", name: "FRIENDS", icon: "💖" },
+                  { id: "team", name: "TEAM UP", icon: "🛡️" },
+                  { id: "cpu", name: "vs CPU", icon: "🤖" },
+                ].map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setMatchType(t.id as LudoMatchType);
+                      setPlayerCount(t.id === "2p" ? 2 : 4);
+                    }}
+                    className={`flex flex-col items-center rounded-xl border py-2 transition ${
+                      matchType === t.id
+                        ? "border-cyan-400 bg-cyan-500/20 text-white shadow-lg shadow-cyan-500/20"
+                        : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                    }`}
+                  >
+                    <span className="text-sm">{t.icon}</span>
+                    <span className="text-[9px] font-black">{t.name}</span>
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* AI Difficulty (only vs Computer) */}
+            {matchType === "cpu" ? (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-black tracking-widest text-slate-400">AI DIFFICULTY</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: "easy", name: "EASY", sub: "Rookie bots" },
+                    { id: "mid", name: "MID", sub: "Balanced" },
+                    { id: "hard", name: "HARD", sub: "Relentless" },
+                  ].map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => setAiLevel(d.id as LudoAiLevel)}
+                      className={`rounded-xl border py-2 text-center transition ${
+                        aiLevel === d.id
+                          ? "border-amber-400 bg-amber-500/20 text-white shadow-lg shadow-amber-500/20"
+                          : "border-white/10 bg-white/5 text-white/70 hover:bg-white/10"
+                      }`}
+                    >
+                      <span className="block text-xs font-black">{d.name}</span>
+                      <span className="block text-[9px] text-slate-400">{d.sub}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {/* Bet Adjuster */}
             <div className="flex flex-col items-center gap-2">
@@ -197,27 +251,30 @@ export function LudoHub({ onStartMatch }: { onStartMatch: (mode: string, bet: nu
               </div>
             </div>
 
-            {/* Power-up Badges (Undo, Hi-Lo, Roll 2) */}
+            {/* Coin Power-ups (Roll 2, Undo, Hi-Lo) */}
             <div className="grid grid-cols-3 gap-2 pt-2">
-              <div className="flex flex-col items-center rounded-xl border border-white/10 bg-black/30 p-2 text-center">
-                <span className="text-xs font-bold text-amber-400">🔄 UNDO</span>
-                <span className="text-[9px] text-slate-400">Power-up</span>
-              </div>
-              <div className="flex flex-col items-center rounded-xl border border-white/10 bg-black/30 p-2 text-center">
-                <span className="text-xs font-bold text-cyan-400">⚡ HI-LO</span>
-                <span className="text-[9px] text-slate-400">Booster</span>
-              </div>
-              <div className="flex flex-col items-center rounded-xl border border-white/10 bg-black/30 p-2 text-center">
+              <div className="flex flex-col items-center rounded-xl border border-purple-500/25 bg-black/30 p-2 text-center">
                 <span className="text-xs font-bold text-purple-400">🎲 ROLL 2</span>
-                <span className="text-[9px] text-slate-400">Tactical</span>
+                <span className="text-[9px] text-purple-200/70">🪙 {POWER_COSTS.roll2}</span>
+              </div>
+              <div className="flex flex-col items-center rounded-xl border border-amber-500/25 bg-black/30 p-2 text-center">
+                <span className="text-xs font-bold text-amber-400">🔄 UNDO</span>
+                <span className="text-[9px] text-amber-200/70">🪙 {POWER_COSTS.undo}</span>
+              </div>
+              <div className="flex flex-col items-center rounded-xl border border-cyan-500/25 bg-black/30 p-2 text-center">
+                <span className="text-xs font-bold text-cyan-400">⚡ HI-LO</span>
+                <span className="text-[9px] text-cyan-200/70">🪙 {POWER_COSTS.hilo}</span>
               </div>
             </div>
+            <p className="text-center text-[9px] text-slate-500">
+              ⚡ Tactical Combo: capture 3× in a row → +500 bonus coins
+            </p>
           </div>
 
           {/* Start Match CTA */}
           <button
             type="button"
-            onClick={() => onStartMatch(gameMode, betAmount, playerCount)}
+            onClick={() => onStartMatch({ mode: gameMode, matchType, players: playerCount, bet: betAmount, aiLevel })}
             className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 via-green-500 to-cyan-500 py-4 text-sm font-black tracking-widest text-slate-950 shadow-[0_0_30px_rgba(16,185,129,0.4)] transition hover:scale-[1.02] active:scale-95"
           >
             START A MATCH

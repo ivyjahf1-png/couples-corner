@@ -48,10 +48,10 @@ export function BettingLobby({
     <div className="relative flex h-full w-full flex-col overflow-hidden">
       {/* 4D/5D Ludo Hub Matrix */}
       <LudoHub
-        onStartMatch={(selectedMode, selectedBet, selectedPlayers) => {
-          setBet(selectedBet);
-          setPlayers(selectedPlayers as PlayerCount);
-          setMode(selectedMode === "aero" ? "power" : "classic");
+        onStartMatch={(config) => {
+          setBet(config.bet);
+          setPlayers((config.players === 2 ? 2 : 4) as PlayerCount);
+          setMode(config.mode === "aero" ? "power" : "classic");
           onConfirm();
         }}
       />
