@@ -404,7 +404,7 @@ export function LudoEngine({
         >
           <span className="text-xl font-black text-white">{isRolling ? "🎲..." : `DICE: ${dice}`}</span>
           <span className="text-xs font-black tracking-widest text-amber-100">
-            {isRolling ? "ROLLING..." : {notisHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"}
+            {isRolling ? "ROLLING..." : !isHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"}
           </span>
         </button>
       </div>
