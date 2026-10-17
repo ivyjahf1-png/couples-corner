@@ -641,6 +641,24 @@ export async function createFeedPostAction(
     if (body.length > 2200) return { ok: false, error: "Captions must be 2,200 characters or fewer." };
     const supabase = getSupabaseServerClient();
     if (!supabase) return { ok: false, error: "Supabase not configured" };
+    const { error: feedErr } = await supabase.from("feed_posts").insert({
+      user_id: userId,
+      content: body,
+      media_urls: mediaUrls.slice(0, 4),
+    });
+    if (feedErr) {
+      console.error("[feed] feed_posts insert failed", {
+        authorId: userId,
+        mediaCount: mediaUrls.length,
+        message: feedErr.message,
+        code: feedErr.code,
+        details: feedErr.details,
+        hint: feedErr.hint,
+      });
+      return { ok: false, error: feedErr.message };
+    }
+    // Legacy mirror keeps the old `posts` timeline working; fail-soft when that
+    // table has a different shape so a feed publish never fails because of it.
     const { error } = await supabase.from("posts").insert({
       author_id: userId,
       content: body,
@@ -861,16 +879,19 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
   const supabase = getSupabaseServerClient();
   if (!supabase) return { posts: [], nextCursor: null };
 
+  // Feed page reads from `feed_posts` (isolated feed engine), NOT the `posts` table
+  // that the moment flow uses. `FeedUploadModal` publishes to `feed_posts` via
+  // `createFeedPost`, so the public feed must query that same table or uploaded
+  // photos would appear only in the moment player and nowhere in the timeline.
   let query = supabase
-    .from("posts")
+    .from("feed_posts")
     .select(`
       id,
       content,
       media_urls,
       created_at,
-      author:users!posts_author_id_fkey(id, display_name, avatar_url)
+      user_id
     `)
-    .eq("visibility", "public")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -885,21 +906,7 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
   const ids = rows.map((row) => String(row.id));
 
   /* REAL like counts and the viewer's own like, in TWO queries total rather than
-     one per post.
-
-     The previous version hardcoded `likeCount: 0, likedByMe: false` with a comment
-     explaining that "the public feed payload does not return engagement counts".
-     That was honest but it shipped a like button that could only ever read zero,
-     so the count was cosmetic and a like could never survive a refresh.
-
-     Grouping is done in JS from two flat reads rather than per-post sub-queries:
-     a sub-select per post is N round trips inside one query, which does not help
-     on a slow link. `in` on a uuid column is an index lookup, and the result sets
-     are bounded by the page size, so this is bounded work.
-
-     Fail-soft: a likes-read failure degrades to "no likes anywhere" rather than
-     failing the whole feed, which is the same posture the rest of this function
-     takes. */
+     one per post. */
   const likeTotals = new Map<string, number>();
   const myLiked = new Set<string>();
   const viewer = await getCurrentSessionUser().catch(() => null);
@@ -915,14 +922,22 @@ export async function getPublicFeed(cursor?: string, limit = 20): Promise<{
     }
   }
 
+  // Authors resolved in one batched users lookup (no FK embed needed,
+  // so no PostgREST PGRST200 from a missing FK relationship).
+  const authorIds = Array.from(new Set(rows.map((r) => String(r.user_id ?? "")).filter(Boolean)));
+  const authorMap = new Map();
+  if (authorIds.length > 0) {
+    const { data: users } = await supabase.from("users").select("id, display_name, avatar_url").in("id", authorIds);
+    for (const u of (users ?? [])) authorMap.set(String(u.id), u);
+  }
   const posts = rows.map((row) => {
-    const author = (row.author as Record<string, unknown> | null) ?? {};
+    const author = authorMap.get(String(row.user_id ?? "")) ?? {};
     const id = String(row.id);
     return {
       id,
-      authorId: String(row.author_id ?? ""),
-      authorName: (author.display_name as string) ?? null,
-      authorAvatar: (author.avatar_url as string) ?? null,
+      authorId: String(row.user_id ?? ""),
+      authorName: author.display_name ?? null,
+      authorAvatar: author.avatar_url ?? null,
       content: String(row.content ?? ""),
       mediaUrls: Array.isArray(row.media_urls) ? row.media_urls.filter(Boolean) : [],
       createdAt: String(row.created_at),

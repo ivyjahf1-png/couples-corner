@@ -32,14 +32,22 @@ export interface FeedPostView extends FeedPost {
 export async function uploadFeedPhoto(userId: string, file: File): Promise<string> {
   const supabase = getSupabaseClient();
   const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-80) || "photo.jpg";
-  const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${safe}`;
-  const { error } = await supabase.storage.from(FEED_BUCKET).upload(path, file, {
-    contentType: file.type || "image/jpeg",
-    upsert: false,
-  });
+  // Path MUST be namespaced by uid: RLS policy checks
+  // (storage.foldername(name))[1] = auth.uid(), so a bare
+  // `${Date.now()}_...` path fails with RLS / network error.
+  // Bucket MUST be FEED_BUCKET ('feed-uploads') — the only bucket
+  // migration 061 creates with public read + owner-write policies.
+  const path = `${userId}/${Date.now()}_${safe}`;
+  const { data, error } = await supabase.storage
+    .from(FEED_BUCKET)
+    .upload(path, file, {
+      contentType: file.type || "image/jpeg",
+      cacheControl: "3600",
+      upsert: true,
+    });
   if (error) throw new Error(error.message);
-  const { data } = supabase.storage.from(FEED_BUCKET).getPublicUrl(path);
-  return data.publicUrl;
+  const { data: urlData } = supabase.storage.from(FEED_BUCKET).getPublicUrl(path);
+  return urlData.publicUrl;
 }
 
 /** Insert a feed_posts row. Feed-only — never touches `moments`. */

@@ -1,6 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { uploadFeedPhoto, createFeedPost } from "@/lib/supabase/feed";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -36,14 +37,15 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
   // `useId` rather than a literal: the `<label htmlFor>` and the input's `id` must
   // match, and two modals must never collide on one id in the DOM.
   const inputId = useId();
+  const captionId = useId();
+  const captionRef = useRef<HTMLTextAreaElement | null>(null);
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
   const presets = [
     "Late night walks 🌙",
-    "Game night vibes 🎲",
-    "A night to remember ✨",
-    "Weekend mood 🥂",
-    "Sipping coffee together ☕",
+    "Coffee & Conversations ☕",
+    "Unforgettable Vibes ✨",
   ];
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,6 +173,9 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
          makes the new card appear without a manual refresh. */
       await createFeedPost(uid, caption.trim(), [publicUrl]);
       onClose();
+      // The row insert happens through the browser client, so no server
+      // revalidatePath fires — refresh the route so the new card appears.
+      router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not publish your post.");
     } finally {
@@ -188,7 +193,7 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
     <div className={`${SHEET_SHELL} bg-slate-950/80 backdrop-blur-sm sm:p-4`} role="dialog" aria-modal="true" aria-label="Create a post">
       <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900/80 backdrop-blur-md p-5 shadow-2xl sm:rounded-3xl`}>
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold text-white">New Moment</h2>
+          <h2 className="text-lg font-bold text-white">Share a Memory ✨</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close">✕</button>
         </div>
 
@@ -213,27 +218,46 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
             `accept="image/*"` alone (below) is what makes the OS picker offer the
             photo library and camera. Adding `video/*` would let a member attach a
             video to a POST, which is not what a post is. */}
-        <div className="relative mt-4">
+        <div className="mt-4">
+          <label htmlFor={captionId} className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-white/50">
+            Caption
+          </label>
           <textarea
+            id={captionId}
+            ref={captionRef}
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
             rows={3}
             maxLength={2200}
             placeholder="Say something about your photo…"
+            aria-label="Photo caption"
             className="mt-0 w-full resize-none rounded-xl border border-white/10 bg-slate-950 p-3 text-sm text-white outline-none focus:border-amber-300/60"
           />
-          <div className="absolute right-2 bottom-2 flex gap-1">
-            {presets.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setCaption((p) => (p ? p + " " + preset : preset))}
-                className="text-xs rounded-full bg-white/5 px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white"
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
+        </div>
+
+        {/* ── AI SUGGESTION CHIPS ───────────────────────────────────────────────
+             The old inline pills overlapped the caption input and competed for
+             vertical space on narrow screens. They now live in their own band
+             below the textarea, with a clear heading and a horizontal scroll so
+             all options stay reachable on phone and desktop alike. */}
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 pl-1">
+          <span className="flex shrink-0 items-center gap-1 self-center whitespace-nowrap px-2 text-[11px] font-semibold uppercase tracking-wider text-white/40">
+            ✨ AI Suggestions
+          </span>
+          {presets.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              aria-label={`Use suggestion: ${preset}`}
+              onClick={() => {
+                setCaption((p) => (p.trim() ? p.trimEnd() + " " + preset : preset));
+                captionRef.current?.focus({ preventScroll: true });
+              }}
+              className="flex shrink-0 flex-wrap items-center gap-1.5 whitespace-nowrap self-center rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs text-white/80 transition hover:border-amber-300/40 hover:bg-white/10 hover:text-white"
+            >
+              {preset}
+            </button>
+          ))}
         </div>
 
         {
