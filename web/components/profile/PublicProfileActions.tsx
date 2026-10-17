@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Send, X, Sparkles, Coin, AlertCircle } from "lucide-react";
+import { Heart, MessageCircle, Send, X, Sparkles, Coins, AlertCircle } from "lucide-react";
 import {
   cancelRequestAction,
   getConnectionStateAction,
@@ -141,7 +141,7 @@ function DirectIntroModal({
               disabled={busy}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-amber-400 bg-amber-400 text-slate-900 font-semibold text-sm transition hover:bg-amber-300 disabled:opacity-70 disabled:pointer-events-none"
             >
-              <Coin className="h-4 w-4" aria-hidden />
+              <Coins className="h-4 w-4" aria-hidden />
               Send Intro — 100 Coins
             </button>
             <button
