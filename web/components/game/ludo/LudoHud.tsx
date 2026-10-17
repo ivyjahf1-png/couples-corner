@@ -29,6 +29,7 @@ export function LudoPlayerCard({
   showDice = false,
   diceValue = 6,
   rolling = false,
+  timer,
 }: {
   name: string;
   flag: string;
@@ -44,7 +45,12 @@ export function LudoPlayerCard({
   showDice?: boolean;
   diceValue?: number;
   rolling?: boolean;
+  /** Live turn-countdown ring drawn around the avatar (active seat only). */
+  timer?: { remaining: number; total: number };
 }) {
+  const frac = timer ? Math.max(0, Math.min(1, timer.remaining / Math.max(1, timer.total))) : 0;
+  // Green → Yellow → Red as the decision window runs out.
+  const ringColor = frac > 0.5 ? "#34D399" : frac > 0.2 ? "#FBBF24" : "#F87171";
   return (
     <div
       className={`flex min-w-0 items-center gap-1.5 rounded-2xl border-2 px-1.5 py-1 backdrop-blur-md transition-shadow ${
@@ -60,6 +66,33 @@ export function LudoPlayerCard({
     >
       {/* Photoreal avatar puck: glossy sphere with contact shadow + online dot */}
       <span className="relative grid h-9 w-9 shrink-0 place-items-center">
+        {/* Circular progress ring — depletes over TURN_SECONDS, green→yellow→red */}
+        {timer ? (
+          <svg viewBox="0 0 48 48" className="absolute -inset-[4px] -rotate-90" aria-hidden>
+            <circle cx="24" cy="24" r="21" fill="none" stroke="rgba(255,255,255,.16)" strokeWidth="3.5" />
+            <circle
+              cx="24"
+              cy="24"
+              r="21"
+              fill="none"
+              stroke={ringColor}
+              strokeWidth="3.5"
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 21}
+              strokeDashoffset={(1 - frac) * 2 * Math.PI * 21}
+              style={{ transition: "stroke-dashoffset .12s linear, stroke .35s linear" }}
+            />
+          </svg>
+        ) : null}
+        {timer ? (
+          <span
+            className="absolute -bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-full bg-slate-950/90 px-1 text-[7px] font-black leading-[11px]"
+            style={{ color: ringColor }}
+            aria-hidden
+          >
+            {Math.ceil(timer.remaining)}s
+          </span>
+        ) : null}
         <span
           className="grid h-9 w-9 place-items-center rounded-full text-[15px] ring-1 ring-white/45"
           style={{

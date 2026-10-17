@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins, ArrowLeft, RefreshCw } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins } from "lucide-react";
 import type { LudoMatchConfig } from "../LudoHub";
 import { POWER_COSTS } from "../LudoHub";
+import { LudoDice } from "../ludo/LudoDice";
 import { LudoMeetHereCard, LudoPlayerCard, LudoRollPedestal, LudoStatusPill } from "../ludo/LudoHud";
 
 const COLORS = ["#EF4444", "#10B981", "#F59E0B", "#3B82F6"]; // Red, Green, Yellow, Blue
@@ -113,6 +114,9 @@ const ARROW_JUMPS: Record<number, number> = {
   15: 33, 33: 42, 42: 47, 10: 22, 38: 48, 47: 57,
 };
 
+/** Decision window per turn: the countdown ring depletes over this many seconds. */
+const TURN_SECONDS = 15;
+
 /** 3D bevelled wooden/composite frame around the board canvas (layered CSS). */
 const WOOD_FRAME: React.CSSProperties = {
   background:
@@ -161,12 +165,15 @@ export function LudoEngine({
   const [canUndo, setCanUndo] = useState(false);
   const [winner, setWinner] = useState<number | null>(null);
 
+  // ── Turn countdown (15 s) driving the avatar ring + auto-play fallback ──
+  const [clock, setClock] = useState(TURN_SECONDS);
+
   const aiLevel = config.aiLevel;
   const isHumanTurn = turn === humanSeat;
   const aiSeats = config.matchType === "cpu" ? [1, 2, 3].slice(0, seats - 1) : [];
   const isAiSeat = (s: number) => aiSeats.includes(s);
 
-  // Render 15x15 Real-Life Ludo Board Canvas
+  // Render 15x15 AAA 3D wood board: bevelled tiles, panel seams, giant seeds
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -176,22 +183,129 @@ export function LudoEngine({
     const size = canvas.width;
     const cell = size / 15;
 
+    /** Darken/lighten a hex colour by amt (-255..255) for gradient faces. */
+    const shade = (hex: string, amt: number) => {
+      const n = parseInt(hex.slice(1), 16);
+      const r = Math.max(0, Math.min(255, ((n >> 16) & 255) + amt));
+      const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+      const b = Math.max(0, Math.min(255, (n & 255) + amt));
+      return `rgb(${r},${g},${b})`;
+    };
+
+    /** Bevelled tile: light top/left lip, dark bottom/right lip over a face. */
+    const bevelTile = (x: number, y: number, w: number, h: number, face: string | CanvasGradient, inset = 1.4) => {
+      ctx.fillStyle = face;
+      ctx.fillRect(x, y, w, h);
+      ctx.lineWidth = inset;
+      ctx.strokeStyle = "rgba(255,255,255,.5)";
+      ctx.beginPath();
+      ctx.moveTo(x, y + inset / 2); ctx.lineTo(x + w, y + inset / 2);
+      ctx.moveTo(x + inset / 2, y); ctx.lineTo(x + inset / 2, y + h);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(0,0,0,.5)";
+      ctx.beginPath();
+      ctx.moveTo(x, y + h - inset / 2); ctx.lineTo(x + w, y + h - inset / 2);
+      ctx.moveTo(x + w - inset / 2, y); ctx.lineTo(x + w - inset / 2, y + h);
+      ctx.stroke();
+    };
+
     ctx.clearRect(0, 0, size, size);
 
-    // 1. Draw 4 Home Base Quadrants
-    ctx.fillStyle = COLORS[0]; ctx.fillRect(0, 0, cell * 6, cell * 6); // Red
-    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(cell, cell, cell * 4, cell * 4);
+    // ── 1. Rich wood-grain base (the 3D board body) ──
+    const wood = ctx.createLinearGradient(0, 0, size, size);
+    wood.addColorStop(0, "#74512A"); wood.addColorStop(0.5, "#5C3F1E"); wood.addColorStop(1, "#412B11");
+    ctx.fillStyle = wood;
+    ctx.fillRect(0, 0, size, size);
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.strokeStyle = "#241606";
+    ctx.lineWidth = 1.1;
+    for (let g = -size; g < size * 2; g += 6) {
+      ctx.beginPath(); ctx.moveTo(g, 0); ctx.lineTo(g + size * 0.4, size); ctx.stroke();
+    }
+    ctx.restore();
 
-    ctx.fillStyle = COLORS[1]; ctx.fillRect(cell * 9, 0, cell * 6, cell * 6); // Green
-    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(cell * 10, cell, cell * 4, cell * 4);
+    // ── 2. Four colour base panels (bevelled + dark seams) with white yards ──
+    const quadrant = (qx: number, qy: number, color: string) => {
+      const grad = ctx.createLinearGradient(qx, qy, qx + cell * 6, qy + cell * 6);
+      grad.addColorStop(0, shade(color, 36));
+      grad.addColorStop(0.5, color);
+      grad.addColorStop(1, shade(color, -74));
+      bevelTile(qx, qy, cell * 6, cell * 6, grad, 2.2);
+      ctx.strokeStyle = "#160D05"; ctx.lineWidth = 1.6;
+      ctx.strokeRect(qx + 0.8, qy + 0.8, cell * 6 - 1.6, cell * 6 - 1.6);
 
-    ctx.fillStyle = COLORS[2]; ctx.fillRect(cell * 9, cell * 9, cell * 6, cell * 6); // Yellow
-    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(cell * 10, cell * 10, cell * 4, cell * 4);
+      // White yard: rounded inset panel with an ambient-occlusion rim
+      const ix = qx + cell; const iy = qy + cell;
+      const yard = ctx.createLinearGradient(ix, iy, ix, iy + cell * 4);
+      yard.addColorStop(0, "#F7F3EA"); yard.addColorStop(1, "#D8D1BE");
+      ctx.save();
+      ctx.fillStyle = yard;
+      const r = cell * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(ix + r, iy);
+      ctx.arcTo(ix + cell * 4, iy, ix + cell * 4, iy + cell * 4, r);
+      ctx.arcTo(ix + cell * 4, iy + cell * 4, ix, iy + cell * 4, r);
+      ctx.arcTo(ix, iy + cell * 4, ix, iy, r);
+      ctx.arcTo(ix, iy, ix + cell * 4, iy, r);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.strokeStyle = "rgba(0,0,0,.16)"; ctx.lineWidth = cell * 0.34;
+      ctx.beginPath(); ctx.rect(ix + cell * 0.24, iy + cell * 0.24, cell * 3.52, cell * 3.52); ctx.stroke();
+      ctx.restore();
+    };
+    quadrant(0, 0, COLORS[0]);                 // Red    — top-left
+    quadrant(cell * 9, 0, COLORS[1]);           // Green  — top-right
+    quadrant(cell * 9, cell * 9, COLORS[2]);    // Yellow — bottom-right
+    quadrant(0, cell * 9, COLORS[3]);           // Blue   — bottom-left
 
-    ctx.fillStyle = COLORS[3]; ctx.fillRect(0, cell * 9, cell * 6, cell * 6); // Blue
-    ctx.fillStyle = "#FFFFFF"; ctx.fillRect(cell, cell * 10, cell * 4, cell * 4);
+    // ── 3. Bevelled ivory track tiles with dark panel lines ──
+    const isCorridor = (c: number, r: number) =>
+      (r === 7 && ((c >= 1 && c <= 5) || (c >= 9 && c <= 13))) ||
+      (c === 7 && ((r >= 1 && r <= 5) || (r >= 9 && r <= 13)));
+    const isCenter = (c: number, r: number) => c >= 6 && c <= 8 && r >= 6 && r <= 8;
+    for (let r = 0; r < 15; r++) {
+      for (let c = 0; c < 15; c++) {
+        const inBand = (r >= 6 && r <= 8) || (c >= 6 && c <= 8);
+        if (!inBand || isCenter(c, r) || isCorridor(c, r)) continue;
+        const face = ctx.createLinearGradient(c * cell, r * cell, c * cell, (r + 1) * cell);
+        face.addColorStop(0, "#FBF7EE"); face.addColorStop(1, "#DED6C2");
+        bevelTile(c * cell, r * cell, cell, cell, face);
+        ctx.strokeStyle = "#1C1108"; ctx.lineWidth = 0.8;
+        ctx.strokeRect(c * cell + 0.4, r * cell + 0.4, cell - 0.8, cell - 0.8);
+      }
+    }
 
-    // 2. Draw Center Finish Matrix Triangles
+    // ── 4. Coloured home corridors (bevelled) + entry direction arrows ──
+    const corridors: Array<{ color: string; arrow: "right" | "down" | "left" | "up"; cells: Array<[number, number]> }> = [
+      { color: COLORS[0], arrow: "right", cells: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]] },
+      { color: COLORS[1], arrow: "down", cells: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]] },
+      { color: COLORS[2], arrow: "left", cells: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]] },
+      { color: COLORS[3], arrow: "up", cells: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]] },
+    ];
+    for (const path of corridors) {
+      for (const [c, r] of path.cells) {
+        const face = ctx.createLinearGradient(c * cell, r * cell, (c + 1) * cell, (r + 1) * cell);
+        face.addColorStop(0, shade(path.color, 28)); face.addColorStop(1, shade(path.color, -48));
+        bevelTile(c * cell, r * cell, cell, cell, face);
+        ctx.strokeStyle = "#1C1108"; ctx.lineWidth = 0.8;
+        ctx.strokeRect(c * cell + 0.4, r * cell + 0.4, cell - 0.8, cell - 0.8);
+      }
+      // Entry chevron on the corridor head, pointing toward the centre goal
+      const [hc, hr] = path.cells[0]!;
+      const mx = (hc + 0.5) * cell; const my = (hr + 0.5) * cell;
+      const a = cell * 0.26;
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.beginPath();
+      if (path.arrow === "right") { ctx.moveTo(mx - a * 0.6, my - a); ctx.lineTo(mx + a * 0.8, my); ctx.lineTo(mx - a * 0.6, my + a); }
+      else if (path.arrow === "left") { ctx.moveTo(mx + a * 0.6, my - a); ctx.lineTo(mx - a * 0.8, my); ctx.lineTo(mx + a * 0.6, my + a); }
+      else if (path.arrow === "down") { ctx.moveTo(mx - a, my - a * 0.6); ctx.lineTo(mx, my + a * 0.8); ctx.lineTo(mx + a, my - a * 0.6); }
+      else { ctx.moveTo(mx - a, my + a * 0.6); ctx.lineTo(mx, my - a * 0.8); ctx.lineTo(mx + a, my + a * 0.6); }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.4)"; ctx.lineWidth = 0.8; ctx.stroke();
+    }
+
+    // ── 5. Centre finish matrix triangles ──
     ctx.fillStyle = COLORS[0];
     ctx.beginPath(); ctx.moveTo(cell * 6, cell * 6); ctx.lineTo(cell * 7.5, cell * 7.5); ctx.lineTo(cell * 6, cell * 9); ctx.fill();
     ctx.fillStyle = COLORS[1];
@@ -201,42 +315,111 @@ export function LudoEngine({
     ctx.fillStyle = COLORS[3];
     ctx.beginPath(); ctx.moveTo(cell * 6, cell * 9); ctx.lineTo(cell * 7.5, cell * 7.5); ctx.lineTo(cell * 9, cell * 9); ctx.fill();
 
-    // 3. Draw Track Grid & Safe Paths
-    ctx.strokeStyle = "#334155";
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i <= 15; i++) {
-      ctx.beginPath(); ctx.moveTo(i * cell, 0); ctx.lineTo(i * cell, size); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(0, i * cell); ctx.lineTo(size, i * cell); ctx.stroke();
-    }
-
-    for (let i = 1; i < 6; i++) {
-      ctx.fillStyle = COLORS[0]; ctx.fillRect(i * cell, cell * 7, cell, cell);
-      ctx.fillStyle = COLORS[1]; ctx.fillRect(cell * 7, i * cell, cell, cell);
-      ctx.fillStyle = COLORS[2]; ctx.fillRect((14 - i) * cell, cell * 7, cell, cell);
-      ctx.fillStyle = COLORS[3]; ctx.fillRect(cell * 7, (14 - i) * cell, cell, cell);
-    }
-
-    // 4. Draw Player Pawn Seeds
-    const seedCoords = [
-      { x: cell * 2.5, y: cell * 2.5, color: COLORS[0] },
-      { x: cell * 11.5, y: cell * 2.5, color: COLORS[1] },
-      { x: cell * 11.5, y: cell * 11.5, color: COLORS[2] },
-      { x: cell * 2.5, y: cell * 11.5, color: COLORS[3] },
-    ];
-
-    pos.forEach((p, idx) => {
-      if (idx < seats) {
-        const coord = seedCoords[idx]!;
-        ctx.fillStyle = coord.color;
-        ctx.beginPath();
-        ctx.arc(coord.x, coord.y, cell * 0.8, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = "#FFFFFF";
-        ctx.lineWidth = 3;
-        ctx.stroke();
+    /** Glossy 5-point star with a metallic gradient + specular glint. */
+    const star = (sc: number, sr: number, fill: string) => {
+      const cx = (sc + 0.5) * cell; const cy = (sr + 0.5) * cell;
+      const R = cell * 0.34;
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+        const rad = i % 2 === 0 ? R : R * 0.44;
+        const x = cx + rad * Math.cos(ang); const y = cy + rad * Math.sin(ang);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
-    });
-  }, [pos, seats]);
+      ctx.closePath();
+      const g = ctx.createLinearGradient(cx, cy - R, cx, cy + R);
+      g.addColorStop(0, "#FFFFFF"); g.addColorStop(0.45, fill); g.addColorStop(1, shade(fill, -70));
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,.85)";
+      ctx.beginPath(); ctx.ellipse(cx - R * 0.2, cy - R * 0.34, R * 0.22, R * 0.12, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    };
+
+    // ── 6. Star safe spots on the track (Yellow & Green quadrant arms + the
+    //       other two) and a gold star on each colour's start tile ──
+    star(12, 8, COLORS[2]); // Yellow quadrant arm
+    star(8, 2, COLORS[1]);  // Green quadrant arm
+    star(2, 6, COLORS[0]);  // Red arm
+    star(6, 12, COLORS[3]); // Blue arm
+
+    const starts: Array<[number, number, string]> = [
+      [1, 8, COLORS[0]], [6, 1, COLORS[1]], [13, 6, COLORS[2]], [8, 13, COLORS[3]],
+    ];
+    for (const [sc, sr, col] of starts) {
+      const face = ctx.createLinearGradient(sc * cell, sr * cell, (sc + 1) * cell, (sr + 1) * cell);
+      face.addColorStop(0, shade(col, 30)); face.addColorStop(1, shade(col, -52));
+      bevelTile(sc * cell, sr * cell, cell, cell, face);
+      ctx.strokeStyle = "#1C1108"; ctx.lineWidth = 0.8;
+      ctx.strokeRect(sc * cell + 0.4, sr * cell + 0.4, cell - 0.8, cell - 0.8);
+      star(sc, sr, "#FFE9A8");
+    }
+
+    // ── 7. Giant seeds: 4 glossy 3D pawns per yard ──
+    const drawGiantPawn = (px: number, py: number, r: number, color: string) => {
+      ctx.save();
+      // Grounding drop shadow (contact AO)
+      ctx.fillStyle = "rgba(0,0,0,.4)";
+      ctx.beginPath(); ctx.ellipse(px, py + r * 1.5, r * 1.18, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+      // Flared acrylic base
+      const base = ctx.createLinearGradient(px - r, py, px + r, py + r * 1.5);
+      base.addColorStop(0, shade(color, 44)); base.addColorStop(0.55, color); base.addColorStop(1, shade(color, -84));
+      ctx.fillStyle = base;
+      ctx.beginPath();
+      ctx.moveTo(px - r * 0.95, py + r * 1.32);
+      ctx.quadraticCurveTo(px - r * 0.6, py + r * 0.55, px - r * 0.34, py + r * 0.25);
+      ctx.lineTo(px + r * 0.34, py + r * 0.25);
+      ctx.quadraticCurveTo(px + r * 0.6, py + r * 0.55, px + r * 0.95, py + r * 1.32);
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.45)"; ctx.lineWidth = 1; ctx.stroke();
+      // Marble/acrylic head with subsurface highlight
+      const head = ctx.createRadialGradient(px - r * 0.34, py - r * 0.4, r * 0.12, px, py, r * 0.78);
+      head.addColorStop(0, "#FFFFFF");
+      head.addColorStop(0.32, shade(color, 74));
+      head.addColorStop(0.75, color);
+      head.addColorStop(1, shade(color, -74));
+      ctx.fillStyle = head;
+      ctx.beginPath(); ctx.arc(px, py, r * 0.62, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1; ctx.stroke();
+      // Crisp specular dot
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      ctx.beginPath(); ctx.ellipse(px - r * 0.2, py - r * 0.26, r * 0.15, r * 0.09, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    };
+    const yards: Array<[number, number, string]> = [
+      [0, 0, COLORS[0]], [cell * 9, 0, COLORS[1]], [cell * 9, cell * 9, COLORS[2]], [0, cell * 9, COLORS[3]],
+    ];
+    for (const [qx, qy, color] of yards) {
+      for (const [ox, oy] of [[2, 2], [4, 2], [2, 4], [4, 4]] as Array<[number, number]>) {
+        const px = qx + ox * cell; const py = qy + oy * cell;
+        // Dark socket cup under each seed
+        ctx.fillStyle = "rgba(0,0,0,.26)";
+        ctx.beginPath(); ctx.ellipse(px, py + cell * 0.7, cell * 0.76, cell * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+        drawGiantPawn(px, py, cell * 0.6, color);
+      }
+    }
+
+    // ── 8. Centre emblem star (gold) ──
+    const mcx = cell * 7.5; const mcy = cell * 7.5; const SR = cell * 0.92;
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+      const rad = i % 2 === 0 ? SR : SR * 0.44;
+      const x = mcx + rad * Math.cos(ang); const y = mcy + rad * Math.sin(ang);
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    const starG = ctx.createLinearGradient(mcx, mcy - SR, mcx, mcy + SR);
+    starG.addColorStop(0, "#FFFDF4"); starG.addColorStop(0.5, "#FFE9A8"); starG.addColorStop(1, "#DEA236");
+    ctx.fillStyle = starG; ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.42)"; ctx.lineWidth = 1.2; ctx.stroke();
+
+    // ── 9. Board edge vignette for depth ──
+    const vig = ctx.createRadialGradient(size / 2, size / 2, size * 0.32, size / 2, size / 2, size * 0.8);
+    vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(0,0,0,.34)");
+    ctx.fillStyle = vig; ctx.fillRect(0, 0, size, size);
+  }, [seats]);
 
   const toggleSound = () => {
     const next = !isMuted;
@@ -267,10 +450,14 @@ export function LudoEngine({
     return { next, land, jumped, jumpedTo, captured, home: land >= 57 };
   }
 
-  function doRoll(seat: number, opts?: { boosted?: boolean; double?: boolean; hilo?: "high" | "low" | null }) {
+  function doRoll(seat: number, opts?: { boosted?: boolean; double?: boolean; hilo?: "high" | "low" | null; timedOut?: boolean }) {
     if (isRolling || winner !== null) return;
     if (!started) { setStarted(true); onLose(config.bet); }
     setIsRolling(true);
+    // Re-arm the 15 s countdown for the decision window this roll will open
+    // (frozen while the dice tumbles, so the next seat starts at a full ring).
+    setClock(TURN_SECONDS);
+    if (opts?.timedOut) setMsg(`⏰ Time up — ${SEATS[seat]!.name} auto-rolls!`);
     sensoryEngine.playSensoryDiceRoll();
     if (window.navigator?.vibrate) window.navigator.vibrate([40, 20, 40, 20, 60]);
 
@@ -365,6 +552,38 @@ export function LudoEngine({
     setMsg("UNDO — pawn restored to previous tile.");
   }
 
+  const clockLive = clock > 0;
+  /* Tick only while a decision is genuinely pending. */
+  useEffect(() => {
+    if (winner !== null || isRolling || !clockLive) return;
+    const id = window.setInterval(() => {
+      setClock((c) => Math.max(0, Math.round((c - 0.1) * 10) / 10));
+    }, 100);
+    return () => window.clearInterval(id);
+  }, [winner, isRolling, clockLive]);
+
+  /* ── AI auto-play fallback: clock hits 0 → act immediately so no seat can
+        stall the match. This engine resolves the move INSIDE doRoll (the
+        "best pawn" selection is implicit — there is exactly one seed per
+        seat), so one doRoll call both rolls and moves, then the turn
+        advances. doRoll re-arms the clock and its isRolling guard makes
+        double-fires impossible. */
+  const timeoutFiredRef = useRef(false);
+  useEffect(() => {
+    if (clock > 0 || winner !== null || isRolling) {
+      if (clock > 0) timeoutFiredRef.current = false; // ready for the next window
+      return;
+    }
+    if (timeoutFiredRef.current) return;
+    timeoutFiredRef.current = true;
+    doRoll(isHumanTurn ? humanSeat : turn, {
+      double: doubleRoll,
+      hilo: hiloPending,
+      timedOut: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock, winner, isRolling]);
+
   useEffect(() => {
     if (winner !== null || isRolling) return;
     if (!isAiSeat(turn)) return;
@@ -374,6 +593,7 @@ export function LudoEngine({
       doRoll(turn, { boosted });
     }, aiLevel === "hard" ? 550 : aiLevel === "mid" ? 800 : 1100);
     return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [turn, winner, isRolling, aiLevel]);
 
   return (
@@ -382,7 +602,7 @@ export function LudoEngine({
       <div className="flex w-full shrink-0 items-center justify-between rounded-2xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-400" />
-          <span className="text-xs font-black tracking-widest text-amber-300">COUPLE'S ⭐ LUDO</span>
+          <span className="text-xs font-black tracking-widest text-amber-300">COUPLE&rsquo;S ⭐ LUDO</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-black/40 px-3 py-1">
@@ -408,6 +628,7 @@ export function LudoEngine({
           avatar={SEATS[0]!.avatar}
           level={SEATS[0]!.level}
           neon={SEATS[0]!.neon}
+          timer={turn === 0 && winner === null ? { remaining: clock, total: TURN_SECONDS } : undefined}
           isYou
           active={turn === 0 && winner === null}
           showDice={turn === 0 && winner === null}
@@ -423,6 +644,7 @@ export function LudoEngine({
             avatar={SEATS[2]!.avatar}
             level={SEATS[2]!.level}
             neon={SEATS[2]!.neon}
+            timer={turn === 2 && winner === null ? { remaining: clock, total: TURN_SECONDS } : undefined}
             active={turn === 2 && winner === null}
             showDice={turn === 2 && winner === null}
             diceValue={dice}
@@ -453,6 +675,32 @@ export function LudoEngine({
               className="pointer-events-none absolute inset-0"
               style={{ background: BOARD_SHEEN }}
             />
+            {/* Central 5D dice pedestal — translucent glass die on the finish star */}
+            <button
+              type="button"
+              onClick={() => doRoll(humanSeat, { double: doubleRoll, hilo: hiloPending })}
+              disabled={isRolling || winner !== null || !isHumanTurn}
+              aria-label="Roll the dice"
+              className={`absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center gap-0.5 rounded-full border-2 p-2 backdrop-blur-md transition active:scale-95 ${
+                isHumanTurn && !isRolling && winner === null
+                  ? "cursor-pointer border-amber-300/80 bg-slate-950/70 animate-[cc-ludo-halo_2s_ease-in-out_infinite]"
+                  : "cursor-default border-white/20 bg-slate-950/60 shadow-[inset_0_0_18px_rgba(0,0,0,.6)]"
+              }`}
+            >
+              <LudoDice
+                value={dice}
+                rolling={isRolling}
+                active={isHumanTurn && !isRolling && winner === null}
+                size={40}
+              />
+              <span
+                className={`text-[7px] font-black uppercase leading-none tracking-[.14em] ${
+                  isHumanTurn && !isRolling && winner === null ? "text-amber-200" : "text-white/70"
+                }`}
+              >
+                {isRolling ? "ROLLING..." : !isHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"}
+              </span>
+            </button>
           </div>
         </div>
       </div>
@@ -466,6 +714,7 @@ export function LudoEngine({
           avatar={SEATS[1]!.avatar}
           level={SEATS[1]!.level}
           neon={SEATS[1]!.neon}
+          timer={turn === 1 && winner === null ? { remaining: clock, total: TURN_SECONDS } : undefined}
           active={turn === 1 && winner === null}
           showDice={turn === 1 && winner === null}
           diceValue={dice}
@@ -488,6 +737,7 @@ export function LudoEngine({
             avatar={SEATS[3]!.avatar}
             level={SEATS[3]!.level}
             neon={SEATS[3]!.neon}
+            timer={turn === 3 && winner === null ? { remaining: clock, total: TURN_SECONDS } : undefined}
             active={turn === 3 && winner === null}
             showDice={turn === 3 && winner === null}
             diceValue={dice}
@@ -584,6 +834,7 @@ export function LudoEngine({
                 setWinner(null);
                 setPos(Array(seats).fill(0));
                 setTurn(0);
+                setClock(TURN_SECONDS);
               }}
               className="mt-6 w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3.5 text-xs font-black text-white"
             >

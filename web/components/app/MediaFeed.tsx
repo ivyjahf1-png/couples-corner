@@ -1122,105 +1122,12 @@ export function MediaFeed({
              This is the TOP-anchored summary ("who posted this"), not the bottom
              caption block — those are different elements with different anchors,
              and only this one needed the extra clearance. */}
-        {/* BOTTOM-LEFT CREATOR CARD — frosted glass, per the reference.
-            Avatar + name + timestamp + orange-ringed Connect pill, pinned above
-            the message bar (bottom 13rem clears bar + nav). Was top-anchored;
-            the reference puts identity bottom-left over the media. */}
+        {/* Profile badge (@) lives in the bottom bar, directly above the
+            message input — see the bottom overlay below. */}
         {current ? (
-          <div className="landscape-hide-chrome pointer-events-auto absolute bottom-[calc(13rem_+_env(safe-area-inset-bottom))] left-3 z-40 w-fit max-w-[min(20rem,62vw)] rounded-2xl border border-white/15 bg-slate-950/55 p-2.5 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150 sm:left-5">
-          {/* ── UPLOADER BAR — TikTok / Reels profile card ────────────────────────────
-              Avatar (orange ring + superimposed follow badge) on the left, bold
-              @handle and a single truncated caption line stacked to its right.
-              This replaces the former avatar + name + timestamp + "Connect" pill
-              row with the industry-standard short-video uploader bar. All of the
-              existing follow plumbing is reused unchanged — same `toggleFollow`,
-              same `amFollowingAuthor` / `viewerId` / `followBusy` state, same
-              `current.isMine` self-post guard — so the two controls on the card
-              and the rail can never disagree about follow state. */}
-          <div className="flex items-start gap-3">
-            <div className="relative shrink-0">
-              <Link
-                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-                aria-label={`Open ${current.authorName ?? "profile"}`}
-                className="relative flex items-center"
-              >
-                {/* AVATAR: circular, orange `#FF5722` ring (was a lighter
-                    `orange-400/60`), matching the accent direction of the app. */}
-                <span className="block h-10 w-10 overflow-hidden rounded-full border-2 border-[#FF5722]">
-                  <Avatar
-                    src={current.authorAvatarUrl}
-                    name={current.authorName ?? "Member"}
-                    className="h-full w-full text-xs"
-                  />
-                </span>
-                {/* Live presence on the moment author. The own moment has nobody
-                    to indicate, so it renders no dot at all. */}
-                {current.isMine ? null : (
-                  <PresenceDot online={authorOnline} size="sm" />
-                )}
-              </Link>
-              {/* FOLLOW BADGE — a small vibrant-orange circular button
-                  superimposed on the bottom edge of the avatar. Solid `#FF5722`
-                  when unfollowed (the primary "connect" action), reverting to a
-                  muted white check once followed, mirroring the Connect pill it
-                  replaces. Hidden entirely for the viewer's own moment — you
-                  cannot follow yourself. */}
-              {!current.isMine ? (
-                <button
-                  type="button"
-                  onClick={toggleFollow}
-                  disabled={!viewerId || followBusy}
-                  aria-pressed={amFollowingAuthor}
-                  aria-label={
-                    amFollowingAuthor
-                      ? `Unfollow ${current.authorName ?? "this member"}`
-                      : `Follow ${current.authorName ?? "this member"}`
-                  }
-                  className={[
-                    "absolute -bottom-1 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border-2 border-slate-950 transition active:scale-95 disabled:opacity-50",
-                    amFollowingAuthor
-                      ? "bg-white/90 text-[#FF5722]"
-                      : "bg-[#FF5722] text-white shadow-[0_0_10px_rgba(255,87,34,0.6)]",
-                  ].join(" ")}
-                >
-                  {amFollowingAuthor ? (
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="h-3 w-3"
-                      aria-hidden
-                    >
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
-                  ) : (
-                    <Plus className="h-3 w-3" strokeWidth={3} />
-                  )}
-                </button>
-              ) : null}
-            </div>
-            <div className="min-w-0 flex-1 pb-0.5">
-              {/* BOLD HANDLE linking straight to the uploader's profile. */}
-              <Link
-                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
-                className="block truncate text-sm font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
-              >
-                @{current.authorName ?? "member"}
-              </Link>
-              {/* CAPTION: the video description, truncated to a single line. The
-                  fuller multi-line caption block further down the overlay is now
-                  redundant, so this is the caption's only home. */}
-              {current.content ? (
-                <p className="truncate text-xs text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
-                  {current.content}
-                </p>
-              ) : null}
-            </div>
-          </div>
-          </div>
+          <span className="sr-only">
+            {current.authorName ?? "Member"} — profile card is above the message input
+          </span>
         ) : null}
       </header>
       {/* -------------------------------------------------------- the media
@@ -1670,11 +1577,93 @@ export function MediaFeed({
             </p>
           ) : null}
 
-          {/* PAGINATION INDICATOR (1/1) — sits directly above the message bar,
+          {/* PAGINATION INDICATOR (1/1) — sits at the top of the bottom bar,
               per the reference. Real position/total of this author's media. */}
           <p className="pointer-events-none mb-2 text-center text-xs font-semibold tabular-nums text-white/80">
             {nav.position}/{nav.total}
           </p>
+
+          {/* PROFILE BADGE (@) — pinned directly on top of the message input.
+              Shares the message pill's mx-auto + w-full + max-w-xl centring and
+              px-3 horizontal padding so the two left/right edges align exactly.
+              Moved out of the header (where `bottom-[calc(13rem_+…)]` drifted
+              away from the bar on taller phones). Same follow plumbing. */}
+          <div className="pointer-events-auto mx-auto mb-2 flex w-full max-w-xl items-center gap-3 rounded-2xl border border-white/15 bg-slate-950/55 px-3 py-2 shadow-xl shadow-slate-950/40 backdrop-blur-xl backdrop-saturate-150">
+            <div className="relative shrink-0">
+              <Link
+                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
+                aria-label={`Open ${current.authorName ?? "profile"}`}
+                className="relative flex items-center"
+              >
+                {/* AVATAR: circular, orange `#FF5722` ring, matching the app accent. */}
+                <span className="block h-10 w-10 overflow-hidden rounded-full border-2 border-[#FF5722]">
+                  <Avatar
+                    src={current.authorAvatarUrl}
+                    name={current.authorName ?? "Member"}
+                    className="h-full w-full text-xs"
+                  />
+                </span>
+                {/* Live presence on the moment author. The own moment has nobody
+                    to indicate, so it renders no dot at all. */}
+                {current.isMine ? null : (
+                  <PresenceDot online={authorOnline} size="sm" />
+                )}
+              </Link>
+              {/* FOLLOW BADGE — small vibrant-orange button superimposed on the
+                  avatar's bottom edge. Hidden for the viewer's own moment. */}
+              {!current.isMine ? (
+                <button
+                  type="button"
+                  onClick={toggleFollow}
+                  disabled={!viewerId || followBusy}
+                  aria-pressed={amFollowingAuthor}
+                  aria-label={
+                    amFollowingAuthor
+                      ? `Unfollow ${current.authorName ?? "this member"}`
+                      : `Follow ${current.authorName ?? "this member"}`
+                  }
+                  className={[
+                    "absolute -bottom-1 left-1/2 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full border-2 border-slate-950 transition active:scale-95 disabled:opacity-50",
+                    amFollowingAuthor
+                      ? "bg-white/90 text-[#FF5722]"
+                      : "bg-[#FF5722] text-white shadow-[0_0_10px_rgba(255,87,34,0.6)]",
+                  ].join(" ")}
+                >
+                  {amFollowingAuthor ? (
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3 w-3"
+                      aria-hidden
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                  ) : (
+                    <Plus className="h-3 w-3" strokeWidth={3} />
+                  )}
+                </button>
+              ) : null}
+            </div>
+            <div className="min-w-0 flex-1 pb-0.5">
+              {/* BOLD HANDLE linking straight to the uploader's profile. */}
+              <Link
+                href={current.isMine ? "/profile" : `/profile/${current.userId}`}
+                className="block truncate text-sm font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]"
+              >
+                @{current.authorName ?? "member"}
+              </Link>
+              {/* CAPTION: the video description, truncated to a single line. */}
+              {current.content ? (
+                <p className="truncate text-xs text-white/80 drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]">
+                  {current.content}
+                </p>
+              ) : null}
+            </div>
+          </div>
 
           {/* Quick-reaction chips removed: the love / like / fire / funny row
               that sat above the message input is gone. Reactions still exist —
@@ -1704,7 +1693,7 @@ export function MediaFeed({
                  The inner <input> stays `bg-transparent`: tinting the field
                  itself as well would double up the colour and muddy it. The
                  container is the surface; the input is just the caret and text. */}
-          <div className="pointer-events-auto mx-auto flex max-w-xl items-center gap-2 rounded-full border-2 border-orange-400/70 bg-orange-500/10 px-3 py-1.5 shadow-[0_0_20px_-4px_rgba(249,115,22,0.65)] backdrop-blur-md transition focus-within:border-orange-300 focus-within:bg-orange-500/20 focus-within:shadow-[0_0_28px_-2px_rgba(249,115,22,0.85)]">
+          <div className="pointer-events-auto mx-auto flex w-full max-w-xl items-center gap-2 rounded-full border-2 border-orange-400/70 bg-orange-500/10 px-3 py-1.5 shadow-[0_0_20px_-4px_rgba(249,115,22,0.65)] backdrop-blur-md transition focus-within:border-orange-300 focus-within:bg-orange-500/20 focus-within:shadow-[0_0_28px_-2px_rgba(249,115,22,0.85)]">
             {viewerId ? (
               <>
                 <label htmlFor="moment-reply" className="sr-only">

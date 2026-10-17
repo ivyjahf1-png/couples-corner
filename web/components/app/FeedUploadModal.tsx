@@ -38,6 +38,13 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
   const inputId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [caption, setCaption] = useState("");
+  const presets = [
+    "Late night walks 🌙",
+    "Game night vibes 🎲",
+    "A night to remember ✨",
+    "Weekend mood 🥂",
+    "Sipping coffee together ☕",
+  ];
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   /* Upload progress, split into phases.
@@ -179,8 +186,11 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
 
   return (
     <div className={`${SHEET_SHELL} bg-slate-950/80 backdrop-blur-sm sm:p-4`} role="dialog" aria-modal="true" aria-label="Create a post">
-      <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900 p-5 shadow-2xl sm:rounded-3xl`}>
-        <div className="flex items-center justify-between"><h2 className="text-lg font-bold text-white">Create a post</h2><button type="button" onClick={onClose} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close">×</button></div>
+      <div className={`${SHEET_PANEL_RELATIVE} w-full max-w-lg rounded-t-3xl border border-white/15 bg-slate-900/80 backdrop-blur-md p-5 shadow-2xl sm:rounded-3xl`}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">New Moment</h2>
+          <button type="button" onClick={onClose} className="rounded-lg p-2 text-white/60 hover:bg-white/10" aria-label="Close">✕</button>
+        </div>
 
         {/* ── PHOTOS AND TEXT ONLY ───────────────────────────────────────────────
             This sheet used to offer three things: an "Upload a file" / "Paste a
@@ -203,14 +213,28 @@ export function FeedUploadModal({ onClose, userId }: { onClose: () => void; user
             `accept="image/*"` alone (below) is what makes the OS picker offer the
             photo library and camera. Adding `video/*` would let a member attach a
             video to a POST, which is not what a post is. */}
-        <textarea
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          rows={3}
-          maxLength={2200}
-          placeholder="Say something about your photo…"
-          className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-slate-950 p-3 text-sm text-white outline-none focus:border-amber-300/60"
-        />
+        <div className="relative mt-4">
+          <textarea
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            rows={3}
+            maxLength={2200}
+            placeholder="Say something about your photo…"
+            className="mt-0 w-full resize-none rounded-xl border border-white/10 bg-slate-950 p-3 text-sm text-white outline-none focus:border-amber-300/60"
+          />
+          <div className="absolute right-2 bottom-2 flex gap-1">
+            {presets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => setCaption((p) => (p ? p + " " + preset : preset))}
+                className="text-xs rounded-full bg-white/5 px-2 py-1 text-white/70 hover:bg-white/10 hover:text-white"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        </div>
 
         {
           /* ── THE PICKER ──────────────────────────────────────────────────────
