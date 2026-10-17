@@ -9,7 +9,7 @@ import { LudoDice } from "./LudoDice";
  * Geometry: a 15×15 SVG grid (viewBox units = cells) painted under a floating
  * HTML layer for pawns + the glowing centre dice hub.
  *  - 52-cell main track (TRACK_PATH) indexed exactly like engine.trackCell:
- *    cell 0 = (6,1) Green start … cell 13 = (1,8) Red start … etc.
+ *    cell 0 = (6,1) Blue start … cell 13 = (1,8) Red start … etc.
  *  - Four 6×6 corner bases with white yards + sockets.
  *  - 6-cell home corridors per colour; the last corridor cell sits on the
  *    matching centre triangle, so corridors read as continuous to the goal.
@@ -36,23 +36,23 @@ const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [7, 0], [6, 0],
 ];
 
-/** Base block origins (col,row) per seat: 0 BL · 1 BR · 2 TR · 3 TL. */
-const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0] };
+/** Base block origins (col,row) per seat: 0 TL · 1 BL · 2 BR · 3 TR. */
+const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 0], 1: [0, 9], 2: [9, 9], 3: [9, 0] };
 
 /** Pawn socket CENTRES (grid units) inside each 6×6 base. */
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]],
-  1: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]],
-  2: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]],
-  3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]],
+  0: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Red)
+  1: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]], // BL (Blue)
+  2: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]], // BR (Yellow)
+  3: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]], // TR (Green)
 };
 
 /** Home corridors (6 cells each, last cell sits on the centre triangle). */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
-  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
-  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
-  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  0: [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0]],  // Red → TL
+  1: [[1, 9], [2, 9], [3, 9], [4, 9], [5, 9], [6, 9]],  // Blue → BL
+  2: [[9, 0], [10, 0], [11, 0], [12, 0], [13, 0], [14, 0]], // Yellow → BR
+  3: [[9, 9], [9, 8], [9, 7], [9, 6], [9, 5], [9, 4]],  // Green → TR
 };
 
 const START_SET: ReadonlySet<number> = new Set(START_INDEX);
@@ -101,10 +101,11 @@ function starPoints(cx: number, cy: number, r: number): string {
 
 /** Direction chevron for a corridor's first cell (toward the centre goal). */
 function chevronPoints(color: number, col: number, row: number): string {
-  if (color === 0) return `${col + 0.32},${row + 0.28} ${col + 0.68},${row + 0.5} ${col + 0.32},${row + 0.72}`;
-  if (color === 1) return `${col + 0.28},${row + 0.68} ${col + 0.5},${row + 0.32} ${col + 0.72},${row + 0.68}`;
-  if (color === 2) return `${col + 0.68},${row + 0.28} ${col + 0.32},${row + 0.5} ${col + 0.68},${row + 0.72}`;
-  return `${col + 0.28},${row + 0.32} ${col + 0.72},${row + 0.32} ${col + 0.5},${row + 0.68}`;
+  // Seat mapping after geometry fix: 0 Red (TL), 1 Blue (BL), 2 Yellow (BR), 3 Green (TR)
+  if (color === 0) return `${col + 0.32},${row + 0.18} ${col + 0.82},${row + 0.5} ${col + 0.32},${row + 0.82}`; // right
+  if (color === 1) return `${col + 0.18},${row + 0.32} ${col + 0.5},${row + 0.82} ${col + 0.82},${row + 0.32}`; // up
+  if (color === 2) return `${col + 0.18},${row + 0.18} ${col + 0.5},${row + 0.5} ${col + 0.82},${row + 0.18}`;   // left
+  return `${col + 0.18},${row + 0.18} ${col + 0.5},${row + 0.5} ${col + 0.18},${row + 0.82}`;                       // down
 }
 
 interface Pawn {

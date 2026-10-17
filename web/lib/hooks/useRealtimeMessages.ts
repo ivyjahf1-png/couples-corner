@@ -26,6 +26,10 @@ export interface RealtimeMessage {
    * thread swaps the bubble for its tombstone live.
    */
   is_deleted?: boolean | null;
+  /** Public URL of an attached photo (migration 056). */
+  image_url?: string | null;
+  /** Public URL of a voice-note recording (migration 062). */
+  audio_url?: string | null;
 }
 
 interface UseRealtimeMessagesOptions {

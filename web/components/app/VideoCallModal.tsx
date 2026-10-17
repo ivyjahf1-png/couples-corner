@@ -311,8 +311,30 @@ export function VideoCallModal({
             if (mediaType === "audio") peer.audioTrack?.play();
             /* Peer arrived — ringback has done its job. */
             stopRinging();
+            if (!cancelled) setStatus("connected");
           } catch {
             /* Failed subscribe leaves that stream silent; call continues. */
+          }
+        });
+        /* THE PEER JOINED THE CHANNEL. `user-joined` fires the moment the other
+           side completes its own `client.join`, which is the true signal that the
+           call is connected — before it may have published any media. Without
+           this the UI can sit on "Connecting…" (and the ringback keep playing)
+           even though both members are already in the room. */
+        client.on("user-joined", () => {
+          stopRinging();
+          if (!cancelled) setStatus("connected");
+        });
+        /* THE SDK'S OWN STATE MACHINE IS AUTHORITATIVE. Mirror Agora's real
+           connection state so the overlay tracks reality rather than waiting on
+           the local `publish` promise, which can lag the channel being live. */
+        client.on("connection-state-change", (state) => {
+          const s = state as string;
+          if (s === "CONNECTED") {
+            stopRinging();
+            if (!cancelled) setStatus("connected");
+          } else if (s === "DISCONNECTED" && !cancelled) {
+            setStatus("ended");
           }
         });
         await client.join(appId, channelName, token, uid);

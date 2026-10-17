@@ -28,6 +28,10 @@ export interface MessageInsertInput {
   status?: string;
   createdAt?: string;
   updatedAt?: string;
+  /** Public URL of an attached photo (chat image sharing). */
+  imageUrl?: string | null;
+  /** Public URL of a voice-note recording (chat audio messages). */
+  audioUrl?: string | null;
 }
 
 /** Build the canonical `messages` insert row (body + legacy content mirror). */
@@ -44,5 +48,10 @@ export function buildMessageInsert(input: MessageInsertInput): Record<string, un
     ...(input.status ? { status: input.status } : {}),
     ...(input.createdAt ? { created_at: input.createdAt } : {}),
     ...(input.updatedAt ? { updated_at: input.updatedAt } : {}),
+    // Media URLs are only present on image/audio messages; omitting the key
+    // entirely (rather than sending null) keeps the insert valid on a database
+    // whose media columns have not been added yet.
+    ...(input.imageUrl ? { image_url: input.imageUrl } : {}),
+    ...(input.audioUrl ? { audio_url: input.audioUrl } : {}),
   };
 }

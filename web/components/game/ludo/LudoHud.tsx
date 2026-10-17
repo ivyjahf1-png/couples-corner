@@ -57,11 +57,15 @@ export function LudoPlayerCard({
         align === "right" ? "flex-row-reverse" : ""
       }`}
       style={{
-        borderColor: active ? neon : `${neon}88`,
-        background: `linear-gradient(160deg, ${neon}1f 0%, rgba(2,6,23,.82) 58%)`,
-        boxShadow: active
-          ? `0 0 18px ${neon}66, inset 0 0 12px ${neon}22, 0 6px 14px rgba(0,0,0,.45)`
-          : `0 0 8px ${neon}22, 0 6px 12px rgba(0,0,0,.4)`,
+        borderColor: isYou ? "#F59E0B" : active ? neon : `${neon}88`,
+        background: isYou
+          ? "linear-gradient(160deg, rgba(245,158,11,.28) 0%, rgba(2,6,23,.82) 58%)"
+          : `linear-gradient(160deg, ${neon}1f 0%, rgba(2,6,23,.82) 58%)`,
+        boxShadow: isYou
+          ? `0 0 18px rgba(245,158,11,.35), inset 0 0 12px rgba(245,158,11,.12), 0 6px 14px rgba(0,0,0,.45)`
+          : active
+            ? `0 0 18px ${neon}66, inset 0 0 12px ${neon}22, 0 6px 14px rgba(0,0,0,.45)`
+            : `0 0 8px ${neon}22, 0 6px 12px rgba(0,0,0,.4)`,
       }}
     >
       {/* Photoreal avatar puck: glossy sphere with contact shadow + online dot */}

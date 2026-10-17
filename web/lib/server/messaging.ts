@@ -53,6 +53,10 @@ export interface MessageRow {
    * simply absent, nothing is ever flagged, and every row reads as live.
    */
   is_deleted?: boolean | null;
+  /** Public URL of an attached photo (migration 056). Absent on a DB without it. */
+  image_url?: string | null;
+  /** Public URL of a voice-note recording (migration 062). Absent on a DB without it. */
+  audio_url?: string | null;
 }
 
 /** Fetch all conversations for the current user. */
@@ -244,8 +248,10 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
      sender deleted-for-everyone stays in the list so BOTH participants render
      the "This message was deleted" tombstone instead of a silent gap. */
   const COLUMNS_WITH_FLAG =
-    "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at, is_deleted";
+    "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at, is_deleted, image_url, audio_url";
   const COLUMNS_BASE =
+    "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at, image_url, audio_url";
+  const COLUMNS_LEGACY =
     "id, conversation_id, sender_id, type, body, read_at, created_at, updated_at";
 
   let { data, error } = await supabase
@@ -261,11 +267,26 @@ export async function listMessages(conversationId: string): Promise<MessageRow[]
      simply reads as live (no tombstones) until the migration is applied.
 
      The cast is sound: `is_deleted` is OPTIONAL on `MessageRow`, so rows
-     selected without it satisfy the type — they simply never carry the flag. */
+     selected without it satisfy the type — they simply never carry the flag.
+
+     Second tier drops `is_deleted` but KEEPS `image_url`/`audio_url`, so a DB
+     missing only 054 still renders photos. Third tier (COLUMNS_LEGACY) is the
+     floor: it matches the pre-media shape, so a DB without 056/062 still opens
+     the thread — just without attachments — instead of throwing. */
   if (error && isMissingColumnError(error)) {
     const retry = await supabase
       .from("messages")
       .select(COLUMNS_BASE)
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: true })
+      .limit(500);
+    data = retry.data as typeof data;
+    error = retry.error;
+  }
+  if (error && isMissingColumnError(error)) {
+    const retry = await supabase
+      .from("messages")
+      .select(COLUMNS_LEGACY)
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -314,9 +335,9 @@ export async function sendMessage(params: {
         updatedAt: now,
       })
     )
-    /* Row shape matches `MessageRow` — the same eight columns `listMessages`
+    /* Row shape matches `MessageRow` — the same columns `listMessages`
        selects, so both read paths agree on what a message row IS. */
-    .select("id, conversation_id, sender_id, type, body, read_at, created_at, updated_at")
+    .select("id, conversation_id, sender_id, type, body, read_at, created_at, updated_at, image_url, audio_url")
     .single();
 
   // Never swallow the database exception — it is the only way to diagnose a

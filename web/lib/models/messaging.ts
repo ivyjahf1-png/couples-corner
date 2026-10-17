@@ -17,11 +17,11 @@ export interface ConversationParticipant {
   lastReadAt?: ISODateString | null;
 }
 
-export type MessageType = "text" | "image" | "video";
+export type MessageType = "text" | "image" | "video" | "audio";
 
 export interface MessageMedia {
   id: EntityId;
-  kind: "image" | "video";
+  kind: "image" | "video" | "audio";
   storagePath: string;
   caption?: string | null;
 }

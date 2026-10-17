@@ -47,14 +47,15 @@ import {
   ArrowLeft,
   BadgeCheck,
   Gift,
-  Image as ImageIcon,
   MapPin,
   Mic,
   Phone,
   Send,
   ShieldAlert,
   Smile,
+  Square,
   Video,
+  X,
   type LucideIcon,
 } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
@@ -193,6 +194,10 @@ export interface ChatMessage {
    * so a database without the column still types — every row reads as live.
    */
   is_deleted?: boolean | null;
+  /** Public URL of an attached photo (migration 056). */
+  image_url?: string | null;
+  /** Public URL of a voice-note recording (migration 062). */
+  audio_url?: string | null;
 }
 
 /**
@@ -392,6 +397,18 @@ function MessageBubble({
 }) {
   const body = (message.body ?? "").trim();
 
+  /* MEDIA. A photo message carries `image_url`; a voice note carries `audio_url`.
+     Both keep a short text `body` fallback ("📷 Photo" / "🎤 Voice note") so older
+     renderers and screen readers still get a label — but when media IS present we
+     render the media and suppress the placeholder text so the bubble shows the
+     actual photo or a playable audio bar rather than a redundant caption. A member
+     who adds a real caption alongside the media still sees that caption. */
+  const imageUrl = message.image_url ?? null;
+  const audioUrl = message.audio_url ?? null;
+  const hasMedia = Boolean(imageUrl || audioUrl);
+  const PLACEHOLDER_BODIES = new Set(["📷 Photo", "🎤 Voice note"]);
+  const showBody = body.length > 0 && (!hasMedia || !PLACEHOLDER_BODIES.has(body));
+
   /* ROW ALIGNMENT — the left/right split, standardized once here.
      Received: `justify-start items-start text-left` (avatar left, slate glass).
      Sent:     `justify-end items-end text-right ml-auto` (orange gradient).
@@ -421,7 +438,7 @@ function MessageBubble({
     );
   }
 
-  if (!body) return null;
+  if (!body && !hasMedia) return null;
 
   const bubble = (
     /* THE BUBBLE.
@@ -459,7 +476,21 @@ function MessageBubble({
           : "mr-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-bl-none border border-white/10 bg-slate-800/90 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
       }
     >
-      {body}
+      {/* MEDIA — photo and/or voice note, rendered above any caption. The image is
+          capped in height so a portrait shot cannot blow out the thread; the audio
+          player is a compact native control the receiver can play in place. */}
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt="Photo attachment"
+          loading="lazy"
+          className="max-h-72 w-full rounded-xl object-cover"
+        />
+      ) : null}
+      {audioUrl ? (
+        <audio controls preload="metadata" src={audioUrl} className="w-56 max-w-full" />
+      ) : null}
+      {showBody ? body : null}
       <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>
         {formatClock(message.created_at)}
         {isMine && seen ? " · Seen" : ""}
@@ -954,6 +985,143 @@ export default function ChatRoomClient({
     }
   }, [conversationId, draft, editingId]);
 
+  /* ── VOICE NOTES (MediaRecorder) ─────────────────────────────────────────
+     Tap the mic to record, tap the stop (square) to send, or tap the X to
+     discard. The blob is captured as webm (or mp4 on Safari), uploaded to the
+     same `chat-attachments` bucket the photo path uses, and an `audio` message
+     row is inserted so the receiver gets it instantly over the existing
+     realtime subscription. No Server Action — large audio bodies hit the same
+     Vercel 4.5 MB (E394) cap that broke moment uploads. */
+  const [recording, setRecording] = useState(false);
+  const [recSeconds, setRecSeconds] = useState(0);
+  const [sendingRec, setSendingRec] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recStreamRef = useRef<MediaStream | null>(null);
+  const recChunksRef = useRef<Blob[]>([]);
+  const recTimerRef = useRef<number | null>(null);
+
+  const finishRecording = useCallback(
+    async (mime: string) => {
+      if (recTimerRef.current !== null) {
+        window.clearInterval(recTimerRef.current);
+        recTimerRef.current = null;
+      }
+      const blob = new Blob(recChunksRef.current, { type: mime });
+      recChunksRef.current = [];
+      recStreamRef.current?.getTracks().forEach((t) => t.stop());
+      recStreamRef.current = null;
+      setRecording(false);
+      /* Sub-second taps produce an empty/near-empty blob; treat them as a
+         cancelled recording rather than sending silence. */
+      if (blob.size < 500) return;
+
+      setSendingRec(true);
+      try {
+        const supabase = getSupabaseClient();
+        const ext = mime.includes("mp4") ? "m4a" : "webm";
+        const path = `${conversationId}/${currentUserId}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("chat-attachments")
+          .upload(path, blob, { contentType: mime || "audio/webm", cacheControl: "3600", upsert: true });
+        if (upErr) throw upErr;
+        const { data } = supabase.storage.from("chat-attachments").getPublicUrl(path);
+        const audioUrl = data?.publicUrl;
+        if (!audioUrl) throw new Error("Could not resolve audio URL");
+
+        const { data: row, error: insErr } = await supabase
+          .from("messages")
+          .insert({
+            conversation_id: conversationId,
+            sender_id: currentUserId,
+            body: "🎤 Voice note",
+            type: "audio",
+            audio_url: audioUrl,
+          })
+          .select("id, conversation_id, sender_id, type, body, created_at, audio_url")
+          .single();
+        if (insErr) throw insErr;
+        /* Paint my own bubble immediately; the realtime INSERT dedupes by id. */
+        if (row) setSent((prev) => [...prev, (row as ChatMessage)]);
+      } catch (err) {
+        console.error("[chat] voice note failed", err);
+        setError("Could not send voice note. Please try again.");
+      } finally {
+        setSendingRec(false);
+      }
+    },
+    [conversationId, currentUserId]
+  );
+
+  const startRecording = useCallback(async () => {
+    if (recording || sendingRec) return;
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recStreamRef.current = stream;
+      recChunksRef.current = [];
+      const mime = MediaRecorder.isTypeSupported("audio/webm")
+        ? "audio/webm"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
+      const recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recChunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => {
+        void finishRecording(recorder.mimeType || mime || "audio/webm");
+      };
+      recorder.start();
+      setRecSeconds(0);
+      setRecording(true);
+      recTimerRef.current = window.setInterval(() => setRecSeconds((s) => s + 1), 1000);
+    } catch (err) {
+      console.error("[chat] mic unavailable", err);
+      setError("Microphone unavailable. Check your permissions.");
+      recStreamRef.current?.getTracks().forEach((t) => t.stop());
+      recStreamRef.current = null;
+    }
+  }, [recording, sendingRec, finishRecording]);
+
+  const stopRecording = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+  }, []);
+
+  /* Discard the in-flight recording without sending. */
+  const cancelRecording = useCallback(() => {
+    if (recTimerRef.current !== null) {
+      window.clearInterval(recTimerRef.current);
+      recTimerRef.current = null;
+    }
+    recChunksRef.current = [];
+    recStreamRef.current?.getTracks().forEach((t) => t.stop());
+    recStreamRef.current = null;
+    try {
+      mediaRecorderRef.current?.stop();
+    } catch {
+      /* recorder already stopped */
+    }
+    mediaRecorderRef.current = null;
+    setRecording(false);
+    setRecSeconds(0);
+  }, []);
+
+  /* Stop the timer and release the mic if the member navigates away mid-record. */
+  useEffect(() => {
+    return () => {
+      if (recTimerRef.current !== null) window.clearInterval(recTimerRef.current);
+      recStreamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  /** "0:07" — m:ss elapsed recorder time. */
+  const formatRecTime = (total: number) => {
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  };
+
   const onSubmit = useCallback(
     (event: FormEvent) => {
       event.preventDefault();
@@ -1025,16 +1193,6 @@ export default function ChatRoomClient({
     setDraft(next);
     requestAnimationFrame(() => el?.setSelectionRange(caret, caret));
   }, [draft]);
-
-  /* Gift is NOT in this list any more: it opens `GiftDrawer` in place rather than
-     navigating to `/store`. A member sending a gift to the person they are
-     talking to should not lose the conversation to get there, so it is rendered
-     separately below as a button. */
-  const quickActions: { label: string; href: string; icon: LucideIcon; isNew?: boolean }[] = [
-    { label: "Gallery", href: "/profile", icon: ImageIcon },
-    { label: "Call", href: `/call/${conversationId}/audio`, icon: Phone },
-    { label: "Video", href: `/call/${conversationId}/video`, icon: Video, isNew: true },
-  ];
 
   /* Index of the newest message from the other member. The scam warning is
      attached to that one and to nothing else. */
@@ -1326,14 +1484,71 @@ export default function ChatRoomClient({
           />
         ) : null}
 
+        {/* ── RECORDING STATE. While the mic is live the whole toolbar swaps to a
+             recorder row: a pulsing dot, the elapsed timer, a discard (X) and a
+             stop-and-send (square) — the WhatsApp pattern, so there is never a
+             text field next to an active microphone. */}
+        {recording ? (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-4 py-2.5"
+          >
+            <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-rose-500" aria-hidden />
+            <span className="text-sm font-semibold tabular-nums text-rose-200">
+              Recording {formatRecTime(recSeconds)}
+            </span>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={cancelRecording}
+                aria-label="Discard recording"
+                title="Discard"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-rose-200 transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400"
+              >
+                <X className="h-5 w-5" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={stopRecording}
+                aria-label="Send voice note"
+                title="Send voice note"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-white transition hover:bg-orange-400 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFA040]"
+                style={{ backgroundColor: ORANGE }}
+              >
+                <Square className="h-4 w-4" aria-hidden />
+              </button>
+            </div>
+          </div>
+        ) : (
         <form onSubmit={onSubmit} className="flex items-center gap-2">
+          {/* LEFT: attachment (image) then mic (voice). Both open native pickers /
+              the recorder — the two media affordances live together on the left so
+              the center stays a clean text field. */}
+          <ChatPhotoUploadButton conversationId={conversationId} currentUserId={currentUserId} />
           <button
             type="button"
+            onClick={() => void startRecording()}
+            disabled={sendingRec}
             aria-label="Record a voice message"
             title="Voice message"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] disabled:opacity-50"
           >
             <Mic className="h-5 w-5" aria-hidden />
+          </button>
+          {/* THE GIFT BUTTON lives in the toolbar's left cluster (not a second row)
+              so gifting stays one tap away without the duplicate action bar this
+              composer used to render. It opens `GiftDrawer` in place. */}
+          <button
+            type="button"
+            onClick={() => setGiftOpen(true)}
+            aria-label="Send a gift"
+            title="Gift"
+            aria-expanded={giftOpen}
+            aria-haspopup="dialog"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+          >
+            <Gift className="h-5 w-5" aria-hidden />
           </button>
 
           <textarea
@@ -1416,50 +1631,7 @@ export default function ChatRoomClient({
             <Send className="h-4 w-4" aria-hidden />
           </button>
         </form>
-
-        {/* Quick action row under the input. `gap-2` is the EXPLICIT channel
-            between buttons; each button paints its own solid muted slate fill
-            (`#241E44`, the same non-white tone the bottom nav pills use) plus a
-            hairline ring, so no two controls can visually merge into one bar and
-            nothing here glows bright white against the dark composer. */}
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <ChatPhotoUploadButton conversationId={conversationId} currentUserId={currentUserId} />
-          {/* THE GIFT BUTTON. A `<button>`, not a `<Link>`: it opens an overlay in
-              place, so it must not navigate and must not be a link for assistive
-              tech. `aria-expanded` tells a screen reader the drawer is a region it
-              can return to. */}
-          <button
-            type="button"
-            onClick={() => setGiftOpen(true)}
-            aria-label="Send a gift"
-            title="Gift"
-            aria-expanded={giftOpen}
-            aria-haspopup="dialog"
-            className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#241E44] text-[#C9C2E4] ring-1 ring-white/10 transition hover:bg-[#2E2752] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
-          >
-            <Gift className="h-5 w-5" aria-hidden />
-          </button>
-
-          {quickActions.map((action) => {
-            const Icon = action.icon;
-            return (
-              <Link
-                key={action.label}
-                href={action.href}
-                aria-label={action.label}
-                title={action.label}
-                className="relative flex h-10 w-10 items-center justify-center rounded-full bg-[#241E44] text-[#C9C2E4] ring-1 ring-white/10 transition hover:bg-[#2E2752] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
-              >
-                <Icon className="h-5 w-5" aria-hidden />
-                {action.isNew ? (
-                  <span className="absolute -right-1 -top-1 rounded-full bg-emerald-500 px-1.5 py-px text-[9px] font-bold text-white">
-                    New
-                  </span>
-                ) : null}
-              </Link>
-            );
-          })}
-        </div>
+        )}
 
         {/* `role="status"` so a failed send is announced, not merely drawn. */}
         {error ? (

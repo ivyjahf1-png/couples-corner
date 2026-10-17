@@ -105,10 +105,24 @@ export function VideoCall({ channel = "test-room" }: { channel?: string }) {
             user.videoTrack.play(remoteRef.current);
           }
           if (mediaType === "audio") user.audioTrack?.play();
+          // The peer is here and streaming — treat the call as live even if the
+          // local publish promise has not resolved yet. Without this the pill can
+          // sit on "Connecting…" while both sides are already talking.
+          setStatus("connected");
+        });
+        /* THE SDK'S OWN STATE MACHINE IS AUTHORITATIVE. `agora-rtc-sdk-ng` emits
+           `connection-state-change` with its real CONNECTED/RECONNECTING/DISCONNECTED
+           state. Relying only on the `await publish(...)` resolution left a window where
+           the channel was already up but our `status` had not flipped — the "infinite
+           connecting" symptom. Mirroring the SDK state here makes the UI track reality. */
+        client.on("connection-state-change", (state) => {
+          if (state === "CONNECTED") setStatus("connected");
+          else if (state === "DISCONNECTED") setStatus("ended");
         });
         client.on("user-joined", (user) => {
           remotesRef.current.add(user.uid);
           setRemoteCount(remotesRef.current.size);
+          setStatus("connected");
         });
         client.on("user-left", (user) => {
           remotesRef.current.delete(user.uid);
