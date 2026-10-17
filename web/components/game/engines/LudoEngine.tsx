@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins, X } from "lucide-react";
 import type { LudoMatchConfig } from "../LudoHub";
 import { POWER_COSTS } from "../LudoHub";
 import { LudoDice } from "../ludo/LudoDice";
