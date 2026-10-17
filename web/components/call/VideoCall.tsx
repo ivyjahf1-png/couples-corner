@@ -24,24 +24,33 @@ import AgoraRTC, { type ICameraVideoTrack, type IMicrophoneAudioTrack } from "ag
 
 type CallStatus = "connecting" | "connected" | "failed" | "ended";
 
-/** Ask the server for a channel token; fall back to App-ID-only joining. */
-async function fetchJoinCredentials(channelName: string): Promise<{ token: string | null; appId: string }> {
-  const envAppId = process.env.NEXT_PUBLIC_AGORA_APP_ID ?? "";
-  try {
-    const res = await fetch("/api/agora-token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ channelName }),
-    });
-    if (res.ok) {
-      const data = (await res.json()) as { token?: string; appId?: string };
-      if (data.token) return { token: data.token, appId: data.appId || envAppId };
-    }
-    // 401 (signed out) / 503 (keys not configured) → fall through.
-  } catch {
-    /* network hiccup — fall through to App-ID-only */
+/** Ask the server for a channel token via the live Supabase Edge Function. */
+async function fetchJoinCredentials(channelName: string): Promise<{ token: string; appId: string }> {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!anonKey) {
+    throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not configured.");
   }
-  return { token: null, appId: envAppId };
+
+  const res = await fetch("https://chjemrhjovingpzdassk.supabase.co/functions/v1/generate-agora-token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${anonKey}`,
+    },
+    body: JSON.stringify({ channelName, uid: 0 }),
+  });
+
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { message?: string };
+    throw new Error(`Edge Function error ${res.status}: ${body.message || "Unknown error"}`);
+  }
+
+  const data = (await res.json()) as { token?: string; appId?: string };
+  const token = data.token;
+  if (!token) {
+    throw new Error("Unable to acquire video token from server");
+  }
+  return { token, appId: data.appId || process.env.NEXT_PUBLIC_AGORA_APP_ID || "" };
 }
 
 export function VideoCall({ channel = "test-room" }: { channel?: string }) {
