@@ -1061,108 +1061,6 @@ export function MediaFeed({
             <div className="pointer-events-auto">{topRightSlot}</div>
           ) : null}
         </div>
-          {/* Per-card options menu (copy link / report). */}
-          {current ? (
-            <div className="relative shrink-0">
-              {/* Same orange-ring glass circle as the action rail below, so the
-                  top-bar menu reads as part of that control family. */}
-              <button
-                type="button"
-                onClick={() => {
-                  setMenuOpen((open) => !open);
-                  // Clear a previous failure as the member re-opens the menu:
-                  // that is where they came to retry, so a stale error would
-                  // still be on screen when the action they want sits under it.
-                  setDeleteError(null);
-                }}
-                aria-label="Moment options"
-                aria-haspopup="menu"
-                aria-expanded={menuOpen}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-orange-500/80 bg-black/40 text-white shadow-lg backdrop-blur-md transition-transform hover:bg-black/55 active:scale-95"
-              >
-                <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden>
-                  <circle cx="12" cy="5" r="1.8" />
-                  <circle cx="12" cy="12" r="1.8" />
-                  <circle cx="12" cy="19" r="1.8" />
-                </svg>
-              </button>
-              {menuOpen ? (
-                <div
-                  role="menu"
-                  aria-label="Moment options"
-                  className="absolute right-0 top-11 z-50 w-48 overflow-hidden rounded-2xl border border-white/10 bg-[#1E293B] py-1.5 shadow-2xl"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={async () => {
-                      setMenuOpen(false);
-                      const url = `${window.location.origin}/?moment=${current.id}`;
-                      const outcome = await shareOrCopy({
-                        title: "Couple's Corner",
-                        message: `${current.authorName ?? "Someone"} shared a moment on Couple's Corner. ${url}`,
-                      });
-                      if (outcome === "copied") notifySuccess("Link copied to clipboard");
-                      if (outcome === "failed") {
-                        setSendError("Couldn't share or copy this link. Please try again.");
-                      }
-                      // "shared" is already confirmed by the OS sheet, and a
-                      // dismissed sheet is not an error worth reporting.
-                    }}
-                    className="block w-full px-4 py-2.5 text-left text-sm text-white transition hover:bg-white/10"
-                  >
-                    Share / copy link
-                  </button>
-                  <Link
-                    href={`/profile/${current.userId}`}
-                    role="menuitem"
-                    onClick={() => setMenuOpen(false)}
-                    className="block px-4 py-2.5 text-sm text-white transition hover:bg-white/10"
-                  >
-                    View {current.authorName ?? "creator"}
-                  </Link>
-
-                  {/* Owner-only delete, inside the menu rather than on the card.
-                      Destructive actions belong in a menu: a free-standing
-                      button one stray tap from the reaction row is how a member
-                      loses a post they meant to scroll past. Hiding it here is a
-                      courtesy — the enforcement is server-side in deleteMoment,
-                      which scopes every query to the session uid, so a member
-                      who reaches this by any other route still cannot delete
-                      somebody else's moment. */}
-                  {current.isMine ? (
-                    <>
-                      {/* Hairline above the destructive row, so it reads as a
-                          separate group rather than a fourth peer option. */}
-                      <span aria-hidden className="my-1 block h-px bg-white/10" />
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          // Close first: the confirmation dialog is modal, and a
-                          // menu left open behind it would be a stray click
-                          // target on the way back.
-                          setMenuOpen(false);
-                          void deleteActiveMoment();
-                        }}
-                        disabled={deleteBusy}
-                        className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm text-rose-300 transition hover:bg-rose-500/15 disabled:opacity-50"
-                      >
-                        <span>Delete Moment</span>
-                        {deleteBusy ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        )}
-                      </button>
-                    </>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          </div>
-        </div>
 
         {/* Delete failure notice.
             Lives in the overlay rather than in the options menu because the menu
@@ -2902,4 +2800,5 @@ function MediaEmbed({ moment, active }: { moment: MomentView; active: boolean })
     </div>
   );
 }
+
 
