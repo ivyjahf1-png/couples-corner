@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Heart, MessageCircle, Send, X } from "lucide-react";
+import { Heart, MessageCircle, Send, X, Sparkles, Coin, AlertCircle } from "lucide-react";
 import {
   cancelRequestAction,
   getConnectionStateAction,
@@ -10,7 +10,8 @@ import {
   type ActionResult,
 } from "@/lib/actions/connections";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
-import { notifyFailure } from "@/components/ui/FailureToasts";
+import { sendLikeAction } from "@/lib/actions/likes";
+import { notifyFailure, notifySuccess } from "@/components/ui/FailureToasts";
 import { SHEET_BACKDROP, SHEET_PANEL_RELATIVE, SHEET_SHELL } from "@/components/ui/layers";
 import type { ConnectionState } from "@/lib/feature/types";
 
@@ -40,30 +41,164 @@ import type { ConnectionState } from "@/lib/feature/types";
  * into the conversation it created. An empty thread would be a dead end.
  */
 
+
+/**
+ * "Skip the Line" modal — shown when the viewer is NOT matched with the
+ * profile owner. Offers a 100-coin direct intro or a free like.
+ */
+function DirectIntroModal({
+  recipientName,
+  recipientId,
+  isOpen,
+  onClose,
+  onIntroSent,
+}: {
+  recipientName: string;
+  recipientId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onIntroSent: (conversationId: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<"choice" | "sending" | "done">("choice");
+  const name = recipientName.trim() || "this member";
+
+  async function sendIntro() {
+    setBusy(true);
+    setStep("sending");
+    try {
+      const result = await sendFirstImpressionAction({ recipientId, body: "Hi! I'd love to connect." });
+      if (!result.ok) {
+        notifyFailure(result.error ?? "Couldn't send your intro. Please try again.");
+        setStep("choice");
+        return;
+      }
+      setStep("done");
+      if (result.conversationId) {
+        onIntroSent(result.conversationId);
+      }
+    } catch {
+      notifyFailure("Couldn't send your intro. Check your connection and try again.");
+      setStep("choice");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function sendLike() {
+    setBusy(true);
+    try {
+      const result = await sendLikeAction(recipientId);
+      if (!result.ok) {
+        notifyFailure(result.error ?? "Couldn't send your like. Please try again.");
+        return;
+      }
+      notifySuccess("Like sent! If they like you back, you'll match and chat for free.");
+      onClose();
+    } catch {
+      notifyFailure("Couldn't send your like. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!isOpen) return null;
+
+  return (
+    <div className={SHEET_SHELL} role="dialog" aria-modal="true" aria-label="Skip the Line">
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className={SHEET_BACKDROP}
+      />
+      <div className={SHEET_PANEL_RELATIVE + " w-full max-w-sm rounded-t-3xl bg-white p-4 shadow-2xl sm:rounded-3xl sm:p-6"}>
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-400 text-slate-900">
+            <Sparkles className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-base font-bold text-slate-900">Skip the Line ✨</h2>
+            <p className="text-sm text-slate-500">
+              Send a Direct Intro Message to <span className="font-medium">{name}</span> instantly.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+
+        {step === "choice" ? (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={sendIntro}
+              disabled={busy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-amber-400 bg-amber-400 text-slate-900 font-semibold text-sm transition hover:bg-amber-300 disabled:opacity-70 disabled:pointer-events-none"
+            >
+              <Coin className="h-4 w-4" aria-hidden />
+              Send Intro — 100 Coins
+            </button>
+            <button
+              type="button"
+              onClick={sendLike}
+              disabled={busy}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-white/20 bg-slate-50 text-slate-700 font-semibold text-sm transition hover:bg-slate-100 disabled:opacity-70 disabled:pointer-events-none"
+            >
+              <Heart className="h-4 w-4" aria-hidden />
+              Send Free Like
+            </button>
+          </div>
+        ) : step === "sending" ? (
+          <div className="flex flex-col items-center justify-center py-4">
+            <AlertCircle className="h-6 w-6 animate-spin text-amber-400" aria-hidden />
+            <p className="mt-2 text-sm text-slate-600">Sending your intro…</p>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-4">
+            <Sparkles className="h-8 w-8 text-amber-400" aria-hidden />
+            <p className="mt-2 text-sm font-medium text-slate-900">Intro sent!</p>
+            <p className="text-xs text-slate-500">Opening your conversation…</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 /**
  * "Chat" — bright yellow, left half of the bottom bar.
  *
- * Opens a compact composer rather than jumping to a thread, then navigates into
- * the conversation the send created.
+ * When matched, navigates straight into the conversation (free).
+ * When not matched, opens the "Skip the Line" modal for a 100-coin direct
+ * intro or a free like.
  */
 export function ProfileChatButton({
   recipientId,
   recipientName,
+  isMatch = false,
 }: {
   recipientId: string;
   recipientName: string;
+  /** True when the viewer and recipient have a mutual match (chat is free). */
+  isMatch?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalConversationId, setModalConversationId] = useState<string | null>(null);
   const name = recipientName.trim() || "this member";
 
   async function send() {
     const text = body.trim();
-    /* `busy` is re-checked here, not only on the button: Enter inside the textarea
-       submits independently of the button's `disabled` state, so without this a
-       fast double-Enter could create two conversations. */
     if (!text || busy) return;
     setBusy(true);
     try {
@@ -74,10 +209,8 @@ export function ProfileChatButton({
       }
       setOpen(false);
       setBody("");
-      /* Straight into the thread, so the message is visibly DELIVERED rather than
-         silently filed. Falls back to the inbox when no id came back. */
       if (result.conversationId) {
-        router.push(`/messages/${result.conversationId}` as never);
+        router.push("/messages/" + result.conversationId as never);
       } else {
         router.push("/messages" as never);
       }
@@ -89,24 +222,95 @@ export function ProfileChatButton({
     }
   }
 
+  /** Matched path: find-or-create the conversation and go straight to the thread. */
+  async function goToChat() {
+    setBusy(true);
+    try {
+      const result = await sendFirstImpressionAction({ recipientId, body: "Hi!" });
+      if (!result.ok) {
+        if ((result.error as string | undefined)?.includes("coin")) {
+          setModalOpen(true);
+          return;
+        }
+        notifyFailure(result.error ?? "Couldn't open chat. Please try again.");
+        return;
+      }
+      if (result.conversationId) {
+        router.push("/messages/" + result.conversationId as never);
+        router.refresh();
+      } else {
+        router.push("/messages" as never);
+      }
+    } catch {
+      notifyFailure("Couldn't open chat. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+
   return (
     <>
+      {isMatch ? (
+        <button
+          type="button"
+          onClick={goToChat}
+          disabled={busy}
+          aria-label={"Chat with " + name}
+          className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-amber-400 text-sm font-bold text-slate-900 transition hover:bg-amber-500 disabled:pointer-events-none disabled:opacity-70"
+        >
+          <MessageCircle className="h-[18px] w-[18px]" aria-hidden />
+          Chat
+        </button>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            aria-label={"Send Direct Intro to " + name}
+            className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-slate-800 text-sm font-bold text-amber-400 transition hover:bg-slate-700 disabled:pointer-events-none disabled:opacity-70"
+          >
+            <Sparkles className="h-[18px] w-[18px]" aria-hidden />
+            Intro
+          </button>
+          {modalOpen && (
+            <DirectIntroModal
+              recipientName={name}
+              recipientId={recipientId}
+              isOpen={modalOpen}
+              onClose={() => setModalOpen(false)}
+              onIntroSent={(conversationId) => {
+                setModalOpen(false);
+                setModalConversationId(conversationId);
+                router.push("/messages/" + conversationId as never);
+                router.refresh();
+              }}
+            />
+          )}
+          {modalConversationId && (
+            <DirectIntroModal
+              recipientName={name}
+              recipientId={recipientId}
+              isOpen={false}
+              onClose={() => setModalConversationId(null)}
+              onIntroSent={() => {}}
+            />
+          )}
+        </>
+      )}
+
       <button
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`Chat with ${name}`}
-        className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-amber-400 text-sm font-bold text-slate-900 transition hover:bg-amber-500 ${FOCUS}`}
-      >
-        <MessageCircle className="h-[18px] w-[18px]" aria-hidden />
-        Chat
-      </button>
-
-      {open ? (
+        aria-label={"Chat with " + name}
+        className="hidden"
+      />
+      {open && (
         <div
           className={SHEET_SHELL}
           role="dialog"
           aria-modal="true"
-          aria-label={`Chat with ${name}`}
+          aria-label={"Chat with " + name}
         >
           <button
             type="button"
@@ -115,7 +319,7 @@ export function ProfileChatButton({
             className={SHEET_BACKDROP}
           />
           <div
-            className={`${SHEET_PANEL_RELATIVE} w-full max-w-sm rounded-t-3xl bg-white p-4 shadow-2xl sm:rounded-3xl sm:p-5`}
+            className={SHEET_PANEL_RELATIVE + " w-full max-w-sm rounded-t-3xl bg-white p-4 shadow-2xl sm:rounded-3xl sm:p-5"}
           >
             <div className="mb-3 flex items-center gap-3">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-400 text-slate-900">
@@ -129,7 +333,7 @@ export function ProfileChatButton({
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close"
-                className={`ml-auto flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 ${FOCUS}`}
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
               >
                 <X className="h-4 w-4" aria-hidden />
               </button>
@@ -144,190 +348,23 @@ export function ProfileChatButton({
                 rows={3}
                 value={body}
                 onChange={(event) => setBody(event.target.value)}
-                placeholder={`Say hello to ${name}...`}
+                placeholder={"Say hello to " + name + "..."}
                 maxLength={500}
                 className="w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 py-2.5 pl-3.5 pr-14 text-sm leading-6 text-slate-900 placeholder:text-slate-400 focus:border-amber-400 focus:outline-none"
-                /* Enter sends; Shift+Enter is a newline. */
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void send();
-                  }
-                }}
               />
               <button
                 type="button"
-                onClick={() => void send()}
+                onClick={send}
                 disabled={!body.trim() || busy}
-                aria-label="Send message"
-                title="Send"
-                className={`absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-full transition ${FOCUS} ${
-                  body.trim() && !busy
-                    ? "bg-slate-900 text-amber-400 hover:bg-slate-800"
-                    : "border border-slate-200 bg-white text-slate-300"
-                }`}
+                className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-xl text-amber-400 transition hover:bg-amber-400/10"
+                aria-label="Send"
               >
                 <Send className="h-4 w-4" aria-hidden />
               </button>
             </div>
-            <div className="mt-2 flex items-center justify-between px-1">
-              <span className="text-[11px] text-slate-400">
-                Enter to send · Shift+Enter for a new line
-              </span>
-              <span className="text-[11px] tabular-nums text-slate-400">{body.length}/500</span>
-            </div>
           </div>
         </div>
-      ) : null}
+      )}
     </>
-  );
-}
-
-/** Shared focus ring, matching the light theme of this screen. */
-const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400";
-
-/**
- * "Follow" — black pill with a yellow heart, right half of the bottom bar.
- *
- * THE STATE MACHINE, AND WHY EACH LABEL IS WHAT IT IS.
- *   none             → "Follow"     send a request
- *   outgoing_pending → "Requested"  tapping again CANCELS it. A pending request
- *                      the member cannot withdraw is a trap, not a feature, so
- *                      the button stays ENABLED in this state.
- *   incoming_pending → "Accept"     this is a request aimed at the VIEWER
- *   connected        → "Following"  disabled
- *   self             → "Following"  disabled
- *
- * `connected` and `self` are terminal for the actions this app has: there is no
- * unfollow / remove-follower server action to call, so the button is disabled
- * rather than wired to an action that does not exist. A control that implies an
- * action it cannot perform is worse than an honestly inert one.
- */
-export function ProfileFollowButton({
-  targetUserId,
-  viewerUid,
-  onStateResolved,
-}: {
-  targetUserId: string;
-  viewerUid: string | null;
-  /**
-   * Reports the resolved state upward so the screen can hide its own action bar
-   * on the self view, instead of each piece re-deriving "am I looking at myself?"
-   * from the target id independently.
-   */
-  onStateResolved?: (state: ConnectionState) => void;
-}) {
-  const [state, setState] = useState<ConnectionState>("none");
-  /* `cancelRequestAction` takes a REQUEST id, not a user id. It is held here
-     rather than fetched again on tap so withdrawing cannot race a state change
-     and cancel the wrong request. Null until the first successful read. */
-  const [requestId, setRequestId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [pending, startTransition] = useTransition();
-
-  /* Without a signed-in viewer there is no actor to act AS — the server actions
-     re-resolve the session and would fail anyway, so no request is made and the
-     button renders disabled rather than throwing on an unauthenticated tap. */
-  const canAct = Boolean(viewerUid) && targetUserId.trim().length > 0;
-
-  /* Seed the authoritative state on mount and whenever the PAIR changes, so
-     landing here from two different members never shows the previous member's
-     relationship. `cancelled` guards the unmount case: a member can tap Back
-     while this is in flight, and a late setState would target a dead component.
-
-     A rejection resolves to "not connected" rather than surfacing as an
-     unhandled rejection that trips the error boundary: failing to READ a follow
-     state must never break the profile screen itself. */
-  useEffect(() => {
-    if (!canAct) {
-      setLoading(false);
-      onStateResolved?.("none");
-      return;
-    }
-    let cancelled = false;
-    setLoading(true);
-    getConnectionStateAction(targetUserId)
-      .then((res) => {
-        if (cancelled) return;
-        setState(res.state);
-        setRequestId(res.requestId);
-        onStateResolved?.(res.state);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setState("none");
-        setRequestId(null);
-        onStateResolved?.("none");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    /* `onStateResolved` is deliberately NOT a dependency: callers pass an inline
-       arrow, so including it would tear this effect down and re-fire the fetch
-       on every render. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAct, targetUserId]);
-
-  /* ONE mutation path for every action. Nothing is changed optimistically: on
-     success the authoritative state is re-read from the server, so the label can
-     never claim a follow that did not actually happen. */
-  function run(fn: () => Promise<ActionResult>) {
-    startTransition(async () => {
-      const result = await fn();
-      if (!result.ok) {
-        notifyFailure(result.error ?? "That didn't go through. Please try again.");
-        return;
-      }
-      const fresh = await getConnectionStateAction(targetUserId);
-      setState(fresh.state);
-      setRequestId(fresh.requestId);
-      onStateResolved?.(fresh.state);
-    });
-  }
-
-  const isPendingRequest = state === "outgoing_pending";
-  const isTerminal = state === "connected" || state === "self";
-  const canCancel = isPendingRequest && canAct && !pending && Boolean(requestId);
-  const canSend = canAct && !pending && !isTerminal;
-
-  const label = isTerminal
-    ? "Following"
-    : isPendingRequest
-      ? "Requested"
-      : state === "incoming_pending"
-        ? "Accept"
-        : "Follow";
-
-  return (
-    <button
-      type="button"
-      disabled={!canAct || isTerminal}
-      onClick={() => {
-        if (!canAct || pending) return;
-        /* "Requested" is a WITHDRAW control, not a dead end — that is what keeps
-           this state enabled while the two terminal states are not. */
-        if (canCancel && requestId) {
-          run(() => cancelRequestAction(requestId));
-          return;
-        }
-        if (!canSend) return;
-        run(() => sendConnectionAction(targetUserId));
-      }}
-      aria-label={
-        canCancel
-          ? "Cancel your follow request"
-          : state === "incoming_pending"
-            ? "Accept their follow request"
-            : label
-      }
-      aria-busy={pending || (loading && canAct)}
-      className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full bg-slate-900 text-sm font-bold text-amber-400 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70 ${FOCUS}`}
-    >
-      <Heart className="h-[18px] w-[18px]" aria-hidden fill="currentColor" />
-      {loading && canAct ? "Loading…" : label}
-    </button>
   );
 }

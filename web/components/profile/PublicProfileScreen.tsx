@@ -90,6 +90,9 @@ export interface PublicProfileView {
   initialOnline: boolean;
   /** True when the signed-in member is viewing their own profile. */
   isSelf: boolean;
+  /** True when the signed-in viewer and this profile have a mutual match,
+   *  so chat between them is free. */
+  isMatch: boolean;
   /** Signed-in member's uid, or null when signed out. */
   viewerUid: string | null;
   /** Relationship / status chip beside the name, e.g. "Single". */
@@ -716,7 +719,7 @@ export function PublicProfileScreen({
           }`}
         >
           <div className="flex items-center gap-3">
-            <ProfileChatButton recipientId={view.uid} recipientName={view.name} />
+            <ProfileChatButton recipientId={view.uid} recipientName={view.name} isMatch={view.isMatch} />
             <ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} />
           </div>
         </div>

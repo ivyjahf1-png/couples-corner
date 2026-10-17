@@ -312,7 +312,55 @@ function isMissingColumnError(error: unknown): boolean {
   return detail.code === "42703" || text.includes("does not exist");
 }
 
-/** Send a message into a conversation. */
+/** True when two users have a mutual match in the public.matches table. */
+async function hasMatchBetween(userA: string, userB: string): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return false;
+  const a = userA < userB ? userA : userB;
+  const b = userA < userB ? userB : userA;
+  const { data } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("user1_id", a)
+    .eq("user2_id", b)
+    .maybeSingle();
+  return Boolean(data);
+}
+
+/** Direct intro price in coins. */
+const DIRECT_INTRO_COINS = 100;
+
+/** Deduct coins from a user's wallet via the service-role RPC. Returns false
+ *  when the balance is insufficient or the wallet is missing. */
+async function deductCoins(userId: string, amount: number): Promise<boolean> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return false;
+
+  const { data: wallet } = await supabase
+    .from("game_wallets")
+    .select("coin_balance")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!wallet || typeof wallet.coin_balance !== "number" || wallet.coin_balance < amount) {
+    return false;
+  }
+
+  const { error } = await supabase.rpc("increment_user_coins", {
+    p_user_id: userId,
+    p_amount: -amount,
+  });
+  return !error;
+}
+
+/** Send a message into a conversation.
+ *
+ * MUTUAL MATCH GATE:
+ *   • If a mutual match exists between sender and the other participant,
+ *     the insert is free and proceeds immediately.
+ *   • If no match exists, the sender must have >= DIRECT_INTRO_COINS
+ *     (100) coins; 100 are debited before the message is written.
+ *   • Insufficient coins throws so the caller can surface an inline error.
+ */
 export async function sendMessage(params: {
   conversationId: string;
   senderId: string;
@@ -321,6 +369,33 @@ export async function sendMessage(params: {
 }): Promise<MessageRow | null> {
   const supabase = getSupabaseServerClient();
   if (!supabase) throw new Error("Supabase not configured");
+
+  /* Resolve the other participant in this conversation so we can check the
+     mutual match gate. The conversation row is authoritative for who is in
+     the thread. */
+  const { data: conversation } = await supabase
+    .from("conversations")
+    .select("participant_user_ids")
+    .eq("id", params.conversationId)
+    .maybeSingle();
+  const participantIds = (conversation?.participant_user_ids as string[] | undefined) ?? [];
+  const otherId = participantIds.find((id) => id && id !== params.senderId);
+
+  let matched = false;
+  if (otherId) {
+    matched = await hasMatchBetween(params.senderId, otherId);
+  }
+
+  /* When there is no match (or no other participant to match with), gate the
+     send behind a coin payment. A direct intro costs DIRECT_INTRO_COINS. */
+  if (!matched) {
+    const paid = await deductCoins(params.senderId, DIRECT_INTRO_COINS);
+    if (!paid) {
+      const error = new Error("Insufficient coins for direct intro");
+      (error as { code?: string }).code = "INSUFFICIENT_COINS";
+      throw error;
+    }
+  }
 
   const now = new Date().toISOString();
   const { data, error } = await supabase
@@ -359,7 +434,6 @@ export async function sendMessage(params: {
 
   return (data as MessageRow | null) ?? null;
 }
-
 /**
  * Edit a message the current user sent.
  *

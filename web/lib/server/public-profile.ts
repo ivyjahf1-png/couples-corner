@@ -41,6 +41,27 @@ export async function buildPublicProfileView(
 
   const isSelf = viewerUid === userId;
 
+  /* Mutual match gate — chat is free between matched users. Fail-soft: a
+     matches-table hiccup yields false (not matched) rather than taking the
+     profile screen down. */
+  let isMatch = false;
+  if (viewerUid && !isSelf) {
+    try {
+      const supabase = getSupabaseServerClient();
+      const a = viewerUid < userId ? viewerUid : userId;
+      const b = viewerUid < userId ? userId : viewerUid;
+      const { data: matchRow } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("user1_id", a)
+        .eq("user2_id", b)
+        .maybeSingle();
+      isMatch = Boolean(matchRow);
+    } catch {
+      /* fail soft */
+    }
+  }
+
   /* Presence and distance are independent reads, so they run in parallel rather
      than serialising two round trips. On the self view there is nothing to read:
      an empty object typed as a lookup map, so the read below stays narrow
@@ -114,6 +135,7 @@ export async function buildPublicProfileView(
       profile.profileType === "coupled"
         ? "Couple"
         : profile.relationshipStatus?.trim() || null,
+    isMatch,
     bio: profile.bio?.trim() || null,
     interests: profile.interests.map((interest) => interest.trim()).filter(Boolean),
     lifestyle: (profile.lifestyle ?? []).map((tag) => tag.trim()).filter(Boolean),
