@@ -2622,7 +2622,6 @@ function MediaSurface({
     />
   );
 }
-
 /**
  * Shown in place of a moment whose media could not be decoded.
  *
