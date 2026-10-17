@@ -4,14 +4,15 @@ import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins, ArrowLeft, RefreshCw } from "lucide-react";
 import type { LudoMatchConfig } from "../LudoHub";
 import { POWER_COSTS } from "../LudoHub";
+import { LudoMeetHereCard, LudoPlayerCard, LudoRollPedestal, LudoStatusPill } from "../ludo/LudoHud";
 
 const COLORS = ["#EF4444", "#10B981", "#F59E0B", "#3B82F6"]; // Red, Green, Yellow, Blue
 
 const SEATS = [
-  { name: "YOU (David)", flag: "🇬🇧", avatar: "👨‍💻", level: 27 },
-  { name: "Tunde", flag: "🇳🇬", avatar: "🧔", level: 24 },
-  { name: "Bella", flag: "🇰🇪", avatar: "👩", level: 22 },
-  { name: "Aisha", flag: "🇳🇬", avatar: "👧", level: 26 },
+  { name: "YOU (David)", short: "David", flag: "🇳🇬", avatar: "👨‍💻", level: 9, neon: "#22D3EE" },
+  { name: "Tunde", short: "Tunde", flag: "🇳🇬", avatar: "🧔", level: 5, neon: "#34D399" },
+  { name: "Bella", short: "Bella", flag: "🇬🇧", avatar: "👩", level: 7, neon: "#E879F9" },
+  { name: "Aisha", short: "Aisha", flag: "🇨🇦", avatar: "👧", level: 10, neon: "#FBBF24" },
 ];
 
 // ── 5D Spatial Audio & Haptic Synthesizer ───────────────────────────
@@ -111,6 +112,22 @@ const sensoryEngine = new Sensory4DEngine();
 const ARROW_JUMPS: Record<number, number> = {
   15: 33, 33: 42, 42: 47, 10: 22, 38: 48, 47: 57,
 };
+
+/** 3D bevelled wooden/composite frame around the board canvas (layered CSS). */
+const WOOD_FRAME: React.CSSProperties = {
+  background:
+    "repeating-linear-gradient(93deg, rgba(0,0,0,.16) 0 3px, rgba(255,255,255,.05) 3px 7px), linear-gradient(150deg,#7c5a31 0%,#5a3d1d 45%,#3f2a12 100%)",
+  boxShadow:
+    "inset 0 3px 0 rgba(255,224,170,.35), inset 0 -6px 12px rgba(0,0,0,.6), inset 0 0 0 1px rgba(0,0,0,.4), 0 22px 48px rgba(0,0,0,.55)",
+};
+
+/** Neon base-zone glows (Red TL · Green TR · Yellow BR · Blue BL) over the canvas. */
+const ZONE_GLOWS =
+  "radial-gradient(circle at 20% 20%, rgba(239,68,68,.3), transparent 34%), radial-gradient(circle at 80% 20%, rgba(16,185,129,.3), transparent 34%), radial-gradient(circle at 80% 80%, rgba(245,158,11,.3), transparent 34%), radial-gradient(circle at 20% 80%, rgba(59,130,246,.3), transparent 34%)";
+
+/** Glossy lacquer sheen across the playing surface. */
+const BOARD_SHEEN =
+  "linear-gradient(158deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.04) 34%, transparent 52%)";
 
 export function LudoEngine({
   config,
@@ -360,9 +377,9 @@ export function LudoEngine({
   }, [turn, winner, isRolling, aiLevel]);
 
   return (
-    <div className="fixed inset-0 z-40 flex h-[100dvh] w-screen flex-col justify-between bg-[#0F172A] p-3 text-white select-none overflow-hidden">
+    <div className="fixed inset-0 z-40 flex h-[100dvh] w-screen flex-col justify-between overflow-hidden bg-[#0F172A] p-3 pb-[calc(5rem+env(safe-area-inset-bottom))] text-white select-none">
       {/* Header Bar */}
-      <div className="flex w-full items-center justify-between rounded-2xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur-md">
+      <div className="flex w-full shrink-0 items-center justify-between rounded-2xl border border-white/10 bg-slate-900/90 p-3 backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-amber-400" />
           <span className="text-xs font-black tracking-widest text-amber-300">COUPLE'S ⭐ LUDO</span>
@@ -382,35 +399,107 @@ export function LudoEngine({
         </div>
       </div>
 
-      {/* Status Bar */}
-      <div className="my-1 rounded-xl border border-amber-500/20 bg-amber-950/30 p-2 text-center text-xs font-bold text-amber-200">
-        {msg}
+      {/* Top base cards — TL David (cyan) · Meet Here (No Drop) · TR Bella (magenta) */}
+      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+        <LudoPlayerCard
+          align="left"
+          name={SEATS[0]!.short}
+          flag={SEATS[0]!.flag}
+          avatar={SEATS[0]!.avatar}
+          level={SEATS[0]!.level}
+          neon={SEATS[0]!.neon}
+          isYou
+          active={turn === 0 && winner === null}
+          showDice={turn === 0 && winner === null}
+          diceValue={dice}
+          rolling={isRolling}
+        />
+        <LudoMeetHereCard />
+        {seats > 2 ? (
+          <LudoPlayerCard
+            align="right"
+            name={SEATS[2]!.short}
+            flag={SEATS[2]!.flag}
+            avatar={SEATS[2]!.avatar}
+            level={SEATS[2]!.level}
+            neon={SEATS[2]!.neon}
+            active={turn === 2 && winner === null}
+            showDice={turn === 2 && winner === null}
+            diceValue={dice}
+            rolling={isRolling}
+          />
+        ) : (
+          <span aria-hidden />
+        )}
       </div>
 
-      {/* 15x15 Real-Life Ludo Board Canvas */}
-      <div className="relative flex flex-col items-center justify-center w-full my-auto">
-        <div className="relative aspect-square w-full max-w-[360px] rounded-3xl overflow-hidden border-4 border-slate-700 shadow-2xl">
-          <canvas ref={canvasRef} width={360} height={360} className="h-full w-full" />
+      {/* 3D bevelled board — scroll-restricted flex cell, strictly above the dock */}
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center py-1.5">
+        <div
+          className="relative aspect-square w-full max-w-[min(340px,38vh)] rounded-[7%] p-[3%]"
+          style={WOOD_FRAME}
+        >
+          <div className="relative overflow-hidden rounded-[5%] shadow-[inset_0_2px_14px_rgba(0,0,0,.65)] ring-1 ring-black/60">
+            <canvas ref={canvasRef} width={360} height={360} className="block h-auto w-full" />
+            {/* Neon base-zone glows (Red TL · Green TR · Yellow BR · Blue BL) */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 mix-blend-screen"
+              style={{ background: ZONE_GLOWS }}
+            />
+            {/* Glossy lacquer sheen */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{ background: BOARD_SHEEN }}
+            />
+          </div>
         </div>
       </div>
 
-      {/* In-Gate Base Rolling Dice Container */}
-      <div className="flex w-full items-center justify-between gap-3 pt-2">
-        <button
-          type="button"
+      {/* Bottom base row — BL Tunde (green) · AAA Tap-to-Roll pedestal · BR Aisha (gold) */}
+      <div className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1.5">
+        <LudoPlayerCard
+          align="left"
+          name={SEATS[1]!.short}
+          flag={SEATS[1]!.flag}
+          avatar={SEATS[1]!.avatar}
+          level={SEATS[1]!.level}
+          neon={SEATS[1]!.neon}
+          active={turn === 1 && winner === null}
+          showDice={turn === 1 && winner === null}
+          diceValue={dice}
+          rolling={isRolling}
+        />
+        <LudoRollPedestal
+          diceValue={dice}
+          rolling={isRolling}
+          canRoll={isHumanTurn && !isRolling && winner === null}
+          label={
+            isRolling ? "ROLLING..." : !isHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"
+          }
           onClick={() => doRoll(humanSeat, { double: doubleRoll, hilo: hiloPending })}
-          disabled={isRolling || winner !== null || !isHumanTurn}
-          className="flex flex-1 items-center justify-center gap-3 rounded-2xl border-2 border-amber-400 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 py-3.5 shadow-lg active:scale-95 disabled:opacity-50"
-        >
-          <span className="text-xl font-black text-white">{isRolling ? "🎲..." : `DICE: ${dice}`}</span>
-          <span className="text-xs font-black tracking-widest text-amber-100">
-            {isRolling ? "ROLLING..." : !isHumanTurn ? `${SEATS[turn]!.name}...` : "TAP TO ROLL"}
-          </span>
-        </button>
+        />
+        {seats > 3 ? (
+          <LudoPlayerCard
+            align="right"
+            name={SEATS[3]!.short}
+            flag={SEATS[3]!.flag}
+            avatar={SEATS[3]!.avatar}
+            level={SEATS[3]!.level}
+            neon={SEATS[3]!.neon}
+            active={turn === 3 && winner === null}
+            showDice={turn === 3 && winner === null}
+            diceValue={dice}
+            rolling={isRolling}
+          />
+        ) : (
+          <span aria-hidden />
+        )}
       </div>
 
       {/* Tactical Coin Power-Ups */}
-      <div className="mt-2 grid grid-cols-3 gap-2 pb-2">
+      <div className="grid shrink-0 grid-cols-3 gap-2">
         <button
           type="button"
           onClick={buyRoll2}
@@ -454,6 +543,12 @@ export function LudoEngine({
           <span className="text-[9px] text-slate-400">{POWER_COSTS.undo} coins</span>
         </button>
       </div>
+
+      {/* Status pill — breathing indicator pinned right above the fixed bottom nav */}
+      <LudoStatusPill
+        text={msg}
+        thinking={!isHumanTurn && winner === null && !isRolling}
+      />
 
       {/* Recharge Modal */}
       {rechargeModal && (
