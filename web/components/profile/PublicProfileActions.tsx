@@ -368,3 +368,82 @@ export function ProfileChatButton({
     </>
   );
 }
+
+/**
+ * "Follow" — right half of the bottom bar. Follows/unfollows the profile owner
+ * using the same connection state machine the rest of the app uses.
+ */
+export function ProfileFollowButton({
+  targetUserId,
+  viewerUid,
+}: {
+  targetUserId: string;
+  viewerUid: string;
+}) {
+  const [state, setState] = useState<ConnectionState | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const result = await getConnectionStateAction({ viewerUid, targetUserId });
+      if (mounted && result.ok) {
+        setState(result.state);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [viewerUid, targetUserId]);
+
+  async function handleFollow() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      if (state === "requested") {
+        const result = await cancelRequestAction({ viewerUid, targetUserId });
+        if (result.ok && result.state) setState(result.state);
+      } else {
+        const result = await sendConnectionAction({ viewerUid, targetUserId });
+        if (result.ok && result.state) setState(result.state);
+      }
+    } catch {
+      notifyFailure("Couldn't update follow status. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const label =
+    state === "connected"
+      ? "Following"
+      : state === "requested"
+        ? "Requested"
+        : "Follow";
+
+  return (
+    <button
+      type="button"
+      onClick={handleFollow}
+      disabled={busy}
+      aria-label={label}
+      className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full transition disabled:pointer-events-none disabled:opacity-70 ${
+        state === "connected"
+          ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
+          : state === "requested"
+            ? "bg-slate-700 text-amber-400 hover:bg-slate-600"
+            : "bg-amber-400 text-slate-900 hover:bg-amber-500"
+      }`}
+    >
+      {state === "connected" ? (
+        <span className="text-xs font-bold">Following</span>
+      ) : state === "requested" ? (
+        <span className="text-xs font-bold">Requested</span>
+      ) : (
+        <>
+          <span className="text-xs font-bold">Follow</span>
+        </>
+      )}
+    </button>
+  );
+}
