@@ -1,46 +1,19 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Heart, MessageCircle, Send, X, Sparkles, Coins, AlertCircle } from "lucide-react";
 import {
   cancelRequestAction,
   getConnectionStateAction,
+  respondRequestAction,
   sendConnectionAction,
-  type ActionResult,
 } from "@/lib/actions/connections";
 import { sendFirstImpressionAction } from "@/lib/actions/messaging";
 import { sendLikeAction } from "@/lib/actions/likes";
 import { notifyFailure, notifySuccess } from "@/components/ui/FailureToasts";
 import { SHEET_BACKDROP, SHEET_PANEL_RELATIVE, SHEET_SHELL } from "@/components/ui/layers";
 import type { ConnectionState } from "@/lib/feature/types";
-
-/**
- * THE TWO BOTTOM-BAR ACTIONS ON A PUBLIC PROFILE — Chat and Follow.
- *
- * These live in their own file rather than inside `UserProfileView` so the view
- * stays a pure presentation component: everything that talks to the network
- * (the connection state machine, the first-message composer) is here.
- *
- * ── WHY NOT `ProfileConnectionActions` / `MessageProfileButton` ───────────────
- * Those two widgets were the first attempt at this same bar. They had ZERO
- * importers — the discover deck's detail sheet uses `ProfileDetailSheet` with
- * its own actions — so they were deleted rather than left to fork the data
- * path. What survives is the DATA PATH itself, which is the part that must
- * never fork:
- *
- *   • Follow → `getConnectionStateAction` / `sendConnectionAction` /
- *              `cancelRequestAction`. Same server actions the rest of the app
- *              uses, so entry points can never disagree about connection state.
- *   • Chat   → `sendFirstImpressionAction`. It is find-or-creates, so a thread
- *              started here is the same inbox row a message started from
- *              discover would create.
- *
- * There is no route that opens an EMPTY direct conversation, so Chat cannot
- * simply navigate to a thread: it opens a short composer, then routes straight
- * into the conversation it created. An empty thread would be a dead end.
- */
-
 
 /**
  * "Skip the Line" modal — shown when the viewer is NOT matched with the
@@ -171,13 +144,8 @@ function DirectIntroModal({
   );
 }
 
-
 /**
- * "Chat" — bright yellow, left half of the bottom bar.
- *
- * When matched, navigates straight into the conversation (free).
- * When not matched, opens the "Skip the Line" modal for a 100-coin direct
- * intro or a free like.
+ * "Chat" — yellow button on the bottom action bar.
  */
 export function ProfileChatButton({
   recipientId,
@@ -186,7 +154,6 @@ export function ProfileChatButton({
 }: {
   recipientId: string;
   recipientName: string;
-  /** True when the viewer and recipient have a mutual match (chat is free). */
   isMatch?: boolean;
 }) {
   const router = useRouter();
@@ -194,7 +161,6 @@ export function ProfileChatButton({
   const [body, setBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalConversationId, setModalConversationId] = useState<string | null>(null);
   const name = recipientName.trim() || "this member";
 
   async function send() {
@@ -222,7 +188,6 @@ export function ProfileChatButton({
     }
   }
 
-  /** Matched path: find-or-create the conversation and go straight to the thread. */
   async function goToChat() {
     setBusy(true);
     try {
@@ -248,7 +213,6 @@ export function ProfileChatButton({
     }
   }
 
-
   return (
     <>
       {isMatch ? (
@@ -273,38 +237,20 @@ export function ProfileChatButton({
             <Sparkles className="h-[18px] w-[18px]" aria-hidden />
             Intro
           </button>
-          {modalOpen && (
-            <DirectIntroModal
-              recipientName={name}
-              recipientId={recipientId}
-              isOpen={modalOpen}
-              onClose={() => setModalOpen(false)}
-              onIntroSent={(conversationId) => {
-                setModalOpen(false);
-                setModalConversationId(conversationId);
-                router.push("/messages/" + conversationId as never);
-                router.refresh();
-              }}
-            />
-          )}
-          {modalConversationId && (
-            <DirectIntroModal
-              recipientName={name}
-              recipientId={recipientId}
-              isOpen={false}
-              onClose={() => setModalConversationId(null)}
-              onIntroSent={() => {}}
-            />
-          )}
+          <DirectIntroModal
+            recipientName={name}
+            recipientId={recipientId}
+            isOpen={modalOpen}
+            onClose={() => setModalOpen(false)}
+            onIntroSent={(conversationId) => {
+              setModalOpen(false);
+              router.push("/messages/" + conversationId as never);
+              router.refresh();
+            }}
+          />
         </>
       )}
 
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={"Chat with " + name}
-        className="hidden"
-      />
       {open && (
         <div
           className={SHEET_SHELL}
@@ -356,7 +302,7 @@ export function ProfileChatButton({
                 type="button"
                 onClick={send}
                 disabled={!body.trim() || busy}
-                className="absolute right-2 top-2 h-8 w-8 items-center justify-center rounded-xl text-amber-400 transition hover:bg-amber-400/10"
+                className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-xl text-amber-400 transition hover:bg-amber-400/10"
                 aria-label="Send"
               >
                 <Send className="h-4 w-4" aria-hidden />
@@ -370,8 +316,7 @@ export function ProfileChatButton({
 }
 
 /**
- * "Follow" — right half of the bottom bar. Follows/unfollows the profile owner
- * using the same connection state machine the rest of the app uses.
+ * "Follow" — right half of the bottom bar.
  */
 export function ProfileFollowButton({
   targetUserId,
@@ -381,31 +326,44 @@ export function ProfileFollowButton({
   viewerUid: string;
 }) {
   const [state, setState] = useState<ConnectionState | null>(null);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const mountedRef = useRef(true);
+
+  // Each connection server action re-resolves the viewer from the session, so
+  // only the target id (or request id for cancels) is passed client-side.
+  async function refreshConnectionState() {
+    const updated = await getConnectionStateAction(targetUserId);
+    if (mountedRef.current) {
+      // `getConnectionStateAction` always resolves with a state (it converts
+      // errors to `{ state: "none", requestId: null }` internally), so there is
+      // no `ok` flag to gate on here.
+      setState(updated.state);
+      setRequestId(updated.requestId ?? null);
+    }
+  }
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const result = await getConnectionStateAction({ viewerUid, targetUserId });
-      if (mounted && result.ok) {
-        setState(result.state);
-      }
-    })();
+    mountedRef.current = true;
+    refreshConnectionState();
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
-  }, [viewerUid, targetUserId]);
+  }, [targetUserId]);
 
   async function handleFollow() {
     if (busy) return;
     setBusy(true);
     try {
-      if (state === "requested") {
-        const result = await cancelRequestAction({ viewerUid, targetUserId });
-        if (result.ok && result.state) setState(result.state);
+      if (state === "outgoing_pending" && requestId) {
+        const result = await cancelRequestAction(requestId);
+        if (result.ok) await refreshConnectionState();
+      } else if (state === "incoming_pending" && requestId) {
+        const result = await respondRequestAction(requestId, true);
+        if (result.ok) await refreshConnectionState();
       } else {
-        const result = await sendConnectionAction({ viewerUid, targetUserId });
-        if (result.ok && result.state) setState(result.state);
+        const result = await sendConnectionAction(targetUserId);
+        if (result.ok) await refreshConnectionState();
       }
     } catch {
       notifyFailure("Couldn't update follow status. Please try again.");
@@ -417,9 +375,11 @@ export function ProfileFollowButton({
   const label =
     state === "connected"
       ? "Following"
-      : state === "requested"
+      : state === "outgoing_pending"
         ? "Requested"
-        : "Follow";
+        : state === "incoming_pending"
+          ? "Accept"
+          : "Follow";
 
   return (
     <button
@@ -430,20 +390,14 @@ export function ProfileFollowButton({
       className={`inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-full transition disabled:pointer-events-none disabled:opacity-70 ${
         state === "connected"
           ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
-          : state === "requested"
+          : state === "outgoing_pending"
             ? "bg-slate-700 text-amber-400 hover:bg-slate-600"
-            : "bg-amber-400 text-slate-900 hover:bg-amber-500"
+            : state === "incoming_pending"
+              ? "bg-amber-400 text-slate-900 hover:bg-amber-500"
+              : "bg-amber-400 text-slate-900 hover:bg-amber-500"
       }`}
     >
-      {state === "connected" ? (
-        <span className="text-xs font-bold">Following</span>
-      ) : state === "requested" ? (
-        <span className="text-xs font-bold">Requested</span>
-      ) : (
-        <>
-          <span className="text-xs font-bold">Follow</span>
-        </>
-      )}
+      <span className="text-xs font-bold">{label}</span>
     </button>
   );
 }

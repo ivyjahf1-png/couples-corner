@@ -48,6 +48,9 @@ export async function buildPublicProfileView(
   if (viewerUid && !isSelf) {
     try {
       const supabase = getSupabaseServerClient();
+      if (!supabase) {
+        throw new Error("Supabase client is not initialized");
+      }
       const a = viewerUid < userId ? viewerUid : userId;
       const b = viewerUid < userId ? userId : viewerUid;
       const { data: matchRow } = await supabase

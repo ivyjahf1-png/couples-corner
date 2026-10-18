@@ -154,6 +154,8 @@ export function LudoEngine({
   const [isMuted, setIsMuted] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
   const [rechargeModal, setRechargeModal] = useState(false);
+  const [pauseModalOpen, setPauseModalOpen] = useState(false);
+  const [quitConfirm, setQuitConfirm] = useState(false);
 
   // ── Coin economy & tactical power-ups ──
   const [coins, setCoins] = useState(config.bet);
@@ -851,11 +853,35 @@ export function LudoEngine({
             <h3 className="mt-2 text-xl font-black text-white">Pause Match</h3>
             <p className="mt-1 text-sm text-slate-400">You have paused the game. Pickup where you left off.</p>
             <div className="mt-5 flex w-full flex-col gap-2">
-              <button type="button" className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white">Continue Game</button>
-              <button type="button" className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300">Audio Settings</button>
-              <button type="button" className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300">Quit Match</button>
+              <button
+                type="button"
+                onClick={() => setPauseModalOpen(false)}
+                className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
+              >
+                Continue Game
+              </button>
+              <button
+                type="button"
+                onClick={() => setPauseModalOpen(false)}
+                className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300"
+              >
+                Audio Settings
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPauseModalOpen(false); setQuitConfirm(true); }}
+                className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300"
+              >
+                Quit Match
+              </button>
             </div>
-            <button type="button" className="absolute top-3 right-3 grid h-6 w-6 place-items-center rounded-full bg-slate-800"><X className="h-3 w-3" /></button>
+            <button
+              type="button"
+              onClick={() => setPauseModalOpen(false)}
+              className="absolute top-3 right-3 grid h-6 w-6 place-items-center rounded-full bg-slate-800"
+            >
+              <X className="h-3 w-3" />
+            </button>
           </div>
         </div>
       )}
@@ -868,8 +894,27 @@ export function LudoEngine({
             <h3 className="mt-3 text-lg font-black text-white">Quit Match?</h3>
             <p className="mt-1 text-sm text-slate-400">You'll return to the lobby.</p>
             <div className="mt-5 flex w-full gap-2">
-              <button type="button" className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white">Confirm Quit</button>
-              <button type="button" className="flex-1 rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300">Cancel</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuitConfirm(false);
+                  setPauseModalOpen(false);
+                  setWinner(null);
+                  setPos(Array(seats).fill(0));
+                  setTurn(0);
+                  setClock(TURN_SECONDS);
+                }}
+                className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
+              >
+                Confirm Quit
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuitConfirm(false)}
+                className="flex-1 rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

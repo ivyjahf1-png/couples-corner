@@ -343,7 +343,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
            a real inset but no bottom bar. */
         <div className="z-50 mx-auto mb-[calc(80px_+_env(safe-area-inset-bottom))] flex w-full max-w-md shrink-0 items-center gap-3 border-t border-white/10 bg-slate-950/70 p-4 backdrop-blur-xl md:mb-0 md:pb-[calc(1rem_+_env(safe-area-inset-bottom))]">
           <div className="flex-1"><ProfileChatButton recipientId={view.uid} recipientName={view.name} /></div>
-          <div className="flex-1"><ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} /></div>
+          <div className="flex-1"><ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid ?? ""} /></div>
         </div>
       ) : null}
     </div>

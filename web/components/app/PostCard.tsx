@@ -335,35 +335,52 @@ export function PostCard({ post }: { post: FeedPostView }) {
         {post.body ? <p className="whitespace-pre-line text-sm leading-6 text-slate-100">{post.body}</p> : null}
       </div>
       {post.mediaUrls?.length ? (
-        <div className="mx-4 mb-1 overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md">
+        <div className="w-full overflow-hidden bg-black">
           {post.mediaUrls.slice(0, 4).map((url, i) => {
+            // Skeleton: show placeholder while first load happens.
+            if (mediaLoading[url] && !brokenMedia.includes(url)) {
+              return (
+                <div
+                  key={`${url}-${i}`}
+                  className="flex aspect-[4/5] w-full animate-pulse items-center justify-center bg-surface-muted"
+                >
+                  <span className="text-[11px] text-ink-400">Loading…</span>
+                </div>
+              );
+            }
             if (brokenMedia.includes(url)) {
               return (
-                <div key={`${url}-${i}`} className="flex aspect-[4/5] w-full items-center justify-center bg-white/5 text-[11px] text-ink-400">
+                <div
+                  key={`${url}-${i}`}
+                  className="flex aspect-[4/5] w-full items-center justify-center bg-surface-muted text-[11px] text-ink-400"
+                >
                   Photo unavailable
                 </div>
               );
             }
-            // Each tile: shimmer skeleton behind, photo fading in onLoad.
-            // URL-keyed so tiles resolve independently.
-            const loaded = mediaLoading[url] === false;
             return url.match(/\.(mp4|webm|mov)(\?.*)?$/i) ? (
-              <video key={`${url}-${i}`} src={url} controls playsInline className="aspect-[4/5] w-full bg-black object-cover" />
+              <video
+                key={`${url}-${i}`}
+                src={url}
+                controls
+                playsInline
+                className="aspect-[4/5] w-full bg-black object-cover"
+              />
             ) : (
-              <div key={`${url}-${i}`} className="relative aspect-[4/5] w-full overflow-hidden bg-white/5">
-                {!loaded ? (
-                  <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-white/10 via-white/5 to-transparent" role="status" aria-label="Loading photo" />
-                ) : null}
-                <img
-                  src={url}
-                  alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
-                  loading="lazy"
-                  decoding="async"
-                  onError={() => setBrokenMedia((current) => (current.includes(url) ? current : [...current, url]))}
-                  onLoad={() => setMediaLoading((current) => ({ ...current, [url]: false }))}
-                  className={loaded ? "h-full w-full object-cover" : "absolute inset-0 h-full w-full object-cover opacity-0"}
-                />
-              </div>
+              <img
+                key={`${url}-${i}`}
+                src={url}
+                alt={post.body ? `Photo by ${post.authorName}` : `Photo ${i + 1}`}
+                loading="lazy"
+                decoding="async"
+                onError={() => setBrokenMedia((current) => (current.includes(url) ? current : [...current, url]))}
+                className="aspect-[4/5] w-full bg-surface-muted object-cover"
+                onLoad={() => setMediaLoading((current) => {
+                  const next = { ...current };
+                  delete next[url];
+                  return next;
+                })}
+              />
             );
           })}
         </div>

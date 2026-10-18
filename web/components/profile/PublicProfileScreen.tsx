@@ -720,7 +720,7 @@ export function PublicProfileScreen({
         >
           <div className="flex items-center gap-3">
             <ProfileChatButton recipientId={view.uid} recipientName={view.name} isMatch={view.isMatch} />
-            <ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid} />
+            <ProfileFollowButton targetUserId={view.uid} viewerUid={view.viewerUid ?? ""} />
           </div>
         </div>
       ) : null}
