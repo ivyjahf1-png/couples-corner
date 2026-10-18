@@ -182,6 +182,8 @@ export function MomentUploadForm() {
         setReward(`+${claim.rewardCoins} coins added to your wallet`);
         router.refresh();
       }
+      // Auto-redirect to /moments on success (no confirmation button).
+      void router.push("/moments");
     } catch (caught) {
       setStatus("");
       // A dead socket (XHR onerror/ontimeout), a rejected auth refresh, or a
@@ -227,7 +229,7 @@ export function MomentUploadForm() {
             onClick={() => router.refresh()}
             className="self-start rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-white hover:bg-white/10"
           >
-            Back to Task Center
+            
           </button>
         </div>
       ) : (
