@@ -23,6 +23,7 @@ import {
   primeAudio,
   setAudioMuted,
 } from "@/lib/game/ludoAudio";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { LudoBoard } from "./LudoBoard";
 import { LudoPods } from "./LudoPods";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
@@ -63,6 +64,30 @@ export function LudoSuperstar({
   const [soundOn, setSoundOn] = useState(true);
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
   const [winnerSeat, setWinnerSeat] = useState<LudoColor | null>(null);
+
+  // ── Custom photo avatars fetched from the profiles table (local player seat 0) ──
+  const [photoUrls, setPhotoUrls] = useState<(string | null)[]>([null, null, null, null]);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const sb = getSupabaseClient();
+    let alive = true;
+    sb.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      if (!alive || !uid) return;
+      sb.from("profiles").select("avatar_url").eq("id", uid).maybeSingle().then(({ data: row }) => {
+        const r = row as { avatar_url?: string | null } | null;
+        if (alive && typeof r?.avatar_url === "string" && r.avatar_url.trim()) {
+          setPhotoUrls((prev) => {
+            const next = [...prev];
+            next[0] = r.avatar_url!;
+            return next;
+          });
+        }
+      });
+    });
+    return () => { alive = false; };
+  }, []);
 
   const pot = potFor(bet, 4);
   const gameRef = useRef(game);
@@ -364,7 +389,7 @@ export function LudoSuperstar({
         <>
           {/* Corner pods reserved in the padding bands; board centred between */}
           <div className="relative mt-3 pb-14 pt-14">
-            <LudoPods state={game} mode={mode} activeSeat={game.turn} clock={clock} />
+            <LudoPods state={game} mode={mode} activeSeat={game.turn} clock={clock} photoUrls={photoUrls} />
             <LudoBoard
               state={game}
               selectable={sel}
@@ -374,6 +399,7 @@ export function LudoSuperstar({
               canRollNow={humanCanAct}
               onRoll={handleRoll}
               hubLabel={hubLabel}
+              localColor={game.seedColor}
             />
           </div>
           <LudoStatusBar

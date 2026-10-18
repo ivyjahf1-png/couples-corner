@@ -30,11 +30,14 @@ export function LudoPods({
   mode,
   activeSeat,
   clock,
+  photoUrls,
 }: {
   state: LudoGameState;
   mode: "pass" | "cpu";
   activeSeat: LudoColor;
   clock: number;
+  /** Optional per-seat photo URLs; index matches seat number. */
+  photoUrls?: (string | null)[];
 }) {
   const frac = Math.max(0, Math.min(1, clock / TURN_SECONDS));
 
@@ -82,13 +85,24 @@ export function LudoPods({
                   ) : null}
                 </svg>
                 <span
-                  className="absolute inset-[6px] grid place-items-center rounded-full text-[10px] font-black text-white ring-1 ring-white/50"
+                  className="absolute inset-[6px] grid place-items-center overflow-hidden rounded-full text-[10px] font-black text-white ring-1 ring-white/50"
                   style={{
                     background: `radial-gradient(circle at 32% 28%, rgba(255,255,255,.85), ${color} 62%, rgba(0,0,0,.6) 140%)`,
                     boxShadow: "0 3px 6px rgba(0,0,0,.5), inset 0 -2px 3px rgba(0,0,0,.35)",
                   }}
                 >
-                  {profile.initials}
+                  {photoUrls?.[seat] ? (
+                    <img
+                      src={photoUrls[seat]!}
+                      alt={isYou ? "You" : profile.name}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span>{profile.initials}</span>
+                  )}
                 </span>
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black/50" />
               </div>

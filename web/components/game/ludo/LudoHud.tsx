@@ -30,6 +30,7 @@ export function LudoPlayerCard({
   diceValue = 6,
   rolling = false,
   timer,
+  photoUrl,
 }: {
   name: string;
   flag: string;
@@ -47,6 +48,8 @@ export function LudoPlayerCard({
   rolling?: boolean;
   /** Live turn-countdown ring drawn around the avatar (active seat only). */
   timer?: { remaining: number; total: number };
+  /** Optional custom photo URL; falls back to emoji avatar if absent/broken. */
+  photoUrl?: string | null;
 }) {
   const frac = timer ? Math.max(0, Math.min(1, timer.remaining / Math.max(1, timer.total))) : 0;
   // Green → Yellow → Red as the decision window runs out.
@@ -98,14 +101,25 @@ export function LudoPlayerCard({
           </span>
         ) : null}
         <span
-          className="grid h-9 w-9 place-items-center rounded-full text-[15px] ring-1 ring-white/45"
+          className="grid h-9 w-9 place-items-center overflow-hidden rounded-full text-[15px] ring-1 ring-white/45"
           style={{
             background: `radial-gradient(circle at 32% 26%, rgba(255,255,255,.75), ${neon} 58%, rgba(0,0,0,.6) 135%)`,
             boxShadow:
               "0 4px 8px rgba(0,0,0,.55), inset 0 -2px 4px rgba(0,0,0,.35), inset 0 2px 3px rgba(255,255,255,.5)",
           }}
         >
-          {avatar}
+          {photoUrl ? (
+            <img
+              src={photoUrl}
+              alt={name}
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+          ) : (
+            <span aria-hidden>{avatar}</span>
+          )}
         </span>
         <span
           className="absolute -bottom-0.5 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-slate-950/80"

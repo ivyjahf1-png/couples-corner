@@ -156,6 +156,13 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
   return raw;
 }
 
+/** Rotation (clockwise degrees) applied to the board so the local user's home
+ * yard and dice controls always sit at the bottom edge of the screen.
+ *
+ *   Yellow → 0°   Blue → 90°   Red → 180°   Green → 270°
+ */
+const BOARD_ROTATION: Record<LudoColor, number> = { 0: 180, 1: 90, 2: 0, 3: 270 };
+
 export function LudoBoard({
   state,
   selectable,
@@ -165,6 +172,7 @@ export function LudoBoard({
   canRollNow,
   onRoll,
   hubLabel,
+  localColor = 2,
 }: {
   state: LudoGameState;
   selectable: readonly number[];
@@ -175,12 +183,23 @@ export function LudoBoard({
   onRoll: () => void;
   /** Centre-hub caption: "Tap to Roll" / "Rolling…" / "{Name} to roll". */
   hubLabel: string;
+  /** Which LudoColor the local human player is seeded as; board rotates so this
+   *  seat's yard/dice hub anchor to the bottom edge. */
+  localColor?: LudoColor;
 }) {
+  const rotation = BOARD_ROTATION[localColor ?? 2];
   const pawns = buildPawns(state, selectable);
   return (
     <div className="relative select-none">
       {/* Beveled wooden frame (grain + light/shadow bevel via layered CSS) */}
-      <div className="relative rounded-[7%] p-[3.4%]" style={WOOD_FRAME}>
+      <div
+        className="relative rounded-[7%] p-[3.4%]"
+        style={{
+          ...WOOD_FRAME,
+          transform: `rotate(${rotation}deg)`,
+          transition: "transform 0.3s ease",
+        }}
+      >
         <div className="relative overflow-hidden rounded-[4%] shadow-[inset_0_2px_12px_rgba(0,0,0,.6)] ring-1 ring-black/60">
           <svg viewBox="0 0 15 15" className="block h-auto w-full" role="img" aria-label="Ludo Superstar 3D board">
             <defs>

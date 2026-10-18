@@ -6,6 +6,7 @@ import type { LudoMatchConfig } from "../LudoHub";
 import { POWER_COSTS } from "../LudoHub";
 import { LudoDice } from "../ludo/LudoDice";
 import { LudoMeetHereCard, LudoPlayerCard, LudoRollPedestal, LudoStatusPill } from "../ludo/LudoHud";
+import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 const COLORS = ["#EF4444", "#10B981", "#F59E0B", "#3B82F6"]; // Red, Green, Yellow, Blue
 
@@ -166,6 +167,28 @@ export function LudoEngine({
   const [lastSnapshot, setLastSnapshot] = useState<number[] | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [winner, setWinner] = useState<number | null>(null);
+  /** Consecutive 6s rolled by the current seat; 3 in a row forfeits the turn. */
+  const [consecutiveSixes, setConsecutiveSixes] = useState(0);
+
+  // ── Custom photo avatar for the local player (seat 0) ──
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isSupabaseConfigured()) return;
+    const sb = getSupabaseClient();
+    let alive = true;
+    sb.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      if (!alive || !uid) return;
+      sb.from("profiles").select("avatar_url").eq("id", uid).maybeSingle().then(({ data: row }) => {
+        const r = row as { avatar_url?: string | null } | null;
+        if (alive && typeof r?.avatar_url === "string" && r.avatar_url.trim()) {
+          setPhotoUrl(r.avatar_url);
+        }
+      });
+    });
+    return () => { alive = false; };
+  }, []);
 
   // ── Turn countdown (15 s) driving the avatar ring + auto-play fallback ──
   const [clock, setClock] = useState(TURN_SECONDS);
@@ -523,7 +546,19 @@ export function LudoEngine({
         : `${SEATS[seat]!.name} rolled ${move}.`;
       if (!hilo) setMsg(base + comboMsg);
 
-      if (roll === 6) { setMsg(`${hilo ? "" : base + comboMsg} Rolled a 6 — extra turn!`); return; }
+      if (roll === 6) {
+        const nextSixes = consecutiveSixes + 1;
+        setConsecutiveSixes(nextSixes);
+        if (nextSixes >= 3) {
+          setMsg(`Three sixes in a row — ${SEATS[seat]!.name} forfeits the turn!`);
+          setConsecutiveSixes(0);
+          setTurn((t) => (t + 1) % seats);
+          return;
+        }
+        setMsg(`${hilo ? "" : base + comboMsg} Rolled a 6 — extra turn!`);
+        return;
+      }
+      setConsecutiveSixes(0);
       setTurn((t) => (t + 1) % seats);
     }, 500);
   }
@@ -636,6 +671,7 @@ export function LudoEngine({
           showDice={turn === 0 && winner === null}
           diceValue={dice}
           rolling={isRolling}
+          photoUrl={photoUrl}
         />
         <LudoMeetHereCard />
         {seats > 2 ? (
@@ -902,6 +938,7 @@ export function LudoEngine({
                   setWinner(null);
                   setPos(Array(seats).fill(0));
                   setTurn(0);
+                  setConsecutiveSixes(0);
                   setClock(TURN_SECONDS);
                 }}
                 className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
