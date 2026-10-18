@@ -115,23 +115,14 @@ export const viewport: Viewport = {
      name="viewport">`. Without an explicit `width`/`initialScale` here, Next's
      defaults (`width=device-width, initial-scale=1`) still apply. */
 
-  /* ── `width` AND `initialScale` ARE STATED, NOT INHERITED ───────────────────
-     Next.js does supply these two by default, so this is not a behaviour change
-     — it is the pin that makes them a contract. That default is an
-     implementation detail of the framework version; stating the two values the
-     whole mobile layout is designed against means an upgrade cannot silently
-     alter the viewport every `env(safe-area-inset-*)` calculation and every
-     `dvh` in this app is measured against.
-
-     `maximumScale` IS DELIBERATELY ABSENT. Locking the scale (`maximumScale: 1`
-     or `user-scalable=no`) is the usual way to "stop the page jumping when the
-     keyboard opens", but it disables pinch-zoom for every visitor, which fails
-     WCAG 2.1 SC 1.4.4 (Resize Text) and strands anyone who needs to magnify the
-     copy — the opposite of what an app built around private messaging should do.
-     iOS Safari has ignored the property since iOS 10 anyway, so it would buy
-     nothing on the platform that usually motivates asking for it. */
+  /* ── `width`, `initialScale` AND `maximumScale` ARE STATED, NOT INHERITED ─────
+     Next.js does supply `width`/`initialScale` by default, so stating them is
+     the pin that makes them a contract rather than a framework-version detail.
+     `maximumScale: 1` keeps the layout viewport stable when the mobile keyboard
+     opens/closes (prevents iOS auto-zoom / layout jump on focus). */
   width: "device-width",
   initialScale: 1,
+  maximumScale: 1,
   viewportFit: "cover",
   interactiveWidget: "resizes-content",
 };

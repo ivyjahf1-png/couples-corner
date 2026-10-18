@@ -873,6 +873,45 @@ export async function linkProfilePhoto(
   return { url: photoStoragePathToApiUrl(path), path };
 }
 
+/**
+ * Ordered profile photos for the gallery hero, read from the `profile_photos`
+ * table (migration 065).
+ *
+ * Row shape matches the `ProfilePhoto` type exported by `ProfileGallery`
+ * (`photo_url`, `display_order`, `is_primary`, ...) rather than the legacy
+ * `profiles.photos` jsonb shape (`storagePath`, `publicUrl`), so no mapping is
+ * needed. Errors degrade to `[]`: a missing table or empty gallery must not
+ * take down the whole profile page.
+ */
+export async function listProfilePhotos(uid: string): Promise<ProfileGalleryPhoto[]> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("profile_photos")
+    .select("id, photo_url, storage_path, display_order, is_primary, created_at")
+    .eq("user_id", uid)
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  if (error) {
+    console.error("[profile-photos] list failed", error);
+    return [];
+  }
+  return (data ?? []) as ProfileGalleryPhoto[];
+}
+
+/**
+ * Gallery-shaped photo row (table `profile_photos`, migration 065). Named
+ * distinctly from the legacy jsonb `ProfilePhoto` in `@/lib/models/user`.
+ */
+export interface ProfileGalleryPhoto {
+  id: string;
+  photo_url: string;
+  storage_path?: string | null;
+  display_order: number;
+  is_primary: boolean;
+  created_at: string;
+}
+
 export async function uploadProfilePhoto(uid: string, file: File): Promise<{ url: string; path: string }> {
   const validationError = validateMediaFile(file, true);
   if (validationError) throw new Error(validationError);

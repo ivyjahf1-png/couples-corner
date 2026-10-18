@@ -4,7 +4,7 @@ import { GameCenterButton } from "@/components/app/GameCenterButton";
 
 import { getSessionUser } from "@/lib/auth/authorization";
 import { publicDisplayName } from "@/lib/utils/display-name";
-import { getOwnProfile, getOwnUserCode } from "@/lib/server/profiles";
+import { getOwnProfile, getOwnUserCode, listProfilePhotos } from "@/lib/server/profiles";
 import { getProfileStats } from "@/lib/server/profile-stats";
 import { getGameWallet } from "@/lib/server/games";
 import { getMembership } from "@/lib/server/subscription";
@@ -69,11 +69,12 @@ export default async function ProfilePage() {
      the redesign: the VIP card needs a tier, not just a balance. It degrades to
      `{ subscriptionTier: "free", coinBalance: 0 }` on error, so a Supabase
      hiccup costs the VIP card its badge and nothing else. */
-  const [stats, wallet, membership, userCode] = await Promise.all([
+  const [stats, wallet, membership, userCode, photos] = await Promise.all([
     getProfileStats(session.uid),
     getGameWallet(session.uid),
     getMembership(session.uid),
     getOwnUserCode(session.uid),
+    listProfilePhotos(session.uid),
   ]);
 
   /* Strip an address-shaped name down to its prefix ("ivyjahf1", not
@@ -193,6 +194,13 @@ export default async function ProfilePage() {
           coinBalance: wallet.coinBalance,
           vipTier: membership.subscriptionTier,
           relation: "No Relation",
+          photos,
+          /* The gallery overlay's hobby chips come from the same interests the
+             member edits at /profile/edit. */
+          hobbies: Array.isArray(profile?.interests) ? profile.interests : [],
+          /* This is the member's OWN profile being viewed while signed in, so
+             presence is by definition live. */
+          isOnline: true,
         }}
       />
       {/* THE FLOATING GAME BUTTON.
