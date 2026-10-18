@@ -73,6 +73,12 @@ export function LudoPlayerCard({
     >
       {/* Photoreal avatar puck: glossy sphere with contact shadow + online dot */}
       <span className="relative grid h-9 w-9 shrink-0 place-items-center">
+        {/* Prominent YOU badge for the client user's own card */}
+        {isYou ? (
+          <span className="absolute -top-2 left-1/2 z-10 -translate-x-1/2 rounded-full border border-amber-200/80 bg-gradient-to-r from-amber-400 to-yellow-500 px-1.5 text-[7px] font-black tracking-wider text-slate-950 shadow-[0_0_10px_rgba(251,191,36,.8)]">
+            YOU
+          </span>
+        ) : null}
         {/* Circular progress ring — depletes over TURN_SECONDS, green→yellow→red */}
         {timer ? (
           <svg viewBox="0 0 48 48" className="absolute -inset-[4px] -rotate-90" aria-hidden>

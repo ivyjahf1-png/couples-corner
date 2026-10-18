@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins, X } from "lucide-react";
+import { Volume2, VolumeX, Sparkles, Undo2, Dice5, TrendingUp, Coins, X, Pause, Play, Music, Volume1 } from "lucide-react";
 import type { LudoMatchConfig } from "../LudoHub";
 import { POWER_COSTS } from "../LudoHub";
 import { LudoDice } from "../ludo/LudoDice";
@@ -138,10 +138,16 @@ export function LudoEngine({
   config,
   onWin,
   onLose,
+  roomId = null,
+  onExit,
 }: {
   config: LudoMatchConfig;
   onWin: (n: number) => void;
   onLose: (n: number) => void;
+  /** Active multiplayer room id — pause/resume broadcasts go here when set. */
+  roomId?: string | null;
+  /** Called after a confirmed quit so the host screen can return to hub/lobby. */
+  onExit?: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const seats = config.players === 2 ? 2 : 4;
@@ -153,10 +159,13 @@ export function LudoEngine({
   const [msg, setMsg] = useState("Couple's ⭐ Ludo Matrix Active. Tap your gate to roll.");
   const [started, setStarted] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [musicEnabled, setMusicEnabled] = useState(true);
   const [isRolling, setIsRolling] = useState(false);
   const [rechargeModal, setRechargeModal] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [pauseModalOpen, setPauseModalOpen] = useState(false);
   const [quitConfirm, setQuitConfirm] = useState(false);
+  const [showAudioPanel, setShowAudioPanel] = useState(false);
 
   // ── Coin economy & tactical power-ups ──
   const [coins, setCoins] = useState(config.bet);
@@ -369,16 +378,30 @@ export function LudoEngine({
     star(2, 6, COLORS[0]);  // Red arm
     star(6, 12, COLORS[3]); // Blue arm
 
-    const starts: Array<[number, number, string]> = [
-      [1, 8, COLORS[0]], [6, 1, COLORS[1]], [13, 6, COLORS[2]], [8, 13, COLORS[3]],
+    const starts: Array<[number, number, string, "right" | "down" | "left" | "up"]> = [
+      [1, 8, COLORS[0], "right"], [6, 1, COLORS[1], "down"], [13, 6, COLORS[2], "left"], [8, 13, COLORS[3], "up"],
     ];
-    for (const [sc, sr, col] of starts) {
+    for (const [sc, sr, col, exitDir] of starts) {
       const face = ctx.createLinearGradient(sc * cell, sr * cell, (sc + 1) * cell, (sr + 1) * cell);
       face.addColorStop(0, shade(col, 30)); face.addColorStop(1, shade(col, -52));
       bevelTile(sc * cell, sr * cell, cell, cell, face);
       ctx.strokeStyle = "#1C1108"; ctx.lineWidth = 0.8;
       ctx.strokeRect(sc * cell + 0.4, sr * cell + 0.4, cell - 0.8, cell - 0.8);
       star(sc, sr, "#FFE9A8");
+      // ── Start-gate exit arrow: yard colour, pointing out of the gate onto
+      //    the main track (the direction play leaves this start tile). ──
+      const gx = (sc + 0.5) * cell; const gy = (sr + 0.5) * cell;
+      const ga = cell * 0.22;
+      ctx.save();
+      ctx.fillStyle = col;
+      ctx.strokeStyle = "rgba(255,255,255,.9)"; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      if (exitDir === "right") { ctx.moveTo(gx - ga, gy - ga); ctx.lineTo(gx + ga * 1.1, gy); ctx.lineTo(gx - ga, gy + ga); }
+      else if (exitDir === "left") { ctx.moveTo(gx + ga, gy - ga); ctx.lineTo(gx - ga * 1.1, gy); ctx.lineTo(gx + ga, gy + ga); }
+      else if (exitDir === "down") { ctx.moveTo(gx - ga, gy - ga); ctx.lineTo(gx, gy + ga * 1.1); ctx.lineTo(gx + ga, gy - ga); }
+      else { ctx.moveTo(gx - ga, gy + ga); ctx.lineTo(gx, gy - ga * 1.1); ctx.lineTo(gx + ga, gy + ga); }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.restore();
     }
 
     // ── 7. Giant seeds: 4 glossy 3D pawns per yard ──
@@ -415,12 +438,25 @@ export function LudoEngine({
     const yards: Array<[number, number, string]> = [
       [0, 0, COLORS[0]], [cell * 9, 0, COLORS[1]], [cell * 9, cell * 9, COLORS[2]], [0, cell * 9, COLORS[3]],
     ];
-    for (const [qx, qy, color] of yards) {
+    // Pulsing gold ring on the local player's yard pawns while their move is
+    // pending (CSS animation is unavailable inside canvas — phase by time).
+    const humanPawnGlow = isHumanTurn && !isRolling && winner === null;
+    const pulse = humanPawnGlow ? (Math.sin(Date.now() / 240) + 1) / 2 : 0;
+    for (const [qi, [qx, qy, color]] of yards.entries()) {
       for (const [ox, oy] of [[2, 2], [4, 2], [2, 4], [4, 4]] as Array<[number, number]>) {
         const px = qx + ox * cell; const py = qy + oy * cell;
         // Dark socket cup under each seed
         ctx.fillStyle = "rgba(0,0,0,.26)";
         ctx.beginPath(); ctx.ellipse(px, py + cell * 0.7, cell * 0.76, cell * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+        if (humanPawnGlow && qi === humanSeat) {
+          ctx.save();
+          ctx.strokeStyle = `rgba(251,191,36,${0.55 + pulse * 0.45})`;
+          ctx.lineWidth = 2 + pulse * 1.6;
+          ctx.shadowColor = "rgba(251,191,36,.9)";
+          ctx.shadowBlur = 10 + pulse * 10;
+          ctx.beginPath(); ctx.arc(px, py, cell * 0.72 + pulse * cell * 0.06, 0, Math.PI * 2); ctx.stroke();
+          ctx.restore();
+        }
         drawGiantPawn(px, py, cell * 0.6, color);
       }
     }
@@ -444,12 +480,42 @@ export function LudoEngine({
     const vig = ctx.createRadialGradient(size / 2, size / 2, size * 0.32, size / 2, size / 2, size * 0.8);
     vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(0,0,0,.34)");
     ctx.fillStyle = vig; ctx.fillRect(0, 0, size, size);
-  }, [seats]);
+  }, [seats, turn, isRolling, winner, paused, humanSeat]);
 
   const toggleSound = () => {
     const next = !isMuted;
     setIsMuted(next);
     sensoryEngine.toggleMute(next);
+  };
+
+  /** Broadcast pause/resume so other clients in the room stay in sync. */
+  const emitPauseState = (isPaused: boolean) => {
+    if (!roomId || !isSupabaseConfigured()) return;
+    try {
+      const sb = getSupabaseClient();
+      void sb.channel(`ludo:${roomId}`).send({
+        type: "broadcast",
+        event: isPaused ? "game-paused" : "game-resumed",
+        payload: { roomId, paused: isPaused, at: Date.now() },
+      });
+    } catch {
+      /* offline/local matches simply skip the broadcast */
+    }
+  };
+
+  const openPause = () => {
+    if (winner !== null || pauseModalOpen) return;
+    setPaused(true);
+    setPauseModalOpen(true);
+    setShowAudioPanel(false);
+    emitPauseState(true);
+  };
+
+  const resumeGame = () => {
+    setPauseModalOpen(false);
+    setPaused(false);
+    setShowAudioPanel(false);
+    emitPauseState(false);
   };
 
   function resolveMove(cur: number[], seat: number, roll: number) {
@@ -476,7 +542,7 @@ export function LudoEngine({
   }
 
   function doRoll(seat: number, opts?: { boosted?: boolean; double?: boolean; hilo?: "high" | "low" | null; timedOut?: boolean }) {
-    if (isRolling || winner !== null) return;
+    if (isRolling || winner !== null || paused) return;
     if (!started) { setStarted(true); onLose(config.bet); }
     setIsRolling(true);
     // Re-arm the 15 s countdown for the decision window this roll will open
@@ -590,14 +656,14 @@ export function LudoEngine({
   }
 
   const clockLive = clock > 0;
-  /* Tick only while a decision is genuinely pending. */
+  /* Tick only while a decision is genuinely pending (frozen while paused). */
   useEffect(() => {
-    if (winner !== null || isRolling || !clockLive) return;
+    if (winner !== null || isRolling || !clockLive || paused) return;
     const id = window.setInterval(() => {
       setClock((c) => Math.max(0, Math.round((c - 0.1) * 10) / 10));
     }, 100);
     return () => window.clearInterval(id);
-  }, [winner, isRolling, clockLive]);
+  }, [winner, isRolling, clockLive, paused]);
 
   /* ── AI auto-play fallback: clock hits 0 → act immediately so no seat can
         stall the match. This engine resolves the move INSIDE doRoll (the
@@ -607,7 +673,7 @@ export function LudoEngine({
         double-fires impossible. */
   const timeoutFiredRef = useRef(false);
   useEffect(() => {
-    if (clock > 0 || winner !== null || isRolling) {
+    if (clock > 0 || winner !== null || isRolling || paused) {
       if (clock > 0) timeoutFiredRef.current = false; // ready for the next window
       return;
     }
@@ -622,7 +688,7 @@ export function LudoEngine({
   }, [clock, winner, isRolling]);
 
   useEffect(() => {
-    if (winner !== null || isRolling) return;
+    if (winner !== null || isRolling || paused) return;
     if (!isAiSeat(turn)) return;
     const t = window.setTimeout(() => {
       const boostChance = aiLevel === "hard" ? 0.7 : aiLevel === "mid" ? 0.4 : 0.12;
@@ -646,6 +712,14 @@ export function LudoEngine({
             <Coins className="h-3.5 w-3.5 text-amber-400" />
             <span className="text-xs font-black text-amber-300">{coins.toLocaleString()}</span>
           </div>
+          <button
+            type="button"
+            onClick={openPause}
+            aria-label="Pause game"
+            className="flex h-8 w-8 items-center justify-center rounded-xl border border-amber-400/40 bg-amber-500/15 transition hover:bg-amber-500/25 active:scale-95"
+          >
+            <Pause className="h-4 w-4 text-amber-300" />
+          </button>
           <button
             type="button"
             onClick={toggleSound}
@@ -883,37 +957,69 @@ export function LudoEngine({
       )}
       {/* Pause Modal */}
       {pauseModalOpen && (
-        <div className="absolute inset-0">
-          <div className="w-full max-w-xs flex-col items-center rounded border bg-slate-900 p-6 text-center">
-            <span className="text-4xl">⏸️</span>
+        <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="relative flex w-full max-w-xs flex-col items-center rounded-3xl border border-amber-500/40 bg-slate-950 p-6 text-center shadow-2xl">
+            <span className="text-4xl" aria-hidden>⏸️</span>
             <h3 className="mt-2 text-xl font-black text-white">Pause Match</h3>
             <p className="mt-1 text-sm text-slate-400">You have paused the game. Pickup where you left off.</p>
             <div className="mt-5 flex w-full flex-col gap-2">
               <button
                 type="button"
-                onClick={() => setPauseModalOpen(false)}
-                className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
+                onClick={resumeGame}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
               >
-                Continue Game
+                <Play className="h-4 w-4" /> Continue Game
               </button>
               <button
                 type="button"
-                onClick={() => setPauseModalOpen(false)}
+                onClick={() => setShowAudioPanel((s) => !s)}
+                aria-expanded={showAudioPanel}
                 className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300"
               >
-                Audio Settings
+                🔊 Audio Settings
               </button>
+              {showAudioPanel && (
+                <div className="flex w-full flex-col gap-2 rounded-2xl border border-white/10 bg-black/40 p-3">
+                  <button
+                    type="button"
+                    onClick={toggleSound}
+                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-[11px] font-black text-slate-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      {isMuted ? <VolumeX className="h-4 w-4 text-rose-400" /> : <Volume2 className="h-4 w-4 text-emerald-400" />}
+                      SFX
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] ${isMuted ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"}`}>
+                      {isMuted ? "OFF" : "ON"}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMusicEnabled((m) => !m)}
+                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-slate-800 px-3 py-2 text-[11px] font-black text-slate-200"
+                  >
+                    <span className="flex items-center gap-2">
+                      {musicEnabled ? <Music className="h-4 w-4 text-amber-400" /> : <Volume1 className="h-4 w-4 text-slate-500" />}
+                      Music
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] ${musicEnabled ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}`}>
+                      {musicEnabled ? "ON" : "OFF"}
+                    </span>
+                  </button>
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => { setPauseModalOpen(false); setQuitConfirm(true); }}
-                className="w-full rounded-2xl border border-white/10 bg-slate-800 py-3 text-xs font-black text-slate-300"
+                className="w-full rounded-2xl border border-rose-500/30 bg-rose-500/10 py-3 text-xs font-black text-rose-300"
               >
                 Quit Match
               </button>
             </div>
             <button
               type="button"
-              onClick={() => setPauseModalOpen(false)}
+              onClick={resumeGame}
+              aria-label="Close pause menu"
               className="absolute top-3 right-3 grid h-6 w-6 place-items-center rounded-full bg-slate-800"
             >
               <X className="h-3 w-3" />
@@ -924,8 +1030,8 @@ export function LudoEngine({
 
       {/* Quit Confirmation Modal */}
       {quitConfirm && (
-        <div className="absolute inset-0 z-[90]">
-          <div className="w-full max-w-xs flex-col items-center rounded border border-rose-400/30 bg-slate-900 p-6 text-center">
+        <div className="absolute inset-0 z-[90] flex items-center justify-center bg-black/85 p-4 backdrop-blur-md">
+          <div className="flex w-full max-w-xs flex-col items-center rounded-3xl border border-rose-400/30 bg-slate-900 p-6 text-center shadow-2xl">
             <span className="text-5xl">⚠️</span>
             <h3 className="mt-3 text-lg font-black text-white">Quit Match?</h3>
             <p className="mt-1 text-sm text-slate-400">You'll return to the lobby.</p>
@@ -935,11 +1041,14 @@ export function LudoEngine({
                 onClick={() => {
                   setQuitConfirm(false);
                   setPauseModalOpen(false);
+                  setPaused(false);
                   setWinner(null);
                   setPos(Array(seats).fill(0));
                   setTurn(0);
                   setConsecutiveSixes(0);
                   setClock(TURN_SECONDS);
+                  emitPauseState(false);
+                  onExit?.();
                 }}
                 className="flex-1 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 py-3 text-xs font-black text-white"
               >

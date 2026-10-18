@@ -47,12 +47,14 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]], // TR (Green)
 };
 
-/** Home corridors (6 cells each, last cell sits on the centre triangle). */
+/** Home corridors (5 cells each, last cell sits on the centre triangle).
+ *  Canonical arms (match LudoEngine canvas): Red TL row 7 · Green TR col 7 ·
+ *  Yellow BR row 7 · Blue BL col 7. Heads touch their yard-side track. */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1, 0], [2, 0], [3, 0], [4, 0], [5, 0], [6, 0]],  // Red → TL
-  1: [[1, 9], [2, 9], [3, 9], [4, 9], [5, 9], [6, 9]],  // Blue → BL
-  2: [[9, 0], [10, 0], [11, 0], [12, 0], [13, 0], [14, 0]], // Yellow → BR
-  3: [[9, 9], [9, 8], [9, 7], [9, 6], [9, 5], [9, 4]],  // Green → TR
+  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],  // Red → TL
+  1: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],  // Green → TR (seat 1 renders green here)
+  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]], // Yellow → BR
+  3: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],  // Blue → BL
 };
 
 const START_SET: ReadonlySet<number> = new Set(START_INDEX);
