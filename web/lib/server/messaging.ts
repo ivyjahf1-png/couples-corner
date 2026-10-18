@@ -7,6 +7,7 @@ import { supabaseErrorDetail } from "@/lib/utils/supabase-error";
 import { profileSelectList, mapProfileRow, profilePhotoUrl } from "@/lib/server/profiles";
 import { publicDisplayName } from "@/lib/utils/display-name";
 import { getPresenceForUsers } from "@/lib/server/presence";
+import { hasMatchBetween } from "@/lib/server/matches";
 import type { ProfilePhoto } from "@/lib/models/user";
 import { ageFromDateOfBirth, type ConversationParticipantSummary } from "@/lib/feature/types";
 
@@ -310,21 +311,6 @@ function isMissingColumnError(error: unknown): boolean {
   const detail = supabaseErrorDetail(error as never);
   const text = `${detail.code ?? ""} ${detail.message ?? ""}`.toLowerCase();
   return detail.code === "42703" || text.includes("does not exist");
-}
-
-/** True when two users have a mutual match in the public.matches table. */
-async function hasMatchBetween(userA: string, userB: string): Promise<boolean> {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) return false;
-  const a = userA < userB ? userA : userB;
-  const b = userA < userB ? userB : userA;
-  const { data } = await supabase
-    .from("matches")
-    .select("id")
-    .eq("user1_id", a)
-    .eq("user2_id", b)
-    .maybeSingle();
-  return Boolean(data);
 }
 
 /** Direct intro price in coins. */

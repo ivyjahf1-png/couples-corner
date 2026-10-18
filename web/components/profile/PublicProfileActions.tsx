@@ -66,6 +66,15 @@ function DirectIntroModal({
         notifyFailure(result.error ?? "Couldn't send your like. Please try again.");
         return;
       }
+      /* MUTUAL MATCH: `matched: true` means the server just wrote the matches
+         row - chat with this person is now free, so close the paid-intro pitch
+         and say so explicitly. Generic "like sent" wording here would hide the
+         best moment in the product. */
+      if (result.matched) {
+        notifySuccess(`It's a match! You and ${name} can now chat for free.`);
+        onClose();
+        return;
+      }
       notifySuccess("Like sent! If they like you back, you'll match and chat for free.");
       onClose();
     } catch {

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { ensureMatch } from "@/lib/server/matches";
 import type { ConnectionRequest, Connection } from "@/lib/models/connections";
 import type { ConnectionState } from "@/lib/feature/types";
 import { createNotification } from "./notifications";
@@ -294,6 +295,12 @@ export async function respondToConnectionRequest(
       created_at: now,
       updated_at: now,
     });
+
+    /* MUTUAL MATCH: an accepted connection IS a match - write the canonical
+       matches row so chat between the pair is free instead of costing the
+       100-coin direct intro. Fail-soft: the connection above is the source of
+       truth and must not be rolled back by a matches-table hiccup. */
+    await ensureMatch(pre.from_user_id, pre.to_user_id);
 
     await supabase
       .from("connection_requests")

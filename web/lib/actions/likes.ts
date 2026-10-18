@@ -17,8 +17,14 @@ export async function getBotThreadsAction(): Promise<BotThreadView[]> {
   return getBotThreadsForUser(user.uid);
 }
 
-/** Send a like from the signed-in user to a target profile. */
-export async function sendLikeAction(targetUserId: string): Promise<{ ok: boolean; error?: string }> {
+/** Send a like from the signed-in user to a target profile.
+ *
+ *  `matched: true` means the like completed a MUTUAL match - the server wrote
+ *  the `matches` row, so chat between the two is now free. Callers should
+ *  surface that as an "It's a match!" moment rather than the generic toast. */
+export async function sendLikeAction(
+  targetUserId: string
+): Promise<{ ok: boolean; error?: string; matched?: boolean }> {
   const user = await requireUser();
   return sendLike(user.uid, targetUserId);
 }

@@ -2,6 +2,7 @@ import { getVisibleProfile, photoStoragePathToApiUrl } from "@/lib/server/profil
 import { publicDisplayName } from "@/lib/utils/display-name";
 import { getPresenceForUsers } from "@/lib/server/presence";
 import { haversineKm } from "@/lib/server/nearby";
+import { hasMatchBetween } from "@/lib/server/matches";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { ProfilePhoto } from "@/lib/models/user";
 import type {
@@ -46,23 +47,9 @@ export async function buildPublicProfileView(
      profile screen down. */
   let isMatch = false;
   if (viewerUid && !isSelf) {
-    try {
-      const supabase = getSupabaseServerClient();
-      if (!supabase) {
-        throw new Error("Supabase client is not initialized");
-      }
-      const a = viewerUid < userId ? viewerUid : userId;
-      const b = viewerUid < userId ? userId : viewerUid;
-      const { data: matchRow } = await supabase
-        .from("matches")
-        .select("id")
-        .eq("user1_id", a)
-        .eq("user2_id", b)
-        .maybeSingle();
-      isMatch = Boolean(matchRow);
-    } catch {
-      /* fail soft */
-    }
+    // hasMatchBetween fails soft internally (logs and reads as "not matched")
+    // so a matches-table hiccup cannot take the profile screen down.
+    isMatch = await hasMatchBetween(viewerUid, userId);
   }
 
   /* Presence and distance are independent reads, so they run in parallel rather
