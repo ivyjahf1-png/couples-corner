@@ -11,6 +11,7 @@
  *  - ±6 noise so repeated positions don't auto-replay identically.
  */
 import {
+  ARROW_SHORTCUTS,
   FINISH_STEP,
   SAFE_CELLS,
   movableTokens,
@@ -151,6 +152,12 @@ export function chooseBotMove(state: LudoGameState, color: LudoColor, dice: numb
     if (next === FINISH_STEP) s += style === "greedy" ? 150 : 110;
     if (next > 50) s += 25; // home corridor is progress squared
     const cell = trackCell(color, next);
+    // ARROW MODE: landing on a tail rides +8 forward for free. Heads are
+    // proven strictly forward, so this is pure progress — value it like a
+    // mid-tier capture, scaled by style (greedy chases shortcuts hardest).
+    if (state.rules === "arrow" && cell !== null && ARROW_SHORTCUTS[cell] !== undefined) {
+      s += style === "greedy" ? 85 : style === "aggressive" ? 70 : style === "cautious" ? 45 : 60;
+    }
     if (cell !== null && SAFE_CELLS.has(cell)) {
       s += style === "cautious" ? 55 : 34;
     } else if (cell !== null) {

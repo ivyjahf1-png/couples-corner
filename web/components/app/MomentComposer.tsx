@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Video, Send, Link as LinkIcon, Trash2 } from "lucide-react";
 import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/lib/utils/video-embed";
 import { uploadMediaDirect } from "@/lib/utils/direct-upload";
@@ -25,6 +26,7 @@ import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/task
  * enforced inside the upload helper.
  */
 export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
+  const router = useRouter();
   const [body, setBody] = useState("");
   const [linkResult, setLinkResult] = useState<ParsedEmbedResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -106,6 +108,10 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
 
       setBody("");
       onPublished?.();
+      // The new row exists but this Server-Component feed won't re-query on
+      // its own — refresh the route so the link moment appears instantly
+      // instead of only after a manual navigation.
+      router.refresh();
     } catch (err) {
       console.error("[moments] composer upload failed:", err);
       // `uploadMediaDirect` already maps storage codes to real copy and returns
@@ -153,7 +159,11 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
         }
         setBody("");
         setLinkResult(null);
+        setSubmitting(false);
         onPublished?.();
+        // Same instant-refresh as the upload path above: the server action
+        // revalidates, but the client feed needs the nudge to re-query now.
+        router.refresh();
       } catch (err) {
         console.error("[moments] composer link publish failed:", err);
         setError("Failed to publish your moment. Please try again.");

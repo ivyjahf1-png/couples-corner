@@ -659,12 +659,14 @@ export async function getRecentMoments(
 
   // One query for the moments themselves — no embed, so no dependency on a
   // moments -> profiles relationship that does not exist.
-  // Strict separation: the Moment reel is VIDEO ONLY. Photos/text live on /feed
-  // (posts table). Without this filter, photo moments leak into the video reel.
+  // The Moment reel is VIDEO + LINK-EMBED ONLY. Photos/text live on /feed
+  // (posts table). `media_type = 'link'` rows are YouTube/TikTok/Instagram
+  // embeds published from the link tab — filtering to video alone made every
+  // pasted link vanish from the feed right after "Upload successful".
   const { data: momentRows, error: momentsError } = await supabase
     .from("moments")
     .select("id, user_id, content, media_url, media_type, created_at")
-    .eq("media_type", "video")
+    .in("media_type", ["video", "link"])
     .order("created_at", { ascending: false })
     .limit(limit);
 

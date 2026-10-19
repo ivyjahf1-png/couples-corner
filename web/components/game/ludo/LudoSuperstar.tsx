@@ -11,6 +11,7 @@ import {
   trackCell,
   type LudoColor,
   type LudoGameState,
+  type LudoRules,
 } from "@/lib/ludo/engine";
 import { potFor, TURN_SECONDS } from "@/lib/ludo/match";
 import { SEATS, botMoveDelay, botReaction, botThinkDelay, chooseBotMove, thinkSuffix } from "@/lib/ludo/bots";
@@ -56,6 +57,8 @@ export function LudoSuperstar({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("menu");
   const [mode, setMode] = useState<LudoMode>("cpu");
+  /** Board rules variant — picked in the lobby, frozen into the state at start. */
+  const [rules, setRules] = useState<LudoRules>("classic");
   /** Seat display names; seat 0 is the device holder ("You"). Friends mode
    *  lets the lobby rename seats 1–3 to whoever is playing around you. */
   const [names, setNames] = useState<string[]>(["You", SEATS[1].name, SEATS[2].name, SEATS[3].name]);
@@ -327,7 +330,7 @@ export function LudoSuperstar({
     setSelectable([]);
     selectableRef.current = [];
     setWinnerSeat(null);
-    setGame(freshGame(0));
+    setGame(freshGame(0, rules));
     setClock(TURN_SECONDS);
     setStatus(
       mode === "cpu" ? "Your move — tap the dice to roll." : "You start — tap the dice to roll!",
@@ -430,6 +433,8 @@ export function LudoSuperstar({
             onBet={setBet}
             mode={mode}
             onMode={setMode}
+            rules={rules}
+            onRules={setRules}
             players={players}
             pot={pot}
             names={names}

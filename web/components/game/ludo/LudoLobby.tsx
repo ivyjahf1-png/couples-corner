@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Check, ChevronLeft, Coins, Cpu, Heart, Trophy, User, Users } from "lucide-react";
+import { Check, ChevronLeft, Coins, Cpu, Heart, Trophy, User, Users, Zap } from "lucide-react";
 import { BETS } from "@/lib/ludo/match";
+import type { LudoRules } from "@/lib/ludo/engine";
 import { Avatar } from "@/components/app/Avatar";
 
 /**
@@ -125,6 +126,8 @@ export function LudoLobby({
   onBet,
   mode,
   onMode,
+  rules,
+  onRules,
   players,
   pot,
   names,
@@ -137,6 +140,9 @@ export function LudoLobby({
   onBet: (b: number) => void;
   mode: LudoMode;
   onMode: (m: LudoMode) => void;
+  /** Board rules variant: classic race, or arrow shortcuts on the track. */
+  rules: LudoRules;
+  onRules: (r: LudoRules) => void;
   players: number;
   pot: number;
   /** Seat display names; seat 0 is always "You" (the device holder). */
@@ -169,7 +175,9 @@ export function LudoLobby({
         <div className="min-w-0">
           <h2 className="text-lg font-black leading-tight text-white">Ludo Superstar</h2>
           <p className="text-xs font-semibold text-white/55">
-            Classic board · roll a 6 to leave base · exact finish
+            {rules === "arrow"
+              ? "Arrow board · land a tail to jump +8 toward home"
+              : "Classic board · roll a 6 to leave base · exact finish"}
           </p>
         </div>
       </div>
@@ -191,6 +199,40 @@ export function LudoLobby({
                 title={m.title}
                 sub={m.sub}
               />
+            ))}
+          </div>
+          <p className="mb-1.5 text-[10px] font-black uppercase tracking-[.16em] text-white/45">
+            Board rules
+          </p>
+          <div className="mb-4 grid grid-cols-2 gap-2" role="radiogroup" aria-label="Board rules">
+            {(
+              [
+                { id: "classic", icon: <Trophy className="h-4 w-4" />, title: "Classic Mode", sub: "Pure race, no shortcuts" },
+                { id: "arrow", icon: <Zap className="h-4 w-4" />, title: "Arrow Mode", sub: "Ride arrows +8 ahead" },
+              ] as const
+            ).map((r) => (
+              <button
+                key={r.id}
+                type="button"
+                role="radio"
+                aria-checked={rules === r.id}
+                onClick={() => onRules(r.id)}
+                className={`rounded-2xl border px-3 py-2.5 text-left transition active:scale-[.98] ${
+                  rules === r.id
+                    ? "border-amber-300/70 bg-amber-400/12 shadow-[0_0_18px_rgba(251,191,36,.28)]"
+                    : "border-white/12 bg-white/6 hover:bg-white/10"
+                }`}
+              >
+                <span
+                  className={`mb-1.5 grid h-7 w-7 place-items-center rounded-lg ${
+                    rules === r.id ? "bg-amber-400/25 text-amber-300" : "bg-white/10 text-white/70"
+                  }`}
+                >
+                  {r.icon}
+                </span>
+                <span className="block text-xs font-black text-white">{r.title}</span>
+                <span className="block text-[10px] font-semibold text-white/50">{r.sub}</span>
+              </button>
             ))}
           </div>
           <button
@@ -271,6 +313,12 @@ export function LudoLobby({
               <span className="font-semibold text-white/55">Mode</span>
               <span className="font-black text-white">
                 {modeMeta.title} · {players} players
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-semibold text-white/55">Rules</span>
+              <span className="font-black text-white">
+                {rules === "arrow" ? "Arrow Mode ↗" : "Classic Mode"}
               </span>
             </div>
             <div className="flex items-center justify-between">

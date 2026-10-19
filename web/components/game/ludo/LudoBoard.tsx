@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { FINISH_STEP, LUDO_COLORS, LUDO_NAMES, SAFE_CELLS, START_INDEX, trackCell, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
+import { ARROW_SHORTCUTS, FINISH_STEP, LUDO_COLORS, LUDO_NAMES, SAFE_CELLS, START_INDEX, trackCell, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
 import { LudoDice } from "./LudoDice";
 import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
 
@@ -34,7 +34,14 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
 };
 
 /** Universal start gates (lock tiles) per the reference layout — visual lock
- *  icons drawn on top of these track cells (game start cells are unchanged). */
+ *  icons drawn on top of these track cells (game start cells are unchanged).
+ *
+ *  Clockwise symmetry: each gate sits on the horizontal/vertical track tile
+ *  immediately outside its own yard —
+ *    Green TL exits DOWN    (v) onto [1, 6]
+ *    Yellow TR exits LEFT   (<) onto [8, 1]
+ *    Blue BR exits UP       (^) onto [13, 8]
+ *    Red BL exits RIGHT     (>) onto [6, 13]                                   */
 const START_GATES: Record<LudoColor, readonly [number, number]> = {
   0: [6, 13], // Red  BL — bottom centre
   1: [13, 8], // Blue BR — right centre
@@ -274,9 +281,19 @@ export function LudoBoard({
               );
             })}
 
-            {/* Universal Start Gates — lock icons */}
+            {/* Universal Start Gates — lock icons + exit-direction arrows.
+                Lock sits centred; the small white wedge at the cell edge shows
+                the clockwise exit direction: Red >, Blue ^, Yellow <, Green v. */}
             {([0, 1, 2, 3] as const).map((c) => {
               const [gc, gr] = START_GATES[c]!;
+              const dirPoints =
+                c === 0
+                  ? `${gc + 0.9},${gr + 0.5} ${gc + 0.7},${gr + 0.34} ${gc + 0.7},${gr + 0.66}`
+                  : c === 1
+                    ? `${gc + 0.5},${gr + 0.1} ${gc + 0.34},${gr + 0.3} ${gc + 0.66},${gr + 0.3}`
+                    : c === 2
+                      ? `${gc + 0.1},${gr + 0.5} ${gc + 0.3},${gr + 0.34} ${gc + 0.3},${gr + 0.66}`
+                      : `${gc + 0.5},${gr + 0.9} ${gc + 0.34},${gr + 0.7} ${gc + 0.66},${gr + 0.7}`;
               return (
                 <g key={`gate-${c}`}>
                   <rect
@@ -300,13 +317,46 @@ export function LudoBoard({
                     fill="#FFFFFF"
                     rx={0.02}
                   />
+                  {/* Exit-direction arrowhead at the cell's exit edge */}
+                  <polygon points={dirPoints} fill="#FFFFFF" opacity={0.95} />
                 </g>
               );
             })}
 
-            {/* Red yard exit arrow curving onto the Red start gate [6, 13] */}
+            {/* ARROW MODE shortcuts — 4 curved shortcut arrows over the track,
+                drawn only when state.rules === "arrow". Tails (edge cells)
+                23:[6,14] 36:[14,8] 49:[8,0] 10:[0,6] auto-ride to heads
+                31:[9,8] 44:[8,5] 5:[5,6] 18:[6,9] (one arm inward, toward
+                the central goal diamond). See ARROW_SHORTCUTS in engine. */}
+            {state.rules === "arrow" && (
+              <g pointerEvents="none">
+                <defs>
+                  <marker id="ls-arrowhead" viewBox="0 0 10 10" refX="8" refY="5"
+                    markerWidth="0.55" markerHeight="0.55" orient="auto-start-reverse">
+                    <path d="M 0,0 L 10,5 L 0,10 z" fill="#FFD54A" />
+                  </marker>
+                </defs>
+                <path d="M 6.5,14.5 Q 8.2,13.6 9.1,8.9" fill="none" stroke="#FFD54A"
+                  strokeWidth={0.22} strokeLinecap="round" strokeDasharray="0.34 0.2"
+                  markerEnd="url(#ls-arrowhead)" />
+                <path d="M 14.5,8.5 Q 13.6,6.8 8.9,5.9" fill="none" stroke="#FFD54A"
+                  strokeWidth={0.22} strokeLinecap="round" strokeDasharray="0.34 0.2"
+                  markerEnd="url(#ls-arrowhead)" />
+                <path d="M 8.5,0.5 Q 6.8,1.4 5.9,6.1" fill="none" stroke="#FFD54A"
+                  strokeWidth={0.22} strokeLinecap="round" strokeDasharray="0.34 0.2"
+                  markerEnd="url(#ls-arrowhead)" />
+                <path d="M 0.5,6.5 Q 1.4,8.2 6.1,9.1" fill="none" stroke="#FFD54A"
+                  strokeWidth={0.22} strokeLinecap="round" strokeDasharray="0.34 0.2"
+                  markerEnd="url(#ls-arrowhead)" />
+              </g>
+            )}
+
+            {/* Red yard exit arrow: from the yard's bottom-right socket (4.3,13.3)
+                curving RIGHT onto the Red start gate [6, 13]. The control
+                point keeps the arc hugging the yard's right edge; the tip
+                lands on the gate cell's left edge, pointing right (>). */}
             <path
-              d="M 2.6,12.2 Q 4.4,12.8 6.6,13.6"
+              d="M 4.3,13.3 Q 5.4,13.85 6.0,13.55"
               fill="none"
               stroke={LUDO_COLORS[0]!}
               strokeWidth={0.1}
@@ -314,9 +364,53 @@ export function LudoBoard({
               style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[0]!})` }}
             />
             <polygon
-              points="6.6,13.6 6.2,13.1 6.5,13.4 7.0,13.8 6.8,14.0"
+              points="6.0,13.55 5.62,13.36 5.66,13.55 5.66,13.74 5.62,13.36"
               fill={LUDO_COLORS[0]!}
               style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[0]!})` }}
+            />
+
+            {/* Clockwise-symmetric exit vectors for the other three yards.
+                Each arcs from its yard-side socket onto its start gate:
+                Blue BR exits UP onto [13, 8], Yellow TR exits LEFT onto
+                [8, 1], Green TL exits DOWN onto [1, 6]. */}
+            <path
+              d="M 10.7,10.7 Q 12.6,9.9 13.4,9.0"
+              fill="none"
+              stroke={LUDO_COLORS[1]!}
+              strokeWidth={0.1}
+              strokeLinecap="round"
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[1]!})` }}
+            />
+            <polygon
+              points="13.4,9.0 13.2,9.38 13.4,9.34 13.6,9.34 13.2,9.38"
+              fill={LUDO_COLORS[1]!}
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[1]!})` }}
+            />
+            <path
+              d="M 10.7,4.3 Q 9.4,2.5 9.0,1.6"
+              fill="none"
+              stroke={LUDO_COLORS[2]!}
+              strokeWidth={0.1}
+              strokeLinecap="round"
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[2]!})` }}
+            />
+            <polygon
+              points="9.0,1.6 9.38,1.8 9.34,1.6 9.34,1.4 9.38,1.8"
+              fill={LUDO_COLORS[2]!}
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[2]!})` }}
+            />
+            <path
+              d="M 4.3,4.3 Q 2.5,5.2 1.6,6.0"
+              fill="none"
+              stroke={LUDO_COLORS[3]!}
+              strokeWidth={0.1}
+              strokeLinecap="round"
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[3]!})` }}
+            />
+            <polygon
+              points="1.6,6.0 1.8,5.62 1.6,5.66 1.4,5.66 1.8,5.62"
+              fill={LUDO_COLORS[3]!}
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[3]!})` }}
             />
 
             {/* Home Corridors */}

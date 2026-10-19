@@ -21,6 +21,7 @@
  */
 
 import type { MomentView } from "@/lib/moments";
+import { parseMediaUrl } from "@/lib/media/embedParser";
 
 /**
  * Minimal post shape this card accepts. `MomentView` (lib/moments.ts) is the
@@ -44,12 +45,29 @@ function isMomentView(post: MomentCardPost): post is MomentView {
 }
 
 export function MomentCard({ post }: { post: MomentCardPost }) {
+  // Normalise both shapes onto one media URL + declared type.
+  const rawMediaUrl = isMomentView(post)
+    ? post.mediaUrl
+    : (post.video_url ?? post.media_url ?? post.image_url ?? null);
+
+  // Social links (YouTube / Instagram / TikTok) render as embeds; raw files
+  // keep the native <video>/<img> path. `parseMediaUrl` re-derives the
+  // canonical embed URL from the video id, so a stored raw link can never
+  // become an arbitrary iframe src.
+  const parsed = rawMediaUrl ? parseMediaUrl(rawMediaUrl) : null;
+  const embedUrl =
+    parsed && (parsed.type === "youtube" || parsed.type === "instagram" || parsed.type === "tiktok")
+      ? parsed.embedUrl
+      : null;
+
   // Normalise both shapes onto one video/image decision.
-  const videoSource = isMomentView(post)
-    ? post.mediaType === "video"
-      ? post.mediaUrl
-      : null
-    : (post.video_url ?? (post.media_type === "video" ? post.media_url : null) ?? null);
+  const videoSource =
+    !embedUrl &&
+    (isMomentView(post)
+      ? post.mediaType === "video"
+        ? post.mediaUrl
+        : null
+      : (post.video_url ?? (post.media_type === "video" ? post.media_url : null) ?? null));
   const hasVideo = Boolean(videoSource);
   const imageSource = isMomentView(post)
     ? post.mediaType !== "video"
@@ -57,14 +75,38 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
       : null
     : (post.image_url ?? null);
   const body = isMomentView(post) ? post.content : post.body;
+  // Portrait-first embeds (TikTok / Reels / Shorts) get a taller frame so the
+  // player is not letterboxed into a sliver; landscape YouTube keeps 16:9.
+  const isPortraitEmbed = parsed?.type === "tiktok" || parsed?.type === "instagram";
 
   return (
     <div className="rounded-xl bg-[#1F1A32] p-4 text-white">
       {/* Post author and text content... */}
       {body ? <p className="my-2 text-sm">{body}</p> : null}
 
+      {/* Social embed (YouTube / Instagram / TikTok) */}
+      {embedUrl ? (
+        <div
+          className={
+            isPortraitEmbed
+              ? "relative mx-auto mt-3 aspect-[9/16] w-full max-w-[360px] overflow-hidden rounded-xl bg-black"
+              : "relative mt-3 aspect-video w-full overflow-hidden rounded-xl bg-black"
+          }
+        >
+          <iframe
+            src={embedUrl}
+            title={body ? `Embedded video: ${body.slice(0, 80)}` : "Embedded video"}
+            allow="accelerometer; clipboard-write; encrypted-media; picture-in-picture; fullscreen"
+            allowFullScreen
+            loading="lazy"
+            referrerPolicy="strict-origin-when-cross-origin"
+            className="absolute inset-0 h-full w-full border-0"
+          />
+        </div>
+      ) : null}
+
       {/* Render Video if available */}
-      {hasVideo && videoSource ? (
+      {!embedUrl && hasVideo && videoSource ? (
         <div className="relative mt-3 overflow-hidden rounded-xl bg-black">
           <video
             src={videoSource}
@@ -77,7 +119,7 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
       ) : null}
 
       {/* Render Image if available and no video */}
-      {!hasVideo && imageSource ? (
+      {!embedUrl && !hasVideo && imageSource ? (
         <img
           src={imageSource}
           alt="Moment media"
