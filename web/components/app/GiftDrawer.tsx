@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { ChevronDown, Coins, Crown, Sparkles } from "lucide-react";
 import { SHEET_BACKDROP, SHEET_PANEL_RELATIVE, SHEET_SHELL } from "@/components/ui/layers";
+import { CoinTopUpModal } from "@/components/app/CoinTopUpModal";
 import { sendGiftAction } from "@/lib/actions/commerce";
 import {
   CHEAPEST_GIFT_PRICE,
@@ -133,6 +134,9 @@ export function GiftDrawer({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [balance, setBalance] = useState(coinBalance);
+  /* Auto-opened when the server refuses with `reason: "insufficient"` — the
+     notice below states the exact shortfall, this sheet is the one-tap fix. */
+  const [coinModalOpen, setCoinModalOpen] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -176,7 +180,12 @@ export function GiftDrawer({
         /* The server's balance wins on failure: it is the authoritative read, and
            using it stops the drawer from offering a second doomed attempt. */
         if (typeof result.coinBalance === "number") setBalance(result.coinBalance);
+        /* The server's message is shown VERBATIM — it names the gift's cost and
+           the exact shortfall ("you need 400 more"), never a bare "not enough
+           coins". On an insufficient-balance refusal the top-up sheet also
+           opens so the fix is one tap away. */
         setNotice(result.error ?? "Couldn't send the gift");
+        if (result.reason === "insufficient") setCoinModalOpen(true);
         return;
       }
       /* Optimistic debit. The server action already revalidates the path, so this
@@ -340,6 +349,10 @@ export function GiftDrawer({
           </div>
         )}
       </div>
+      {/* The coin top-up sheet, auto-opened on an insufficient-balance refusal.
+          The drawer's own notice above still shows the exact shortfall; this
+          overlay is the one-tap fix. */}
+      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
     </div>
   );
 }

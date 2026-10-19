@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/app/Avatar";
 import { ChatPhotoUploadButton } from "@/components/app/ChatPhotoUploadButton";
+import { CoinTopUpModal } from "@/components/app/CoinTopUpModal";
 import { profileViewClick } from "@/components/profile/ProfileViewModal";
 import { EMOJI_PICKER_PANEL_ID, EmojiPickerDrawer } from "@/components/app/EmojiPickerDrawer";
 import { GiftDrawer } from "@/components/app/GiftDrawer";
@@ -745,6 +746,10 @@ export default function ChatRoomClient({
   const [hiddenIds, setHiddenIds] = useState<ReadonlySet<string>>(() => new Set());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /* Auto-opened when a send is refused for lack of coins (`code` from
+     `sendMessageAction`). The inline error above still states the exact
+     shortfall; this modal is the immediate fix for it. */
+  const [coinModalOpen, setCoinModalOpen] = useState(false);
   /* Gift drawer visibility. It is a local modal, so its state belongs here rather
      than in the composer or the server - the page has no reason to know about it. */
   const [giftOpen, setGiftOpen] = useState(false);
@@ -969,6 +974,10 @@ export default function ChatRoomClient({
         : await sendMessageAction({ conversationId, body });
       if (!result.ok) {
         setError(result.error ?? "That message could not be sent.");
+        /* A coin-gated send (direct intro) reports `INSUFFICIENT_COINS` — open
+           the top-up sheet so the member can fix the balance immediately. The
+           exact shortfall stays visible in the inline error above. */
+        if (result.code === "INSUFFICIENT_COINS") setCoinModalOpen(true);
         return;
       }
       /* Paint the sender's own bubble NOW, from the returned row, rather than
@@ -1644,6 +1653,11 @@ export default function ChatRoomClient({
           </p>
         ) : null}
       </div>
+
+      {/* The coin top-up sheet, auto-opened when a send is refused for lack of
+          coins. An overlay above the thread, so the exact shortfall in the
+          error text stays visible behind it. */}
+      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
 
       {/* THE GIFT DRAWER. Mounted as the LAST child of the locked column so it
           paints above the header, the thread and the composer, and so its fixed

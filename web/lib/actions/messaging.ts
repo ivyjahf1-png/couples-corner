@@ -29,6 +29,16 @@ export interface ActionResult {
   ok: boolean;
   error?: string;
   /**
+   * Machine-readable failure code (e.g. `INSUFFICIENT_COINS`,
+   * `WALLET_UNAVAILABLE`) when the server attaches one.
+   *
+   * `error` alone can only ever be DISPLAYED. A code is what lets the client
+   * BEHAVE: on `INSUFFICIENT_COINS` the composer auto-opens the coin top-up
+   * sheet so the member can fix the problem in the same breath as they hit it,
+   * instead of reading a message and going hunting for the wallet screen.
+   */
+  code?: string;
+  /**
    * The persisted row, on a successful send.
    *
    * Returning it is what makes the sender's own bubble appear with the SAME id
@@ -89,6 +99,11 @@ export async function sendMessageAction(params: {
     return {
       ok: false,
       error: error instanceof Error ? error.message : "Couldn't send your message",
+      // Carried through so the composer can auto-open the coin top-up sheet
+      // on INSUFFICIENT_COINS (see the catch around `sendMessageAction` in
+      // ChatRoomClient). Dropping it here would force the client to pattern-
+      // match on human text — which breaks the moment a message is reworded.
+      code: (error as { code?: string } | null)?.code,
     };
   }
 }

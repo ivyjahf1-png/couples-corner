@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { CoinTopUpModal } from "@/components/app/CoinTopUpModal";
 import { sendMessageAction } from "@/lib/actions/messaging";
 import type { ChatStarter } from "@/lib/feature/types";
 
@@ -52,6 +53,15 @@ export function LiveChatThread({
       }))
   );
 
+  /* WHY THIS EXISTS. `handleUseStarter` used to swallow failures into
+     console.error — the member tapped "Use this starter" and, when the send
+     was refused (e.g. a direct-intro coin gate), NOTHING appeared on screen.
+     A failure the member cannot see is indistinguishable from a feature that
+     is broken; the refusal now renders directly under the starter card,
+     verbatim from the server. */
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [coinModalOpen, setCoinModalOpen] = useState(false);
+
   useEffect(() => {
     setLocalMessages((prev) => {
       const seen = new Set(prev.map((m) => m.id));
@@ -79,12 +89,17 @@ export function LiveChatThread({
 
   async function handleUseStarter() {
     if (!starter) return;
+    setSendError(null);
     const result = await sendMessageAction({ conversationId, body: starter.body });
     if (!result.ok) {
       console.error(
         "[LiveChatThread] starter send failed",
         result.error ?? "Unknown error",
       );
+      /* The server's exact reason goes to the member, not just the console.
+         A coin-gated refusal additionally opens the top-up sheet. */
+      setSendError(result.error ?? "That starter could not be sent. Please try again.");
+      if (result.code === "INSUFFICIENT_COINS") setCoinModalOpen(true);
     }
   }
 
@@ -126,6 +141,21 @@ export function LiveChatThread({
           </div>
         </div>
       ) : null}
+
+      {/* SEND REFUSAL. Rendered verbatim from the server — e.g. the exact
+          direct-intro shortfall — directly under the starter card that failed
+          to send. Previously this went to the console only. */}
+      {sendError ? (
+        <p
+          role="alert"
+          className="mx-4 mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs leading-5 text-rose-300"
+        >
+          {sendError}
+        </p>
+      ) : null}
+
+      {/* Coin top-up sheet, auto-opened on an INSUFFICIENT_COINS refusal. */}
+      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
 
       <ul
         className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 scrollbar-thin [-webkit-overflow-scrolling:touch]"

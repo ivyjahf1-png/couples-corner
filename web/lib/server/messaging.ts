@@ -316,26 +316,70 @@ function isMissingColumnError(error: unknown): boolean {
 /** Direct intro price in coins. */
 const DIRECT_INTRO_COINS = 100;
 
-/** Deduct coins from a user's wallet via the service-role RPC. Returns false
- *  when the balance is insufficient or the wallet is missing. */
-async function deductCoins(userId: string, amount: number): Promise<boolean> {
-  const supabase = getSupabaseServerClient();
-  if (!supabase) return false;
+/** Direct intro price in coins. */
+const DIRECT_INTRO_COINS = 100;
 
-  const { data: wallet } = await supabase
+/** Why a coin debit failed. Lets the caller surface the exact reason. */
+type DebitFailure =
+  | { ok: false; reason: "insufficient"; balance: number }
+  | { ok: false; reason: "unavailable" };
+
+/** Deduct coins from a user's wallet via the service-role RPC.
+ *
+ *  Returns a STRUCTURED failure so the caller can distinguish "you don't have
+ *  enough coins" (member-actionable: show the top-up sheet) from "the wallet
+ *  service is down" (retryable: never blame the member's balance for an RPC
+ *  outage). The previous boolean conflated the two, so an RPC failure surfaced
+ *  to members as "Insufficient coins" — telling them to top up a balance that
+ *  was never the problem. */
+async function deductCoins(
+  userId: string,
+  amount: number
+): Promise<{ ok: true } | DebitFailure> {
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return { ok: false, reason: "unavailable" };
+
+  const { data: wallet, error: walletError } = await supabase
     .from("game_wallets")
     .select("coin_balance")
     .eq("user_id", userId)
     .maybeSingle();
-  if (!wallet || typeof wallet.coin_balance !== "number" || wallet.coin_balance < amount) {
-    return false;
+  if (walletError) return { ok: false, reason: "unavailable" };
+  if (!wallet || typeof wallet.coin_balance !== "number") {
+    return { ok: false, reason: "unavailable" };
+  }
+  if (wallet.coin_balance < amount) {
+    return { ok: false, reason: "insufficient", balance: wallet.coin_balance };
   }
 
   const { error } = await supabase.rpc("increment_user_coins", {
     p_user_id: userId,
     p_amount: -amount,
   });
-  return !error;
+  if (error) return { ok: false, reason: "unavailable" };
+  return { ok: true };
+}
+
+/** Credit coins back to a user's wallet. Used to REFUND a direct-intro debit
+ *  when the message insert that it paid for then failed — a member must never
+ *  be charged for a message that was never delivered. */
+async function refundCoins(userId: string, amount: number): Promise<void> {
+  if (amount <= 0) return;
+  const supabase = getSupabaseServerClient();
+  if (!supabase) return;
+  const { error } = await supabase.rpc("increment_user_coins", {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+  if (error) {
+    // A failed refund is a silent loss of a member's coins — it must be
+    // visible in the logs even though the member only sees the send failure.
+    console.error("[messaging] refund failed after unsuccessful insert", {
+      userId,
+      amount,
+      ...supabaseErrorDetail(error),
+    });
+  }
 }
 
 /** Send a message into a conversation.
@@ -374,13 +418,29 @@ export async function sendMessage(params: {
 
   /* When there is no match (or no other participant to match with), gate the
      send behind a coin payment. A direct intro costs DIRECT_INTRO_COINS. */
+  let debitedIntro = false;
   if (!matched) {
-    const paid = await deductCoins(params.senderId, DIRECT_INTRO_COINS);
-    if (!paid) {
-      const error = new Error("Insufficient coins for direct intro");
-      (error as { code?: string }).code = "INSUFFICIENT_COINS";
+    const debit = await deductCoins(params.senderId, DIRECT_INTRO_COINS);
+    if (!debit.ok) {
+      if (debit.reason === "insufficient") {
+        const shortfall = DIRECT_INTRO_COINS - debit.balance;
+        const error = new Error(
+          `Insufficient coins! Messaging someone you haven't matched with costs ` +
+            `${DIRECT_INTRO_COINS} coins. You have ${debit.balance.toLocaleString()} — ` +
+            `you need ${shortfall.toLocaleString()} more. Top up your wallet and try again.`
+        );
+        (error as { code?: string }).code = "INSUFFICIENT_COINS";
+        throw error;
+      }
+      // The wallet service itself failed — never blame the member's balance
+      // for an RPC outage, and never let them think a top-up would help.
+      const error = new Error(
+        "Coins couldn't be checked right now — your balance was not charged. Please try again in a moment."
+      );
+      (error as { code?: string }).code = "WALLET_UNAVAILABLE";
       throw error;
     }
+    debitedIntro = true;
   }
 
   const now = new Date().toISOString();
@@ -409,6 +469,10 @@ export async function sendMessage(params: {
       senderId: params.senderId,
       ...supabaseErrorDetail(error),
     });
+    // The direct-intro debit above paid for a message that was never written.
+    // Give the coins back BEFORE rethrowing — charging for an undelivered
+    // message is worse than failing the send.
+    if (debitedIntro) await refundCoins(params.senderId, DIRECT_INTRO_COINS);
     throw error;
   }
 

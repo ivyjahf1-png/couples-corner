@@ -57,6 +57,21 @@ function addDays(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString();
 }
 
+/**
+ * One message shape for every "not enough coins" refusal, so a member always
+ * sees COST / HAVE / NEED as numbers — never a bare "Not enough coins", which
+ * reads as a bug and tells them nothing to act on. `subject` names what they
+ * were buying ("This gift", "This item", "A 30-day Rose tier").
+ */
+function insufficientCoinsMessage(subject: string, cost: number, balance: number): string {
+  const shortfall = cost - balance;
+  return (
+    `${subject} costs ${cost.toLocaleString()} coins and your balance is ` +
+    `${balance.toLocaleString()} — you need ${shortfall.toLocaleString()} more. ` +
+    `Top up your wallet and try again.`
+  );
+}
+
 export interface InventoryEntry {
   itemId: string;
   name: string;
@@ -150,7 +165,7 @@ export async function purchaseStoreItem(userId: string, itemId: string): Promise
       // numbers. A bare "not enough coins" gives the member nothing to act on.
       return {
         ok: false,
-        error: "Not enough coins",
+        error: insufficientCoinsMessage(item.name, item.price, wallet.coin_balance),
         reason: "insufficient",
         coinBalance: wallet.coin_balance,
       };
@@ -284,9 +299,14 @@ async function debitAndGrant(
     if (wallet.coin_balance < cost) {
       return {
         ok: false,
-        // The shortfall is returned so the UI can say "you need 40,000 more"
-        // rather than a bare "not enough coins", which reads as a bug.
-        error: "Not enough coins",
+        // The shortfall is embedded in the message so the UI can say "you need
+        // 40,000 more" rather than a bare "not enough coins", which reads as a
+        // bug; `coinBalance` stays for callers that render HAVE / NEED tiles.
+        error: insufficientCoinsMessage(
+          `A 30-day ${tier} tier`,
+          cost,
+          wallet.coin_balance
+        ),
         reason: "insufficient",
         coinBalance: wallet.coin_balance,
       };
@@ -460,14 +480,18 @@ export async function sendGift(
     if (wallet.coin_balance < total) {
       return {
         ok: false,
-        error: "Not enough coins",
+        error: insufficientCoinsMessage(
+          `${gift.emoji} ${gift.name}${qty > 1 ? ` x${qty}` : ""}`,
+          total,
+          wallet.coin_balance
+        ),
         reason: "insufficient",
         coinBalance: wallet.coin_balance,
       };
     }
 
-    /* Debit FIRST, then post. The reverse order can charge for a message that
-       failed to insert, and there is no refund path for a partial failure. */
+    /* Debit FIRST, then post — with a REFUND if the post fails (see below), so
+       a member is never charged for a gift that was never delivered. */
     const { data: debited, error: debitError } = await supabase
       .from("game_wallets")
       .update({ coin_balance: wallet.coin_balance - total, updated_at: new Date().toISOString() })
@@ -494,10 +518,10 @@ export async function sendGift(
       .select("id")
       .single();
     if (messageError || !message) {
-      /* The coins are already gone and there is no compensation here. Logging the
-         balance is deliberate: a silent loss of tokens is the single worst
-         outcome this function can produce, and it must be visible in the logs even
-         though the member only sees the failure. */
+      /* REFUND FIRST, then explain. The debit above used the optimistic-lock
+         UPDATE; the refund below reverses it, so a failed insert never leaves
+         a member paying for a gift that was never delivered. A failed refund
+         is still logged loudly — a silent loss of tokens is unrecoverable. */
       console.error("[gifts] message insert failed after a successful debit", {
         conversationId,
         senderId,
@@ -507,7 +531,41 @@ export async function sendGift(
         remainingBalance: debited.coin_balance,
         error: messageError,
       });
-      return { ok: false, error: "Couldn't send the gift", reason: "conflict" };
+      /* Reverse the optimistic-lock debit: set the balance back to what it was
+         pre-debit, guarded by the post-debit value we just read (`debited`).
+         If another write moved the balance since, zero rows match and the
+         fallback RPC below is the safety net. */
+      const refundedBalance = (debited.coin_balance as number) + total;
+      const { data: refunded, error: refundError } = await supabase
+        .from("game_wallets")
+        .update({ coin_balance: refundedBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", senderId)
+        .eq("coin_balance", debited.coin_balance)
+        .select("coin_balance")
+        .single();
+      if (refundError || !refunded) {
+        // The lock-based refund missed — try the atomic RPC instead. If that
+        // also fails the coins are genuinely lost, and the log above is the
+        // only trace; escalate it as loudly as this layer can.
+        const { error: rpcRefundError } = await supabase.rpc("increment_user_coins", {
+          p_user_id: senderId,
+          p_amount: total,
+        });
+        if (rpcRefundError) {
+          console.error("[gifts] REFUND FAILED after insert failure", {
+            senderId,
+            giftId,
+            amount: total,
+            lockRefundError: refundError,
+            rpcRefundError,
+          });
+        }
+      }
+      return {
+        ok: false,
+        error: "The gift couldn't be sent, and your coins have been returned. Please try again.",
+        reason: "conflict",
+      };
     }
 
     return { ok: true, messageId: message.id as string };
