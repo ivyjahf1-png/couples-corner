@@ -27,6 +27,7 @@ import {
 } from "@/lib/game/ludoAudio";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { LudoBoard } from "./LudoBoard";
+import { LudoHud } from "./LudoHud";
 import { LudoPods } from "./LudoPods";
 import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
@@ -455,15 +456,18 @@ export function LudoSuperstar({
               activeSeats={activeSeats}
               names={names}
             />
-            <LudoBoard
+            <LudoHud
               state={game}
-              selectable={sel}
-              onSelect={pickToken}
               dice={game.dice}
               rolling={rolling}
               canRollNow={humanCanAct}
               onRoll={handleRoll}
               hubLabel={hubLabel}
+            />
+            <LudoBoard
+              state={game}
+              selectable={sel}
+              onSelect={pickToken}
               seedCustom={seedCustom}
             />
           </div>
