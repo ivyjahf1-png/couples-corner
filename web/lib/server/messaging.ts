@@ -316,9 +316,6 @@ function isMissingColumnError(error: unknown): boolean {
 /** Direct intro price in coins. */
 const DIRECT_INTRO_COINS = 100;
 
-/** Direct intro price in coins. */
-const DIRECT_INTRO_COINS = 100;
-
 /** Why a coin debit failed. Lets the caller surface the exact reason. */
 type DebitFailure =
   | { ok: false; reason: "insufficient"; balance: number }
