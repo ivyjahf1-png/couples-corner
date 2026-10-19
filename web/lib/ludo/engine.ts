@@ -7,7 +7,7 @@ export type LudoColor = 0 | 1 | 2 | 3;
  * seat 3 Green → TOP-LEFT base, top corridor,            start cell 0  = (6,1)
  * Turn order 0→1→2→3 then laps the board once (BL → BR → TR → TL).
  */
-export const LUDO_COLORS = ["#E11D48", "#2563EB", "#F59E0B", "#16A34A"] as const;
+export const LUDO_COLORS = ["#ef4444", "#3b82f6", "#eab308", "#22c55e"] as const;
 export const LUDO_NAMES = ["Red", "Blue", "Yellow", "Green"] as const;
 export const START_INDEX: readonly number[] = [13, 26, 39, 0];
 /** Start squares {13,26,39,0} plus their +8 star tiles {21,34,47,8}. */

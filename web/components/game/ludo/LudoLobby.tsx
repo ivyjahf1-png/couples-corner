@@ -300,7 +300,7 @@ export function LudoLobby({
                 <label key={i} className="flex items-center gap-2">
                   <span
                     className="h-3 w-3 shrink-0 rounded-[3px]"
-                    style={{ background: ["#2563EB", "#F59E0B", "#16A34A"][i - 1] }}
+                    style={{ background: ["#3b82f6", "#eab308", "#22c55e"][i - 1] }}
                     aria-hidden
                   />
                   <span className="sr-only">{`Seat ${i + 1} player name`}</span>

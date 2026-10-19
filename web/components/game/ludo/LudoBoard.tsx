@@ -10,7 +10,7 @@ import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
  * Geometry: a 15×15 SVG grid (viewBox units = cells) painted under a floating
  * HTML layer for pawns + the glowing centre dice hub.
  *  - 52-cell main track (TRACK_PATH) indexed exactly like engine.trackCell:
- *    cell 0 = (6,1) Blue start … cell 13 = (1,8) Red start … etc.
+ *    cell 0 = (6,1) Green start … cell 13 = (1,8) Red start … etc.
  *  - Four 6×6 corner bases with white yards + sockets.
  *  - 6-cell home corridors per colour; the last corridor cell sits on the
  *    matching centre triangle, so corridors read as continuous to the goal.
@@ -37,26 +37,29 @@ const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [7, 0], [6, 0],
 ];
 
-/** Base block origins (col,row) per seat: 0 TL · 1 BL · 2 BR · 3 TR. */
-const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 0], 1: [0, 9], 2: [9, 9], 3: [9, 0] };
+/** Base block origins (col,row) per seat, matching engine.ts geometry:
+ *  0 Red BL · 1 Blue BR · 2 Yellow TR · 3 Green TL. */
+const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0] };
 
 /** Pawn socket CENTRES (grid units) inside each 6×6 base. */
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Red)
-  1: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]], // BL (Blue)
-  2: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]], // BR (Yellow)
-  3: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]], // TR (Green)
+  0: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]], // BL (Red)
+  1: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]], // BR (Blue)
+  2: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]], // TR (Yellow)
+  3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Green)
 };
 
-/** Home corridors (5 cells each, last cell sits on the centre triangle).
- *  Canonical arms (match the engine's BASE_QUAD geometry): Red TL row 7 ·
- *  Green TR col 7 · Yellow BR row 7 · Blue BL col 7. Heads touch their
- *  yard-side track. */
+/** Home corridors (6 cells each; the last cell sits on the matching centre
+ *  triangle so the run reads continuous into the goal). Arms follow the
+ *  engine's start-cell + 50 exit tiles: Red (BL) exits (0,7) → left arm ·
+ *  Blue (BR) exits (7,14) → bottom arm · Yellow (TR) exits (14,7) → right
+ *  arm · Green (TL) exits (7,0) → top arm. Each head is orthogonally
+ *  adjacent to its colour's exit tile. */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],  // Red → TL
-  1: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],  // Green → TR (seat 1 renders green here)
-  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]], // Yellow → BR
-  3: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],  // Blue → BL
+  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red → left arm
+  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Blue → bottom arm
+  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow → right arm
+  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Green → top arm
 };
 
 const START_SET: ReadonlySet<number> = new Set(START_INDEX);
@@ -105,11 +108,12 @@ function starPoints(cx: number, cy: number, r: number): string {
 
 /** Direction chevron for a corridor's first cell (toward the centre goal). */
 function chevronPoints(color: number, col: number, row: number): string {
-  // Seat mapping after geometry fix: 0 Red (TL), 1 Blue (BL), 2 Yellow (BR), 3 Green (TR)
-  if (color === 0) return `${col + 0.32},${row + 0.18} ${col + 0.82},${row + 0.5} ${col + 0.32},${row + 0.82}`; // right
-  if (color === 1) return `${col + 0.18},${row + 0.32} ${col + 0.5},${row + 0.82} ${col + 0.82},${row + 0.32}`; // up
-  if (color === 2) return `${col + 0.18},${row + 0.18} ${col + 0.5},${row + 0.5} ${col + 0.82},${row + 0.18}`;   // left
-  return `${col + 0.18},${row + 0.18} ${col + 0.5},${row + 0.5} ${col + 0.18},${row + 0.82}`;                       // down
+  // Travel direction per corridor arm: 0 Red (left arm → east),
+  // 1 Blue (bottom arm → north), 2 Yellow (right arm → west), 3 Green (top arm → south).
+  if (color === 0) return `${col + 0.22},${row + 0.22} ${col + 0.78},${row + 0.5} ${col + 0.22},${row + 0.78}`; // east
+  if (color === 1) return `${col + 0.22},${row + 0.78} ${col + 0.5},${row + 0.22} ${col + 0.78},${row + 0.78}`; // north
+  if (color === 2) return `${col + 0.78},${row + 0.22} ${col + 0.22},${row + 0.5} ${col + 0.78},${row + 0.78}`; // west
+  return `${col + 0.22},${row + 0.22} ${col + 0.5},${row + 0.78} ${col + 0.78},${row + 0.22}`;                       // south
 }
 
 interface Pawn {
@@ -162,17 +166,16 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
 
 /**
  * Rotation (clockwise degrees) applied to the whole board — frame, track,
- * yards, and the centre dice hub — so the local player's seat is anchored to
- * the bottom edge of the screen, per the reference layout.
+ * yards, and the centre dice hub.
  *
- * The SVG draws seat bases at 0 TL · 1 BL · 2 BR · 3 TR (BASE_QUAD), while
- * the pods pin seats to 3 TL · 2 TR · 0 BL · 1 BR. Rotating the board 270°
- * clockwise lands each base exactly under its own pod — seat 0 (the local
- * player) ends bottom-left, matching engine.ts's documented geometry
- * ("seat 0 Red → BOTTOM-LEFT base"). The hub label and stack badges
- * counter-rotate so their text stays upright.
+ * The SVG is now drawn directly in the final screen orientation: BASE_QUAD
+ * pins 0 Red BL · 1 Blue BR · 2 Yellow TR · 3 Green TL, exactly matching the
+ * LudoPods seat pins (3 TL · 2 TR · 0 BL · 1 BR) and engine.ts geometry, so
+ * no rotation is needed. The constant stays in place (the hub label and
+ * stack badges already counter-rotate by -BOARD_ROTATION) so a future
+ * layout can spin the board without touching call sites.
  */
-const BOARD_ROTATION = 270;
+const BOARD_ROTATION = 0;
 
 export function LudoBoard({
   state,
