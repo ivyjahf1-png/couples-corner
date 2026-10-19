@@ -1,6 +1,6 @@
 import catalogJson from "../../data/games.json";
 
-export type GameEngine = "ludo" | "whot" | "slots" | "mines" | "cards" | "sports" | "arcade" | "race";
+export type GameEngine = "ludo" | "whot" | "slots" | "mines" | "cards" | "sports" | "arcade" | "race" | "mine-island";
 
 export interface CatalogGame {
   id: string;
