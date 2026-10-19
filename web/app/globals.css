@@ -1885,14 +1885,6 @@ button,
 }
 /* --- Ludo 5D HUD accents (decorative only; dropped under reduced motion by
        the [class*="animate-[cc-"] safety net above) ------------------------- */
-@keyframes cc-ludo-breathe {
-  0%, 100% { opacity: 0.5; transform: scale(0.92); }
-  50% { opacity: 1; transform: scale(1.12); }
-}
-@keyframes cc-ludo-halo {
-  0%, 100% { box-shadow: 0 0 16px 0 rgba(251, 191, 36, 0.4), inset 0 0 14px rgba(251, 191, 36, 0.2); }
-  50% { box-shadow: 0 0 34px 6px rgba(251, 191, 36, 0.65), inset 0 0 20px rgba(251, 191, 36, 0.32); }
-}
 @keyframes cc-ludo-die-shadow {
   0%, 100% { transform: translateX(-50%) scaleX(1); opacity: 0.6; }
   50% { transform: translateX(-50%) scaleX(0.78); opacity: 0.32; }

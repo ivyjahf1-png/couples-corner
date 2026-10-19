@@ -48,8 +48,9 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
 };
 
 /** Home corridors (5 cells each, last cell sits on the centre triangle).
- *  Canonical arms (match LudoEngine canvas): Red TL row 7 · Green TR col 7 ·
- *  Yellow BR row 7 · Blue BL col 7. Heads touch their yard-side track. */
+ *  Canonical arms (match the engine's BASE_QUAD geometry): Red TL row 7 ·
+ *  Green TR col 7 · Yellow BR row 7 · Blue BL col 7. Heads touch their
+ *  yard-side track. */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
   0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],  // Red → TL
   1: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],  // Green → TR (seat 1 renders green here)
@@ -158,12 +159,19 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
   return raw;
 }
 
-/** Rotation (clockwise degrees) applied to the board so the local user's home
- * yard and dice controls always sit at the bottom edge of the screen.
+/**
+ * Rotation (clockwise degrees) applied to the whole board — frame, track,
+ * yards, and the centre dice hub — so the local player's seat is anchored to
+ * the bottom edge of the screen, per the reference layout.
  *
- *   Yellow → 0°   Blue → 90°   Red → 180°   Green → 270°
+ * The SVG draws seat bases at 0 TL · 1 BL · 2 BR · 3 TR (BASE_QUAD), while
+ * the pods pin seats to 3 TL · 2 TR · 0 BL · 1 BR. Rotating the board 270°
+ * clockwise lands each base exactly under its own pod — seat 0 (the local
+ * player) ends bottom-left, matching engine.ts's documented geometry
+ * ("seat 0 Red → BOTTOM-LEFT base"). The hub label and stack badges
+ * counter-rotate so their text stays upright.
  */
-const BOARD_ROTATION: Record<LudoColor, number> = { 0: 180, 1: 90, 2: 0, 3: 270 };
+const BOARD_ROTATION = 270;
 
 export function LudoBoard({
   state,
@@ -174,7 +182,6 @@ export function LudoBoard({
   canRollNow,
   onRoll,
   hubLabel,
-  localColor = 2,
 }: {
   state: LudoGameState;
   selectable: readonly number[];
@@ -185,11 +192,8 @@ export function LudoBoard({
   onRoll: () => void;
   /** Centre-hub caption: "Tap to Roll" / "Rolling…" / "{Name} to roll". */
   hubLabel: string;
-  /** Which LudoColor the local human player is seeded as; board rotates so this
-   *  seat's yard/dice hub anchor to the bottom edge. */
-  localColor?: LudoColor;
 }) {
-  const rotation = BOARD_ROTATION[localColor ?? 2];
+  const rotation = BOARD_ROTATION;
   const pawns = buildPawns(state, selectable);
   return (
     <div className="relative select-none">
@@ -372,7 +376,10 @@ export function LudoBoard({
         />
       ) : null}
       {p.stackCount > 1 && p.stackIndex === p.stackCount - 1 ? (
-        <span className="absolute -right-1 -top-1 rounded-full bg-black/80 px-1 text-[8px] font-black leading-4 text-amber-300">
+        <span
+          className="absolute -right-1 -top-1 rounded-full bg-black/80 px-1 text-[8px] font-black leading-4 text-amber-300"
+          style={{ transform: `rotate(${-BOARD_ROTATION}deg)` }}
+        >
           ×{p.stackCount}
         </span>
       ) : null}
@@ -391,14 +398,20 @@ export function LudoBoard({
       : "cursor-default border-white/15 bg-slate-900/50 shadow-[inset_0_0_20px_rgba(0,0,0,.5)]"
   }`}
 >
-  <LudoDice value={dice} rolling={rolling} active={canRollNow} size={44} />
-  <span
-    className={`text-[9px] font-black uppercase tracking-[.14em] sm:text-[10px] ${
-      canRollNow ? "text-sky-200" : "text-white/70"
-    }`}
-  >
-    {hubLabel}
-  </span>
+    {/* The whole board is rotated; flip the hub contents back upright. */}
+    <span
+      className="flex flex-col items-center gap-0.5"
+      style={{ transform: `rotate(${-BOARD_ROTATION}deg)` }}
+    >
+      <LudoDice value={dice} rolling={rolling} active={canRollNow} size={44} />
+      <span
+        className={`text-[9px] font-black uppercase tracking-[.14em] sm:text-[10px] ${
+          canRollNow ? "text-sky-200" : "text-white/70"
+        }`}
+      >
+        {hubLabel}
+      </span>
+    </span>
 </button>
           </div>
         </div>

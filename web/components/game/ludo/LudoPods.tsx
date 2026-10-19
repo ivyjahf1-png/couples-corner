@@ -11,6 +11,10 @@ import { TURN_SECONDS } from "@/lib/ludo/match";
  *
  * Seat → corner mapping matches the engine quadrants:
  *   3 Green TL · 2 Yellow TR · 0 Red BL · 1 Blue BR.
+ *
+ * Seats outside the match (duo plays only 0 + 2) are not rendered at all, and
+ * the display names come from the lobby (Friends mode renames seats 1–3);
+ * seat 0 is always "You" — the device holder.
  */
 type Corner = "tl" | "tr" | "bl" | "br";
 
@@ -22,33 +26,52 @@ const CORNER_CLASS: Record<Corner, string> = {
   br: "bottom-0 right-0",
 };
 
+/** Initials for a display name (custom friend names render the same way as
+ *  the bot personas: first letters of up to two words, uppercase). */
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(/[\s&]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "P"
+  );
+}
+
 /** r=15.5 in the 42×42 ring viewBox. */
 const RING_CIRC = 2 * Math.PI * 15.5;
 
 export function LudoPods({
   state,
-  mode,
   activeSeat,
   clock,
   photoUrls,
+  activeSeats,
+  names,
 }: {
   state: LudoGameState;
-  mode: "pass" | "cpu";
   activeSeat: LudoColor;
   clock: number;
   /** Optional per-seat photo URLs; index matches seat number. */
   photoUrls?: (string | null)[];
+  /** Seats dealt into this match; others are not rendered. */
+  activeSeats: readonly LudoColor[];
+  /** Seat display names from the lobby; index matches seat number. */
+  names: string[];
 }) {
   const frac = Math.max(0, Math.min(1, clock / TURN_SECONDS));
 
   return (
     <>
       {([0, 1, 2, 3] as const).map((seat) => {
+        if (!activeSeats.includes(seat)) return null;
         const profile = SEATS[seat];
         const active = activeSeat === seat && state.winner === null;
-        const isYou = mode === "cpu" && seat === 0;
+        const isYou = seat === 0;
         const color = LUDO_COLORS[seat]!;
         const home = state.players[seat]!.finished;
+        const name = names[seat] ?? profile.name;
         return (
           <div
             key={seat}
@@ -94,14 +117,14 @@ export function LudoPods({
                   {photoUrls?.[seat] ? (
                     <img
                       src={photoUrls[seat]!}
-                      alt={isYou ? "You" : profile.name}
+                      alt={isYou ? "You" : name}
                       className="h-full w-full object-cover"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = "none";
                       }}
                     />
                   ) : (
-                    <span>{profile.initials}</span>
+                    <span>{initialsOf(name)}</span>
                   )}
                 </span>
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black/50" />
@@ -109,7 +132,7 @@ export function LudoPods({
 
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[11px] font-black leading-tight text-white">
-                  {isYou ? "You" : profile.name} <span className="text-[10px]">{profile.flag}</span>
+                  {name} <span className="text-[10px]">{profile.flag}</span>
                 </p>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1">
                   <span className="rounded-full bg-gradient-to-b from-amber-300 to-amber-500 px-1.5 text-[8px] font-black leading-4 text-black">

@@ -54,6 +54,9 @@ export function LudoSuperstar({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("menu");
   const [mode, setMode] = useState<LudoMode>("cpu");
+  /** Seat display names; seat 0 is the device holder ("You"). Friends mode
+   *  lets the lobby rename seats 1–3 to whoever is playing around you. */
+  const [names, setNames] = useState<string[]>(["You", SEATS[1].name, SEATS[2].name, SEATS[3].name]);
   const [bet, setBet] = useState(100);
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
   const [selectable, setSelectable] = useState<number[]>([]);
@@ -65,7 +68,11 @@ export function LudoSuperstar({
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
   const [winnerSeat, setWinnerSeat] = useState<LudoColor | null>(null);
 
-  // ── Custom photo avatars fetched from the profiles table (local player seat 0) ──
+  // ── Custom photo avatar for the local player (seat 0), from the profile
+  // photo gallery the app upload pipeline maintains (profiles.photos jsonb,
+  // bucket "photos"). profiles.avatar_url was retired by migration 015 — the
+  // uploader writes photos, not avatar_url — so the primary photo's public
+  // URL is the avatar source of truth here, with initials as the fallback. ──
   const [photoUrls, setPhotoUrls] = useState<(string | null)[]>([null, null, null, null]);
 
   useEffect(() => {
@@ -75,21 +82,28 @@ export function LudoSuperstar({
     sb.auth.getUser().then(({ data }) => {
       const uid = data.user?.id ?? null;
       if (!alive || !uid) return;
-      sb.from("profiles").select("avatar_url").eq("id", uid).maybeSingle().then(({ data: row }) => {
-        const r = row as { avatar_url?: string | null } | null;
-        if (alive && typeof r?.avatar_url === "string" && r.avatar_url.trim()) {
-          setPhotoUrls((prev) => {
-            const next = [...prev];
-            next[0] = r.avatar_url!;
-            return next;
-          });
-        }
+      sb.from("profiles").select("photos").eq("user_id", uid).maybeSingle().then(({ data: row }) => {
+        const photos = (row as { photos?: Array<{ storagePath?: string; publicUrl?: string }> | null } | null)?.photos;
+        if (!alive || !Array.isArray(photos) || photos.length === 0) return;
+        const primary = photos[0]!;
+        const stored = typeof primary.publicUrl === "string" ? primary.publicUrl.trim() : "";
+        const path = typeof primary.storagePath === "string" ? primary.storagePath.trim() : "";
+        const url = stored || (path ? sb.storage.from("photos").getPublicUrl(path).data.publicUrl : "");
+        if (!url) return;
+        setPhotoUrls((prev) => {
+          const next = [...prev];
+          next[0] = url;
+          return next;
+        });
       });
     });
     return () => { alive = false; };
   }, []);
 
-  const pot = potFor(bet, 4);
+  /** Seats dealt into the match: duo plays the diagonal pair (you + friend). */
+  const activeSeats: LudoColor[] = mode === "duo" ? [0, 2] : [0, 1, 2, 3];
+  const players = activeSeats.length;
+  const pot = potFor(bet, players);
   const gameRef = useRef(game);
   gameRef.current = game;
   const busyRef = useRef(false);
@@ -116,7 +130,7 @@ export function LudoSuperstar({
   useEffect(() => clearTimers, []);
 
   const isBot = (c: LudoColor): boolean => mode === "cpu" && c !== 0;
-  const dName = (c: LudoColor): string => (mode === "cpu" && c === 0 ? "You" : SEATS[c].name);
+  const dName = (c: LudoColor): string => names[c] ?? SEATS[c].name;
 
   const pushBurst = (emoji: string): void => {
     const id = (burstIdRef.current += 1);
@@ -125,7 +139,8 @@ export function LudoSuperstar({
   };
 
   const finishTurn = (color: LudoColor): void => {
-    const next = ((color + 1) % 4) as LudoColor;
+    const at = activeSeats.indexOf(color);
+    const next = activeSeats[(at + 1) % activeSeats.length]!;
     setGame((g) => ({ ...g, turn: next, canRoll: true, consecutiveSixes: 0 }));
     setStatus(`${dName(next)} to roll…`);
     busyRef.current = false;
@@ -134,7 +149,7 @@ export function LudoSuperstar({
 
   const finishMatch = (winner: LudoColor): void => {
     playHomeFanfare(true);
-    const localSide = mode === "pass" || winner === 0;
+    const localSide = mode !== "cpu" || winner === 0;
     setWinnerSeat(winner);
     if (localSide && !claimedRef.current) {
       claimedRef.current = true;
@@ -294,7 +309,7 @@ export function LudoSuperstar({
     setGame(freshGame(0));
     setClock(TURN_SECONDS);
     setStatus(
-      mode === "cpu" ? "Your move — tap the dice to roll." : `${SEATS[0].name} starts — tap the dice!`,
+      mode === "cpu" ? "Your move — tap the dice to roll." : "You start — tap the dice to roll!",
     );
     onLose(bet);
     setPhase("board");
@@ -340,7 +355,7 @@ export function LudoSuperstar({
   /* 1 s countdown for human-held turns; expiry hands play to the house. */
   useEffect(() => {
     if (phase !== "board" || game.winner !== null) return;
-    if (!(mode === "pass" || game.turn === 0)) return;
+    if (mode === "cpu" && game.turn !== 0) return;
     const id = window.setInterval(() => {
       setClock((c) => {
         if (c <= 1) {
@@ -354,7 +369,7 @@ export function LudoSuperstar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game.turn, mode, game.winner]);
 
-  const humanSeatTurn = mode === "pass" || game.turn === 0;
+  const humanSeatTurn = mode !== "cpu" || game.turn === 0;
   const humanCanAct =
     phase === "board" && game.winner === null && !rolling && !busy && game.canRoll && humanSeatTurn;
   const sel = phase === "board" && humanSeatTurn && !rolling && !busy ? selectable : [];
@@ -366,8 +381,8 @@ export function LudoSuperstar({
       : selectable.length > 0
         ? "Pick a pawn"
         : `${dName(game.turn)} to roll`;
-  const youWon = winnerSeat !== null && (mode === "pass" || winnerSeat === 0);
-  const winnerName = winnerSeat !== null ? SEATS[winnerSeat].name : "";
+  const youWon = winnerSeat !== null && (mode !== "cpu" || winnerSeat === 0);
+  const winnerName = winnerSeat !== null ? dName(winnerSeat) : "";
   /*LOGIC_SLOT_2*/
 
   return (
@@ -381,7 +396,11 @@ export function LudoSuperstar({
             onBet={setBet}
             mode={mode}
             onMode={setMode}
+            players={players}
             pot={pot}
+            names={names}
+            onNames={setNames}
+            photoUrl={photoUrls[0] ?? null}
             onStart={start}
           />
         </div>
@@ -389,7 +408,14 @@ export function LudoSuperstar({
         <>
           {/* Corner pods reserved in the padding bands; board centred between */}
           <div className="relative mt-3 pb-14 pt-14">
-            <LudoPods state={game} mode={mode} activeSeat={game.turn} clock={clock} photoUrls={photoUrls} />
+            <LudoPods
+              state={game}
+              activeSeat={game.turn}
+              clock={clock}
+              photoUrls={photoUrls}
+              activeSeats={activeSeats}
+              names={names}
+            />
             <LudoBoard
               state={game}
               selectable={sel}
@@ -399,7 +425,6 @@ export function LudoSuperstar({
               canRollNow={humanCanAct}
               onRoll={handleRoll}
               hubLabel={hubLabel}
-              localColor={game.seedColor}
             />
           </div>
           <LudoStatusBar
