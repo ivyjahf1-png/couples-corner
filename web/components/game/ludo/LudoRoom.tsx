@@ -3,9 +3,9 @@ import React, { useEffect, useState, useRef } from "react";
 import { LudoBoard } from "./LudoBoard";
 import { LudoHud } from "./LudoHud";
 import { LudoEmojiBar } from "./LudoEmojiBar";
-import { LudoRealtimeManager } from "@/lib/supabase/ludoRealtime";
-import { soundEngine } from "@/lib/ludo/soundEngine";
-import { type LudoGameState, initialLudoState } from "@/lib/ludo/engine";
+import { LudoRealtimeManager } from "./LudoRealtime";
+import { soundEngine } from "./soundEngine";
+import { freshGame, type LudoGameState } from "@/lib/ludo/engine";
 
 interface LudoRoomProps {
   roomId: string;
@@ -14,7 +14,7 @@ interface LudoRoomProps {
 }
 
 export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
-  const [gameState, setGameState] = useState<LudoGameState>(initialState ?? initialLudoState());
+  const [gameState, setGameState] = useState<LudoGameState>(initialState ?? freshGame());
   const [diceValue, setDiceValue] = useState<number>(1);
   const [rolling, setRolling] = useState<boolean>(false);
   const realtimeRef = useRef<LudoRealtimeManager | null>(null);
@@ -86,7 +86,7 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
     }
   };
 
-  const isMyTurn = gameState.players[gameState.turn]?.id === userId || gameState.turn === 0;
+  const isMyTurn = (gameState.players[gameState.turn] as { id?: string } | undefined)?.id === userId || gameState.turn === 0;
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-md mx-auto p-2">
@@ -97,7 +97,7 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
         rolling={rolling}
         canRollNow={isMyTurn && !rolling}
         onRoll={handleRollDice}
-        hubLabel={Room ${roomId}}
+        hubLabel={`Room ${roomId}`}
       />
 
       {/* 15x15 Ludo Board */}

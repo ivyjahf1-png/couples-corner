@@ -78,7 +78,7 @@ function starPoints(cx: number, cy: number, r: number): string {
   for (let i = 0; i < 10; i += 1) {
     const ang = -Math.PI / 2 + (i * Math.PI) / 5;
     const rad = i % 2 === 0 ? r : inner;
-    pts.push(${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)});
+    pts.push(`${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`);
   }
   return pts.join(" ");
 }
@@ -102,7 +102,7 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
       if (t.steps >= FINISH_STEP) return;
       const pos = posFor(c as LudoColor, i, t.steps);
       raw.push({
-        key: ${c}-${i},
+        key: `${c}-${i}`,
         color: c as LudoColor,
         idx: i,
         steps: t.steps,
@@ -116,7 +116,7 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
   });
   const groups = new Map<string, Pawn[]>();
   for (const p of raw) {
-    const k = ${p.x.toFixed(2)},${p.y.toFixed(2)};
+    const k = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
     const g = groups.get(k);
     if (g) g.push(p);
     else groups.set(k, [p]);
@@ -157,7 +157,7 @@ export function LudoBoard({
                 <stop offset="1" stopColor="#E2D7BE" />
               </linearGradient>
               {([0, 1, 2, 3] as const).map((c) => (
-                <linearGradient key={c} id={ls-c${c}} x1="0" y1="0" x2="1" y2="1">
+                <linearGradient key={c} id={`ls-c${c}`} x1="0" y1="0" x2="1" y2="1">
                   <stop offset="0" stopColor="#ffffff" stopOpacity="0.6" />
                   <stop offset="0.4" stopColor={LUDO_COLORS[c]!} />
                   <stop offset="1" stopColor={LUDO_COLORS[c]!} />
@@ -173,8 +173,8 @@ export function LudoBoard({
               const q = BASE_QUAD[c]!;
               const active = state.turn === c && state.winner === null;
               return (
-                <g key={base-${c}}>
-                  <rect x={q[0]} y={q[1]} width={6} height={6} fill={url(#ls-c${c})} stroke="#1F140A" strokeWidth={0.08} />
+                <g key={`base-${c}`}>
+                  <rect x={q[0]} y={q[1]} width={6} height={6} fill={`url(#ls-c${c})`} stroke="#1F140A" strokeWidth={0.08} />
                   <rect
                     x={q[0] + 0.65}
                     y={q[1] + 0.65}
@@ -207,7 +207,7 @@ export function LudoBoard({
                       fill="none"
                       stroke={LUDO_COLORS[c]!}
                       strokeWidth={0.16}
-                      style={{ filter: drop-shadow(0 0 6px ${LUDO_COLORS[c]!}) }}
+                      style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[c]!})` }}
                     />
                   )}
                 </g>
@@ -219,7 +219,7 @@ export function LudoBoard({
               const isStart = START_SET.has(i);
               const isSafe = SAFE_CELLS.has(i);
               return (
-                <g key={trk-${i}}>
+                <g key={`trk-${i}`}>
                   <rect
                     x={col}
                     y={row}
@@ -246,8 +246,8 @@ export function LudoBoard({
                 const inCentre = col >= 6 && col <= 8 && row >= 6 && row <= 8;
                 if (inCentre) return null;
                 return (
-                  <g key={home-${c}-${j}}>
-                    <rect x={col} y={row} width={1} height={1} fill={url(#ls-c${c})} stroke="#2D1F0C" strokeWidth={0.06} />
+                  <g key={`home-${c}-${j}`}>
+                    <rect x={col} y={row} width={1} height={1} fill={`url(#ls-c${c})`} stroke="#2D1F0C" strokeWidth={0.06} />
                   </g>
                 );
               }),
@@ -273,17 +273,17 @@ export function LudoBoard({
                 <motion.button
                   key={p.key}
                   type="button"
-                  aria-label={${LUDO_NAMES[p.color]} pawn ${p.idx + 1}}
+                  aria-label={`${LUDO_NAMES[p.color]} pawn ${p.idx + 1}`}
                   disabled={!p.movable}
                   onClick={() => p.movable && onSelect(p.idx)}
                   initial={false}
-                  animate={{ left: ${((p.x + dx) / GRID) * 100}%, top: ${(p.y / GRID) * 100}% }}
+                  animate={{ left: `${((p.x + dx) / GRID) * 100}%`, top: `${(p.y / GRID) * 100}%` }}
                   transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.55 }}
                   className="absolute z-20 aspect-square cursor-default place-items-center"
-                  style={{ width: ${(100 / GRID) * 1.05}%, transform: "translate(-50%,-62%)" }}
+                  style={{ width: `${(100 / GRID) * 1.05}%`, transform: "translate(-50%,-62%)" }}
                 >
                   <motion.span
-                    key={hop-${p.steps}}
+                    key={`hop-${p.steps}`}
                     className="relative flex flex-col items-center h-full w-full justify-end"
                     initial={{ scale: 0.8, y: -8 }}
                     animate={{ scale: 1, y: 0 }}
@@ -293,7 +293,7 @@ export function LudoBoard({
                     <span
                       className="relative z-10 flex h-[48%] w-[58%] items-center justify-center rounded-full border-2 border-white/80 shadow-md"
                       style={{
-                        background: radial-gradient(circle at 35% 30%, #fff, ${col} 65%, rgba(0,0,0,.6) 130%),
+                        background: `radial-gradient(circle at 35% 30%, #fff, ${col} 65%, rgba(0,0,0,.6) 130%)`,
                       }}
                     >
                       <span className="text-xs sm:text-sm drop-shadow-sm">{p.color === 0 ? animalEmoji : "♟️"}</span>
@@ -301,13 +301,13 @@ export function LudoBoard({
                     <span
                       className="relative -mt-1 h-[36%] w-[38%] border-x border-white/40 shadow-inner"
                       style={{
-                        background: linear-gradient(90deg, rgba(0,0,0,.3), ${col} 50%, rgba(255,255,255,.4)),
+                        background: `linear-gradient(90deg, rgba(0,0,0,.3), ${col} 50%, rgba(255,255,255,.4))`,
                       }}
                     />
                     <span
                       className="relative -mt-0.5 h-[20%] w-[85%] rounded-full border border-white/70 shadow-lg"
                       style={{
-                        background: linear-gradient(180deg, ${col}, rgba(0,0,0,.6)),
+                        background: `linear-gradient(180deg, ${col}, rgba(0,0,0,.6))`,
                       }}
                     />
                   </motion.span>
@@ -317,7 +317,7 @@ export function LudoBoard({
                       className="pointer-events-none absolute inset-[-25%] rounded-full ring-2"
                       animate={{ scale: [1, 1.18, 1], opacity: [0.95, 0.4, 0.95] }}
                       transition={{ repeat: Infinity, duration: 1.1 }}
-                      style={{ borderColor: col, boxShadow: 0 0 16px ${col} }}
+                      style={{ borderColor: col, boxShadow: `0 0 16px ${col}` }}
                     />
                   )}
 

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { soundEngine } from "@/lib/ludo/soundEngine";
+import { soundEngine } from "./soundEngine";
 
 const EMOJIS = ["😂", "😡", "👏", "😍", "🍀", "🔥", "👍", "😭"];
 
@@ -27,7 +27,7 @@ export const LudoEmojiBar: React.FC<EmojiBarProps> = ({ onSendEmoji }) => {
           type="button"
           onClick={() => handleEmojiClick(emoji)}
           className="text-xl sm:text-2xl p-1.5 rounded-xl hover:bg-white/10 active:scale-125 transition transform"
-          aria-label={Send emoji ${emoji}}
+          aria-label={`Send emoji ${emoji}`}
         >
           {emoji}
         </button>

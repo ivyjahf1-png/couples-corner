@@ -27,9 +27,10 @@ export class LudoRealtimeManager {
     onPlayerJoin: (players: (string | null)[]) => void,
     onPlayerDisconnect: (userId: string) => void
   ) {
+    void onPlayerJoin;
     const supabase = getSupabaseClient();
 
-    this.channel = supabase.channel(ludo_room:${this.roomId}, {
+    this.channel = supabase.channel(`ludo_room:${this.roomId}`, {
       config: {
         presence: {
           key: this.userId,
@@ -71,12 +72,12 @@ export class LudoRealtimeManager {
     disconnectedUserId: string,
     onTimeout: (userId: string) => void
   ) {
-    console.warn(User ${disconnectedUserId} disconnected. Starting 45s grace period...);
+    console.warn(`User ${disconnectedUserId} disconnected. Starting 45s grace period...`);
 
     if (this.disconnectTimer) clearTimeout(this.disconnectTimer);
 
     this.disconnectTimer = setTimeout(() => {
-      console.error(User ${disconnectedUserId} failed to reconnect within 45s.);
+      console.error(`User ${disconnectedUserId} failed to reconnect within 45s.`);
       onTimeout(disconnectedUserId);
     }, 45000); // 45 seconds
   }

@@ -2,7 +2,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LudoDice } from "./LudoDice";
-import { LUDO_COLORS, type LudoGameState } from "@/lib/ludo/engine";
+import { LUDO_COLORS, type LudoGameState, type LudoPlayerState } from "@/lib/ludo/engine";
 
 interface LudoHudProps {
   state: LudoGameState;
@@ -20,19 +20,24 @@ export const LudoHud: React.FC<LudoHudProps> = ({
   canRollNow,
   onRoll,
   hubLabel,
-}) => {
+}: LudoHudProps) => {
   // Player seat layout definitions: 0 (BL - You), 1 (BR), 2 (TR), 3 (TL)
   const players = state.players;
 
   return (
     <div className="w-full max-w-[460px] mx-auto flex flex-col gap-3">
+      {hubLabel ? (
+        <p className="text-center text-[11px] font-bold uppercase tracking-widest text-white/50">
+          {hubLabel}
+        </p>
+      ) : null}
       {/* Top Players Row (Seat 3 Green TL & Seat 2 Yellow TR) */}
       <div className="flex items-center justify-between px-2">
         {/* Seat 3: Green Player */}
         <div className="relative flex items-center gap-2">
           <PlayerCard
             player={players[3]}
-            color={LUDO_COLORS[3]}
+            color={LUDO_COLORS[3]!}
             isActive={state.turn === 3}
           />
           {/* Active 5D Dice Attached to Seat 3 */}
@@ -61,7 +66,7 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         <div className="relative flex items-center gap-2 flex-row-reverse">
           <PlayerCard
             player={players[2]}
-            color={LUDO_COLORS[2]}
+            color={LUDO_COLORS[2]!}
             isActive={state.turn === 2}
           />
           {/* Active 5D Dice Attached to Seat 2 */}
@@ -93,7 +98,7 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         <div className="relative flex items-center gap-2">
           <PlayerCard
             player={players[0]}
-            color={LUDO_COLORS[0]}
+            color={LUDO_COLORS[0]!}
             isActive={state.turn === 0}
             isUser
           />
@@ -123,7 +128,7 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         <div className="relative flex items-center gap-2 flex-row-reverse">
           <PlayerCard
             player={players[1]}
-            color={LUDO_COLORS[1]}
+            color={LUDO_COLORS[1]!}
             isActive={state.turn === 1}
           />
           {/* Active 5D Dice Attached to Seat 1 */}
@@ -158,7 +163,7 @@ function PlayerCard({
   isActive,
   isUser,
 }: {
-  player: any;
+  player: (LudoPlayerState & { name?: string; level?: number }) | undefined;
   color: string;
   isActive: boolean;
   isUser?: boolean;
@@ -173,7 +178,7 @@ function PlayerCard({
     >
       <div
         className="w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-xs"
-        style={{ borderColor: color, background: ${color}33 }}
+        style={{ borderColor: color, background: `${color}33` }}
       >
         {player?.name?.[0] ?? "P"}
       </div>
