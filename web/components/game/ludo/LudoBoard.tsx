@@ -2,6 +2,7 @@
 import { motion } from "framer-motion";
 import { FINISH_STEP, LUDO_COLORS, LUDO_NAMES, SAFE_CELLS, START_INDEX, trackCell, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
 import { LudoDice } from "./LudoDice";
+import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
 
 /**
  * LudoBoard — the beveled 3D wood board.
@@ -182,6 +183,7 @@ export function LudoBoard({
   canRollNow,
   onRoll,
   hubLabel,
+  seedCustom,
 }: {
   state: LudoGameState;
   selectable: readonly number[];
@@ -192,6 +194,8 @@ export function LudoBoard({
   onRoll: () => void;
   /** Centre-hub caption: "Tap to Roll" / "Rolling…" / "{Name} to roll". */
   hubLabel: string;
+  /** The local player's saved seed customization (animal + colour), applied to seat 0. */
+  seedCustom?: { animal?: string | null; color?: string | null } | null;
 }) {
   const rotation = BOARD_ROTATION;
   const pawns = buildPawns(state, selectable);
@@ -199,7 +203,7 @@ export function LudoBoard({
     <div className="relative select-none">
       {/* Beveled wooden frame (grain + light/shadow bevel via layered CSS) */}
       <div
-        className="relative rounded-[7%] p-[3.4%]"
+        className="relative rounded-[7%] p-[2%]"
         style={{
           ...WOOD_FRAME,
           transform: `rotate(${rotation}deg)`,
@@ -264,9 +268,9 @@ export function LudoBoard({
           height={5.72}
           rx={0.22}
           fill="none"
-          stroke="#FDE68A"
+          stroke={LUDO_COLORS[c]!}
           strokeWidth={0.14}
-          style={{ filter: "drop-shadow(0 0 2px rgba(253,230,138,.95))" }}
+          style={{ filter: `drop-shadow(0 0 4px ${LUDO_COLORS[c]!})` }}
         />
       ) : null}
     </g>
@@ -341,7 +345,7 @@ export function LudoBoard({
       animate={{ left: `${((p.x + dx) / GRID) * 100}%`, top: `${(p.y / GRID) * 100}%` }}
       transition={{ type: "spring", stiffness: 230, damping: 24, mass: 0.6 }}
       className="absolute z-20 aspect-square cursor-default place-items-center"
-      style={{ width: `${(100 / GRID) * 0.74}%`, transform: "translate(-50%,-50%)" }}
+      style={{ width: `${(100 / GRID) * 0.90}%`, transform: "translate(-50%,-50%)" }}
     >
       <motion.span
         key={`hop-${p.steps}`}
@@ -377,9 +381,10 @@ export function LudoBoard({
       </motion.span>
       {p.movable ? (
         <motion.span
-          className="pointer-events-none absolute inset-[-22%] rounded-full ring-2 ring-amber-300"
+          className="pointer-events-none absolute inset-[-22%] rounded-full ring-2"
           animate={{ scale: [1, 1.16, 1], opacity: [0.95, 0.4, 0.95] }}
           transition={{ repeat: Infinity, duration: 1.1 }}
+          style={{ borderColor: col, boxShadow: `0 0 14px ${col}` }}
         />
       ) : null}
       {p.stackCount > 1 && p.stackIndex === p.stackCount - 1 ? (
@@ -388,6 +393,14 @@ export function LudoBoard({
           style={{ transform: `rotate(${-BOARD_ROTATION}deg)` }}
         >
           ×{p.stackCount}
+        </span>
+      ) : null}
+      {p.color === 0 && seedCustom?.animal ? (
+        <span
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[16px] sm:text-[22px] leading-none pointer-events-none select-none"
+          style={{ filter: `drop-shadow(0 0 10px ${seedCustom.color})` }}
+        >
+          {SEED_ANIMALS.find((a) => a.key === seedCustom.animal)?.emoji ?? "🦁"}
         </span>
       ) : null}
     </motion.button>

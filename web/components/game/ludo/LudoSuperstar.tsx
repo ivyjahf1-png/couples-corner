@@ -15,6 +15,7 @@ import {
 import { potFor, TURN_SECONDS } from "@/lib/ludo/match";
 import { SEATS, botMoveDelay, botReaction, botThinkDelay, chooseBotMove, thinkSuffix } from "@/lib/ludo/bots";
 import {
+  announceRoll,
   narrateMove,
   playCapture,
   playHomeFanfare,
@@ -26,6 +27,7 @@ import {
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { LudoBoard } from "./LudoBoard";
 import { LudoPods } from "./LudoPods";
+import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
 import { LudoTopBar } from "./LudoTopBar";
 import { LudoLobby, LudoWinScreen, type LudoMode } from "./LudoLobby";
@@ -75,6 +77,9 @@ export function LudoSuperstar({
   // uploader writes photos, not avatar_url — so the primary photo's public
   // URL is the avatar source of truth here, with initials as the fallback. ──
   const [photoUrls, setPhotoUrls] = useState<(string | null)[]>([null, null, null, null]);
+  /** The local player's saved seed customization (animal + colour), applied to seat 0. */
+  const [seedCustom, setSeedCustom] = useState<{ animal?: string | null; color?: string | null } | null>(null);
+  const [seedCustomOpen, setSeedCustomOpen] = useState(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -83,7 +88,7 @@ export function LudoSuperstar({
     sb.auth.getUser().then(({ data }) => {
       const uid = data.user?.id ?? null;
       if (!alive || !uid) return;
-      sb.from("profiles").select("photos").eq("user_id", uid).maybeSingle().then(({ data: row }) => {
+      sb.from("profiles").select("photos, ludo_seed, ludo_seed_color").eq("user_id", uid).maybeSingle().then(({ data: row }) => {
         const photos = (row as { photos?: Array<{ storagePath?: string; publicUrl?: string }> | null } | null)?.photos;
         if (!alive || !Array.isArray(photos) || photos.length === 0) return;
         const primary = photos[0]!;
@@ -95,6 +100,10 @@ export function LudoSuperstar({
           const next = [...prev];
           next[0] = url;
           return next;
+        });
+        setSeedCustom({
+          animal: (row as { ludo_seed?: string | null })?.ludo_seed ?? null,
+          color: (row as { ludo_seed_color?: string | null })?.ludo_seed_color ?? null,
         });
       });
     });
@@ -269,6 +278,7 @@ export function LudoSuperstar({
         consecutiveSixes: d === 6 ? prev.consecutiveSixes + 1 : 0,
       }));
       setStatus(`${dName(color)} rolled a ${d}${d === 6 ? " 🔥" : ""}`);
+      announceRoll(d);
       later(() => resolveRoll(color, d), 460);
     }, 1000);
   };
@@ -398,7 +408,13 @@ export function LudoSuperstar({
 
   return (
     <div className="relative mx-auto w-full max-w-xl">
-      <LudoTopBar soundOn={soundOn} onToggleSound={toggleSound} onRestart={restart} onLeave={leave} />
+      <LudoTopBar
+        soundOn={soundOn}
+        onToggleSound={toggleSound}
+        onRestart={restart}
+        onLeave={leave}
+        onCustomizeSeed={() => setSeedCustomOpen(true)}
+      />
       {toast && (
         <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50">
           <div className="rounded-xl border border-white/20 bg-slate-900/90 px-3 py-1.5 text-[10px] font-black text-white shadow-2xl">
@@ -443,6 +459,7 @@ export function LudoSuperstar({
               canRollNow={humanCanAct}
               onRoll={handleRoll}
               hubLabel={hubLabel}
+              seedCustom={seedCustom}
             />
           </div>
           <LudoStatusBar
@@ -463,6 +480,16 @@ export function LudoSuperstar({
           ) : null}
         </>
       )}
+      <LudoSeedCustomizerModal
+        open={seedCustomOpen}
+        onClose={() => setSeedCustomOpen(false)}
+        currentAnimal={seedCustom?.animal ?? null}
+        currentColor={seedCustom?.color ?? null}
+        onSave={(animal, color) => {
+          setSeedCustom({ animal, color });
+          setSeedCustomOpen(false);
+        }}
+      />
     </div>
   );
 }

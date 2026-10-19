@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut } from "lucide-react";
+import { MoreHorizontal, RotateCcw, Settings, Volume2, VolumeX, X, LogOut, Gamepad2 } from "lucide-react";
 
 /**
  * LudoTopBar — in-game ACTION CLUSTER (deliberately NOT a header any more).
@@ -28,11 +28,14 @@ export function LudoTopBar({
   onToggleSound,
   onRestart,
   onLeave,
+  onCustomizeSeed,
 }: {
   soundOn: boolean;
   onToggleSound: () => void;
   onRestart: () => void;
   onLeave: () => void;
+  /** Open the seed customizer so the member can pick their animal + colour. */
+  onCustomizeSeed?: () => void;
 }) {
   const [open, setOpen] = useState<null | "settings" | "menu">(null);
 
@@ -47,6 +50,15 @@ export function LudoTopBar({
           className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/8 text-white backdrop-blur-md transition hover:bg-white/15 active:scale-95"
         >
           {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4 text-white/50" />}
+        </button>
+        <button
+          type="button"
+          onClick={onCustomizeSeed}
+          aria-label="Customize your Ludo seed"
+          className="grid h-9 w-9 place-items-center rounded-full border border-white/12 bg-white/8 text-white backdrop-blur-md transition hover:bg-white/15 active:scale-95"
+          title="Customize seed"
+        >
+          <Gamepad2 className="h-4 w-4" />
         </button>
         <button
           type="button"

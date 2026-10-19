@@ -86,6 +86,11 @@ export function applyMove(state: LudoGameState, color: LudoColor, tokenIdx: numb
   }
   const cell = trackCell(color, next);
   let captured = false;
+  // SAFE HOUSE RULE: every star tile (SAFE_CELLS — the four start squares plus
+  // their +8 star tiles) is an absolute safe house. A seed sitting on a star
+  // can never be captured; an opponent landing there simply shares the tile
+  // (or is blocked when two foes already occupy it). Only non-star track cells
+  // are eligible for capture.
   if (cell !== null && !SAFE_CELLS.has(cell)) {
     const foes = occupantsAt(state, cell, color);
     if (foes.length === 1) {

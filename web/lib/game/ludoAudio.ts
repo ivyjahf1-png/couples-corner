@@ -136,6 +136,33 @@ export function narrateMove(steps: number, stepMs = 260): void {
  * Dice roll rattle — a quick cluster of wooden clicks, like shaking a die in
  * a cup before it lands. ~0.6s, matching the dice tumble animation.
  */
+/**
+ * Announce the final rolled value exactly once (no sequential 1-2-3 counting).
+ * Prefers a bundled voice clip for the exact value, falls back to speaking the
+ * digit, plus a spoken-word label ("Six") for clarity. Called immediately when
+ * the die lands.
+ */
+export function announceRoll(n: number): void {
+  const value = Math.max(1, Math.min(6, Math.round(n)));
+  const label = ["", "One", "Two", "Three", "Four", "Five", "Six"][value]!;
+  if (muted || typeof window === "undefined") return;
+  void playClip(value).then((ok) => {
+    if (!ok) speak(value);
+  });
+  try {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(label);
+      u.rate = 1.05;
+      u.pitch = 1.15;
+      u.volume = 1;
+      window.speechSynthesis.speak(u);
+    }
+  } catch {
+    /* ignore */
+  };
+}
+
 export function playDiceRoll(): void {
   const ctx = getCtx();
   if (!ctx) return;

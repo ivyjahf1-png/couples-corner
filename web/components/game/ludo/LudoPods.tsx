@@ -81,9 +81,10 @@ export function LudoPods({
             <div
               className={`flex items-center gap-2 rounded-2xl border px-2 py-1.5 backdrop-blur-md transition ${
                 active
-                  ? "border-amber-300/70 bg-amber-500/12 shadow-[0_0_20px_rgba(251,191,36,.35)]"
+                  ? "border-white/60 bg-white/6"
                   : "border-white/12 bg-white/8"
               }`}
+              style={{ boxShadow: active ? `0 0 20px ${color}` : undefined }}
             >
               <div className="relative h-9 w-9 shrink-0">
                 <svg
@@ -98,7 +99,7 @@ export function LudoPods({
                       cy="21"
                       r="15.5"
                       fill="none"
-                      stroke="#FDE68A"
+                      stroke={color}
                       strokeWidth="3"
                       strokeLinecap="round"
                       strokeDasharray={RING_CIRC}
@@ -139,7 +140,10 @@ export function LudoPods({
                     Lv.{profile.level}
                   </span>
                   {isYou ? (
-                    <span className="rounded-full bg-sky-500/85 px-1.5 text-[8px] font-black leading-4 text-white">
+                    <span
+                      className="rounded-full px-1.5 text-[8px] font-black leading-4 text-white"
+                      style={{ background: color }}
+                    >
                       YOU
                     </span>
                   ) : null}
