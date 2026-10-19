@@ -5,7 +5,7 @@ import { LudoHud } from "./LudoHud";
 import { LudoEmojiBar } from "./LudoEmojiBar";
 import { LudoRealtimeManager } from "./LudoRealtime";
 import { soundEngine } from "./soundEngine";
-import { freshGame, type LudoGameState } from "@/lib/ludo/engine";
+import { freshGame, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
 
 interface LudoRoomProps {
   roomId: string;
@@ -33,6 +33,7 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
         console.log("Updated room players:", players);
       },
       (disconnectedUser) => {
+        void disconnectedUser;
         soundEngine.speakCommentary("Player disconnected. Reconnecting...");
       }
     );
@@ -71,8 +72,9 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
 
   /** Handle Pawn Selection & Move */
   const handleSelectToken = async (tokenIdx: number) => {
+    void tokenIdx;
     // Calculate new state after pawn move...
-    const nextTurn = (gameState.turn + 1) % 4;
+    const nextTurn = ((gameState.turn + 1) % 4) as LudoColor;
     const updatedState: LudoGameState = {
       ...gameState,
       turn: nextTurn,
