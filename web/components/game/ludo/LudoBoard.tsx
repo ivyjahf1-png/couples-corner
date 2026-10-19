@@ -33,6 +33,23 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Green)
 };
 
+/** Universal start gates (lock tiles) per the reference layout — visual lock
+ *  icons drawn on top of these track cells (game start cells are unchanged). */
+const START_GATES: Record<LudoColor, readonly [number, number]> = {
+  0: [6, 13], // Red  BL — bottom centre
+  1: [13, 8], // Blue BR — right centre
+  2: [8, 1],  // Yellow TR — top centre
+  3: [1, 6],  // Green TL — left centre
+};
+
+/** Turn-indicator arrows — from the board edge toward each home yard corner. */
+const TURN_ARROWS: Record<LudoColor, { from: [number, number]; to: [number, number] }> = {
+  0: { from: [1, 14], to: [3, 11] },   // Red  BL — bottom-left yard
+  1: { from: [14, 14], to: [12, 11] }, // Blue BR — bottom-right yard
+  2: { from: [14, 1], to: [12, 4] },   // Yellow TR — top-right yard
+  3: { from: [1, 1], to: [3, 4] },     // Green TL — top-left yard
+};
+
 /** Home corridors (6 cells each; color-aligned perfectly to each quadrant). */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
   0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red
@@ -257,6 +274,51 @@ export function LudoBoard({
               );
             })}
 
+            {/* Universal Start Gates — lock icons */}
+            {([0, 1, 2, 3] as const).map((c) => {
+              const [gc, gr] = START_GATES[c]!;
+              return (
+                <g key={`gate-${c}`}>
+                  <rect
+                    x={gc + 0.25}
+                    y={gr + 0.25}
+                    width={0.5}
+                    height={0.5}
+                    rx={0.12}
+                    fill={LUDO_COLORS[c]!}
+                    stroke="#FFFFFF"
+                    strokeWidth={0.04}
+                    style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[c]!})` }}
+                  />
+                  {/* Keyhole */}
+                  <circle cx={gc + 0.5} cy={gr + 0.4} r={0.05} fill="#FFFFFF" />
+                  <rect
+                    x={gc + 0.47}
+                    y={gr + 0.46}
+                    width={0.06}
+                    height={0.14}
+                    fill="#FFFFFF"
+                    rx={0.02}
+                  />
+                </g>
+              );
+            })}
+
+            {/* Red yard exit arrow curving onto the Red start gate [6, 13] */}
+            <path
+              d="M 2.6,12.2 Q 4.4,12.8 6.6,13.6"
+              fill="none"
+              stroke={LUDO_COLORS[0]!}
+              strokeWidth={0.1}
+              strokeLinecap="round"
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[0]!})` }}
+            />
+            <polygon
+              points="6.6,13.6 6.2,13.1 6.5,13.4 7.0,13.8 6.8,14.0"
+              fill={LUDO_COLORS[0]!}
+              style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[0]!})` }}
+            />
+
             {/* Home Corridors */}
             {([0, 1, 2, 3] as const).flatMap((c) =>
               HOME_PATH[c]!.map(([col, row], j) => {
@@ -270,6 +332,51 @@ export function LudoBoard({
                 );
               }),
             )}
+
+            {/* Turn indicator arrows — from board edge toward each home yard */}
+            {([0, 1, 2, 3] as const).map((c) => {
+              const active = state.turn === c && state.winner === null;
+              const ar = TURN_ARROWS[c]!;
+              const arrowCol = active ? "#22c55e" : LUDO_COLORS[c]!;
+              const [fx, fy] = ar.from;
+              const [tx, ty] = ar.to;
+              const dx = tx - fx;
+              const dy = ty - fy;
+              const len = Math.sqrt(dx * dx + dy * dy);
+              const ux = dx / len;
+              const uy = dy / len;
+              const ahx = tx - ux * 0.3;
+              const ahy = ty - uy * 0.3;
+              const px = -uy * 0.16;
+              const py = ux * 0.16;
+              return (
+                <g key={`turn-arrow-${c}`}>
+                  <line
+                    x1={fx}
+                    y1={fy}
+                    x2={ahx}
+                    y2={ahy}
+                    stroke={arrowCol}
+                    strokeWidth={0.14}
+                    strokeLinecap="round"
+                    style={
+                      active
+                        ? { filter: `drop-shadow(0 0 10px #22c55e)` }
+                        : undefined
+                    }
+                  />
+                  <polygon
+                    points={`${tx},${ty} ${ahx + px},${ahy + py} ${ahx - px},${ahy - py}`}
+                    fill={arrowCol}
+                    style={
+                      active
+                        ? { filter: `drop-shadow(0 0 10px #22c55e)` }
+                        : undefined
+                    }
+                  />
+                </g>
+              );
+            })}
 
             {/* Center Goal Triangles */}
             <polygon points="6,6 9,6 7.5,7.5" fill={LUDO_COLORS[3]!} stroke="#1F140A" strokeWidth={0.06} />

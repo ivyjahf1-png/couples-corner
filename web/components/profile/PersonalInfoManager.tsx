@@ -167,7 +167,7 @@ export function PersonalInfoManager({
     setFeedback(null);
     try {
       await updateOwnProfileAction(uid, {
-        displayName: formData.displayName.trim() || null,
+        displayName: formData.displayName.trim() || "",
         bio: formData.bio.trim() || null,
         interests: formData.interests,
         gender: formData.gender.trim() || null,
