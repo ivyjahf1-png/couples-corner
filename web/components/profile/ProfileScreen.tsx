@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
-import { ProfileGallery, type ProfilePhoto } from "@/components/profile/ProfileGallery";
+
 import { RelationInviteCard } from "@/components/profile/RelationInviteCard";
 import { WalletTile } from "@/components/profile/WalletTile";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
@@ -151,12 +151,7 @@ export interface ProfileScreenData {
    * Rendered verbatim; this product has no mutual-friend state to derive.
    */
   relation: string;
-  /** Ordered photos backing the full-bleed gallery (display_order ASC). */
-  photos: ProfilePhoto[];
-  /** Interest / hobby tags shown on the gallery overlay. */
-  hobbies: string[];
-  /** Online presence shown on the gallery overlay. */
-  isOnline: boolean;
+
 }
 
 /** "vip2" â†’ "VIP2"; "free" â†’ null so the VIP tile can show its empty state. */
@@ -350,18 +345,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
     /* THE ONLY GAP ON THIS SCREEN. Every vertical rhythm decision is made here;
        no descendant adds an outer margin of its own. */
     <div className="flex flex-col gap-3 pb-2">
-      {/* FULL-BLEED PHOTO GALLERY HERO above SURFACE 1. Server-supplied
-          photos keep this a Server Component; upload/delete/reorder refresh
-          via the page (router.refresh). */}
-      <ProfileGallery
-        photos={data.photos}
-        currentUserId={data.uid}
-        profileUserId={data.uid}
-        name={data.name}
-        avatarUrl={data.avatarUrl}
-        isOnline={data.isOnline}
-        hobbies={data.hobbies}
-      />
+
       {/* ================================================================ *
        * SURFACE 1 â€” identity and stats, ONE card.
        *
@@ -712,14 +696,14 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
           </li>
           <li>
             <Link
-              href="/profile"
+              href="/profile/personal-info"
               className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
             >
               <span className={ICON_CHIP}>
-                <ProfileIcon name="gallery" className="h-5 w-5" />
+                <ProfileIcon name="user" className="h-5 w-5" />
               </span>
               <span className="min-w-0 flex-1 text-sm font-semibold text-white">
-                Gallery
+                Personal info
               </span>
               <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
             </Link>
