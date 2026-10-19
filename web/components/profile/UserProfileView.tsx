@@ -31,7 +31,7 @@ export interface PublicProfileView {
   photos: PublicProfilePhoto[];
   /** Age in whole years, or null when it cannot be derived safely. */
   age: number | null;
-  /** Display gender, or null. Rendered as a ♀/♂ prefix on the age pill. */
+  /** Display gender, or null. Rendered as a â™€/â™‚ prefix on the age pill. */
   gender: string | null;
   /** Distance label, e.g. "< 0.1 km". Null when no location is shared. */
   distanceLabel: string | null;
@@ -54,7 +54,7 @@ export interface PublicProfileView {
   viewerUid: string | null;
   /** Relationship / status chip beside the name, e.g. "Single". */
   statusBadge: string | null;
-  /** Bio — the long-form copy under the tabs. */
+  /** Bio â€” the long-form copy under the tabs. */
   bio: string | null;
   /** Interest chips: the "About Me" tag cloud. */
   interests: string[];
@@ -68,16 +68,16 @@ export interface PublicProfileView {
 
 function hobbyIcon(label: string): string {
   const l = label.toLowerCase();
-  if (l.includes("video") || l.includes("photo") || l.includes("camera")) return "📷";
-  if (l.includes("music") || l.includes("hip hop") || l.includes("punk")) return "🎵";
-  if (l.includes("ping pong") || l.includes("sport")) return "🏓";
-  if (l.includes("climb") || l.includes("boulder")) return "🧗";
-  if (l.includes("festival") || l.includes("party")) return "🎉";
-  if (l.includes("cook") || l.includes("food")) return "🍳";
-  if (l.includes("travel")) return "✈️";
-  if (l.includes("read")) return "📚";
-  if (l.includes("game")) return "🎮";
-  return "✨";
+  if (l.includes("video") || l.includes("photo") || l.includes("camera")) return "ðŸ“·";
+  if (l.includes("music") || l.includes("hip hop") || l.includes("punk")) return "ðŸŽµ";
+  if (l.includes("ping pong") || l.includes("sport")) return "ðŸ“";
+  if (l.includes("climb") || l.includes("boulder")) return "ðŸ§—";
+  if (l.includes("festival") || l.includes("party")) return "ðŸŽ‰";
+  if (l.includes("cook") || l.includes("food")) return "ðŸ³";
+  if (l.includes("travel")) return "âœˆï¸";
+  if (l.includes("read")) return "ðŸ“š";
+  if (l.includes("game")) return "ðŸŽ®";
+  return "âœ¨";
 }
 const TONES = ["bg-amber-100 text-amber-800","bg-purple-100 text-purple-800","bg-sky-100 text-sky-800","bg-emerald-100 text-emerald-800","bg-rose-100 text-rose-800"];
 
@@ -87,17 +87,17 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
   /* Which frame of the (max four) header gallery is showing, tagged with the
      uid it belongs to. Keyed BY UID rather than reset in an effect: when a
      different member renders into this instance the uid no longer matches and
-     the read below falls back to 0 — the same reset, derived during render
+     the read below falls back to 0 â€” the same reset, derived during render
      instead of scheduled as a setState inside an effect. Reads are also
      clamped, so a stale index can never point past the gallery's end. */
   const [photoSel, setPhotoSel] = useState<{ uid: string; index: number }>({
     uid: view.uid,
     index: 0,
   });
-  /* Voice status player state — see `PublicProfileView.statusAudio`. */
+  /* Voice status player state â€” see `PublicProfileView.statusAudio`. */
   const [statusPlaying, setStatusPlaying] = useState(false);
   const statusAudioRef = useRef<HTMLAudioElement | null>(null);
-  // Array form, memoised: usePresence(ids[]) takes an ARRAY — a bare string
+  // Array form, memoised: usePresence(ids[]) takes an ARRAY â€” a bare string
   // would iterate its characters as ids and spam the presence action once per
   // character, hanging the profile. `useMemo` keeps the array identity stable
   // so the hook's refetch effect does not re-fire every render.
@@ -123,12 +123,12 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
 
   /* `photoSel` is keyed by uid: when a different member renders into this
      instance, `photoSel.uid` no longer matches and the fallback `0` below puts
-     them on their primary photo — no explicit reset needed. */
+     them on their primary photo â€” no explicit reset needed. */
   /* One clip per `statusAudio.src`. Recreated (and paused) whenever the source
      changes or the member navigates away, so a clip can never keep playing
      over a different profile. No setState appears in this body: the playing
      flag resets through the `pause` / `ended` MEDIA EVENTS, which is also what
-     a user-initiated pause fires — one code path for every reset. */
+     a user-initiated pause fires â€” one code path for every reset. */
   useEffect(() => {
     const src = view.statusAudio?.src ?? null;
     if (!src) return;
@@ -159,18 +159,18 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-slate-950 text-white">
       {/* LOCKED COLUMN: outer box never scrolls; the sheet below is the single
          overflow-y-auto region. A sticky action bar INSIDE the scroller traps
-         wheel/touch momentum on large phones — as a shrink-0 sibling it stays
+         wheel/touch momentum on large phones â€” as a shrink-0 sibling it stays
          pinned without intercepting the scroll gesture. The sibling also
          reserves the fixed tab bar's height in its own `mb`, so it rests flush
          ON TOP of the nav instead of behind it (see the action bar below). */}
       {/* THE SINGLE SCROLL REGION. Full mobile triad: `flex-1 min-h-0` keeps the
-          box bounded so it — not the page — is the scroller, `overflow-y-auto`
+          box bounded so it â€” not the page â€” is the scroller, `overflow-y-auto`
           makes it genuinely scrollable, and `overscroll-contain` stops the
           rubber-band chaining to the shell behind it.
 
           `[content-visibility:auto]` USED TO BE HERE AND IT BROKE SCROLLING.
           `auto` implies SIZE containment, and with no matching
-          `contain-intrinsic-size` every skipped subtree measures as ZERO tall —
+          `contain-intrinsic-size` every skipped subtree measures as ZERO tall â€”
           so this region's `scrollHeight` collapsed to its own height, the browser
           found nothing to scroll to, and a long profile looked frozen on exactly
           the low-end devices the hint was meant to help. Removed; the
@@ -178,20 +178,20 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
           `contain-intrinsic-size`. */}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y]">
       {/* Cover: capped height + layout containment so it never forces the sheet. */}
-      <div className="relative h-[52vh] max-h-[480px] min-h-[340px] w-full shrink-0 bg-slate-900 [contain:layout_style]">
+      <div className="relative h-80 max-h-[400px] w-full shrink-0 bg-slate-900 [contain:layout_style]">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover} alt={view.name} className="h-full w-full object-cover" />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-6xl font-bold text-white/30">{view.name.charAt(0).toUpperCase()}</div>
+          <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-white/30">{view.name.charAt(0).toUpperCase()}</div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-slate-950/90" />
+        {/* Back / more actions pinned to the top of the photo card */}
         <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <button type="button" onClick={goBack} aria-label="Go back" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-md transition hover:bg-black/50"><ArrowLeft className="h-5 w-5" /></button>
           <button type="button" aria-label="More options" className="flex h-10 w-10 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-md transition hover:bg-black/50"><MoreHorizontal className="h-5 w-5" /></button>
         </div>
         {selectablePhotos.length > 1 ? (
-          <div className="absolute bottom-28 left-4 z-20 flex gap-2">
+          <div className="absolute bottom-4 left-4 z-20 flex gap-2">
             {selectablePhotos.map((photo, idx) => (
               <button
                 key={idx}
@@ -208,7 +208,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
           </div>
         ) : null}
         {selectablePhotos.length > 1 ? (
-          <div className="absolute bottom-20 left-4 z-20 flex gap-1.5">
+          <div className="absolute bottom-10 left-4 z-20 flex gap-1.5">
             {selectablePhotos.map((_, idx) => (
               <span key={idx} className={idx === activePhoto ? "h-1 w-5 rounded-full bg-amber-400 transition-all" : "h-1 w-2 rounded-full bg-white/40 transition-all"} />
             ))}
@@ -216,7 +216,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
         ) : null}
       </div>
 
-      <div className="relative z-30 -mt-16 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-0 pb-6 pt-2 md:pb-8 [contain:layout_style]">
+      <div className="relative z-30 -mt-12 flex-1 rounded-t-3xl border-t border-white/10 bg-slate-950 px-0 pb-6 pt-2 md:pb-8 [contain:layout_style]">
         <ProfileHeader
           name={view.name}
           online={isOnline}
@@ -241,7 +241,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
               <h3 className="mb-3 text-sm font-bold text-white">Status</h3>
               {/* THE YELLOW AUDIO STATUS PILL.
                   With a real clip (`statusAudio`) it is a working play/pause
-                  player with a duration badge — no clip, no fake duration: the
+                  player with a duration badge â€” no clip, no fake duration: the
                   schema has no audio column yet, so the page passes null and
                   this degrades to the written status (the member's bio) or the
                   honest "No status yet" empty pill. */}

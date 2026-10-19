@@ -1736,9 +1736,15 @@ export function MediaFeed({
         </div>
       ) : null}
       {/* ------------------------------------- comment sheet (bottom overlay) */}
+      {/* Fixed + z-[200] + bottom padding matching SHEET_SHELL (layers.ts):
+          `absolute` kept the sheet inside the section's stacking context, so
+          the fixed nav bar (z-50) painted OVER the sheet's bottom edge and
+          swallowed taps on the composer. `fixed` lifts it to the viewport,
+          z-[200] puts it above the nav, and the pb clears the 5rem nav bar
+          plus the home-indicator inset. */}
       {commentsOpen && current ? (
         <div
-          className="absolute inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex flex-col justify-end bg-black/60 backdrop-blur-sm pb-[calc(5rem_+_env(safe-area-inset-bottom))]"
           role="dialog"
           aria-modal="true"
           aria-label="Comments"
