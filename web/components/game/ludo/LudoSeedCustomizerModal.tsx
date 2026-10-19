@@ -6,7 +6,6 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 /** The 20 collectible animal head shapes members can wear as their Ludo seed. */
 export type LudoSeedAnimal = {
-  /** Stable key written to `profiles.ludo_seed`. */
   key: string;
   emoji: string;
   label: string;
@@ -35,7 +34,6 @@ export const SEED_ANIMALS: LudoSeedAnimal[] = [
   { key: "shark", emoji: "🦈", label: "Shark" },
 ] as const;
 
-/** Preset colour swatches (the four board quadrant colours first). */
 const SEED_COLORS: string[] = [
   ...LUDO_COLORS,
   "#6366f1", // indigo
@@ -76,19 +74,7 @@ export function LudoSeedCustomizerModal({
 
   const selectAnimal = (key: string) => {
     setAnimal(key);
-    setColor(foundEmotionalColor(key));
   };
-
-  function foundEmotionalColor(key: string): string {
-    const map: Record<string, string> = {
-      lion: "#F59E0B", tiger: "#F97316", leopard: "#7C3AED", elephant: "#6B7280",
-      wolf: "#1F2937", dragon: "#DC2626", bear: "#92400E", eagle: "#0891B2",
-      panther: "#111827", bull: "#B91C1C", rhino: "#4B5563", hippo: "#78716C",
-      crocodile: "#15803D", gorilla: "#3F3F46", kangaroo: "#C026D3", panda: "#F1F5F9",
-      zebra: "#334155", fox: "#EA580C", owl: "#6366F1", shark: "#0EA5E9",
-    };
-    return map[key] ?? LUDO_COLORS[0]!;
-  }
 
   const pickColor = (value: string) => {
     setColor(value);
@@ -117,9 +103,11 @@ export function LudoSeedCustomizerModal({
 
   if (!open) return null;
 
+  const selectedAnimalObj = SEED_ANIMALS.find((a) => a.key === animal) ?? SEED_ANIMALS[0]!;
+
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center"
+      className="fixed inset-0 z-[90] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="seed-customizer-title"
@@ -129,14 +117,12 @@ export function LudoSeedCustomizerModal({
         type="button"
         aria-label="Close seed customizer"
         onClick={onClose}
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity"
+        className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity"
       />
-      <div
-        className="relative w-full max-w-md rounded-3xl border border-white/20 bg-slate-900/95 p-5 text-white shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in duration-300"
-      >
+      <div className="relative w-full max-w-md rounded-3xl border border-white/20 bg-slate-900/95 p-5 text-white shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in duration-300 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 id="seed-customizer-title" className="text-lg font-black tracking-tight">
-            Customize your seed
+            AAA 5D Seed Customizer
           </h2>
           <button
             type="button"
@@ -144,16 +130,69 @@ export function LudoSeedCustomizerModal({
             onClick={onClose}
             className="rounded-full p-1 text-white/50 hover:text-white transition"
           >
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Animal selection */}
+        {/* Live Tall & Slim 3D Pawn Preview Box */}
+        <div className="mb-5 flex flex-col items-center justify-center rounded-2xl border border-white/15 bg-gradient-to-b from-white/5 to-white/0 p-5 shadow-inner">
+          <p className="mb-3 text-xs font-black uppercase tracking-wider text-amber-400">
+            Live Tall & Slim 3D Preview
+          </p>
+          
+          {/* Tall & Slim Multi-Tiered Pawn Figure */}
+          <div className="relative flex flex-col items-center justify-end w-16 h-32 my-1">
+            {/* Ground Shadow */}
+            <span className="absolute bottom-0 h-2.5 w-12 rounded-[50%] bg-black/70 blur-[1.5px]" />
+
+            {/* Glossy Spherical Head with Animal Emoji */}
+            <span
+              className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border border-white/70 shadow-md"
+              style={{
+                background: `radial-gradient(circle at 32% 28%, #ffffff 0%, ${color} 60%, rgba(0,0,0,0.7) 100%)`,
+              }}
+            >
+              <span className="text-lg drop-shadow-sm select-none">{selectedAnimalObj.emoji}</span>
+            </span>
+
+            {/* Upper Slim Conical Tier */}
+            <span
+              className="relative -mt-0.5 h-8 w-8 border-x border-white/30 shadow-inner"
+              style={{
+                clipPath: "polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%)",
+                background: `linear-gradient(90deg, rgba(0,0,0,0.35), ${color} 50%, rgba(255,255,255,0.45))`,
+              }}
+            />
+
+            {/* Lower Slim Conical Tier */}
+            <span
+              className="relative -mt-0.5 h-9 w-12 border-x border-white/30 shadow-inner"
+              style={{
+                clipPath: "polygon(22% 0%, 78% 0%, 100% 100%, 0% 100%)",
+                background: `linear-gradient(90deg, rgba(0,0,0,0.4), ${color} 50%, rgba(255,255,255,0.35))`,
+              }}
+            />
+
+            {/* Slim Weighted Base */}
+            <span
+              className="relative -mt-0.5 h-4 w-16 rounded-full border border-white/60 shadow-xl"
+              style={{
+                background: `linear-gradient(180deg, ${color} 0%, rgba(0,0,0,0.7) 100%)`,
+              }}
+            />
+          </div>
+
+          <span className="mt-2 text-sm font-extrabold text-white/90">
+            {selectedAnimalObj.label} Pawn
+          </span>
+        </div>
+
+        {/* Animal Shape Selection Grid */}
         <div className="mb-4">
           <p className="mb-2 text-xs font-black uppercase tracking-wider text-white/50">
-            Animal shape
+            Choose Animal Head Shape
           </p>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-5 gap-2 max-h-40 overflow-y-auto pr-1">
             {SEED_ANIMALS.map((a) => {
               const active = animal === a.key;
               return (
@@ -165,36 +204,33 @@ export function LudoSeedCustomizerModal({
                   onClick={() => selectAnimal(a.key)}
                   className={`flex flex-col items-center gap-1 p-2 rounded-xl transition ${
                     active
-                      ? "border-2 border-amber-300 bg-amber-900/30 shadow-[0_0_16px_rgba(251,191,36,.35)]"
+                      ? "border-2 border-amber-400 bg-amber-500/20 shadow-[0_0_14px_rgba(251,191,36,.4)]"
                       : "border border-white/10 hover:border-white/30 hover:bg-white/5"
                   }`}
                 >
-                  <span className="text-2xl leading-none">{a.emoji}</span>
-                  <span className="text-[10px] font-semibold">{a.label}</span>
+                  <span className="text-xl leading-none">{a.emoji}</span>
+                  <span className="text-[9px] font-semibold truncate w-full text-center">{a.label}</span>
                 </button>
               );
             })}
           </div>
         </div>
-        {/* Colour selection */}
-        <div className="mb-4">
+
+        {/* Colour Selection */}
+        <div className="mb-5">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-black uppercase tracking-wider text-white/50">
-              Seed colour
+              Seed Colour Scheme
             </p>
             <button
               type="button"
-              aria-label="Open colour picker"
-              onClick={() => {
-                const input = document.getElementById("seed-color-picker");
-                input?.click();
-              }}
-              className="flex items-center gap-1 rounded bg-white/8 px-2 py-1 text-xs font-bold text-white hover:bg-white/12 transition"
+              onClick={() => document.getElementById("seed-color-picker")?.click()}
+              className="flex items-center gap-1 rounded bg-white/10 px-2 py-1 text-xs font-bold text-white hover:bg-white/20 transition"
             >
-              <Palette className="h-3 w-3" /> Pick custom
+              <Palette className="h-3 w-3" /> Custom Hex
             </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-2">
             {SEED_COLORS.map((value) => {
               const active = color === value;
               return (
@@ -203,42 +239,22 @@ export function LudoSeedCustomizerModal({
                   type="button"
                   aria-pressed={active}
                   onClick={() => pickColor(value)}
-                  className={`h-6 w-6 rounded-full border ring-offset-2 transition ${
+                  className={`h-7 w-7 rounded-full border ring-offset-2 transition ${
                     active
-                      ? "ring-2 ring-white ring-offset-white/5"
-                      : "border-white/20 hover:border-white/50"
-                  }`} style={{ background: value }} />
+                      ? "ring-2 ring-amber-300 ring-offset-slate-900 scale-110"
+                      : "border-white/20 hover:scale-105"
+                  }`}
+                  style={{ background: value }}
+                />
               );
             })}
-            {/* Native colour picker (hidden input, triggered by the button above). */}
             <input
               id="seed-color-picker"
               type="color"
-              defaultValue={customColor}
+              value={customColor}
               className="sr-only"
               onChange={(e) => pickColor(e.target.value)}
             />
-          </div>
-        </div>
-
-        {/* Preview */}
-        <div className="mb-5 rounded-2xl border border-white/10 bg-white/5 p-3">
-          <p className="mb-2 text-xs font-black uppercase tracking-wider text-white/50">
-            Preview
-          </p>
-          <div className="flex items-center gap-3">
-            <span
-              className={`text-6xl leading-none drop-shadow-lg ${
-                SEED_ANIMALS.find((a) => a.key === animal)?.emoji ?? "🦁"
-              }`}
-              style={{ filter: `drop-shadow(0 0 12px ${color})` }}
-            />
-            <div className="flex flex-col">
-              <span className="text-sm font-bold">
-                {SEED_ANIMALS.find((a) => a.key === animal)?.label}
-              </span>
-              <span className="text-[10px] text-white/50">{color}</span>
-            </div>
           </div>
         </div>
 
@@ -248,7 +264,7 @@ export function LudoSeedCustomizerModal({
             type="button"
             disabled={saving}
             onClick={onClose}
-            className="flex-1 rounded-xl bg-white/8 px-3 py-2.5 text-sm font-black text-white/75 transition hover:bg-white/12 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-white/10 px-3 py-2.5 text-sm font-black text-white/80 transition hover:bg-white/15 disabled:opacity-50"
           >
             Cancel
           </button>
@@ -256,20 +272,19 @@ export function LudoSeedCustomizerModal({
             type="button"
             disabled={saving}
             onClick={handleSave}
-            className="flex-1 rounded-xl bg-gradient-to-b from-amber-400 to-amber-600 px-3 py-2.5 text-sm font-black uppercase tracking-wide text-white shadow-[0_8px_24px_rgba(249,115,22,.45)] transition active:scale-[.98] disabled:opacity-60"
+            className="flex-1 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 px-3 py-2.5 text-sm font-black uppercase tracking-wide text-white shadow-[0_6px_20px_rgba(249,115,22,.5)] transition active:scale-[.98] disabled:opacity-60"
           >
-            {saved ? <Check className="h-3.5 w-3.5 mr-1.5" /> : <Gamepad2 className="h-3.5 w-3.5 mr-1.5" />}
-            {saving ? "Saving…" : saved ? "Saved" : "Save seed"}
+            {saved ? <Check className="h-4 w-4 inline mr-1" /> : <Gamepad2 className="h-4 w-4 inline mr-1" />}
+            {saving ? "Saving..." : saved ? "Saved!" : "Save Seed"}
           </button>
         </div>
 
         {saved && !saving && (
-          <p className="mt-3 text-[10px] text-emerald-400 font-semibold text-center">
-            Seed saved — it will appear in your next match.
+          <p className="mt-3 text-[11px] text-emerald-400 font-bold text-center animate-pulse">
+            Seed customized successfully! It will appear in your matches.
           </p>
         )}
       </div>
     </div>
   );
 }
-
