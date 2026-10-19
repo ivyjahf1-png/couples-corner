@@ -294,6 +294,13 @@ export function LudoBoard({
           opacity={isStart ? 0.95 : 0.85}
         />
       ) : null}
+      {isStart ? (
+        <g fill="none">
+          <rect x={col + 0.4} y={row + 0.34} width={0.2} height={0.22} rx={0.05} fill="#B45309" stroke="#2A1E0F" strokeWidth={0.05} />
+          <path d={`M${col + 0.42} ${row + 0.38} Q${col + 0.5} ${row + 0.2} ${col + 0.58} ${row + 0.38}`} stroke="#B45309" strokeWidth={0.06} strokeLinecap="round" />
+          <circle cx={col + 0.5} cy={row + 0.49} r={0.04} fill="#2A1E0F" />
+        </g>
+      ) : null}
     </g>
   );
 })}

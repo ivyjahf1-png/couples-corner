@@ -66,6 +66,7 @@ export function LudoSuperstar({
   const [clock, setClock] = useState(TURN_SECONDS);
   const [soundOn, setSoundOn] = useState(true);
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
   const [winnerSeat, setWinnerSeat] = useState<LudoColor | null>(null);
 
   // ── Custom photo avatar for the local player (seat 0), from the profile
@@ -136,6 +137,11 @@ export function LudoSuperstar({
     const id = (burstIdRef.current += 1);
     setBursts((b) => [...b, { id, emoji }]);
     later(() => setBursts((b) => b.filter((x) => x.id !== id)), 1600);
+  };
+
+  const showToast = (msg: string, ms = 1200): void => {
+    setToast(msg);
+    later(() => setToast(null), ms);
   };
 
   const finishTurn = (color: LudoColor): void => {
@@ -216,8 +222,13 @@ export function LudoSuperstar({
     }
     const opts = movableTokens(g, color, d);
     if (opts.length === 0) {
+      showToast("No valid moves — passing turn", 1200);
+      busyRef.current = false;
+      setBusy(false);
+      rollingRef.current = false;
+      setRolling(false);
       setStatus(`${dName(color)} can't move — the turn passes.`);
-      later(() => finishTurn(color), 1000);
+      later(() => finishTurn(color), 1200);
       return;
     }
     if (opts.length === 1) {
@@ -388,6 +399,13 @@ export function LudoSuperstar({
   return (
     <div className="relative mx-auto w-full max-w-xl">
       <LudoTopBar soundOn={soundOn} onToggleSound={toggleSound} onRestart={restart} onLeave={leave} />
+      {toast && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50">
+          <div className="rounded-xl border border-white/20 bg-slate-900/90 px-3 py-1.5 text-[10px] font-black text-white shadow-2xl">
+            {toast}
+          </div>
+        </div>
+      )}
       {phase === "menu" ? (
         <div className="mt-4">
           <LudoLobby

@@ -710,6 +710,20 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
             </Link>
           </li>
+          <li>
+            <Link
+              href="/profile"
+              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
+            >
+              <span className={ICON_CHIP}>
+                <ProfileIcon name="gallery" className="h-5 w-5" />
+              </span>
+              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
+                Gallery
+              </span>
+              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
+            </Link>
+          </li>
 
           <li>
             <Link

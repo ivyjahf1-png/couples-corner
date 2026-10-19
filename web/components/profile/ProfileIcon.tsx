@@ -15,6 +15,7 @@ import {
   Gem,
   Headset,
   Heart,
+  Image,
   Leaf,
   ListChecks,
   LucideIcon,
@@ -29,7 +30,6 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-
 /**
  * Icon bridge for the profile Server Component.
  *
@@ -75,6 +75,7 @@ export type ProfileIconName =
   | "wallet"
   | "store"
   | "bag"
+  | "gallery"
   | "level"
   | "star"
   | "trending-up"
@@ -108,6 +109,7 @@ const ICONS: Record<ProfileIconName, LucideIcon> = {
   wallet: Wallet,
   store: ShoppingCart,
   bag: ShoppingBag,
+  gallery: Image,
   level: Star,
   star: Star,
   "trending-up": TrendingUp,
