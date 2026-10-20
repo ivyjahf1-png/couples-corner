@@ -468,6 +468,7 @@ export function LudoSuperstar({
               canRollNow={humanCanAct}
               onRoll={handleRoll}
               hubLabel={hubLabel}
+              names={names}
             />
             <LudoBoard
               state={game}

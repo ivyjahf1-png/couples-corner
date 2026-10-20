@@ -2,7 +2,8 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LudoDice } from "./LudoDice";
-import { type LudoGameState, type LudoColor } from "@/lib/ludo/engine";
+import { LUDO_COLORS, type LudoGameState, type LudoColor } from "@/lib/ludo/engine";
+import { SEATS } from "@/lib/ludo/bots";
 
 interface LudoHudProps {
   state: LudoGameState;
@@ -11,6 +12,21 @@ interface LudoHudProps {
   canRollNow: boolean;
   onRoll: () => void;
   hubLabel: string;
+  /** Optional per-seat display names from the lobby; index matches seat number. */
+  names?: readonly string[];
+}
+
+/** Initials for a display name (custom friend names render the same way as
+ *  the bot personas: first letters of up to two words, uppercase). */
+function initialsOf(name: string): string {
+  return (
+    name
+      .split(/[\s&]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("") || "P"
+  );
 }
 
 export const LudoHud: React.FC<LudoHudProps> = ({
@@ -20,17 +36,17 @@ export const LudoHud: React.FC<LudoHudProps> = ({
   canRollNow,
   onRoll,
   hubLabel,
+  names,
 }: LudoHudProps) => {
-  const players = state.players;
   const activeTurn = state.turn as LudoColor;
 
-  const getPlayerByColor = (colorKey: string) => {
-    if (!players) return undefined;
-    if (Array.isArray(players)) {
-      const found = players.find((p: any) => p?.color === colorKey);
-      if (found) return found;
-    }
-    return (players as Record<string, any>)[colorKey];
+  /**
+   * Seat display name. Seat 0 is always "You" (the device holder); seats 1-3
+   * fall back to the bot persona name and can be renamed from the lobby.
+   */
+  const seatName = (seat: LudoColor): string => {
+    if (seat === 0) return "You";
+    return names?.[seat] ?? SEATS[seat].name;
   };
 
   return (
@@ -44,11 +60,10 @@ export const LudoHud: React.FC<LudoHudProps> = ({
       {/* TOP ROW: GREEN (Top-Left) & YELLOW (Top-Right) */}
       <div className="flex items-center justify-between w-full">
         <PlayerSeatCard
-          player={getPlayerByColor("green") ?? (players as any)?.[3]}
-          color="#22C55E"
-          name="Green"
-          colorKey="green"
-          isActive={activeTurn === 3 || activeTurn === ("green" as any)}
+          color={LUDO_COLORS[3]}
+          name={seatName(3)}
+          level={SEATS[3].level}
+          isActive={activeTurn === 3}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -57,11 +72,10 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         />
 
         <PlayerSeatCard
-          player={getPlayerByColor("yellow") ?? (players as any)?.[2]}
-          color="#EAB308"
-          name="Yellow"
-          colorKey="yellow"
-          isActive={activeTurn === 2 || activeTurn === ("yellow" as any)}
+          color={LUDO_COLORS[2]}
+          name={seatName(2)}
+          level={SEATS[2].level}
+          isActive={activeTurn === 2}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -73,11 +87,10 @@ export const LudoHud: React.FC<LudoHudProps> = ({
       {/* BOTTOM ROW: RED (Bottom-Left) & BLUE (Bottom-Right) */}
       <div className="flex items-center justify-between w-full">
         <PlayerSeatCard
-          player={getPlayerByColor("red") ?? (players as any)?.[0]}
-          color="#EF4444"
-          name="You"
-          colorKey="red"
-          isActive={activeTurn === 0 || activeTurn === ("red" as any)}
+          color={LUDO_COLORS[0]}
+          name={seatName(0)}
+          level={SEATS[0].level}
+          isActive={activeTurn === 0}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -87,11 +100,10 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         />
 
         <PlayerSeatCard
-          player={getPlayerByColor("blue") ?? (players as any)?.[1]}
-          color="#3B82F6"
-          name="Blue"
-          colorKey="blue"
-          isActive={activeTurn === 1 || activeTurn === ("blue" as any)}
+          color={LUDO_COLORS[1]}
+          name={seatName(1)}
+          level={SEATS[1].level}
+          isActive={activeTurn === 1}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -104,9 +116,9 @@ export const LudoHud: React.FC<LudoHudProps> = ({
 };
 
 function PlayerSeatCard({
-  player,
   color,
   name,
+  level,
   isActive,
   dice,
   rolling,
@@ -115,10 +127,10 @@ function PlayerSeatCard({
   align,
   isUser,
 }: {
-  player: any;
   color: string;
   name: string;
-  colorKey: string;
+  /** Seat level shown under the player name. */
+  level: number;
   isActive: boolean;
   dice: number;
   rolling: boolean;
@@ -139,14 +151,14 @@ function PlayerSeatCard({
           className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-xs shadow-inner"
           style={{ borderColor: color, background: `${color}33`, color: "#ffffff" }}
         >
-          {player?.name?.[0] ?? name[0]}
+          {initialsOf(name)}
         </div>
         <div className="flex flex-col">
           <span className="text-xs font-black text-white truncate max-w-[70px]">
-            {isUser ? "You" : player?.name ?? name}
+            {isUser ? "You" : name}
           </span>
           <span className="text-[10px] font-semibold" style={{ color: color }}>
-            Lv.{player?.level ?? 1}
+            Lv.{level}
           </span>
         </div>
       </div>
