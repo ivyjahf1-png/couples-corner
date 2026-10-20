@@ -1,10 +1,10 @@
 export type LudoColor = 0 | 1 | 2 | 3;
 /**
  * Quadrant-consistent geometry (15×15 board, see TRACK_PATH in LudoBoard):
- * seat 0 Red   → BOTTOM-LEFT base, left home corridor,  start cell 22 = (6,13)
- * seat 1 Blue  → BOTTOM-RIGHT base, bottom corridor,     start cell 35 = (13,8)
- * seat 2 Yellow→ TOP-RIGHT base, right corridor,         start cell 48 = (8,1)
- * seat 3 Green → TOP-LEFT base, top corridor,            start cell 9  = (1,6)
+ * seat 0 Red   → BOTTOM-LEFT base, left home corridor,  start gate 19 = (6,10)
+ * seat 1 Blue  → BOTTOM-RIGHT base, bottom corridor,     start gate 32 = (10,8)
+ * seat 2 Yellow→ TOP-RIGHT base, right corridor,         start gate 45 = (8,4)
+ * seat 3 Green → TOP-LEFT base, top corridor,            start gate 6  = (4,6)
  * Turn order 0→1→2→3 then laps the board once (BL → BR → TR → TL).
  *
  * Each start sits on the horizontal/vertical track tile immediately outside
@@ -13,9 +13,9 @@ export type LudoColor = 0 | 1 | 2 | 3;
  */
 export const LUDO_COLORS = ["#ef4444", "#3b82f6", "#eab308", "#22c55e"] as const;
 export const LUDO_NAMES = ["Red", "Blue", "Yellow", "Green"] as const;
-export const START_INDEX: readonly number[] = [22, 35, 48, 9];
-/** Start squares {22,35,48,9} plus their +8 star tiles {30,43,4,17}. */
-export const SAFE_CELLS: ReadonlySet<number> = new Set([4, 9, 17, 22, 30, 35, 43, 48]);
+export const START_INDEX: readonly number[] = [19, 32, 45, 6];
+/** Start gates {19,32,45,6} plus their +8 star tiles {27,40,1,14}. */
+export const SAFE_CELLS: ReadonlySet<number> = new Set([1, 6, 14, 19, 27, 32, 40, 45]);
 export const TRACK_LEN = 52;
 export const HOME_STRETCH = 6;
 export const FINISH_STEP = 57;
@@ -31,8 +31,8 @@ export type LudoRules = "classic" | "arrow";
  * Arrow Mode shortcuts: track-cell index → track-cell index (fixed +8 jump).
  *
  * Geometry (verified against TRACK_PATH in LudoBoard):
- *   tails {23, 36, 49, 10} = [6,14], [14,8], [8,0], [0,6]  (edge cells)
- *   heads {31, 44, 5, 18}  = [9,8], [8,5], [5,6], [6,9]    (one arm inward)
+ *   tails {20, 33, 46, 7} = (6,11), (11,8), (8,3), (3,6)  (one per quadrant)
+ *   heads {28, 41, 2, 15} = (8,12), (11,6), (6,3), (3,8)  (tail + 8 jump)
  * 4-fold rotational symmetry (13 apart = quarter board), one shortcut per
  * quadrant, each curving toward the central goal diamond.
  *
@@ -41,14 +41,14 @@ export type LudoRules = "classic" | "arrow";
  * {v, v+13, v+26, v+39} with v <= 3 here (Red {1,14,27,40}, Blue {40,1,14,27},
  * Yellow {27,40,1,14}, Green {14,27,40,1}) — max 40, so head steps <= 48,
  * always strictly forward, never into the home stretch. None of the 8 cells
- * overlap START_INDEX {22,35,48,9} or SAFE_CELLS, so safe-house and capture
+ * overlap START_INDEX {19,32,45,6} or SAFE_CELLS, so safe-house and capture
  * rules need no changes.
  */
 export const ARROW_SHORTCUTS: Readonly<Record<number, number>> = {
-  23: 31,
-  36: 44,
-  49: 5,
-  10: 18,
+  20: 28,
+  33: 41,
+  46: 2,
+  7: 15,
 };
 
 export interface LudoToken { steps: number; }

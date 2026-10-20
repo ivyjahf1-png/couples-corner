@@ -28,7 +28,7 @@ import {
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { LudoBoard } from "./LudoBoard";
 import { LudoHud } from "./LudoHud";
-import { LudoPods } from "./LudoPods";
+import { soundEngine } from "./soundEngine";
 import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
 import { LudoTopBar } from "./LudoTopBar";
@@ -69,7 +69,9 @@ export function LudoSuperstar({
   const [rolling, setRolling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Pick a mode and stake to play.");
-  const [clock, setClock] = useState(TURN_SECONDS);
+  /** Turn timer — the value itself is never rendered (the countdown only drives
+   *  `houseAct` on expiry), so the state value is discarded via a destructure hole. */
+  const [, setClock] = useState(TURN_SECONDS);
   const [soundOn, setSoundOn] = useState(true);
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -147,6 +149,8 @@ export function LudoSuperstar({
   const dName = (c: LudoColor): string => names[c] ?? SEATS[c].name;
 
   const pushBurst = (emoji: string): void => {
+    // Emoji tap → synthesised SFX + live commentator voice.
+    soundEngine.playEmojiAudio(emoji);
     const id = (burstIdRef.current += 1);
     setBursts((b) => [...b, { id, emoji }]);
     later(() => setBursts((b) => b.filter((x) => x.id !== id)), 1600);
@@ -187,8 +191,14 @@ export function LudoSuperstar({
     setSelectable([]);
     selectableRef.current = [];
     narrateMove(d);
-    if (res.captured) playCapture();
-    if (res.finished) playHomeFanfare(false);
+    if (res.captured) {
+      playCapture();
+      soundEngine.announceCapture();
+    }
+    if (res.finished) {
+      playHomeFanfare(false);
+      soundEngine.announceHome();
+    }
     if (!res.captured && !res.finished) {
       const cell = trackCell(color, g.players[color]!.tokens[idx]!.steps);
       if (cell !== null && SAFE_CELLS.has(cell)) playSafeChime();
@@ -323,6 +333,7 @@ export function LudoSuperstar({
     clearTimers();
     primeAudio();
     setAudioMuted(!soundOn);
+    soundEngine.setMuted(!soundOn);
     claimedRef.current = false;
     busyRef.current = false;
     setBusy(false);
@@ -359,6 +370,7 @@ export function LudoSuperstar({
     const next = !soundOn;
     setSoundOn(next);
     setAudioMuted(!next);
+    soundEngine.setMuted(!next);
   };
   /* Bot driver: when a bot holds the dice and everything is idle, think → roll. */
   useEffect(() => {
@@ -446,16 +458,9 @@ export function LudoSuperstar({
         </div>
       ) : (
         <>
-          {/* Corner pods reserved in the padding bands; board centred between */}
-          <div className="relative mt-3 pb-14 pt-14">
-            <LudoPods
-              state={game}
-              activeSeat={game.turn}
-              clock={clock}
-              photoUrls={photoUrls}
-              activeSeats={activeSeats}
-              names={names}
-            />
+          {/* Player HUD (seat cards + the active player's attached dice) sits
+              directly above the board; the old floating corner pods are gone. */}
+          <div className="relative mt-3">
             <LudoHud
               state={game}
               dice={game.dice}
