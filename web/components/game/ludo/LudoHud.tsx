@@ -2,7 +2,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { LudoDice } from "./LudoDice";
-import { LUDO_COLORS, LUDO_NAMES, type LudoGameState, type LudoColor, type LudoPlayerState } from "@/lib/ludo/engine";
+import { type LudoGameState, type LudoColor } from "@/lib/ludo/engine";
 
 interface LudoHudProps {
   state: LudoGameState;
@@ -24,23 +24,31 @@ export const LudoHud: React.FC<LudoHudProps> = ({
   const players = state.players;
   const activeTurn = state.turn as LudoColor;
 
+  const getPlayerByColor = (colorKey: string) => {
+    if (!players) return undefined;
+    if (Array.isArray(players)) {
+      const found = players.find((p: any) => p?.color === colorKey);
+      if (found) return found;
+    }
+    return (players as Record<string, any>)[colorKey];
+  };
+
   return (
-    <div className="w-full max-w-[460px] mx-auto flex flex-col gap-2.5 px-1">
-      {/* Turn/status prompt from the caller (e.g. "Tap to Roll", "Pick a pawn",
-          "Room {id}") — the member's only signal for what to do next. */}
+    <div className="w-full max-w-[450px] mx-auto flex flex-col gap-3 px-1">
       {hubLabel ? (
         <p className="text-center text-[11px] font-bold uppercase tracking-widest text-white/50">
           {hubLabel}
         </p>
       ) : null}
-      {/* Top Row: Green (3) & Yellow (2) */}
-      <div className="flex items-center justify-between">
-        {/* Green Player (Seat 3) */}
+
+      {/* TOP ROW: GREEN (Top-Left) & YELLOW (Top-Right) */}
+      <div className="flex items-center justify-between w-full">
         <PlayerSeatCard
-          player={players[3]}
-          color={LUDO_COLORS[3]}
-          name={LUDO_NAMES[3]}
-          isActive={activeTurn === 3}
+          player={getPlayerByColor("green") ?? (players as any)?.[3]}
+          color="#22C55E"
+          name="Green"
+          colorKey="green"
+          isActive={activeTurn === 3 || activeTurn === ("green" as any)}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -48,12 +56,12 @@ export const LudoHud: React.FC<LudoHudProps> = ({
           align="left"
         />
 
-        {/* Yellow Player (Seat 2) */}
         <PlayerSeatCard
-          player={players[2]}
-          color={LUDO_COLORS[2]}
-          name={LUDO_NAMES[2]}
-          isActive={activeTurn === 2}
+          player={getPlayerByColor("yellow") ?? (players as any)?.[2]}
+          color="#EAB308"
+          name="Yellow"
+          colorKey="yellow"
+          isActive={activeTurn === 2 || activeTurn === ("yellow" as any)}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -62,14 +70,14 @@ export const LudoHud: React.FC<LudoHudProps> = ({
         />
       </div>
 
-      {/* Bottom Row: Red (0 - You) & Blue (1) */}
-      <div className="flex items-center justify-between">
-        {/* Red Player / You (Seat 0) */}
+      {/* BOTTOM ROW: RED (Bottom-Left) & BLUE (Bottom-Right) */}
+      <div className="flex items-center justify-between w-full">
         <PlayerSeatCard
-          player={players[0]}
-          color={LUDO_COLORS[0]}
+          player={getPlayerByColor("red") ?? (players as any)?.[0]}
+          color="#EF4444"
           name="You"
-          isActive={activeTurn === 0}
+          colorKey="red"
+          isActive={activeTurn === 0 || activeTurn === ("red" as any)}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -78,12 +86,12 @@ export const LudoHud: React.FC<LudoHudProps> = ({
           isUser
         />
 
-        {/* Blue Player (Seat 1) */}
         <PlayerSeatCard
-          player={players[1]}
-          color={LUDO_COLORS[1]}
-          name={LUDO_NAMES[1]}
-          isActive={activeTurn === 1}
+          player={getPlayerByColor("blue") ?? (players as any)?.[1]}
+          color="#3B82F6"
+          name="Blue"
+          colorKey="blue"
+          isActive={activeTurn === 1 || activeTurn === ("blue" as any)}
           dice={dice}
           rolling={rolling}
           canRollNow={canRollNow}
@@ -107,9 +115,10 @@ function PlayerSeatCard({
   align,
   isUser,
 }: {
-  player: (LudoPlayerState & { name?: string; level?: number }) | undefined;
+  player: any;
   color: string;
   name: string;
+  colorKey: string;
   isActive: boolean;
   dice: number;
   rolling: boolean;
@@ -120,17 +129,15 @@ function PlayerSeatCard({
 }) {
   return (
     <div className={`relative flex items-center gap-2 ${align === "right" ? "flex-row-reverse" : "flex-row"}`}>
-      {/* Player Profile Card */}
       <div
-        className={`flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/90 border transition-all ${
-          isActive
-            ? "border-amber-400 shadow-[0_0_18px_rgba(251,191,36,0.4)] scale-105"
-            : "border-white/10 opacity-80"
+        className={`flex items-center gap-2 px-3 py-2 rounded-2xl bg-slate-900/95 border transition-all ${
+          isActive ? "shadow-lg scale-105" : "border-white/10 opacity-80"
         }`}
+        style={{ borderColor: isActive ? color : "rgba(255,255,255,0.1)" }}
       >
         <div
-          className="w-9 h-9 rounded-full border-2 flex items-center justify-center font-bold text-xs"
-          style={{ borderColor: color, background: `${color}33` }}
+          className="w-8 h-8 rounded-full border-2 flex items-center justify-center font-bold text-xs shadow-inner"
+          style={{ borderColor: color, background: `${color}33`, color: "#ffffff" }}
         >
           {player?.name?.[0] ?? name[0]}
         </div>
@@ -138,13 +145,12 @@ function PlayerSeatCard({
           <span className="text-xs font-black text-white truncate max-w-[70px]">
             {isUser ? "You" : player?.name ?? name}
           </span>
-          <span className="text-[10px] text-amber-300 font-semibold">
+          <span className="text-[10px] font-semibold" style={{ color: color }}>
             Lv.{player?.level ?? 1}
           </span>
         </div>
       </div>
 
-      {/* 5D Dice attached directly beside ONLY the active player */}
       <AnimatePresence>
         {isActive && (
           <motion.div
@@ -157,14 +163,16 @@ function PlayerSeatCard({
               type="button"
               onClick={onRoll}
               disabled={!canRollNow}
-              className="relative flex items-center justify-center p-1.5 rounded-2xl bg-slate-950/95 border-2 shadow-xl active:scale-95 transition"
-              style={{ borderColor: color, boxShadow: `0 0 20px ${color}66` }}
+              className="relative flex items-center justify-center p-1.5 rounded-2xl bg-slate-950/95 border-2 shadow-xl active:scale-95 transition cursor-pointer"
+              style={{ borderColor: color, boxShadow: `0 0 15px ${color}88` }}
             >
-              <LudoDice value={dice} rolling={rolling} active={canRollNow} size={42} />
+              <LudoDice value={dice} rolling={rolling} active={canRollNow} size={38} />
             </button>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
-};
+}
+
+export default LudoHud;
