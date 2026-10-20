@@ -39,6 +39,18 @@ export interface ActionResult {
    */
   code?: string;
   /**
+   * How many MORE coins the member needs, when the refusal was a coin
+   * shortfall.
+   *
+   * Like `code`, this exists so the client can BEHAVE rather than PARSE. The
+   * server already knows the exact number; the pointing-bot banner states it
+   * above the coin price list. Without it the client would either re-derive
+   * the number from a second balance query (racy — the balance can change
+   * between the refusal and the read) or scrape it out of the English error
+   * message, which breaks the moment the sentence is reworded.
+   */
+  shortfall?: number;
+  /**
    * The persisted row, on a successful send.
    *
    * Returning it is what makes the sender's own bubble appear with the SAME id
@@ -104,6 +116,9 @@ export async function sendMessageAction(params: {
       // ChatRoomClient). Dropping it here would force the client to pattern-
       // match on human text — which breaks the moment a message is reworded.
       code: (error as { code?: string } | null)?.code,
+      // The exact coin shortfall, carried through for the pointing-bot banner.
+      // See the `shortfall` field on `ActionResult`.
+      shortfall: (error as { shortfall?: number } | null)?.shortfall,
     };
   }
 }

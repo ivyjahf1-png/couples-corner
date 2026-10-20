@@ -6,6 +6,7 @@ import {
   type SubscriptionTierName,
   type WalletView,
 } from "@/lib/models/wallet";
+import { formatNaira } from "@/lib/wallet/coin-packs";
 
 /**
  * Wallet menu — uniform tier + coin balance chip and the purchase drawer.
@@ -210,7 +211,7 @@ export function WalletMenu({
                     <p className="text-xs text-amber-300">🪙 {pack.coins.toLocaleString()} coins</p>
                   </div>
                   <span className="rounded-xl bg-[#FF5722] px-4 py-2 text-sm font-semibold shadow-lg shadow-[#FF5722]/25">
-                    ₦{pack.priceNgn.toFixed(2)}
+                    {formatNaira(pack.priceNgn)}
                   </span>
                 </button>
               ))}
@@ -271,7 +272,7 @@ export function WalletMenu({
             </p>
             <p className="mt-4 text-4xl font-bold">
               {checkout.type === "coins" ? (
-                <span className="text-[#FF5722]">₦{checkout.pack.priceNgn.toFixed(2)}</span>
+                <span className="text-[#FF5722]">{formatNaira(checkout.pack.priceNgn)}</span>
               ) : (
                 <span className="text-[#FF5722]">${(checkout.upgrade.priceUsd).toFixed(2)}</span>
               )}

@@ -137,6 +137,11 @@ export function GiftDrawer({
   /* Auto-opened when the server refuses with `reason: "insufficient"` — the
      notice below states the exact shortfall, this sheet is the one-tap fix. */
   const [coinModalOpen, setCoinModalOpen] = useState(false);
+  /* The shortfall — how many more coins the member needs — captured at the
+     moment the server refuses the gift. It drives the pointing-bot banner in
+     the top-up sheet. Null means "no refusal recorded", which is what keeps
+     the banner out of the sheet when it is opened as a plain browse. */
+  const [shortfall, setShortfall] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -150,6 +155,7 @@ export function GiftDrawer({
     setTab("gift");
     setQuantity(1);
     setNotice(null);
+    setShortfall(null);
     setBalance(coinBalance);
     setSelectedId(
       GIFTS.find((gift) => gift.price <= coinBalance)?.id ?? GIFTS[0]?.id ?? null
@@ -185,7 +191,13 @@ export function GiftDrawer({
            coins". On an insufficient-balance refusal the top-up sheet also
            opens so the fix is one tap away. */
         setNotice(result.error ?? "Couldn't send the gift");
-        if (result.reason === "insufficient") setCoinModalOpen(true);
+        if (result.reason === "insufficient") {
+          /* Capture the shortfall for the pointing-bot banner. The server's
+             balance is authoritative, so the number is computed against THAT,
+             not against the optimistic one. */
+          setShortfall(Math.max(0, total - (result.coinBalance ?? balance)));
+          setCoinModalOpen(true);
+        }
         return;
       }
       /* Optimistic debit. The server action already revalidates the path, so this
@@ -352,7 +364,15 @@ export function GiftDrawer({
       {/* The coin top-up sheet, auto-opened on an insufficient-balance refusal.
           The drawer's own notice above still shows the exact shortfall; this
           overlay is the one-tap fix. */}
-      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
+      <CoinTopUpModal
+        open={coinModalOpen}
+        onClose={() => setCoinModalOpen(false)}
+        /* THE SHORTFALL drives the pointing-bot banner above the price list.
+           It is computed from the server's own balance, not the optimistic
+           one, so the number the banner states is the number the server
+           actually charged against. */
+        shortfall={shortfall}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { COIN_PACKS, resolveCoinPack } from "@/lib/wallet/coin-packs";
 import type { Subscription, SubscriptionPeriod } from "@/lib/models/subscription";
 import { getPlanByTier } from "@/lib/models/subscription";
 
@@ -130,19 +131,19 @@ export const TIER_RANK: Record<SubscriptionTierName, number> = {
   vip: 2,
 };
 
-/** Coin packs purchasable from the wallet drawer (server-authoritative).
- * Prices are in Nigerian Naira (NGN). No third-party wallet names are used. */
-export const COIN_PACKS: { id: string; coins: number; priceNgn: number; label: string }[] = [
-  { id: "pack_500", coins: 500, priceNgn: 772.24, label: "500 Coins" },
-  { id: "pack_1000", coins: 1000, priceNgn: 1560.24, label: "1,000 Coins" },
-  { id: "pack_2000", coins: 2000, priceNgn: 3136.24, label: "2,000 Coins" },
-  { id: "pack_5000", coins: 5000, priceNgn: 7864.24, label: "5,000 Coins" },
-  { id: "pack_10000", coins: 10000, priceNgn: 15744.24, label: "10,000 Coins" },
-  { id: "pack_20000", coins: 20000, priceNgn: 31504.24, label: "20,000 Coins" },
-  { id: "pack_50000", coins: 50000, priceNgn: 78784.24, label: "50,000 Coins" },
-  { id: "pack_100000", coins: 100000, priceNgn: 157584.24, label: "100,000 Coins" },
-  { id: "pack_200000", coins: 200000, priceNgn: 315184.24, label: "200,000 Coins" },
-];
+/**
+ * Coin packs purchasable from the wallet drawer.
+ *
+ * PRICING IS NOT DECLARED HERE. The pack list lives in
+ * `lib/wallet/coin-packs.ts`, which the client components import too — so the
+ * price a member READS and the price the server CHARGES are the same value
+ * from the same array, by construction.
+ *
+ * This re-export exists so the existing `from "@/lib/server/subscription"`
+ * import sites keep working unchanged, and so the server module remains the
+ * one place that imports server-only code around the purchase path.
+ */
+export { COIN_PACKS, resolveCoinPack };
 
 /** One-time tier upgrades (server-authoritative). */
 export const TIER_UPGRADES: { tier: SubscriptionTierName; priceUsd: number; perks: string[] }[] = [
@@ -232,7 +233,11 @@ export async function purchaseCoinPack(
   userId: string,
   packId: string
 ): Promise<WalletView> {
-  const pack = COIN_PACKS.find((p) => p.id === packId);
+  /* Resolved from the SHARED catalogue (`lib/wallet/coin-packs`), not from a
+     copy of it. The client only ever names a pack id; the coins credited and
+     the price charged are both read from the same array the client displayed,
+     so a tampered request cannot buy a different amount than it quoted. */
+  const pack = resolveCoinPack(packId);
   if (!pack) throw new Error("Unknown coin pack");
 
   const supabase = getSupabaseServerClient();

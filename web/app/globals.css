@@ -1877,9 +1877,94 @@ button,
   from { transform: translateY(16px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+/* --- The pointing bot (insufficient-coins banner) ----------------------
+   Purely decorative. Every keyframe animates `transform` and/or `opacity`
+   ONLY, because the banner sits directly above a list of coin prices: a
+   keyframe that animated `width`, `height` or `top` would force a layout
+   pass on every frame and make that list jitter. Transforms are composited,
+   so the whole sequence runs off the main thread.
+
+   The classes are named `cc-bot-*` rather than reusing the Ludo `cc-*`
+   animations, because the motions are unrelated and a shared name would
+   couple two features that have nothing to do with each other.
+
+   The reduced-motion block below drops all of them and leaves the banner as
+   a still image with its message intact — the information never depended on
+   the movement, which is exactly why the movement can be removed. */
+@keyframes cc-bot-point {
+  0%, 55%, 100% { transform: rotate(0deg); }
+  20%           { transform: rotate(-14deg); }
+  38%           { transform: rotate(4deg); }
+}
+@keyframes cc-bot-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5px); }
+}
+@keyframes cc-bot-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.12); }
+}
+@keyframes cc-bot-talk {
+  0%, 100% { transform: scaleY(1); }
+  50%      { transform: scaleY(0.45); }
+}
+@keyframes cc-bot-finger-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  45%      { opacity: 1;    transform: scale(1.45); }
+}
+
+.cc-bot-arm {
+  /* `transform-box: fill-box` makes the rotation pivot the ARM's own box
+     rather than the SVG origin, so the shoulder stays anchored while the
+     hand swings. Without it the whole arm orbits the top-left corner and
+     the bot appears to fall apart. */
+  transform-box: fill-box;
+  transform-origin: 0% 50%;
+  animation: cc-bot-point 2.4s ease-in-out infinite;
+}
+.cc-bot-body-group {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: cc-bot-bob 2.4s ease-in-out infinite;
+}
+.cc-bot-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: cc-bot-bob 2.4s ease-in-out infinite;
+}
+.cc-bot-antenna {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: cc-bot-bob 2.4s ease-in-out infinite;
+}
+.cc-bot-eyes {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: cc-bot-blink 4.8s ease-in-out infinite;
+}
+.cc-bot-mouth {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: cc-bot-talk 2.4s ease-in-out infinite;
+}
+.cc-bot-finger {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: cc-bot-finger-pulse 2.4s ease-in-out infinite;
+}
+
 /* Safety net: any cc-* decorative animation is dropped under reduced motion. */
 @media (prefers-reduced-motion: reduce) {
   [class*="animate-[cc-"] {
+    animation: none;
+  }
+  .cc-bot-arm,
+  .cc-bot-body-group,
+  .cc-bot-head,
+  .cc-bot-antenna,
+  .cc-bot-eyes,
+  .cc-bot-mouth,
+  .cc-bot-finger {
     animation: none;
   }
 }

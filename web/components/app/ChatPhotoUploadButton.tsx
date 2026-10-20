@@ -48,7 +48,29 @@ export function ChatPhotoUploadButton({
         body: "📷 Photo",
         image_url: imageUrl,
       });
-      if (insertError) throw insertError;
+      /* FALLBACK FOR A MISSING `image_url` COLUMN.
+
+         `image_url` was added by migration 056. If a database has not had that
+         migration applied, the insert fails with "column image_url does not
+         exist" — and the member's photo is lost even though it uploaded
+         perfectly to storage. Retrying WITHOUT the column still delivers the
+         message (the photo is in the bucket, and the body fallback is what old
+         bubbles render), which is strictly better than losing the send.
+
+         The error is matched on the COLUMN NAME rather than swallowed
+         wholesale: a permissions or RLS failure must NOT be retried without
+         the column, because that second attempt would fail for the same
+         reason and would hide the real error behind a fallback. */
+      if (insertError && /image_url|column .* does not exist/i.test(insertError.message)) {
+        const { error: fallbackError } = await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          sender_id: currentUserId,
+          body: "📷 Photo",
+        });
+        if (fallbackError) throw fallbackError;
+      } else if (insertError) {
+        throw insertError;
+      }
     } catch (err) {
       console.error("[chat] photo upload failed", err);
     } finally {

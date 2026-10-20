@@ -427,6 +427,12 @@ export async function sendMessage(params: {
             `you need ${shortfall.toLocaleString()} more. Top up your wallet and try again.`
         );
         (error as { code?: string }).code = "INSUFFICIENT_COINS";
+        /* The shortfall is attached to the error as a NUMBER as well as being
+           written into the message text. The message is for reading; the
+           number is for BEHAVIOUR — it is what the pointing-bot banner states
+           above the coin price list, and a client that had to parse it back
+           out of English would break the moment the sentence is reworded. */
+        (error as { shortfall?: number }).shortfall = Math.max(0, shortfall);
         throw error;
       }
       // The wallet service itself failed — never blame the member's balance

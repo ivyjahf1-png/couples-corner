@@ -750,6 +750,11 @@ export default function ChatRoomClient({
      `sendMessageAction`). The inline error above still states the exact
      shortfall; this modal is the immediate fix for it. */
   const [coinModalOpen, setCoinModalOpen] = useState(false);
+  /* How many MORE coins the member needs, captured at the moment of the
+     refusal. Drives the pointing-bot banner above the price list in the top-up
+     sheet. Null means "no refusal recorded", which keeps the banner out of the
+     sheet when it is opened as a plain browse rather than by a refusal. */
+  const [shortfall, setShortfall] = useState<number | null>(null);
   /* Gift drawer visibility. It is a local modal, so its state belongs here rather
      than in the composer or the server - the page has no reason to know about it. */
   const [giftOpen, setGiftOpen] = useState(false);
@@ -976,8 +981,13 @@ export default function ChatRoomClient({
         setError(result.error ?? "That message could not be sent.");
         /* A coin-gated send (direct intro) reports `INSUFFICIENT_COINS` — open
            the top-up sheet so the member can fix the balance immediately. The
-           exact shortfall stays visible in the inline error above. */
-        if (result.code === "INSUFFICIENT_COINS") setCoinModalOpen(true);
+           exact shortfall stays visible in the inline error above, AND is
+           handed to the sheet so the pointing-bot banner can state the number
+           above the price list. */
+        if (result.code === "INSUFFICIENT_COINS") {
+          setShortfall(result.shortfall ?? null);
+          setCoinModalOpen(true);
+        }
         return;
       }
       /* Paint the sender's own bubble NOW, from the returned row, rather than
@@ -1657,7 +1667,12 @@ export default function ChatRoomClient({
       {/* The coin top-up sheet, auto-opened when a send is refused for lack of
           coins. An overlay above the thread, so the exact shortfall in the
           error text stays visible behind it. */}
-      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
+      <CoinTopUpModal
+        open={coinModalOpen}
+        onClose={() => setCoinModalOpen(false)}
+        /* The shortfall drives the pointing-bot banner above the price list. */
+        shortfall={shortfall}
+      />
 
       {/* THE GIFT DRAWER. Mounted as the LAST child of the locked column so it
           paints above the header, the thread and the composer, and so its fixed
