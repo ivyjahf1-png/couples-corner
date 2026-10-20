@@ -2,199 +2,365 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRealtimeMessages } from "@/lib/hooks/useRealtimeMessages";
-import { getSupabaseClient } from "@/lib/supabase/client";
-import { CoinTopUpModal } from "@/components/app/CoinTopUpModal";
-import { sendMessageAction } from "@/lib/actions/messaging";
-import type { ChatStarter } from "@/lib/feature/types";
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Image as ImageIcon,
+  Gift,
+  Smile,
+  Send,
+  Phone,
+  Video,
+  AlertTriangle,
+  X,
+  Volume2,
+} from "lucide-react";
 
 interface Message {
   id: string;
   sender_id: string;
-  body: string | null;
+  content: string;
   created_at: string;
+  gift_id?: string | null;
 }
 
 interface LiveChatThreadProps {
   conversationId: string;
-  starter: ChatStarter | null;
-  currentUserId: string;
-  initialMessages: Message[];
-}
-
-interface RenderedMessage {
-  id: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
+  recipient: {
+    id: string;
+    name: string;
+    avatarUrl?: string;
+    isOnline?: boolean;
+  };
+  currentUser: {
+    id: string;
+    coins: number;
+  };
+  initialMessages?: Message[];
+  onSendMessageAction?: (
+    content: string,
+    giftId?: string
+  ) => Promise<{ success: boolean; error?: string; remainingCoins?: number }>;
 }
 
 export function LiveChatThread({
   conversationId,
-  starter,
-  currentUserId,
-  initialMessages,
+  recipient,
+  currentUser,
+  initialMessages = [],
+  onSendMessageAction,
 }: LiveChatThreadProps) {
-  const supabase = getSupabaseClient();
-  const isSupabaseReady = supabase !== null;
-  const { messages: realtimeMessages, isConnected } = useRealtimeMessages({
-    conversationId,
-    enabled: isSupabaseReady,
-  });
+  const router = useRouter();
+  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [text, setText] = useState("");
+  const [userCoins, setUserCoins] = useState(currentUser.coins);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
-  const [localMessages, setLocalMessages] = useState<RenderedMessage[]>(
-    () =>
-      initialMessages.map((m) => ({
-        id: m.id,
-        sender_id: m.sender_id,
-        body: m.body ?? "",
-        created_at: m.created_at,
-      }))
-  );
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  /* WHY THIS EXISTS. `handleUseStarter` used to swallow failures into
-     console.error — the member tapped "Use this starter" and, when the send
-     was refused (e.g. a direct-intro coin gate), NOTHING appeared on screen.
-     A failure the member cannot see is indistinguishable from a feature that
-     is broken; the refusal now renders directly under the starter card,
-     verbatim from the server. */
-  const [sendError, setSendError] = useState<string | null>(null);
-  const [coinModalOpen, setCoinModalOpen] = useState(false);
-
+  // 1. Mobile Browser Dynamic Viewport & Keyboard Height Listener
   useEffect(() => {
-    setLocalMessages((prev) => {
-      const seen = new Set(prev.map((m) => m.id));
-      const incoming = realtimeMessages
-        .filter((m) => !seen.has(m.id))
-        .map((m) => ({
-          id: m.id,
-          sender_id: m.sender_id,
-          body: m.body ?? "",
-          created_at: m.created_at,
-        }));
-      return prev.concat(incoming);
-    });
-  }, [realtimeMessages]);
+    if (typeof window === "undefined" || !window.visualViewport) return;
 
-  const merged = localMessages
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() -
-        new Date(b.created_at).getTime()
-    );
+    const handleResize = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      }
+    };
 
-  const messageCount = merged.length;
+    handleResize();
+    window.visualViewport.addEventListener("resize", handleResize);
+    window.visualViewport.addEventListener("scroll", handleResize);
 
-  async function handleUseStarter() {
-    if (!starter) return;
-    setSendError(null);
-    const result = await sendMessageAction({ conversationId, body: starter.body });
-    if (!result.ok) {
-      console.error(
-        "[LiveChatThread] starter send failed",
-        result.error ?? "Unknown error",
-      );
-      /* The server's exact reason goes to the member, not just the console.
-         A coin-gated refusal additionally opens the top-up sheet. */
-      setSendError(result.error ?? "That starter could not be sent. Please try again.");
-      if (result.code === "INSUFFICIENT_COINS") setCoinModalOpen(true);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", handleResize);
+      window.visualViewport?.removeEventListener("scroll", handleResize);
+    };
+  }, []);
+
+  // 2. Auto-scroll to bottom on new messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, errorMessage]);
+
+  // 3. Auto-expanding Textarea height handler
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setText(e.target.value);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${Math.min(
+        textareaRef.current.scrollHeight,
+        120
+      )}px`;
     }
-  }
+  };
+
+  // 4. Send Message Handler with Explicit Error Capture
+  const handleSend = async (messageText?: string) => {
+    const payload = (messageText || text).trim();
+    if (!payload || isSubmitting) return;
+
+    setErrorMessage(null);
+    setIsSubmitting(true);
+
+    try {
+      if (onSendMessageAction) {
+        const res = await onSendMessageAction(payload);
+        if (!res.success) {
+          setErrorMessage(
+            res.error || "Message declined. Please check your coin balance."
+          );
+          setIsSubmitting(false);
+          return;
+        }
+        if (typeof res.remainingCoins === "number") {
+          setUserCoins(res.remainingCoins);
+        }
+      } else {
+        // Fallback API Route Call
+        const res = await fetch("/api/chat/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            conversationId,
+            recipientId: recipient.id,
+            content: payload,
+            messageCost: 10,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          setErrorMessage(
+            data.error || "Could not send message. Please try again."
+          );
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (data.message) {
+          setMessages((prev) => [...prev, data.message]);
+        }
+        if (typeof data.remainingCoins === "number") {
+          setUserCoins(data.remainingCoins);
+        }
+      }
+
+      setText("");
+      if (textareaRef.current) {
+        textareaRef.current.style.height = "auto";
+      }
+    } catch (err: any) {
+      setErrorMessage(
+        "Network connection failed. Please check your signal and try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
-    <div className="flex flex-1 flex-col min-h-0">
-      <div className="flex items-center justify-between border-b border-ink-700/70 px-1 py-2">
-        <span className="text-xs text-ink-400">
-          {messageCount} message{messageCount === 1 ? "" : "s"}
-        </span>
-        <span className="flex items-center gap-1.5 text-xs">
-          <span
-            className={[
-              "h-2 w-2 rounded-full",
-              isConnected ? "bg-success-500" : "bg-white/20",
-            ].join(" ")}
-            aria-hidden
-          />
-          <span
-            className={isConnected ? "text-success-300" : "text-ink-400"}
+    <div
+      className="relative mx-auto flex w-full max-w-md flex-col overflow-hidden bg-[#0F172A] text-white"
+      style={{
+        height: viewportHeight ? `${viewportHeight}px` : "100dvh",
+      }}
+    >
+      {/* HEADER BAR */}
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#0F172A]/90 px-4 backdrop-blur-xl z-20">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-white/80 transition hover:bg-white/10"
           >
-            {isConnected ? "Live" : "Connecting…"}
-          </span>
-        </span>
-      </div>
+            <ArrowLeft className="h-5 w-5" />
+          </button>
 
-      {messageCount === 0 && starter ? (
-        <div className="mx-4 mt-4 flex max-w-[88%] flex-col gap-1.5 rounded-2xl border border-ink-700 bg-surface/60 px-4 py-3 backdrop-blur-sm">
-          <p className="text-sm leading-relaxed text-white">{starter.body}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-ink-400">Just for you 💌</span>
-            <button
-              type="button"
-              aria-label="Send this starter"
-              className="text-[11px] font-medium text-orange-300 transition hover:text-orange-200"
-              onClick={handleUseStarter}
-            >
-              Use this starter
-            </button>
+          <div className="flex items-center gap-2.5">
+            <div className="relative h-10 w-10 overflow-hidden rounded-full border border-white/20 bg-slate-800">
+              {recipient.avatarUrl ? (
+                <img
+                  src={recipient.avatarUrl}
+                  alt={recipient.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-sm font-bold text-amber-300">
+                  {recipient.name[0]?.toUpperCase()}
+                </div>
+              )}
+              {recipient.isOnline && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 border-2 border-[#0F172A]" />
+              )}
+            </div>
+
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-white leading-tight">
+                {recipient.name}
+              </span>
+              <span className="text-[11px] text-white/50">
+                {recipient.isOnline ? "Online" : "Offline"}
+              </span>
+            </div>
           </div>
         </div>
-      ) : null}
 
-      {/* SEND REFUSAL. Rendered verbatim from the server — e.g. the exact
-          direct-intro shortfall — directly under the starter card that failed
-          to send. Previously this went to the console only. */}
-      {sendError ? (
-        <p
-          role="alert"
-          className="mx-4 mt-3 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs leading-5 text-rose-300"
-        >
-          {sendError}
-        </p>
-      ) : null}
+        <div className="flex items-center gap-2 text-white/70">
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition"
+          >
+            <Phone className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition"
+          >
+            <Video className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
 
-      {/* Coin top-up sheet, auto-opened on an INSUFFICIENT_COINS refusal. */}
-      <CoinTopUpModal open={coinModalOpen} onClose={() => setCoinModalOpen(false)} />
+      {/* CHAT MESSAGES SCROLL AREA */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 space-y-3 overscroll-contain">
+        {/* Scam Warning Banner */}
+        <div className="flex items-start gap-2.5 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3.5 text-xs text-amber-200/90 leading-relaxed">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+          <span>
+            This user might be trying to scam you. Watch out for asks for money,
+            personal details, or weird links. Be careful!
+          </span>
+        </div>
 
-      <ul
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-4 py-3 scrollbar-thin [-webkit-overflow-scrolling:touch]"
-        aria-label="Messages"
-        role="log"
-      >
-        {merged.map((message) => {
-          const isMine = message.sender_id === currentUserId;
+        {/* Message History */}
+        {messages.map((msg) => {
+          const isMine = msg.sender_id === currentUser.id;
           return (
-            <li
-              key={message.id}
-              className={isMine ? "flex justify-end" : "flex justify-start"}
+            <div
+              key={msg.id}
+              className={`flex flex-col ${
+                isMine ? "items-end" : "items-start"
+              }`}
             >
               <div
-                className={[
-                  "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-6 sm:max-w-[70%]",
+                className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-md ${
                   isMine
-                    ? "rounded-br-md bg-brand-700 text-white"
-                    : "rounded-bl-md border border-ink-700 bg-surface text-white",
-                ].join(" ")}
+                    ? "bg-[#FF5722] text-white rounded-br-none"
+                    : "bg-slate-800 text-white/90 border border-white/10 rounded-bl-none"
+                }`}
               >
-                {message.body}
-                <span
-                  aria-hidden
-                  className={[
-                    "mt-1 block text-[11px]",
-                    isMine ? "text-white/70" : "text-ink-400",
-                  ].join(" ")}
-                >
-                  {new Date(message.created_at).toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+                {msg.content}
               </div>
-            </li>
+              <span className="mt-1 text-[10px] text-white/40 px-1">
+                {new Date(msg.created_at).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
           );
         })}
-      </ul>
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* INPUT & FOOTER BAR (STAYS PINNED ABOVE MOBILE KEYBOARD) */}
+      <div className="sticky bottom-0 left-0 right-0 z-30 w-full shrink-0 border-t border-white/10 bg-[#0F172A]/95 px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
+        {/* EXPLICIT ERROR BANNER */}
+        {errorMessage && (
+          <div className="mb-2 flex items-center justify-between rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-300">
+            <span className="leading-tight pr-2">{errorMessage}</span>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="p-1 text-red-300/70 hover:text-red-200"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Quick Suggestion Chips */}
+        <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar text-xs">
+          {["hey dear are you single?", "Nice to meet you", "Good day!"].map(
+            (chip) => (
+              <button
+                key={chip}
+                type="button"
+                onClick={() => handleSend(chip)}
+                className="rounded-full border border-white/15 bg-white/5 px-3.5 py-1.5 whitespace-nowrap text-white/80 transition hover:border-[#FF5722]/50 hover:bg-white/10 active:scale-95"
+              >
+                {chip}
+              </button>
+            )
+          )}
+        </div>
+
+        {/* INPUT CONTROL ROW */}
+        <div className="flex items-end gap-2">
+          {/* Media & Gift Buttons */}
+          <div className="flex items-center gap-1 pb-1.5 text-white/60">
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-white"
+            >
+              <ImageIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-amber-400"
+            >
+              <Gift className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* FLUID AUTO-EXPANDING TEXT BOX */}
+          <div className="flex flex-1 min-w-0 items-center gap-2 rounded-2xl border border-white/15 bg-slate-900/90 px-3 py-2 transition-all focus-within:border-[#FF5722] shadow-inner">
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={text}
+              onChange={handleTextChange}
+              onKeyDown={handleKeyDown}
+              placeholder="Type a message..."
+              disabled={isSubmitting}
+              className="w-full resize-none bg-transparent py-0.5 text-sm leading-relaxed text-white placeholder-white/40 focus:outline-none max-h-28 overflow-y-auto"
+            />
+            <button
+              type="button"
+              className="text-white/40 transition hover:text-white pb-0.5"
+            >
+              <Smile className="h-5 w-5" />
+            </button>
+          </div>
+
+          {/* SEND BUTTON */}
+          <button
+            type="button"
+            onClick={() => handleSend()}
+            disabled={!text.trim() || isSubmitting}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full shadow-lg transition-all active:scale-95 ${
+              text.trim() && !isSubmitting
+                ? "bg-[#FF5722] text-white shadow-[#FF5722]/30"
+                : "bg-white/10 text-white/30 cursor-not-allowed"
+            }`}
+          >
+            <Send className="h-4 w-4 fill-current ml-0.5" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

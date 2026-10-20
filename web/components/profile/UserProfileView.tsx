@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, MoreHorizontal, Play, Pause, Copy, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, MoreHorizontal, Play, Pause, CheckCircle2 } from "lucide-react";
 import { ProfileChatButton, ProfileFollowButton } from "@/components/profile/PublicProfileActions";
+import { CopyIdButton } from "@/components/profile/CopyIdButton";
 import { usePresence } from "@/lib/hooks/usePresence";
 import { isPresenceOnline } from "@/lib/presence";
 
@@ -121,19 +122,26 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
     }
   }
 
-  const copyId = () => {
-    if (view.uid) {
-      navigator.clipboard.writeText(view.uid);
-    }
-  };
+
 
   return (
     <div className="relative mx-auto flex h-full min-h-0 w-full max-w-md flex-1 flex-col overflow-hidden bg-[#0F172A] text-white">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain overscroll-y-contain [-webkit-overflow-scrolling:touch] [touch-action:pan-y] pb-24">
         
-        {/* 1. Full Hero Image Gallery Header */}
-        <div className="relative h-96 w-full shrink-0 bg-slate-900">
-          <img src={cover} alt={view.name} className="h-full w-full object-cover" />
+        {/* 1. Full Hero Cover Header */}
+        <div className="relative h-[400px] w-full shrink-0 bg-slate-900">
+          {rawPhotos.length > 0 ? (
+            <img src={cover} alt={view.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-slate-800">
+              <div className="flex flex-col items-center gap-2">
+                <div className="h-24 w-24 rounded-full bg-slate-700 border-4 border-slate-600 flex items-center justify-center">
+                  <span className="text-4xl">{view.name.charAt(0).toUpperCase()}</span>
+                </div>
+                <p className="text-sm text-slate-400">No photos yet</p>
+              </div>
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0F172A] via-transparent to-black/40" />
 
           {/* Top Bar Navigation */}
@@ -158,6 +166,17 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
           {/* Thumbnail Gallery Row Overlay (Bottom Left) */}
           {selectablePhotos.length > 1 && (
             <div className="absolute bottom-6 left-4 z-20 flex flex-col gap-2">
+              {/* Active photo indicators / bars above thumbnails */}
+              <div className="flex gap-1">
+                {selectablePhotos.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === activePhoto ? "w-6 bg-[#FF5722]" : "w-2 bg-white/50"
+                    }`}
+                  />
+                ))}
+              </div>
               <div className="flex gap-2">
                 {selectablePhotos.map((photo, idx) => (
                   <button
@@ -172,17 +191,6 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
                   </button>
                 ))}
               </div>
-              {/* Pagination indicators */}
-              <div className="flex gap-1">
-                {selectablePhotos.map((_, idx) => (
-                  <span
-                    key={idx}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === activePhoto ? "w-6 bg-[#FF5722]" : "w-2 bg-white/50"
-                    }`}
-                  />
-                ))}
-              </div>
             </div>
           )}
         </div>
@@ -194,47 +202,40 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-black text-white">{view.name}</h1>
-              <CheckCircle2 className="h-5 w-5 text-emerald-400 fill-emerald-400/20" />
+              <CheckCircle2 className="h-5 w-5 text-[#FF5722]" />
             </div>
 
             {/* Online Status Pill */}
             <div
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border ${
-                isOnline
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                  : "bg-slate-800 text-slate-400 border-white/10"
-              }`}
+              className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold border bg-slate-800/80 text-[#FF5722] border-[#FF5722]/30 backdrop-blur-sm"
             >
-              <span className={`h-2 w-2 rounded-full ${isOnline ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
-              {isOnline ? "Online" : "Offline"}
+              <span className="h-2 w-2 rounded-full bg-[#FF5722] animate-pulse" />
+              <span>Online</span>
             </div>
           </div>
 
-          {/* Badges Row (Age/Gender, Distance, Country) */}
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+          {/* Badges Row: Gender+Age, Distance, Country */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             {view.age && (
-              <span className="flex items-center gap-1 rounded-full bg-pink-500/20 px-3 py-1 text-xs font-bold text-pink-300 border border-pink-500/30">
+              <span className="flex items-center gap-1 rounded-full bg-[#FF5722]/20 px-3 py-1 text-xs font-bold text-orange-300 border border-[#FF5722]/30">
                 {view.gender === "female" ? "♀️" : "♂️"} {view.age}
               </span>
             )}
             {view.distanceLabel && (
-              <span className="rounded-full bg-amber-500/20 px-3 py-1 text-xs font-bold text-amber-300 border border-amber-500/30">
+              <span className="rounded-full bg-[#FF5722]/20 px-3 py-1 text-xs font-bold text-orange-300 border border-[#FF5722]/30">
                 {view.distanceLabel}
               </span>
             )}
             {view.country && (
-              <span className="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-bold text-blue-300 border border-blue-500/30">
+              <span className="rounded-full bg-[#FF5722]/20 px-3 py-1 text-xs font-bold text-orange-300 border border-[#FF5722]/30">
                 {view.country}
               </span>
             )}
           </div>
 
-          {/* ID Copy Line */}
-          <div className="mt-2 flex items-center gap-2 text-xs text-white/50">
-            <span>ID: {view.uid.slice(0, 8)}...</span>
-            <button onClick={copyId} type="button" className="hover:text-white transition">
-              <Copy className="h-3.5 w-3.5" />
-            </button>
+          {/* Copyable User ID */}
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <CopyIdButton value={view.uid} label={`ID: ${view.uid}`} />
           </div>
 
           {/* Navigation Tabs */}
@@ -274,7 +275,7 @@ export function UserProfileView({ view }: { view: PublicProfileView }) {
                         <span key={i} className="w-1 rounded-full bg-slate-950/70" style={{ height: h }} />
                       ))}
                     </span>
-                    <span className="text-xs tabular-nums">{view.statusAudio.durationSeconds.toFixed(1)}s</span>
+                    <span className="text-xs tabular-nums">Status: {view.statusAudio.durationSeconds.toFixed(1)}s</span>
                   </div>
                 ) : (
                   <p className="text-sm leading-relaxed text-white/80">{view.status || view.bio || "No status yet."}</p>

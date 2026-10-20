@@ -214,7 +214,7 @@ export function LudoBoard({
               );
             })}
 
-            {/* Track Path without messy diagonal line overlays */}
+            {/* Track Path */}
             {TRACK_PATH.map(([col, row], i) => {
               const isStart = START_SET.has(i);
               const isSafe = SAFE_CELLS.has(i);
@@ -253,17 +253,14 @@ export function LudoBoard({
               }),
             )}
 
-            {/* Centre goal — clean axis-aligned 3×3 with NO diagonal cross-lines.
-                Each edge tile continues its home corridor's colour to the centre;
-                the remaining tiles form one cream goal panel with a small
-                grid-aligned finish mark at the exact centre (7.5,7.5). */}
+            {/* Centre goal */}
             {([6, 7, 8] as const).map((row) =>
               ([6, 7, 8] as const).map((col) => {
                 const fill =
-                  col === 6 && row === 7 ? "url(#ls-c0)" /* Red    enters from the left  */
-                  : col === 8 && row === 7 ? "url(#ls-c2)" /* Yellow enters from the right */
-                  : col === 7 && row === 6 ? "url(#ls-c3)" /* Green  enters from the top   */
-                  : col === 7 && row === 8 ? "url(#ls-c1)" /* Blue   enters from the bottom */
+                  col === 6 && row === 7 ? "url(#ls-c0)"
+                  : col === 8 && row === 7 ? "url(#ls-c2)"
+                  : col === 7 && row === 6 ? "url(#ls-c3)"
+                  : col === 7 && row === 8 ? "url(#ls-c1)"
                   : "url(#ls-yard)";
                 return (
                   <rect key={`goal-${col}-${row}`} x={col} y={row} width={1} height={1} fill={fill} stroke="#2D1F0C" strokeWidth={0.06} />
