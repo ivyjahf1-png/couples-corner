@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Image as ImageIcon,
+  Mic,
   Gift,
   Smile,
   Send,
@@ -57,30 +58,16 @@ export function LiveChatThread({
   const [userCoins, setUserCoins] = useState(currentUser.coins);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Mobile Browser Dynamic Viewport & Keyboard Height Listener
+  // Auto-dismiss error banner after 4 seconds so it doesn't block the chat controls
   useEffect(() => {
-    if (typeof window === "undefined" || !window.visualViewport) return;
-
-    const handleResize = () => {
-      if (window.visualViewport) {
-        setViewportHeight(window.visualViewport.height);
-      }
-    };
-
-    handleResize();
-    window.visualViewport.addEventListener("resize", handleResize);
-    window.visualViewport.addEventListener("scroll", handleResize);
-
-    return () => {
-      window.visualViewport?.removeEventListener("resize", handleResize);
-      window.visualViewport?.removeEventListener("scroll", handleResize);
-    };
-  }, []);
+    if (!errorMessage) return;
+    const timer = setTimeout(() => setErrorMessage(null), 4000);
+    return () => clearTimeout(timer);
+  }, [errorMessage]);
 
   // 2. Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -172,12 +159,7 @@ export function LiveChatThread({
   };
 
   return (
-    <div
-      className="relative mx-auto flex w-full max-w-md flex-col overflow-hidden bg-[#0F172A] text-white"
-      style={{
-        height: viewportHeight ? `${viewportHeight}px` : "100dvh",
-      }}
-    >
+    <div className="relative mx-auto flex w-full max-w-md flex-col overflow-hidden h-[100dvh] bg-[#0F172A] text-white">
       {/* HEADER BAR */}
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 bg-[#0F172A]/90 px-4 backdrop-blur-xl z-20">
         <div className="flex items-center gap-3">
@@ -276,21 +258,22 @@ export function LiveChatThread({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* INPUT & FOOTER BAR (STAYS PINNED ABOVE MOBILE KEYBOARD) */}
-      <div className="sticky bottom-0 left-0 right-0 z-30 w-full shrink-0 border-t border-white/10 bg-[#0F172A]/95 px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl">
-        {/* EXPLICIT ERROR BANNER */}
-        {errorMessage && (
-          <div className="mb-2 flex items-center justify-between rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-300">
-            <span className="leading-tight pr-2">{errorMessage}</span>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="p-1 text-red-300/70 hover:text-red-200"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        )}
+      {/* ERROR BANNER (sits just above the docked input bar) */}
+      {errorMessage && (
+        <div className="mx-4 mb-2 flex items-center justify-between rounded-xl border border-red-500/40 bg-red-500/15 px-3 py-2 text-xs font-semibold text-red-300">
+          <span className="leading-tight pr-2">{errorMessage}</span>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="p-1 text-red-300/70 hover:text-red-200"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* INPUT & FOOTER BAR (DOCKED ABOVE MOBILE KEYBOARD) */}
+      <div className="sticky bottom-0 left-0 right-0 z-30 w-full shrink-0 border-t border-white/10 bg-[#0F172A] px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
 
         {/* Quick Suggestion Chips */}
         <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar text-xs">
@@ -308,25 +291,34 @@ export function LiveChatThread({
           )}
         </div>
 
-        {/* INPUT CONTROL ROW */}
-        <div className="flex items-end gap-2">
-          {/* Media & Gift Buttons */}
-          <div className="flex items-center gap-1 pb-1.5 text-white/60">
+        {/* Row 2 — Attachment, Mic, Gift, text input, Emoji, Send */}
+        <div className="flex items-center gap-2">
+          {/* Media / action buttons */}
+          <div className="flex items-center gap-1 text-white/60">
             <button
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-white"
+              aria-label="Attach photo"
             >
               <ImageIcon className="h-5 w-5" />
             </button>
             <button
               type="button"
               className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-amber-400"
+              aria-label="Record voice"
+            >
+              <Mic className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full transition hover:bg-white/10 hover:text-amber-400"
+              aria-label="Send gift"
             >
               <Gift className="h-5 w-5" />
             </button>
           </div>
 
-          {/* FLUID AUTO-EXPANDING TEXT BOX */}
+          {/* Fluid auto-expanding text box */}
           <div className="flex flex-1 min-w-0 items-center gap-2 rounded-2xl border border-white/15 bg-slate-900/90 px-3 py-2 transition-all focus-within:border-[#FF5722] shadow-inner">
             <textarea
               ref={textareaRef}
@@ -341,12 +333,13 @@ export function LiveChatThread({
             <button
               type="button"
               className="text-white/40 transition hover:text-white pb-0.5"
+              aria-label="Emoji picker"
             >
               <Smile className="h-5 w-5" />
             </button>
           </div>
 
-          {/* SEND BUTTON */}
+          {/* Send button */}
           <button
             type="button"
             onClick={() => handleSend()}
