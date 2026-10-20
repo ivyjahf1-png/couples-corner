@@ -1,12 +1,25 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import { FINISH_STEP, LUDO_COLORS, LUDO_NAMES, SAFE_CELLS, START_INDEX, trackCell, type LudoColor, type LudoGameState } from "@/lib/ludo/engine";
+import {
+  FINISH_STEP,
+  LUDO_COLORS,
+  LUDO_NAMES,
+  SAFE_CELLS,
+  START_INDEX,
+  trackCell,
+  type LudoColor,
+  type LudoGameState,
+} from "@/lib/ludo/engine";
 import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
+
+/* ═══════════════════════════════════════════════════════════════════
+   AAA 5D LUDO BOARD — Geometry & Constants (game logic preserved)
+   ═══════════════════════════════════════════════════════════════════ */
 
 const GRID = 15;
 
-/** 52-cell main track as (col,row) grid coordinates. */
+/** 52-cell main track as (col,row) grid coordinates, clockwise from top. */
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
   [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
@@ -22,10 +35,15 @@ const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [7, 0], [6, 0],
 ];
 
-/** Base block origins (col,row) per seat: 0 Red BL · 1 Blue BR · 2 Yellow TR · 3 Green TL. */
-const BASE_QUAD: Record<number, readonly [number, number]> = { 0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0] };
+/** Base block origins per quadrant (col,row): 0=Red BL · 1=Blue BR · 2=Yellow TR · 3=Green TL. */
+const BASE_QUAD: Record<number, readonly [number, number]> = {
+  0: [0, 9],
+  1: [9, 9],
+  2: [9, 0],
+  3: [0, 0],
+};
 
-/** Pawn socket CENTRES (grid units) inside each 6×6 base. */
+/** Pawn socket centres inside each 6×6 base. */
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   0: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]], // BL (Red)
   1: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]], // BR (Blue)
@@ -33,22 +51,39 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Green)
 };
 
-/** Home corridors (6 cells each; color-aligned perfectly to each quadrant). */
+/** Home corridors (6 cells each) — clockwise arms into the centre triangles. */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red -> Left Arm
-  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Blue -> Bottom Arm
-  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow -> Right Arm
-  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Green -> Top Arm
+  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red  → horizontal LEFT arm, into centre from left
+  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Blue → vertical BOTTOM arm, into centre from below
+  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow → horizontal RIGHT arm, into centre from right
+  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Green → vertical TOP arm, into centre from above
 };
 
 const START_SET: ReadonlySet<number> = new Set(START_INDEX);
+const CENTRE = { x: 7.5, y: 7.5 };
 
+/** Deep-walnut outer frame styling for the board housing. */
 const WOOD_FRAME: React.CSSProperties = {
   background:
     "repeating-linear-gradient(93deg, rgba(0,0,0,.18) 0 3px, rgba(255,255,255,.06) 3px 7px), linear-gradient(150deg,#8a5e31 0%,#5a3d1d 50%,#2d1a08 100%)",
   boxShadow:
     "inset 0 3px 0 rgba(255,224,170,.4), inset 0 -6px 14px rgba(0,0,0,.7), inset 0 0 0 2px rgba(0,0,0,.5), 0 24px 52px rgba(0,0,0,.6)",
 };
+
+/* ═══════════════════════════════════════════════════════════════════
+   Colour palette (5D glossy)
+   ═══════════════════════════════════════════════════════════════════ */
+
+const COLOR_META: Record<number, { glow: string; dark: string; light: string }> = {
+  0: { glow: "#ef4444", dark: "#b91c1c", light: "#fca5a5" },   // Red
+  1: { glow: "#3b82f6", dark: "#1d4ed8", light: "#93c5fd" },   // Blue
+  2: { glow: "#eab308", dark: "#ca8a04", light: "#fde047" },   // Yellow
+  3: { glow: "#22c55e", dark: "#15803d", light: "#86efac" },   // Green
+};
+
+/* ═══════════════════════════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════════════════════════ */
 
 function trackXY(index: number): { x: number; y: number } {
   const n = TRACK_PATH.length;
@@ -63,25 +98,331 @@ function posFor(color: LudoColor, tokenIdx: number, steps: number): { x: number;
   }
   if (steps <= 50) {
     const cell = trackCell(color, steps);
-    return cell === null ? { x: 7.5, y: 7.5 } : trackXY(cell);
+    return cell === null ? CENTRE : trackXY(cell);
   }
   if (steps < FINISH_STEP) {
     const h = HOME_PATH[color]![steps - 51]!;
     return { x: h[0] + 0.5, y: h[1] + 0.5 };
   }
-  return { x: 7.5, y: 7.5 };
+  return CENTRE;
 }
 
 function starPoints(cx: number, cy: number, r: number): string {
   const inner = r * 0.42;
   const pts: string[] = [];
   for (let i = 0; i < 10; i += 1) {
-    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+    const ang = (-Math.PI / 2) + (i * Math.PI) / 5;
     const rad = i % 2 === 0 ? r : inner;
-    pts.push(`${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`);
+    pts.push(
+      `${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`
+    );
   }
   return pts.join(" ");
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Board geometry rendering (SVG)
+   ═══════════════════════════════════════════════════════════════════ */
+
+function BoardSurface({ activeSeat }: { activeSeat: LudoColor | null }) {
+  return (
+    <svg
+      viewBox="0 0 15 15"
+      className="block h-auto w-full max-w-[460px] aspect-square"
+      role="img"
+      aria-label="AAA 5D Ludo Board"
+    >
+      <defs>
+        {/* Glossy base gradients per colour */}
+        {([0, 1, 2, 3] as const).map((c) => {
+          const col = LUDO_COLORS[c]!;
+          const meta = COLOR_META[c]!;
+          return (
+            <linearGradient
+              key={`base-${c}`}
+              id={`base-grad-${c}`}
+              x1="0" y1="0" x2="1" y2="1"
+            >
+              <stop offset="0" stopColor={meta.light} stopOpacity="0.9" />
+              <stop offset="0.35" stopColor={col} />
+              <stop offset="1" stopColor={meta.dark} />
+            </linearGradient>
+          );
+        })}
+
+        {/* Track tile gradient */}
+        <linearGradient id="track-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFFDF9" stopOpacity="0.92" />
+          <stop offset="1" stopColor="#E2D7BE" />
+        </linearGradient>
+
+        {/* Yard / base block gradient */}
+        <linearGradient id="yard-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#FFFFFF" />
+          <stop offset="1" stopColor="#EAE1CC" />
+        </linearGradient>
+
+        {/* Centre triangle gradients */}
+        {([0, 1, 2, 3] as const).map((c) => {
+          const col = LUDO_COLORS[c]!;
+          const meta = COLOR_META[c]!;
+          return (
+            <linearGradient
+              key={`centre-${c}`}
+              id={`centre-grad-${c}`}
+              x1="0" y1="0" x2="1" y2="1"
+            >
+              <stop offset="0" stopColor={meta.light} stopOpacity="0.95" />
+              <stop offset="1" stopColor={col} />
+            </linearGradient>
+          );
+        })}
+
+        {/* Drop shadow filter for tokens */}
+        <filter id="token-shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
+          <feOffset dx="0.5" dy="0.8" result="offsetblur" />
+          <feComponentTransfer>
+            <feFuncA type="linear" slope="0.45" />
+          </feComponentTransfer>
+          <feMerge>
+            <feMergeNode />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Outer board surface — deep wood */}
+      <rect
+        x="0" y="0" width="15" height="15"
+        fill="#1A1107"
+        rx="1.2"
+        stroke="#2D1F0C"
+        strokeWidth="0.14"
+      />
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CENTRE HOME — four colour triangles meeting at centre point
+          ══════════════════════════════════════════════════════════════ */}
+      <g>
+        {/* Green — top triangle */}
+        <polygon
+          points="7.5,1 7.5,6 1,6"
+          fill="url(#centre-grad-3)"
+          stroke="#2D1F0C"
+          strokeWidth="0.08"
+        />
+        {/* Yellow — right triangle */}
+        <polygon
+          points="14,7.5 9,7.5 9,14"
+          fill="url(#centre-grad-2)"
+          stroke="#2D1F0C"
+          strokeWidth="0.08"
+        />
+        {/* Blue — bottom triangle */}
+        <polygon
+          points="7.5,14 7.5,9 14,9"
+          fill="url(#centre-grad-1)"
+          stroke="#2D1F0C"
+          strokeWidth="0.08"
+        />
+        {/* Red — left triangle */}
+        <polygon
+          points="1,7.5 1,1 6,1 6,7.5"
+          fill="url(#centre-grad-0)"
+          stroke="#2D1F0C"
+          strokeWidth="0.08"
+        />
+        {/* Centre pinwheel seam */}
+        <path
+          d="M7.5,1 L7.5,7.5 L1,7.5 M7.5,14 L7.5,7.5 L14,7.5 M1,7.5 L7.5,7.5 L7.5,1 M14,7.5 L7.5,7.5 L7.5,14"
+          stroke="#2D1F0C"
+          strokeWidth="0.1"
+          fill="none"
+        />
+      </g>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          HOME CORRIDORS / ARMS — 6-cell colour paths into centre
+          ══════════════════════════════════════════════════════════════ */}
+      <g>
+        {([0, 1, 2, 3] as const).flatMap((c) => {
+          const col = LUDO_COLORS[c]!;
+          return HOME_PATH[c]!.map(([colX, rowY], j) => (
+            <rect
+              key={`home-${c}-${j}`}
+              x={colX} y={rowY} width={1} height={1}
+              fill={col}
+              fillOpacity="0.92"
+              stroke="#2D1F0C"
+              strokeWidth="0.06"
+            />
+          ));
+        })}
+      </g>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          BASE ZONES — 6×6 glossy colour blocks in each corner
+          ══════════════════════════════════════════════════════════════ */}
+      <g>
+        {([0, 1, 2, 3] as const).map((c) => {
+          const q = BASE_QUAD[c]!;
+          const col = LUDO_COLORS[c]!;
+          return (
+            <g key={`base-${c}`}>
+              <rect
+                x={q[0]} y={q[1]} width={6} height={6}
+                fill={`url(#base-grad-${c})`}
+                stroke="#1F140A"
+                strokeWidth="0.08"
+                rx="0.9"
+              />
+              {/* Token socket positions (subtle rings) */}
+              {BASE_SPOTS[c]!.map(([sx, sy], i) => (
+                <circle
+                  key={`socket-${c}-${i}`}
+                  cx={sx} cy={sy} r={0.62}
+                  fill="none"
+                  stroke="rgba(255,255,255,.25)"
+                  strokeWidth="0.05"
+                  strokeDasharray="0.4 0.4"
+                />
+              ))}
+              {/* Active-player halo */}
+              {activeSeat === c && (
+                <rect
+                  x={q[0] + 0.15}
+                  y={q[1] + 0.15}
+                  width={5.7}
+                  height={5.7}
+                  rx={0.8}
+                  fill="none"
+                  stroke={col}
+                  strokeWidth={0.18}
+                  style={{ filter: `drop-shadow(0 0 5px ${col})` }}
+                />
+              )}
+            </g>
+          );
+        })}
+      </g>
+
+      {/* ══════════════════════════════════════════════════════════════
+          TRACK PATH — 52 high-contrast cells around the perimeter
+          ══════════════════════════════════════════════════════════════ */}
+      <g>
+        {TRACK_PATH.map(([col, row], i) => {
+          const isSafe = SAFE_CELLS.has(i);
+          const isStart = START_SET.has(i);
+          const cellColor = isStart
+            ? LUDO_COLORS[START_INDEX.indexOf(i)]!
+            : "url(#track-grad)";
+          return (
+            <g key={`trk-${i}`}>
+              <rect
+                x={col} y={row} width={1} height={1}
+                fill={cellColor}
+                fillOpacity={isStart ? 0.98 : 0.92}
+                stroke="#2D1F0C"
+                strokeWidth="0.06"
+              />
+              {/* Safe-house shield icon */}
+              {isSafe && (
+                <path
+                  d={`M${col + 0.5},${row + 0.28} L${col + 0.72},${row + 0.62} L${col + 0.28},${row + 0.62} Z`}
+                  fill="#FFFFFF"
+                  stroke="none"
+                />
+              )}
+              {/* Start-gate star */}
+              {isStart && (
+                <polygon
+                  points={starPoints(col + 0.5, row + 0.5, 0.34)}
+                  fill="#FFFFFF"
+                  stroke="#2D1F0C"
+                  strokeWidth="0.04"
+                />
+              )}
+            </g>
+          );
+        })}
+      </g>
+
+      {/* ══════════════════════════════════════════════════════════════
+          DIRECTIONAL ARROWS — clockwise movement cues on each track side
+          ══════════════════════════════════════════════════════════════ */}
+      <g>
+        {/* Left side (going down) */}
+        {([6, 4, 2] as const).map((i) => {
+          const [cx, cy] = TRACK_PATH[i];
+          return (
+            <path
+              key={`arr-l-${i}`}
+              d={`M${cx + 0.5},${cy + 0.35} L${cx + 0.5},${cy + 0.65}`}
+              stroke="#FFFFFF"
+              strokeWidth="0.07"
+              strokeLinecap="round"
+              markerEnd="url(#arrow-head-white)"
+            />
+          );
+        })}
+        {/* Bottom side (going right) */}
+        {([12, 10, 8] as const).map((i) => {
+          const [cx, cy] = TRACK_PATH[i];
+          return (
+            <path
+              key={`arr-b-${i}`}
+              d={`M${cx + 0.35},${cy + 0.5} L${cx + 0.65},${cy + 0.5}`}
+              stroke="#FFFFFF"
+              strokeWidth="0.07"
+              strokeLinecap="round"
+              markerEnd="url(#arrow-head-white)"
+            />
+          );
+        })}
+        {/* Right side (going up) */}
+        {([24, 26, 28] as const).map((i) => {
+          const [cx, cy] = TRACK_PATH[i];
+          return (
+            <path
+              key={`arr-r-${i}`}
+              d={`M${cx + 0.5},${cy + 0.65} L${cx + 0.5},${cy + 0.35}`}
+              stroke="#FFFFFF"
+              strokeWidth="0.07"
+              strokeLinecap="round"
+              markerEnd="url(#arrow-head-white)"
+            />
+          );
+        })}
+        {/* Top side (going left) */}
+        {([36, 38, 40] as const).map((i) => {
+          const [cx, cy] = TRACK_PATH[i];
+          return (
+            <path
+              key={`arr-t-${i}`}
+              d={`M${cx + 0.65},${cy + 0.5} L${cx + 0.35},${cy + 0.5}`}
+              stroke="#FFFFFF"
+              strokeWidth="0.07"
+              strokeLinecap="round"
+              markerEnd="url(#arrow-head-white)"
+            />
+          );
+        })}
+      </g>
+
+      {/* White arrow-head marker (defined once) */}
+      <defs>
+        <marker id="arrow-head-white" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+          <path d="M0,0 L0,7 L7,3.5 Z" fill="#FFFFFF" />
+        </marker>
+      </defs>
+    </svg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Pawn computation (game logic — unchanged)
+   ═══════════════════════════════════════════════════════════════════ */
 
 interface Pawn {
   key: string;
@@ -142,133 +483,12 @@ export function LudoBoard({
   seedCustom?: { animal?: string | null; color?: string | null } | null;
 }) {
   const pawns = buildPawns(state, selectable);
+  const activeSeat: LudoColor | null = state.winner === null ? state.turn : null;
   return (
     <div className="relative select-none mx-auto w-full max-w-[460px] p-1 sm:p-2">
       <div className="relative rounded-[6%] p-[2.5%]" style={WOOD_FRAME}>
         <div className="relative overflow-hidden rounded-[4%] shadow-[inset_0_2px_16px_rgba(0,0,0,.7)] ring-2 ring-black/70">
-          <svg viewBox="0 0 15 15" className="block h-auto w-full" role="img" aria-label="AAA 5D Ludo Board">
-            <defs>
-              <linearGradient id="ls-track" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#FFFFFF" />
-                <stop offset="1" stopColor="#EAE1CC" />
-              </linearGradient>
-              <linearGradient id="ls-yard" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0" stopColor="#FFFDF9" />
-                <stop offset="1" stopColor="#E2D7BE" />
-              </linearGradient>
-              {([0, 1, 2, 3] as const).map((c) => (
-                <linearGradient key={c} id={`ls-c${c}`} x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#ffffff" stopOpacity="0.6" />
-                  <stop offset="0.4" stopColor={LUDO_COLORS[c]!} />
-                  <stop offset="1" stopColor={LUDO_COLORS[c]!} />
-                </linearGradient>
-              ))}
-            </defs>
-
-            {/* Board Background Surface */}
-            <rect x="0" y="0" width="15" height="15" fill="#1A1107" />
-
-            {/* Corner Bases */}
-            {([0, 1, 2, 3] as const).map((c) => {
-              const q = BASE_QUAD[c]!;
-              const active = state.turn === c && state.winner === null;
-              return (
-                <g key={`base-${c}`}>
-                  <rect x={q[0]} y={q[1]} width={6} height={6} fill={`url(#ls-c${c})`} stroke="#1F140A" strokeWidth={0.08} />
-                  <rect
-                    x={q[0] + 0.65}
-                    y={q[1] + 0.65}
-                    width={4.7}
-                    height={4.7}
-                    rx={0.5}
-                    fill="url(#ls-yard)"
-                    stroke="rgba(0,0,0,.35)"
-                    strokeWidth={0.06}
-                  />
-                  {BASE_SPOTS[c]!.map(([sx, sy], i) => (
-                    <circle
-                      key={i}
-                      cx={sx}
-                      cy={sy}
-                      r={0.68}
-                      fill={LUDO_COLORS[c]!}
-                      stroke="rgba(255,255,255,.9)"
-                      strokeWidth={0.08}
-                      opacity={0.95}
-                    />
-                  ))}
-                  {active && (
-                    <rect
-                      x={q[0] + 0.1}
-                      y={q[1] + 0.1}
-                      width={5.8}
-                      height={5.8}
-                      rx={0.3}
-                      fill="none"
-                      stroke={LUDO_COLORS[c]!}
-                      strokeWidth={0.16}
-                      style={{ filter: `drop-shadow(0 0 6px ${LUDO_COLORS[c]!})` }}
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Track Path */}
-            {TRACK_PATH.map(([col, row], i) => {
-              const isStart = START_SET.has(i);
-              const isSafe = SAFE_CELLS.has(i);
-              return (
-                <g key={`trk-${i}`}>
-                  <rect
-                    x={col}
-                    y={row}
-                    width={1}
-                    height={1}
-                    fill={isStart ? LUDO_COLORS[START_INDEX.indexOf(i)]! : "url(#ls-track)"}
-                    stroke="#2D1F0C"
-                    strokeWidth={0.06}
-                  />
-                  {isSafe && (
-                    <polygon
-                      points={starPoints(col + 0.5, row + 0.5, isStart ? 0.38 : 0.32)}
-                      fill={isStart ? "#FFFFFF" : "#1F140A"}
-                      opacity={0.9}
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Home Corridors */}
-            {([0, 1, 2, 3] as const).flatMap((c) =>
-              HOME_PATH[c]!.map(([col, row], j) => {
-                const inCentre = col >= 6 && col <= 8 && row >= 6 && row <= 8;
-                if (inCentre) return null;
-                return (
-                  <g key={`home-${c}-${j}`}>
-                    <rect x={col} y={row} width={1} height={1} fill={`url(#ls-c${c})`} stroke="#2D1F0C" strokeWidth={0.06} />
-                  </g>
-                );
-              }),
-            )}
-
-            {/* Centre goal */}
-            {([6, 7, 8] as const).map((row) =>
-              ([6, 7, 8] as const).map((col) => {
-                const fill =
-                  col === 6 && row === 7 ? "url(#ls-c0)"
-                  : col === 8 && row === 7 ? "url(#ls-c2)"
-                  : col === 7 && row === 6 ? "url(#ls-c3)"
-                  : col === 7 && row === 8 ? "url(#ls-c1)"
-                  : "url(#ls-yard)";
-                return (
-                  <rect key={`goal-${col}-${row}`} x={col} y={row} width={1} height={1} fill={fill} stroke="#2D1F0C" strokeWidth={0.06} />
-                );
-              }),
-            )}
-            <rect x={7.15} y={7.15} width={0.7} height={0.7} rx={0.12} fill="none" stroke="#2D1F0C" strokeWidth={0.08} />
-          </svg>
+          <BoardSurface activeSeat={activeSeat} />
 
           {/* HTML Overlay Layer for Pawns */}
           <div className="absolute inset-0">
@@ -286,10 +506,15 @@ export function LudoBoard({
                   disabled={!p.movable}
                   onClick={() => p.movable && onSelect(p.idx)}
                   initial={false}
-                  animate={{ left: `${((p.x + dx) / GRID) * 100}%`, top: `${(p.y / GRID) * 100}%` }}
+                  animate={{
+                    left: `${((p.x + dx) / GRID) * 100}%`,
+                    top: `${(p.y / GRID) * 100}%`,
+                    x: "-50%",
+                    y: "-62%",
+                  }}
                   transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.55 }}
-                  className="absolute z-20 aspect-square cursor-default place-items-center"
-                  style={{ width: `${(100 / GRID) * 1.05}%`, transform: "translate(-50%,-62%)" }}
+                  className="absolute z-20 grid aspect-square cursor-default place-items-center"
+                  style={{ width: `${(100 / GRID) * 1.05}%` }}
                 >
                   <motion.span
                     key={`hop-${p.steps}`}
