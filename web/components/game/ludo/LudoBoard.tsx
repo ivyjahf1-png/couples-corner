@@ -7,17 +7,15 @@ import {
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
+import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
 
 const GRID = 15;
-// 0=Red(BL), 1=Blue(BR), 2=Yellow(TR), 3=Green(TL)
 const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"]; 
 const HEX_DARK = ["#B71C1C", "#1565C0", "#F9A825", "#2E7D32"];
 
 function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
 
-// AAA STANDARD SEEDS
-// Map these to your actual image paths in the public folder!
 const SEED_IMAGES = [
   "/assets/red-soldier.png",
   "/assets/blue-drop.png",
@@ -25,39 +23,23 @@ const SEED_IMAGES = [
   "/assets/green-disc.png"
 ];
 
-// Exact clockwise pathway mapped to your screenshot
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
-  // Red (Bottom-Left) Start moving UP
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
-  // Turn LEFT
   [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
-  // Turn UP
   [0, 7], [0, 6],
-  // Turn RIGHT
   [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
-  // Turn UP
   [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
-  // Turn RIGHT
   [7, 0], [8, 0],
-  // Turn DOWN
   [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 6],
-  // Turn RIGHT
   [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6],
-  // Turn DOWN
   [14, 7], [14, 8],
-  // Turn LEFT
   [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 8],
-  // Turn DOWN
   [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14],
-  // Turn LEFT
   [7, 14], [6, 14],
 ];
 
 const BASE_QUAD: Record<number, readonly [number, number]> = {
-  0: [0, 9],  // Red (Bottom-Left)
-  1: [9, 9],  // Blue (Bottom-Right)
-  2: [9, 0],  // Yellow (Top-Right)
-  3: [0, 0],  // Green (Top-Left)
+  0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0], 
 };
 
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
@@ -68,13 +50,12 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
 };
 
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Red
-  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Blue
-  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Yellow
-  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Green
+  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
+  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
 };
 
-// Start indices and Safe Star indices based on the path
 const START_SET = new Set([0, 14, 28, 42]);
 const SAFE_STARS = new Set([8, 21, 34, 47]);
 
@@ -96,10 +77,6 @@ function posFor(color: number, tokenIdx: number, steps: number) {
   }
   return { x: 7.5, y: 7.5 };
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   Dice Component
-   ═══════════════════════════════════════════════════════════════ */
 
 function Dice({ color, positionClass, value, isRolling, onRoll }: { color: string, positionClass: string, value: number, isRolling: boolean, onRoll?: () => void }) {
   const dots = useMemo(() => {
@@ -134,22 +111,15 @@ function Dice({ color, positionClass, value, isRolling, onRoll }: { color: strin
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   Board Surface (Memoized for Performance)
-   ═══════════════════════════════════════════════════════════════ */
-
 const BoardSurface = React.memo(() => {
   return (
     <svg viewBox="0 0 15 15" className="block h-full w-full drop-shadow-md bg-white rounded-lg p-1" role="img">
-      {/* Center Triangles */}
       <g>
         <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#222" strokeWidth="0.08" />
         <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#222" strokeWidth="0.08" />
         <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke="#222" strokeWidth="0.08" />
         <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke="#222" strokeWidth="0.08" />
       </g>
-
-      {/* Home Paths */}
       <g>
         {[0, 1, 2, 3].map((c) => (
           <g key={"home-" + c}>
@@ -159,8 +129,6 @@ const BoardSurface = React.memo(() => {
           </g>
         ))}
       </g>
-
-      {/* Track Cells, Gates, Locks & Stars */}
       <g>
         {TRACK_PATH.map((cell, i) => {
           const col = cell[0];
@@ -176,23 +144,18 @@ const BoardSurface = React.memo(() => {
             if (i === 42) cellColor = colorOf(3);
           }
 
-          // Arrow Rotations (Pointing Clockwise)
           let rot = 0;
-          if (i === 0) rot = 0;     // Red (up)
-          if (i === 14) rot = 90;   // Green (right)
-          if (i === 28) rot = 180;  // Yellow (down)
-          if (i === 42) rot = 270;  // Blue (left)
+          if (i === 0) rot = 0;
+          if (i === 14) rot = 90;
+          if (i === 28) rot = 180;
+          if (i === 42) rot = 270;
 
           return (
             <g key={"trk-" + i}>
               <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke="#222" strokeWidth="0.05" />
-              
-              {/* Safe Star */}
               {(isSafe || isStart) && (
                 <path d={"M" + (col+0.5) + "," + (row+0.25) + " L" + (col+0.6) + "," + (row+0.45) + " L" + (col+0.8) + "," + (row+0.45) + " L" + (col+0.65) + "," + (row+0.6) + " L" + (col+0.7) + "," + (row+0.8) + " L" + (col+0.5) + "," + (row+0.7) + " L" + (col+0.3) + "," + (row+0.8) + " L" + (col+0.35) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.45) + " L" + (col+0.4) + "," + (row+0.45) + " Z"} fill={isStart ? "#FFF" : "#FFC107"} stroke="#222" strokeWidth="0.02" />
               )}
-              
-              {/* Gate Arrow & Lock */}
               {isStart && (
                 <>
                   <path d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.7) + "," + (row+0.5) + " L" + (col+0.3) + "," + (row+0.5) + " Z"} fill="#FFF" transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} />
@@ -203,8 +166,6 @@ const BoardSurface = React.memo(() => {
           );
         })}
       </g>
-
-      {/* Base Quadrants */}
       <g>
         {[0, 1, 2, 3].map((c) => {
           const q = BASE_QUAD[c];
@@ -228,10 +189,6 @@ const BoardSurface = React.memo(() => {
 });
 BoardSurface.displayName = "BoardSurface";
 
-/* ═══════════════════════════════════════════════════════════════
-   Main Aero Board Component
-   ═══════════════════════════════════════════════════════════════ */
-
 interface Pawn {
   key: string;
   color: number;
@@ -246,12 +203,13 @@ interface LudoBoardProps {
   state: LudoGameState;
   selectable: readonly number[];
   onSelect: (tokenIdx: number) => void;
+  seedCustom?: { animal?: string | null; color?: string | null } | null;
   diceValue?: number;
   rolling?: boolean;
   onRoll?: () => void;
 }
 
-export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onRoll }: LudoBoardProps) {
+export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, rolling, onRoll }: LudoBoardProps) {
   
   const pawns = useMemo(() => {
     const result: Pawn[] = [];
@@ -276,7 +234,7 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
   const activeSeat = winnerVal == null ? Number(state.turn) : null;
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full bg-[#2C2563] overflow-hidden font-sans relative">
+    <div className="flex flex-col w-full bg-[#2C2563] overflow-hidden font-sans relative rounded-3xl shadow-2xl border border-white/10 mt-4 pb-2">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3b3283] to-[#1a153d] opacity-80 pointer-events-none" />
 
       {/* Top Header */}
@@ -297,7 +255,6 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
       {/* Main Play Area */}
       <div className="relative z-10 flex-1 flex flex-col justify-between px-4 pb-4">
         
-        {/* Top Row: Manish & Miray */}
         <div className="flex justify-between items-start mt-6">
           <div className="relative">
             <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
@@ -320,12 +277,15 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
           </div>
         </div>
 
-        {/* BOARD */}
         <div className="relative w-full max-w-[420px] mx-auto aspect-square my-2 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] border-4 border-white/20 p-0.5 bg-white">
           <BoardSurface />
           
           <div className="absolute inset-0 p-1">
             {pawns.map((p) => {
+              // If player 0 has custom animal seed, use emoji, otherwise use AAA image asset
+              const customAnimal = p.color === 0 && seedCustom?.animal ? seedCustom.animal : null;
+              const animalEmoji = SEED_ANIMALS.find((a) => a.key === customAnimal)?.emoji;
+
               return (
                 <motion.button
                   key={p.key} type="button" disabled={!p.movable}
@@ -346,19 +306,21 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
                     animate={{ y: 0, scale: 1 }} 
                     transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   >
-                    {/* AAA SEEDS (Images instead of Emojis) */}
-                    <img 
-                      src={SEED_IMAGES[p.color]} 
-                      alt="pawn" 
-                      className="w-[95%] h-[95%] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]" 
-                      onError={(e) => {
-                        // Fallback if image is missing
-                        e.currentTarget.style.display = 'none';
-                        if (e.currentTarget.parentElement) {
-                          e.currentTarget.parentElement.innerHTML = '<span class="text-2xl">♟️</span>';
-                        }
-                      }}
-                    />
+                    {customAnimal ? (
+                      <span className="text-[28px] leading-none">{animalEmoji}</span>
+                    ) : (
+                      <img 
+                        src={SEED_IMAGES[p.color]} 
+                        alt="pawn" 
+                        className="w-[95%] h-[95%] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]" 
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          if (e.currentTarget.parentElement) {
+                            e.currentTarget.parentElement.innerHTML = '<span class="text-2xl">♟️</span>';
+                          }
+                        }}
+                      />
+                    )}
                   </motion.div>
                   {p.movable && (
                     <motion.div className="pointer-events-none absolute inset-0 rounded-full border-2 border-white shadow-[0_0_10px_#fff]" animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.2, 0.8] }} transition={{ repeat: Infinity, duration: 1.2 }} />
@@ -369,10 +331,7 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
           </div>
         </div>
 
-        {/* Bottom Row: busybrai... & Azeel */}
         <div className="flex justify-between items-end mb-2">
-          
-          {/* busybrai... (Red) */}
           <div className="relative">
             <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
               <span className="text-3xl">🧔🏽‍♂️</span>
@@ -380,7 +339,6 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
             <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-[#1a153d] px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4">
               <span className="text-[10px]">🇳🇬</span><span className="text-[10px] text-white font-bold">busybrai...</span>
             </div>
-            {/* Green Turn Arrow */}
             {activeSeat === 0 && (
               <motion.div 
                 className="absolute -top-12 left-1/2 -translate-x-1/2 text-green-500 z-30 filter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]"
@@ -392,7 +350,6 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
             {activeSeat === 0 && <Dice color={colorOf(0)} positionClass="bottom-16 left-4" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
           </div>
 
-          {/* Azeel (Blue) */}
           <div className="relative">
             <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
               <span className="text-3xl">👦🏽</span>
@@ -406,7 +363,6 @@ export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onR
 
       </div>
 
-      {/* Bottom Nav */}
       <div className="relative z-10 flex items-center justify-between px-4 pb-4">
         <div className="flex gap-2">
           <div className="w-10 h-10 rounded-xl bg-gray-800 border border-white/20 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" /></div>
