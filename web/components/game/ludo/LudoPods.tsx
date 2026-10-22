@@ -3,31 +3,16 @@ import { LUDO_COLORS, type LudoColor, type LudoGameState } from "@/lib/ludo/engi
 import { SEATS } from "@/lib/ludo/bots";
 import { TURN_SECONDS } from "@/lib/ludo/match";
 
-/**
- * LudoPods — the four glassmorphism player pods pinned to the corners of the
- * board (TL David-style layout from the reference: avatar + online dot, name +
- * flag, Lv badge, home count). The active seat's pod glows amber and shows the
- * depleting turn-timer ring around its avatar.
- *
- * Seat → corner mapping matches the engine quadrants:
- *   3 Green TL · 2 Yellow TR · 0 Red BL · 1 Blue BR.
- *
- * Seats outside the match (duo plays only 0 + 2) are not rendered at all, and
- * the display names come from the lobby (Friends mode renames seats 1–3);
- * seat 0 is always "You" — the device holder.
- */
 type Corner = "tl" | "tr" | "bl" | "br";
 
 const CORNER: Record<number, Corner> = { 3: "tl", 2: "tr", 0: "bl", 1: "br" };
 const CORNER_CLASS: Record<Corner, string> = {
-  tl: "left-0 top-0",
-  tr: "right-0 top-0",
-  bl: "bottom-0 left-0",
-  br: "bottom-0 right-0",
+  tl: "left-2 top-2", // Added slight inset so it doesn't touch the absolute edge
+  tr: "right-2 top-2",
+  bl: "bottom-2 left-2",
+  br: "bottom-2 right-2",
 };
 
-/** Initials for a display name (custom friend names render the same way as
- *  the bot personas: first letters of up to two words, uppercase). */
 function initialsOf(name: string): string {
   return (
     name
@@ -39,7 +24,6 @@ function initialsOf(name: string): string {
   );
 }
 
-/** r=15.5 in the 42×42 ring viewBox. */
 const RING_CIRC = 2 * Math.PI * 15.5;
 
 export function LudoPods({
@@ -53,11 +37,8 @@ export function LudoPods({
   state: LudoGameState;
   activeSeat: LudoColor;
   clock: number;
-  /** Optional per-seat photo URLs; index matches seat number. */
   photoUrls?: (string | null)[];
-  /** Seats dealt into this match; others are not rendered. */
   activeSeats: readonly LudoColor[];
-  /** Seat display names from the lobby; index matches seat number. */
   names: string[];
 }) {
   const frac = Math.max(0, Math.min(1, clock / TURN_SECONDS));
@@ -72,14 +53,17 @@ export function LudoPods({
         const color = LUDO_COLORS[seat]!;
         const home = state.players[seat]!.finished;
         const name = names[seat] ?? profile.name;
+        
         return (
           <div
             key={seat}
-            className={`absolute z-30 w-[44%] max-w-[188px] ${CORNER_CLASS[CORNER[seat]!]}`}
+            // CHANGED: w-[calc(50%-8px)] ensures they can never overlap in the middle
+            className={`absolute z-30 w-[calc(50%-8px)] max-w-[188px] ${CORNER_CLASS[CORNER[seat]!]}`}
             data-active={active}
           >
             <div
-              className={`flex items-center gap-2 rounded-2xl border px-2 py-1.5 backdrop-blur-md transition ${
+              // CHANGED: Added overflow-hidden to clip any long text/badges
+              className={`flex items-center gap-2 rounded-2xl border px-2 py-1.5 backdrop-blur-md transition overflow-hidden ${
                 active
                   ? "border-white/60 bg-white/6"
                   : "border-white/12 bg-white/8"
@@ -131,7 +115,8 @@ export function LudoPods({
                 <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-black/50" />
               </div>
 
-              <div className="min-w-0 flex-1">
+              {/* Added overflow-hidden here to ensure text truncation works perfectly */}
+              <div className="min-w-0 flex-1 overflow-hidden">
                 <p className="truncate text-[11px] font-black leading-tight text-white">
                   {name} <span className="text-[10px]">{profile.flag}</span>
                 </p>
