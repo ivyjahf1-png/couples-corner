@@ -70,8 +70,8 @@ export function LudoSuperstar({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Pick a mode and stake to play.");
   /** Turn timer — the value itself is never rendered (the countdown only drives
-   *  `houseAct` on expiry), so the state value is discarded via a destructure hole. */
-  const [, setClock] = useState(TURN_SECONDS);
+   *  `houseAct` on expiry), so it lives in a ref rather than state. */
+  const clockRef = useRef(TURN_SECONDS);
   const [soundOn, setSoundOn] = useState(true);
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
   const [toast, setToast] = useState<string | null>(null);
@@ -121,17 +121,23 @@ export function LudoSuperstar({
   const players = activeSeats.length;
   const pot = potFor(bet, players);
   const gameRef = useRef(game);
-  gameRef.current = game;
   const busyRef = useRef(false);
   const rollingRef = useRef(false);
-  rollingRef.current = rolling;
   const selectableRef = useRef<number[]>([]);
-  selectableRef.current = selectable;
   const phaseRef = useRef<Phase>(phase);
-  phaseRef.current = phase;
   const claimedRef = useRef(false);
   const timersRef = useRef<number[]>([]);
   const burstIdRef = useRef(0);
+
+  /* Mirror the render-time state into refs for the timer callbacks that
+   *  outlive the render they were created in. Synced in an effect (not during
+   *  render) so React's ref rules stay happy. */
+  useEffect(() => {
+    gameRef.current = game;
+    rollingRef.current = rolling;
+    selectableRef.current = selectable;
+    phaseRef.current = phase;
+  }, [game, rolling, selectable, phase]);
 
   /** Schedule work inside the current turn sequence (all cleared on exit). */
   const later = (fn: () => void, ms: number): number => {
@@ -278,7 +284,7 @@ export function LudoSuperstar({
     setBusy(true);
     setRolling(true);
     rollingRef.current = true;
-    setClock(TURN_SECONDS);
+    clockRef.current = TURN_SECONDS;
     setStatus(isBot(color) ? `${SEATS[color].name} rolls the dice…` : `${dName(color)} rolls the dice…`);
     playWoodRoll();
     later(() => {
@@ -343,7 +349,7 @@ export function LudoSuperstar({
     selectableRef.current = [];
     setWinnerSeat(null);
     setGame(freshGame(0, rules));
-    setClock(TURN_SECONDS);
+    clockRef.current = TURN_SECONDS;
     setStatus(
       mode === "cpu" ? "Your move — tap the dice to roll." : "You start — tap the dice to roll!",
     );
@@ -378,15 +384,17 @@ export function LudoSuperstar({
     const c = game.turn;
     if (c === 0) return;
     if (!game.canRoll || rolling || busy || selectable.length > 0) return;
-    setStatus(`${SEATS[c].name} ${thinkSuffix(c)}`);
-    const id = window.setTimeout(() => runRoll(c), botThinkDelay(c));
+    const id = window.setTimeout(() => {
+      setStatus(`${SEATS[c].name} ${thinkSuffix(c)}`);
+      runRoll(c);
+    }, botThinkDelay(c));
     return () => window.clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, mode, game.turn, game.canRoll, game.winner, rolling, busy, selectable.length]);
 
   /* Fresh clock whenever the turn changes (also when entering the match). */
   useEffect(() => {
-    setClock(TURN_SECONDS);
+    clockRef.current = TURN_SECONDS;
   }, [phase, game.turn]);
 
   /* 1 s countdown for human-held turns; expiry hands play to the house. */
@@ -394,13 +402,14 @@ export function LudoSuperstar({
     if (phase !== "board" || game.winner !== null) return;
     if (mode === "cpu" && game.turn !== 0) return;
     const id = window.setInterval(() => {
-      setClock((c) => {
-        if (c <= 1) {
-          window.setTimeout(() => houseAct(), 0);
-          return 0;
-        }
-        return c - 1;
-      });
+      const c = clockRef.current;
+      if (c <= 1) {
+        window.clearInterval(id);
+        clockRef.current = 0;
+        window.setTimeout(() => houseAct(), 0);
+        return;
+      }
+      clockRef.current = c - 1;
     }, 1000);
     return () => window.clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

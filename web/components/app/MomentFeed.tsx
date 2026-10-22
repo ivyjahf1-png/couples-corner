@@ -1,220 +1,262 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
-  MOMENT_VIEW_COMMUNITY,
-  MOMENT_VIEW_EVENT,
-  MOMENT_VIEW_PARAM,
-  type MomentViewTab,
-} from "@/lib/momentView";
+  Heart,
+  MessageCircle,
+  Volume2,
+  VolumeX,
+  MoreVertical,
+  Send,
+  Trash2,
+  Copy,
+  Plus,
+  MapPin,
+} from "lucide-react";
 
-/**
- * Re-exported so `app/(app)/feed/page.tsx` can keep importing the tab type from
- * here alongside the component. The type now lives in `@/lib/momentView` so the
- * header can share it without importing this file, and this re-export is the
- * bridge that stops that move from churning the page's import.
- */
-export type { MomentViewTab };
-
-/**
- * The Moment section's dual-view shell.
- *
- * ── WHY TWO VIEWS UNDER ONE TAB ────────────────────────────────────────────
- * The product genuinely has two different things a member comes to "Moment" for,
- * and they are not variations of each other:
- *   • VIDEOLS — the immersive full-screen vertical player. One card at a time,
- *     swipe to advance, creator handle and engagement rail overlaid on the media.
- *   • COMMUNITY FEED — a chronological timeline of status posts and photos,
- *     with the safety banner at the top.
- *
- * Putting them behind one clearly-labelled sub-switcher is honest about that.
- * The regression that caused this work was the opposite: one tab silently
- * served one of the two, and the other was unreachable — so a member tapping
- * "Moment" to watch videos got a blog with no explanation.
- *
- * ── WHY THE SWITCHER IS NOT IN HERE ─────────────────────────────────────────
- * Both views are ALREADY server-rendered, and keeping them mounted means:
- *   • switching views does not refetch, and
- *   • the player and the timeline each keep their scroll position, because
- *     neither unmounts.
- *
- * That is the "state preserved smoothly" requirement, and routing between the
- * two would have thrown it away on every toggle. Only the ACTIVE view is
- * rendered; the inactive one is hidden with `hidden`, which keeps its DOM (and
- * therefore its scrollTop) intact while removing it from the a11y tree and from
- * hit-testing. `display:none` alone would NOT do this — a hidden-by-attribute
- * element is still focusable and still receives scroll.
- *
- * The CONTROL that toggles them is the screen header's "feed-view" button, not
- * a panel in here. See the note at the switcher's old position, and note that
- * with the switcher gone this component no longer holds a `tab` state at all —
- * the active panel is derived from `defaultTab`, which the page derives from
- * `?view=`. That is what lets the header's link actually reach this screen's
- * other panel.
- *
- * ── WHY DEFAULT IS VIDEOS ─────────────────────────────────────────────────
- * The tab is called "Moment" and the player is the immersive, media-first
- * experience, so it is what the tab means. A member who wants the timeline is
- * one tap away; the reverse would silently change what the primary tab does.
- */
-
-export interface MomentFeedProps {
-  /** The immersive player. Server-rendered by the page. */
-  videos: ReactNode;
-  /** The chronological community timeline. Server-rendered by the page. */
-  community: ReactNode;
-  defaultTab?: MomentViewTab;
+interface MomentItem {
+  id: string;
+  videoUrl: string;
+  username: string;
+  userAvatar: string;
+  caption: string;
+  likes: number;
+  comments: number;
+  isLiked?: boolean;
+  isOwner?: boolean;
 }
 
-/**
- * Mirrors a tab back into the URL as `?view=`, so the shared mobile header can
- * offer a "Feed-view" shortcut to the timeline without owning any state.
- *
- * Why the URL and not a callback: `MobileBackHeader` is rendered by `AppShell`,
- * which sits ABOVE the page in the tree, and the tab lives inside this
- * component. There is no path from the header down to here except a URL or a
- * lifted context. The URL was chosen because it is also correct on arrival —
- * a shared `/feed?view=community` link opens the timeline directly, which a
- * context-only approach could not do without a second deep-link mechanism.
- *
- * `replaceState` is used instead of `router.replace` on purpose: routing would
- * re-render the server component and remount this subtree, discarding both
- * panels' scroll positions — the exact thing mounting both panels exists to
- * prevent. Writing the query directly keeps the address bar honest (the toggle
- * is linkable and survives a refresh) while changing nothing about the DOM.
- *
- * Called from an effect only, so it never runs during render.
- */
-function syncViewToUrl(view: MomentViewTab) {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  if (view === "community") url.searchParams.set(MOMENT_VIEW_PARAM, MOMENT_VIEW_COMMUNITY);
-  else url.searchParams.delete(MOMENT_VIEW_PARAM);
-  window.history.replaceState(window.history.state, "", url);
-
-  /* Announce the change. `replaceState` re-renders nothing, so this is the only
-     signal the header gets that the view moved — without it the top-right
-     toggle keeps its old label and, worse, keeps its old href, so tapping it
-     twice navigates to the same place and appears to do nothing.
-
-     Dispatched after the write so a handler that reads `window.location` sees
-     the new URL. */
-  window.dispatchEvent(
-    new CustomEvent<MomentViewTab>(MOMENT_VIEW_EVENT, { detail: view }),
-  );
+interface MomentFeedProps {
+  moments: MomentItem[];
+  onDelete?: (id: string) => void;
 }
 
-export function MomentFeed({
-  videos,
-  community,
-  defaultTab = "videos",
-}: MomentFeedProps) {
-  /* ── WHY `tab` IS NOT STATE ───────────────────────────────────────────────
-     This is the bug the header's "feed-view" link was hitting: `tab` used to be
-     `useState(defaultTab)`, written by the in-page pill switcher. That switcher
-     was removed (the header took over the choice, freeing vertical space on the
-     full-bleed player), which left `setTab` with no remaining caller. The state
-     was therefore frozen at whatever `defaultTab` was on MOUNT and could never
-     change again.
+export default function MomentFeed({ moments, onDelete }: MomentFeedProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-     `defaultTab` comes from the page, which derives it from `?view=`. Tapping
-     "feed-view" navigates to `/feed?view=community`; the server re-renders and
-     passes `defaultTab="community"`. But `useState` ignores its initial argument
-     after the first render, and Next.js reconciles this as the same component in
-     the same position rather than remounting it — so the new prop arrived and
-     was discarded. The button navigated, the address bar changed, and the video
-     player stayed on screen. The community view was unreachable.
+  /**
+   * MUST default to true.
+   * Every modern browser blocks unmuted autoplay. The previous default of
+   * false meant the <video> was rendered with muted={false} + autoPlay,
+   * so the browser refused to start playback at all — and the speaker toggle
+   * appeared "broken" because the video was never playing to begin with,
+   * especially for cross-origin ("external link") videos.
+   */
+  const [isMuted, setIsMuted] = useState(true);
 
-     Deriving the panel from the prop instead of storing it is the fix, and it is
-     also the design the rest of this file already describes: the URL is the
-     single source of truth. Storing it in state introduced a second copy that
-     could silently disagree with the URL, and the header — which reads the URL —
-     is exactly the consumer that got the wrong answer.
+  const [showOptions, setShowOptions] = useState(false);
+  const [autoScroll] = useState(true);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-     Scroll positions are unaffected. Both panels stay mounted and the inactive
-     one is `hidden` rather than unmounted, so each keeps its own `scrollTop`
-     across a toggle. Only a real remount would lose them, and none happens. */
-  const tab = defaultTab;
+  const currentMoment = moments[currentIndex];
 
-  /* Keep the address bar in step with the rendered panel, and tell the header
-     which view is showing.
-
-     The event is dispatched AFTER the `replaceState` so a subscriber reading
-     `window.location` in its handler sees the new URL. It is a no-op on the
-     server and safe to fire when the URL already matches — the handler re-reads
-     and writes the same value. */
+  /**
+   * React does NOT reliably reflect the muted prop on <video> after the
+   * initial mount (it's a property, not an attribute, and React's DOM
+   * diffing skips it in some cases). We imperatively write it on every
+   * mute change AND every video switch. This is what makes the speaker icon
+   * actually work for external links, not just same-origin sources.
+   */
   useEffect(() => {
-    syncViewToUrl(tab);
-  }, [tab]);
+    const v = videoRef.current;
+    if (v) v.muted = isMuted;
+  }, [isMuted, currentIndex]);
+
+  /**
+   * Kick playback on every new video + recover from an autoplay rejection.
+   * Cross-origin videos frequently get rejected if the browser decides the
+   * page hasn't had a user gesture yet; the fallback forces muted and retries
+   * so the feed keeps playing instead of freezing on a black frame.
+   */
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const p = v.play();
+    if (p && typeof p.catch === "function") {
+      p.catch(() => {
+        v.muted = true;
+        setIsMuted(true);
+        v.play().catch(() => {});
+      });
+    }
+  }, [currentIndex]);
+
+  const handleVideoEnd = () => {
+    if (autoScroll && currentIndex < moments.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  };
+
+  const handleShareLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    alert("Moment link copied to clipboard!");
+    setShowOptions(false);
+  };
+
+  const handleDelete = () => {
+    if (confirm("Are you sure you want to delete this moment?")) {
+      onDelete?.(currentMoment.id);
+      setShowOptions(false);
+    }
+  };
 
   return (
-    // `w-full overflow-hidden`: this is the root of the Moment screen's column and
-    // must never become a scroll region — the panels below own the scrolling.
-    <div className="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden">
-      {/* ── IN-PAGE TABS REMOVED ───────────────────────────────────────────────
-          The "Videos / Community Feed" pill container is gone. It was a bordered,
-          padded, gradient-filled box that ate roughly 56px of vertical space on
-          a full-bleed 9:16 player — the most valuable pixels on the screen — to
-          offer a two-way choice the screen's own header now makes in ONE tap.
+    /* 100dvh (not 100vh) so the player fills the visible viewport on
+       phones whose URL bar shows/hides. overflow-hidden guarantees nothing
+       escapes the full-screen shell. */
+    <div className="relative w-full h-[100dvh] bg-black text-white overflow-hidden select-none">
 
-          `MobileBackHeader` renders a "feed-view" control on this route precisely
-          so the choice survives here. That trade is the whole point: the header
-          is chrome costing no vertical space over the video, and the pill box
-          was chrome that did.
-
-          The panels below stay mounted and one stays `hidden` — see the note
-          there. Both views are still server-rendered and still preserve their
-          scroll positions across a toggle; only the switcher moved. */}
-
-      {/* Both panels stay MOUNTED so their scroll positions survive a toggle.
-          `hidden` (not unmount, not aria-hidden) is what removes the inactive
-          one from the a11y tree and from hit-testing while its DOM — and thus
-          its scrollTop — is retained. `min-h-0` lets the active panel take the
-          remaining flex height and scroll inside its own region.
-
-          `aria-label` rather than `aria-labelledby`: the panels used to be
-          labelled by `moment-tab-videos` / `moment-tab-community`, ids on the
-          in-page pill switcher that was removed when the header took over. Those
-          references were left dangling — pointing at elements that no longer
-          exist, which is worse than no label because a screen reader announces a
-          broken relationship. Each panel now names itself. */}
-      {/* ── THE VIDEOS PANEL ───────────────────────────────────────────────────
-          This panel is `flex flex-col overflow-hidden` so it can hold the media
-          feed's `<section>` and clip it — NOT so the section can be `flex-1`.
-          The section itself supplies its height with `h-full`, and the panel's
-          job is only to be a definite-height box for that percentage to resolve
-          against, and to guarantee no overflow escapes upward into the header.
-
-          `overflow-hidden` keeps this panel from EVER becoming the scroll region:
-          the only scroller is `MediaFeed`'s inner snap scroller, one level down.
-          That is what keeps the header, the bottom nav and the floating upload
-          button pinned while the cards move under them. */}
-      <div
-        role="region"
-        aria-label="Moment reels"
-        id="moment-panel-videos"
-        hidden={tab !== "videos"}
-        className="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
-      >
-        {videos}
+      {/* ── 1. TOP HEADER — TRANSPARENT, NO DARK BACKDROP ─────────────────
+          The old bg-gradient-to-b from-black/80 via-black/40 is gone. Only
+          a per-text drop-shadow keeps the labels readable over bright videos.
+          pointer-events-none on the wrapper means the full-bleed video can
+          still receive taps in the empty header area; the one real control
+          ("Discover Nearby") re-enables pointer events on itself. */}
+      <div className="absolute top-0 left-0 right-0 z-30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 flex items-center justify-between pointer-events-none">
+        <h1 className="text-lg font-bold tracking-wide drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+          Moment
+        </h1>
+        <button className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
+          <MapPin size={14} />
+          <span>Discover Nearby</span>
+        </button>
       </div>
-      {/* ── THE COMMUNITY PANEL ────────────────────────────────────────────────
-          The ONE scroll region on this screen. `overscroll-contain` stops a flick
-          at the very top or bottom of the timeline from chaining to the body
-          behind the shell, which would otherwise nudge the header — the same
-          failure mode the media scroller already guards against. */}
-      <div
-        role="region"
-        aria-label="Community feed"
-        id="moment-panel-community"
-        hidden={tab !== "community"}
-        className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overflow-x-hidden overscroll-contain"
-      >
-        {/* Rendered unconditionally. The `hidden` attribute above is what
-            suppresses it — a conditional here would unmount the timeline and
-            throw away its scroll position, which is the exact thing this
-            component exists to prevent. */}
-        {community}
+
+      {/* ── 2. FULL-SCREEN VIDEO ──────────────────────────────────────────
+          absolute inset-0 w-full h-full object-cover guarantees the video
+          fills every phone screen regardless of its native aspect ratio —
+          portrait, square, or landscape — cropping to fit rather than
+          letterboxing. key={currentMoment.id} forces a fresh <video>
+          element per item so autoPlay reliably fires on every swipe
+          (reusing the node across src changes is flaky in several browsers). */}
+      {currentMoment && (
+        <video
+          key={currentMoment.id}
+          ref={videoRef}
+          src={currentMoment.videoUrl}
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay
+          loop={!autoScroll}
+          muted={isMuted}
+          onEnded={handleVideoEnd}
+          playsInline
+          preload="auto"
+        />
+      )}
+
+      {/* ── 3. RIGHT SIDE ACTION RAIL ─────────────────────────────────── */}
+      <div className="absolute right-3 bottom-28 z-30 flex flex-col items-center gap-5">
+        <div className="relative">
+          <img
+            src={currentMoment?.userAvatar}
+            alt={currentMoment?.username}
+            className="w-11 h-11 rounded-full border-2 border-orange-500 object-cover"
+          />
+          <button className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-4 bg-orange-500 rounded-full flex items-center justify-center text-white">
+            <Plus size={12} />
+          </button>
+        </div>
+
+        <button className="flex flex-col items-center gap-1">
+          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+            <Heart
+              size={22}
+              className={
+                currentMoment?.isLiked
+                  ? "fill-orange-500 text-orange-500"
+                  : "text-white"
+              }
+            />
+          </div>
+          <span className="text-xs font-semibold">{currentMoment?.likes}</span>
+        </button>
+
+        <button className="flex flex-col items-center gap-1">
+          <div className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10">
+            <MessageCircle size={22} />
+          </div>
+          <span className="text-xs font-semibold">{currentMoment?.comments}</span>
+        </button>
+
+        <button
+          onClick={() => setIsMuted((m) => !m)}
+          aria-label={isMuted ? "Unmute video" : "Mute video"}
+          className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10"
+        >
+          {isMuted ? <VolumeX size={22} /> : <Volume2 size={22} />}
+        </button>
+
+        <div className="relative">
+          <button
+            onClick={() => setShowOptions(!showOptions)}
+            className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/10"
+          >
+            <MoreVertical size={22} />
+          </button>
+
+          {showOptions && (
+            <div className="absolute right-0 bottom-12 w-44 bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 rounded-xl shadow-2xl p-1.5 z-40 flex flex-col gap-1">
+              <button
+                onClick={handleShareLink}
+                className="flex items-center gap-2.5 px-3 py-2 text-xs text-slate-200 hover:bg-slate-800 rounded-lg w-full text-left transition"
+              >
+                <Copy size={15} className="text-orange-400" />
+                <span>Copy Share Link</span>
+              </button>
+
+              {currentMoment?.isOwner && (
+                <button
+                  onClick={handleDelete}
+                  className="flex items-center gap-2.5 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg w-full text-left transition"
+                >
+                  <Trash2 size={15} />
+                  <span>Delete Video</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── 4. BOTTOM STACK ────────────────────────────────────────────────
+          bottom-[72px] pins this stack right on top of the 72px bottom
+          navigation bar. Inside, flex flex-col orders the children
+          top-to-bottom, so:
+              • profile card  ← top
+              • input bar     ← immediately below the card, immediately above
+                                the bottom nav
+          The subtle upward gradient here is for text legibility over bright
+          videos — it is NOT a header backdrop, so it doesn't violate the
+          "no dark header" requirement. */}
+      <div className="absolute bottom-[72px] left-0 right-0 z-30 px-4 flex flex-col gap-2 bg-gradient-to-t from-black/85 via-black/30 to-transparent pt-6">
+        {/* Profile card — sits directly on top of the input bar */}
+        <div className="flex items-center gap-2.5 max-w-[80%]">
+          <img
+            src={currentMoment?.userAvatar}
+            alt={currentMoment?.username}
+            className="w-8 h-8 rounded-full border border-orange-500/50 object-cover"
+          />
+          <div className="flex flex-col">
+            <span className="text-xs font-bold text-white tracking-wide">
+              @{currentMoment?.username}
+            </span>
+            <p className="text-[11px] text-slate-300 line-clamp-1">
+              {currentMoment?.caption}
+            </p>
+          </div>
+        </div>
+
+        {/* Input bar — sits directly on top of the bottom navigation bar */}
+        <div className="relative flex items-center w-full">
+          <input
+            type="text"
+            placeholder={`Message ${currentMoment?.username}...`}
+            className="w-full bg-slate-900/80 backdrop-blur-md border border-orange-500/40 rounded-full py-2.5 pl-4 pr-11 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-orange-500"
+          />
+          <button className="absolute right-1.5 p-1.5 rounded-full bg-orange-500 text-white hover:bg-orange-600 transition">
+            <Send size={14} />
+          </button>
+        </div>
       </div>
     </div>
   );

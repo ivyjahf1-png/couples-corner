@@ -430,6 +430,85 @@ html {
   color-scheme: dark;
 }
 
+/* ============================================================================
+   CHAT SURFACE LAYOUT — the one full-bleed screen in the app.
+
+   The conversation view is the only route that drops the shell's padding and
+   hides the bottom dock, so it owns its own height arithmetic. Three problems
+   are solved here, and all three are things a component cannot solve on its
+   own:
+
+   1. THE ON-SCREEN KEYBOARD. `100dvh` tracks the VISUAL viewport on modern
+      engines, so the composer rides up when the keyboard opens. iOS Safari is
+      the exception in practice: its layout viewport does not change, so a
+      `dvh`-sized column stays full-height and the composer ends up BEHIND the
+      keyboard — the classic "I cannot see what I am typing" bug.
+
+      `--app-keyboard-inset` is the gap between the layout viewport and the
+      visual viewport. `ChatRoomClient` writes it on every `visualViewport`
+      resize. The column applies it as PADDING-BOTTOM, and because the
+      composer is a `position: sticky; bottom: 0` child of that column, it
+      stops at the bottom of the CONTENT box — i.e. exactly at the top of the
+      keyboard. Padding rather than `transform` is deliberate: a transform
+      would move the composer but leave the thread's scroll extent unchanged,
+      so the last message would still be unreachable underneath it.
+
+   2. THE SAFE AREA. On a notched phone the home indicator sits below the
+      composer, so the composer bar reserves `env(safe-area-inset-bottom)` as
+      bottom padding. `env()` with no fallback resolves to 0 everywhere else,
+      which is why the 0.5rem floor is a literal and not part of the env() call.
+
+   3. THE DYNAMIC-VIEWPORT FALLBACK. `@supports not (height: 100dvh)` — the
+      same pattern used by the WebView section above — so an old engine that
+      cannot parse `dvh` still gets a bounded column instead of a collapsed
+      one.
+   ============================================================================ */
+
+:root {
+  /* Written by ChatRoomClient from `visualViewport`. Zero everywhere except
+     while a soft keyboard is open on a platform that does not resize the
+     layout viewport. */
+  --app-keyboard-inset: 0px;
+}
+
+/* The locked conversation column. */
+.chat-column {
+  height: 100%;
+  max-height: 100dvh;
+  padding-bottom: var(--app-keyboard-inset, 0px);
+  /* The inset is a runtime value, so it cannot be transitioned: a keyboard
+     that slides in over 150ms would drag the composer with it, which reads
+     as the composer sliding around rather than the page resizing. */
+  transition: none;
+}
+
+/* The composer bar's own safe-area floor. */
+.chat-composer {
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* On a keyboard-driven phone the composer has to keep a comfortable target
+   height; `min-h` here is a floor, not a fixed height, so a taller draft
+   still grows the bar. */
+.chat-composer__field {
+  min-height: 2.75rem;
+  font-size: 16px; /* iOS Safari zooms a focused field whose font is < 16px. */
+}
+
+@media (min-width: 640px) {
+  /* Desktop keeps the tighter 14px type; the 16px rule above exists purely
+     to clear iOS's focus-zoom threshold. */
+  .chat-composer__field {
+    font-size: 14px;
+  }
+}
+
+@supports not (height: 100dvh) {
+  .chat-column {
+    max-height: 100vh;
+  }
+}
+
 body {
   background-color: var(--background);
   background-image: var(--background-gradient);
@@ -1648,6 +1727,30 @@ button,
       rgb(255 255 255 / 0.05) 100%
     );
     border-color: rgb(255 255 255 / 0.09);
+  }
+
+  /* ── CHAT-FLAVOURED SKELETONS ─────────────────────────────────────────────
+     The inbox skeleton sits on the chat canvas (`#0F0C1B`), which is darker
+     than the surfaces the default `.sk` fill was tuned for. On this canvas
+     the default 5%-white fill reads almost as black, and the sweep highlight
+     (10% white) is the only thing that moves — so the placeholder looks like
+     a hole rather than a surface.
+
+     These two variants repaint the block in the chat ramp instead: a violet
+     fill (`#1F1A32`, the theme's own surface) with a warmer, brighter sweep.
+     They are separate classes rather than a modifier on `.sk` so the existing
+     `.sk` blocks elsewhere in the app keep their current appearance. */
+  .sk--chat {
+    background-color: rgb(31 26 50 / 0.9);
+    border-color: rgb(58 51 88 / 0.9);
+  }
+  .sk--chat::after {
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(201 194 228 / 0.16) 50%,
+      transparent 100%
+    );
   }
 }
 

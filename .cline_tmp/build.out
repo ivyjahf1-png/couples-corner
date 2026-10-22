@@ -1,0 +1,113 @@
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.production.local, .env.local, .env.production
+⚠ Warning: Next.js ignored package-lock.json in C:\Users\HomePC\Documents\couples-corner because it is outside the current Git repository (C:\Users\HomePC\Documents\couples-corner\web).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.ts took 791ms
+- Experiments (use with caution):
+  · serverActions
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 15.7min
+  Running TypeScript ...
+  Finished TypeScript in 3.6min ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/70) ...
+  Generating static pages using 3 workers (17/70) 
+  Generating static pages using 3 workers (34/70) 
+  Generating static pages using 3 workers (52/70) 
+✓ Generating static pages using 3 workers (70/70) in 14.7s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ○ /_not-found
+├ ○ /about
+├ ƒ /admin
+├ ƒ /admin/broadcast
+├ ƒ /admin/content
+├ ƒ /admin/couples
+├ ƒ /admin/reports
+├ ƒ /admin/settings
+├ ƒ /admin/support
+├ ƒ /admin/users
+├ ƒ /api/admin/reports
+├ ƒ /api/agora-token
+├ ƒ /api/auth/logout
+├ ƒ /api/auth/register
+├ ƒ /api/auth/session
+├ ƒ /api/cron/bot-injection
+├ ƒ /api/photos/[uid]/[fileName]
+├ ƒ /api/photos/profile
+├ ƒ /api/safety/block
+├ ƒ /api/safety/report
+├ ƒ /api/wallet/purchase
+├ ○ /app
+├ ○ /apple-icon.png
+├ ƒ /aristocracy
+├ ƒ /auth/callback
+├ ƒ /badge
+├ ƒ /call/[conversationId]
+├ ƒ /call/[conversationId]/[mode]
+├ ○ /call/test-room
+├ ƒ /chat
+├ ○ /community
+├ ƒ /community/[id]
+├ ○ /contact
+├ ƒ /couple
+├ ƒ /couple/[slug]
+├ ƒ /dashboard
+├ ƒ /discover
+├ ƒ /events
+├ ƒ /explore
+├ ƒ /feed
+├ ƒ /feedback
+├ ƒ /forgot-password
+├ ○ /game/racing
+├ ƒ /games
+├ ƒ /games/[gameId]
+├ ○ /how-it-works
+├ ○ /icon.png
+├ ○ /insights
+├   /insights/[slug]
+│ ├ ● /insights/communication
+│ ├ ● /insights/trust
+│ └ ● /insights/date-ideas
+├ ƒ /invite/[code]
+├ ○ /legal/cookies
+├ ○ /legal/privacy
+├ ○ /legal/terms
+├ ƒ /level
+├ ƒ /likes
+├ ƒ /live
+├ ƒ /login
+├ ○ /manifest.webmanifest
+├ ƒ /matches
+├ ƒ /messages
+├ ƒ /messages/[conversationId]
+├ ƒ /moments
+├ ƒ /notifications
+├ ƒ /onboarding
+├ ƒ /profile
+├ ƒ /profile/[userId]
+├ ƒ /profile/edit
+├ ƒ /profile/personal-info
+├ ƒ /profile/setup
+├ ƒ /register
+├ ○ /safety
+├ ƒ /search
+├ ƒ /settings
+├ ƒ /settings/blocked
+├ ƒ /store
+├ ƒ /subscription
+├ ƒ /support
+├ ƒ /task
+├ ƒ /task/upload-moment
+├ ƒ /u/[username]
+└ ƒ /verify-email
+
+
+○  (Static)   prerendered as static content
+●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+ƒ  (Dynamic)  server-rendered on demand
+

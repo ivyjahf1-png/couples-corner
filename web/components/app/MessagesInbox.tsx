@@ -38,6 +38,15 @@ import { StoryAvatar } from "@/components/story/StoryAvatar";
 
 export interface InboxChat {
   key: string;
+  /**
+   * The upstream row id, when the source has one. Kept OPTIONAL because the
+   * two conversation sources disagree: real member conversations carry a
+   * `conversations.id`, while bot persona threads are keyed by `personaId` and
+   * have no row id at all.
+   */
+  id?: string | null;
+  /** The Mongo-style `_id`, kept for the same reason as `id`. */
+  _id?: string | null;
   href: string;
   name: string;
   /** "person" for members, "couple" for the two-dot duo mark. */
@@ -232,7 +241,25 @@ export function MessagesInbox({
             <StoryAvatar userId={userId} />
 
             {stories.map((c, i) => (
-              <div className="relative flex w-16 shrink-0 flex-col items-center gap-1.5">
+              /* THE KEY.
+               *
+               * This list was rendering WITHOUT a key, which is what produced
+               * React's "Each child in a list should have a unique key" warning
+               * in the console on every inbox paint. The key has to be STABLE
+               * across reorders, because this row is sorted by the sort mode
+               * (recent / online) and a positional index would silently move a
+               * story's DOM node with its content.
+               *
+               * The fallback chain is `id` -> `_id` -> index, because the two
+               * conversation sources disagree about what identifies a row:
+               * real member conversations expose a `conversations.id`, while bot
+               * persona threads are keyed by `personaId` and have no row id at
+               * all. The index is therefore the LAST resort, not the default.
+               */
+              <div
+                key={c.id || c._id || i}
+                className="relative flex w-16 shrink-0 flex-col items-center gap-1.5"
+              >
                 <span className="absolute -bottom-10 right-1/2 -translate-x-1/2 flex h-9 w-9 items-center justify-center rounded-full border border-white/30 bg-brand-500 text-white shadow-lg transition hover:bg-brand-600">
                   <span className="flex h-full w-full items-center justify-center rounded-full bg-brand-500 text-white">
                     <MessageCircle className="h-4 w-4" />

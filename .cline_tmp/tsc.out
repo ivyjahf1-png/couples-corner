@@ -1,0 +1,5 @@
+components/app/MomentFeed.tsx(253,34): error TS1005: '}' expected.
+components/app/MomentFeed.tsx(253,36): error TS1005: '...' expected.
+components/app/MomentFeed.tsx(253,60): error TS1003: Identifier expected.
+components/app/MomentFeed.tsx(253,63): error TS1381: Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+components/app/MomentFeed.tsx(255,12): error TS1382: Unexpected token. Did you mean `{'>'}` or `&gt;`?

@@ -50,6 +50,11 @@ export default async function MessagesPage() {
       .filter((c) => c?.id)
       .map((c) => ({
         key: `conv-${c.id}`,
+        /* The raw row id, carried through so the inbox can key its list by a
+           STABLE value instead of a positional index (which is what produced
+           React's missing-key warning on the stories row). */
+        id: c.id,
+        _id: null,
         href: `/messages/${c.id}`,
         name: c.name,
         kind: c.kind,
@@ -79,6 +84,10 @@ export default async function MessagesPage() {
       .filter((b) => b?.personaId)
       .map((b) => ({
         key: `bot-${b.personaId}`,
+        /* Bot personas have no `conversations` row behind them, so the persona
+           id IS the row id here. */
+        id: b.personaId,
+        _id: null,
         /* Bot personas have no `conversations` row behind them, so this points at
            the persona via the query string rather than a /messages/<id> route
            that would 404. */

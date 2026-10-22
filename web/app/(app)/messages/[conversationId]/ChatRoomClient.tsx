@@ -228,6 +228,53 @@ function formatClock(iso: string): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+
+/**
+ * The LOCAL calendar day of a message, as a sortable `YYYY-MM-DD` key.
+ *
+ * It is built from local time parts rather than from `toISOString()`, because
+ * `toISOString()` converts to UTC: a message sent at 23:30 in Lagos is
+ * stamped as the NEXT day, and the date separator above it would then be
+ * wrong for every member who is not on UTC.
+ */
+function dayKey(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/**
+ * The human label for a date separator: "Today", "Yesterday", or a date.
+ *
+ * The two relative labels are the ones members actually recognise; a raw
+ * "22/10/2026" in the middle of a chat reads like a database field.
+ */
+function formatDayLabel(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfMessage = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayDelta = Math.round(
+    (startOfToday.getTime() - startOfMessage.getTime()) / (1000 * 60 * 60 * 24),
+  );
+
+  if (dayDelta === 0) return "Today";
+  if (dayDelta === 1) return "Yesterday";
+  /* Within the last week, a weekday name ("Monday") reads better than a
+     number, and the member is still alive to the conversation. */
+  if (dayDelta > 1 && dayDelta < 7) {
+    return date.toLocaleDateString([], { weekday: "long" });
+  }
+  /* Older: day + month, and the year only when it is not the current one. */
+  return date.toLocaleDateString([], {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  });
+}
 /** A small pill in the pinned card's badge row. */
 function PinnedBadge({
   icon: Icon,
@@ -345,9 +392,18 @@ function PinnedProfileCard({ summary }: { summary: ConversationParticipantSummar
  */
 function ScamWarning() {
   return (
+    /* A CENTRED SYSTEM ALERT, not a bubble.
+     *
+     * It is not a message: it is a note from the app ABOUT the conversation, so
+     * it is centred in the thread and sized to its own content instead of
+     * hugging either edge. Left-aligned it read as "something the other person
+     * said" — which is exactly the wrong impression for a warning about them.
+     *
+     * `mx-auto` centres it in the column; `w-fit` lets it shrink to the text
+     * rather than stretching the full thread width. */
     <div
       role="note"
-      className="mt-2 rounded-xl px-3 py-2.5"
+      className="mx-auto mt-2 w-fit max-w-[92%] rounded-2xl border border-amber-500/30 px-3 py-2.5"
       style={{ backgroundColor: THEME.warning }}
     >
       <p className="flex items-start gap-1.5 text-[11px] leading-4 text-amber-100">
@@ -473,8 +529,15 @@ function MessageBubble({
     <div
       className={
         isMine
-          ? "ml-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-br-none bg-gradient-to-r from-orange-500 to-amber-600 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
-          : "mr-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-bl-none border border-white/10 bg-slate-800/90 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
+          ? /* SENT: orange gradient, square-ish TAIL on the bottom-RIGHT (the
+               side the bubble sits on). `rounded-br-md` rather than
+               `rounded-br-none` keeps a small radius so the bubble still reads
+               as a bubble rather than a flag. */
+            "ml-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-br-md bg-gradient-to-r from-orange-500 to-amber-600 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
+          : /* RECEIVED: slate glass, mirrored TAIL on the bottom-LEFT, and a
+               hairline border so the bubble separates from the purple canvas
+               behind it instead of blending into it. */
+            "mr-auto flex min-w-[60px] max-w-[75%] flex-col gap-1 break-words whitespace-pre-wrap rounded-2xl rounded-bl-md border border-white/10 bg-slate-800/90 px-4 py-2.5 text-sm leading-5 text-white shadow-md"
       }
     >
       {/* MEDIA — photo and/or voice note, rendered above any caption. The image is
@@ -492,7 +555,25 @@ function MessageBubble({
         <audio controls preload="metadata" src={audioUrl} className="w-56 max-w-full" />
       ) : null}
       {showBody ? body : null}
-      <span className={isMine ? "self-end text-[10px] font-medium leading-none text-white/80" : "self-end text-[10px] font-medium leading-none text-[#C9C2E4]"}>
+      {/* THE TIMESTAMP.
+       *
+       * It is ALIGNED WITH THE BUBBLE, not with the sender: `self-end` for an
+       * own message (it sits under the right edge, where the bubble's tail
+       * is) and `self-start` for an incoming one (under the left edge, beside
+       * the avatar). Using `self-end` for both made every timestamp line up in
+       * a column on the right of the thread, which looked like a separate
+       * column of data rather than as part of each bubble.
+       *
+       * The incoming colour is the design's muted lilac `#C9C2E4` rather than
+       * `slate-400`: at 10px on the dark canvas that is the difference between
+       * AA and a washout. */}
+      <span
+        className={
+          isMine
+            ? "self-end text-[10px] font-medium leading-none text-white/80"
+            : "self-start text-[10px] font-medium leading-none text-[#C9C2E4]"
+        }
+      >
         {formatClock(message.created_at)}
         {isMine && seen ? " · Seen" : ""}
       </span>
@@ -916,11 +997,39 @@ export default function ChatRoomClient({
     collapseRef.current = el;
   }, [collapseRef]);
 
-  /* Pin to the newest message. Keyed on the merged list rather than per message
-     id so an insert, a merge and an edit each settle the view once. */
+  /* Pin to the newest message.
+   *
+   * Two things changed here, and both are about not yanking the view out from
+   * under a member who is reading history:
+   *
+   *  1. `behavior: "smooth"` instead of the instant jump. The instant jump
+   *     moved the thread several hundred pixels in one frame, which reads on a
+   *     phone as a flick. Smooth scrolling lets the eye follow the new
+   *     message. It is skipped when the member has `prefers-reduced-motion`
+   *     set, where a large animated slide is exactly the wrong thing.
+   *
+   *  2. The scroll only happens when the member is ALREADY at (or near) the
+   *     bottom. If they have scrolled up to re-read something, a new arrival
+   *     used to yank them back down and destroy their place. The tolerance is
+   *     a couple of viewport heights, so a message that arrives while they are
+   *     reading the last screen still moves them along with it.
+   *
+   * Keyed on the merged list rather than per message id so an insert, a merge
+   * and an edit each settle the view once. */
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom <= el.clientHeight * 2;
+    if (!nearBottom) return;
+
+    const reducedMotion =
+      typeof window !== "undefined" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    el.scrollTo({ top: el.scrollHeight, behavior: reducedMotion ? "auto" : "smooth" });
   }, [messages.length]);
 
   const handleMessageAction = useCallback(
@@ -1214,23 +1323,32 @@ export default function ChatRoomClient({
   }, [draft]);
 
   /* Index of the newest message from the other member. The scam warning is
-     attached to that one and to nothing else. */
+     attached to that one and to nothing else.
+
+     INDEXED INTO `visibleMessages`, NOT `messages`. The row list the thread
+     renders is `visibleMessages` (everything except ids this member hid with
+     "Delete for me"), so an index computed against the unfiltered array pointed
+     at the WRONG row as soon as one message was hidden — the scam card would
+     attach to a neighbouring bubble, or to nothing at all. The two arrays must
+     agree on their indexing or the markers drift. */
   const lastIncomingIndex = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i]?.sender_id !== currentUserId) return i;
+    for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
+      if (visibleMessages[i]?.sender_id !== currentUserId) return i;
     }
     return -1;
-  }, [messages, currentUserId]);
+  }, [visibleMessages, currentUserId]);
 
   /* Index of the newest message I sent — the ONE bubble that carries the "Seen"
      label. Same reverse scan, inverted predicate, and -1 when I have not sent
-     anything (so the seen expression can never match an empty thread). */
+     anything (so the seen expression can never match an empty thread).
+
+     ALSO INDEXED INTO `visibleMessages`, for the same reason as above. */
   const lastOwnIndex = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i]?.sender_id === currentUserId) return i;
+    for (let i = visibleMessages.length - 1; i >= 0; i -= 1) {
+      if (visibleMessages[i]?.sender_id === currentUserId) return i;
     }
     return -1;
-  }, [messages, currentUserId]);
+  }, [visibleMessages, currentUserId]);
 /* THE LOCKED VIEWPORT COLUMN.
 
    `h-full max-h-[100dvh]`, NOT a bare `h-[100dvh]`.
@@ -1300,14 +1418,30 @@ export default function ChatRoomClient({
       // trigger and does not mutate any state.
       void composer.offsetHeight;
     };
+    const setKeyboardInset = () => {
+      const inset =
+        window.innerHeight - (viewport.height + viewport.offsetTop);
+      document.documentElement.style.setProperty(
+        '--app-keyboard-inset',
+        `${Math.max(0, inset)}px`,
+      );
+    };
 
-    viewport.addEventListener("resize", handleViewportResize);
-    return () => viewport.removeEventListener("resize", handleViewportResize);
+    handleViewportResize();
+    setKeyboardInset();
+    viewport.addEventListener('resize', handleViewportResize);
+    viewport.addEventListener('resize', setKeyboardInset);
+    viewport.addEventListener('scroll', setKeyboardInset);
+    return () => {
+      viewport.removeEventListener('resize', handleViewportResize);
+      viewport.removeEventListener('resize', setKeyboardInset);
+      viewport.removeEventListener('scroll', setKeyboardInset);
+    };
   }, []);
 
   return (
     <div
-      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#0F0C1B]"
+      className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-[#0F0C1B] chat-column"
       ref={rootRef}
       style={{
         /* THE CANVAS GRADIENT, not the flat `THEME.canvas`.
@@ -1376,15 +1510,58 @@ export default function ChatRoomClient({
 
           {visibleMessages.map((message, index) => {
             const isMine = message.sender_id === currentUserId;
-            /* A centred clock above the first message of each minute group. */
-            const previous = messages[index - 1];
+            /* A centred clock above the first message of each minute group.
+
+               THE COMPARISON IS AGAINST THE PREVIOUS VISIBLE MESSAGE, NOT
+               `messages[index - 1]`. The loop walks `visibleMessages`, so the
+               neighbour of index `i` in THIS list is `visibleMessages[i - 1]`.
+               Reading the unfiltered array instead meant that as soon as one
+               message was hidden ("Delete for me") the minute grouping compared
+               against a row that is no longer on screen, and the clock either
+               vanished or appeared twice in a row. */
+            const previous = visibleMessages[index - 1];
             const showStamp =
               !previous ||
               Math.floor(new Date(previous.created_at).getTime() / 60000) !==
                 Math.floor(new Date(message.created_at).getTime() / 60000);
 
+            /* THE DATE SEPARATOR.
+             *
+             * A long thread that runs across midnight (or across several days)
+             * with no date markers makes it impossible to tell where "yesterday"
+             * ends. The separator is emitted once per CALENDAR DAY, above the
+             * first message of that day.
+             *
+             * It is compared against the previous VISIBLE message rather than
+             * the previous message in `messages`, because a message the member
+             * hid with "Delete for me" must not leave two separators in a row —
+             * the hidden row's day is still the day of the message before it. */
+            const previousVisible = visibleMessages[index - 1];
+            const currentDay = dayKey(message.created_at);
+            const previousDay = previousVisible ? dayKey(previousVisible.created_at) : null;
+            const showDaySeparator = currentDay !== "" && currentDay !== previousDay;
+
             return (
               <div key={message.id} className="flex flex-col gap-2.5">
+                {/* THE DATE SEPARATOR. Centred and full-width, with hairlines
+                    running out to the edges of the thread — the classic chat
+                    "day divider". It is a structural marker, so it is spoken
+                    as one rather than being left for a screen reader to
+                    discover as loose text. */}
+                {showDaySeparator ? (
+                  <div
+                    role="separator"
+                    aria-label={`Date: ${formatDayLabel(message.created_at)}`}
+                    className="my-1 flex items-center gap-3"
+                  >
+                    <span className="h-px flex-1 bg-white/10" aria-hidden />
+                    <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.06] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#C9C2E4]">
+                      {formatDayLabel(message.created_at)}
+                    </span>
+                    <span className="h-px flex-1 bg-white/10" aria-hidden />
+                  </div>
+                ) : null}
+
                 {/* TIMESTAMPS. `text-[#C9C2E4]`, not `slate-400` and not `slate-500`: this is one
                     of the two places the old ramp dropped below AA, and a 10px
                     caption on `#0F0C1B` is exactly the case that needs the lift. */}
@@ -1448,7 +1625,15 @@ export default function ChatRoomClient({
              continuous surface with the rest of the shell. */
           backgroundColor: "#0b0f19",
           borderColor: THEME.hairline,
-          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom))",
+          /* SAFE-AREA BOTTOM INSET, with a floor of 8px.
+           *
+           * `calc(0.5rem + env(safe-area-inset-bottom))` adds the home-indicator
+           * inset ON TOP of the bar's own padding, so the gap above the
+           * indicator is comfortable rather than flush. `env()` without a
+           * fallback resolves to 0 on browsers that do not implement it, which
+           * is why the 0.5rem is a literal rather than part of the env() call —
+           * the bar never collapses to zero height on a desktop browser. */
+          paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))",
         }}
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six
@@ -1540,7 +1725,7 @@ export default function ChatRoomClient({
             </div>
           </div>
         ) : (
-        <form onSubmit={onSubmit} className="flex items-center gap-2">
+        <form onSubmit={onSubmit} className="flex items-center gap-2 chat-composer">
           {/* LEFT: attachment (image) then mic (voice). Both open native pickers /
               the recorder — the two media affordances live together on the left so
               the center stays a clean text field. */}
@@ -1598,7 +1783,15 @@ export default function ChatRoomClient({
             rows={1}
             placeholder={editingId ? "Edit your message..." : "Type a message..."}
             aria-label="Message"
-            className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-sm text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00]"
+            /* `text-base` ON MOBILE, `text-sm` from the `sm` breakpoint up.
+             *
+             * iOS Safari zooms the whole page in when a focused input's font
+             * size is under 16px, and it never zooms back out on blur. `text-sm`
+             * is 14px, so tapping the composer on a phone used to leave the
+             * viewport zoomed in at 140% with the composer off the side of the
+             * screen. 16px is the threshold, and the desktop layout keeps its
+             * tighter 14px type. */
+            className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-base text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00] sm:text-sm chat-composer__field"
             style={{ borderColor: THEME.hairline }}
           />
 

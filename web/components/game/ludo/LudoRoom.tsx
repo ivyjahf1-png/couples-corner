@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { LudoBoard } from "./LudoBoard";
+// Make sure this imports LudoBoard, not AeroLudoBoard
+import { LudoBoard } from "./LudoBoard"; 
 import { LudoHud } from "./LudoHud";
 import { LudoEmojiBar } from "./LudoEmojiBar";
 import { LudoRealtimeManager } from "./LudoRealtime";
@@ -20,7 +21,6 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
   const realtimeRef = useRef<LudoRealtimeManager | null>(null);
 
   useEffect(() => {
-    // 1. Initialize Supabase Realtime channel
     const realtime = new LudoRealtimeManager(roomId, userId);
     realtimeRef.current = realtime;
 
@@ -43,7 +43,6 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
     };
   }, [roomId, userId]);
 
-  /** Handle Roll Dice Action */
   const handleRollDice = async () => {
     if (rolling || gameState.winner !== null) return;
 
@@ -63,17 +62,14 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
 
       setGameState(nextState);
 
-      // Broadcast dice roll to room
       if (realtimeRef.current) {
         await realtimeRef.current.broadcastGameState(nextState);
       }
     }, 600);
   };
 
-  /** Handle Pawn Selection & Move */
   const handleSelectToken = async (tokenIdx: number) => {
     void tokenIdx;
-    // Calculate new state after pawn move...
     const nextTurn = ((gameState.turn + 1) % 4) as LudoColor;
     const updatedState: LudoGameState = {
       ...gameState,
@@ -82,7 +78,6 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
 
     setGameState(updatedState);
 
-    // Broadcast move to all room members
     if (realtimeRef.current) {
       await realtimeRef.current.broadcastGameState(updatedState);
     }
@@ -92,24 +87,25 @@ export function LudoRoom({ roomId, userId, initialState }: LudoRoomProps) {
 
   return (
     <div className="flex flex-col gap-4 w-full max-w-md mx-auto p-2">
-      {/* Dynamic Player HUD with Attached Dice */}
       <LudoHud
         state={gameState}
         dice={diceValue}
         rolling={rolling}
         canRollNow={isMyTurn && !rolling}
         onRoll={handleRollDice}
-        hubLabel={`Room ${roomId}`}
+        hubLabel={"Room " + roomId}
       />
 
-      {/* 15x15 Ludo Board */}
+      {/* Pass the dice props to LudoBoard */}
       <LudoBoard
         state={gameState}
         selectable={[0, 1, 2, 3]}
         onSelect={handleSelectToken}
+        diceValue={diceValue}
+        rolling={rolling}
+        onRoll={handleRollDice}
       />
 
-      {/* Reaction Emoji Toolbar */}
       <LudoEmojiBar />
     </div>
   );
