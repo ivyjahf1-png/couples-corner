@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import React from "react";
 import { motion } from "framer-motion";
 import {
@@ -13,13 +13,39 @@ import {
 } from "@/lib/ludo/engine";
 import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
 
-/* ═══════════════════════════════════════════════════════════════════
-   AAA 5D LUDO BOARD — Geometry & Constants (game logic preserved)
-   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   Engine-agnostic accessors
+   ═══════════════════════════════════════════════════════════════ */
+
+const COLORS: readonly string[] = (() => {
+  const src = LUDO_COLORS as unknown;
+  if (Array.isArray(src)) return src as readonly string[];
+  const rec = src as Record<number, string | undefined>;
+  return [rec[0] ?? "#E53935", rec[1] ?? "#1E88E5", rec[2] ?? "#FDD835", rec[3] ?? "#43A047"];
+})();
+
+const NAMES: readonly string[] = (() => {
+  const src = LUDO_NAMES as unknown;
+  if (Array.isArray(src)) return src as readonly string[];
+  const rec = src as Record<number, string | undefined>;
+  return [rec[0] ?? "Red", rec[1] ?? "Blue", rec[2] ?? "Yellow", rec[3] ?? "Green"];
+})();
+
+const START_ARR: readonly number[] = START_INDEX as unknown as readonly number[];
+
+function colorOf(c: LudoColor | number): string {
+  return COLORS[Number(c)] ?? "#888888";
+}
+function nameOf(c: LudoColor | number): string {
+  return NAMES[Number(c)] ?? "Player";
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Geometry (Matching Image)
+   ═══════════════════════════════════════════════════════════════ */
 
 const GRID = 15;
 
-/** 52-cell main track as (col,row) grid coordinates, clockwise from top. */
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
   [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
@@ -35,312 +61,160 @@ const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [7, 0], [6, 0],
 ];
 
-/** Base block origins per quadrant (col,row): 0=Red BL · 1=Blue BR · 2=Yellow TR · 3=Green TL. */
 const BASE_QUAD: Record<number, readonly [number, number]> = {
-  0: [0, 9],
-  1: [9, 9],
-  2: [9, 0],
-  3: [0, 0],
+  0: [0, 9],  // Bottom-Left (Red)
+  1: [9, 9],  // Bottom-Right (Blue)
+  2: [9, 0],  // Top-Right (Yellow)
+  3: [0, 0],  // Top-Left (Green)
 };
 
-/** Pawn socket centres inside each 6×6 base. */
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1.7, 10.7], [4.3, 10.7], [1.7, 13.3], [4.3, 13.3]], // BL (Red)
-  1: [[10.7, 10.7], [13.3, 10.7], [10.7, 13.3], [13.3, 13.3]], // BR (Blue)
-  2: [[10.7, 1.7], [13.3, 1.7], [10.7, 4.3], [13.3, 4.3]], // TR (Yellow)
-  3: [[1.7, 1.7], [4.3, 1.7], [1.7, 4.3], [4.3, 4.3]], // TL (Green)
+  0: [[1.8, 10.8], [4.2, 10.8], [1.8, 13.2], [4.2, 13.2]],
+  1: [[10.8, 10.8], [13.2, 10.8], [10.8, 13.2], [13.2, 13.2]],
+  2: [[10.8, 1.8], [13.2, 1.8], [10.8, 4.2], [13.2, 4.2]],
+  3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
 };
 
-/** Home corridors (6 cells each) — clockwise arms into the centre triangles. */
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red  → horizontal LEFT arm, into centre from left
-  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Blue → vertical BOTTOM arm, into centre from below
-  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow → horizontal RIGHT arm, into centre from right
-  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Green → vertical TOP arm, into centre from above
+  0: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Red (Moves up)
+  1: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Blue (Moves left)
+  2: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Yellow (Moves down)
+  3: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Green (Moves right)
 };
 
-const START_SET: ReadonlySet<number> = new Set(START_INDEX);
-const CENTRE = { x: 7.5, y: 7.5 };
-
-/** Deep-walnut outer frame styling for the board housing. */
-const WOOD_FRAME: React.CSSProperties = {
-  background:
-    "repeating-linear-gradient(93deg, rgba(0,0,0,.18) 0 3px, rgba(255,255,255,.06) 3px 7px), linear-gradient(150deg,#8a5e31 0%,#5a3d1d 50%,#2d1a08 100%)",
-  boxShadow:
-    "inset 0 3px 0 rgba(255,224,170,.4), inset 0 -6px 14px rgba(0,0,0,.7), inset 0 0 0 2px rgba(0,0,0,.5), 0 24px 52px rgba(0,0,0,.6)",
-};
-
-/* ═══════════════════════════════════════════════════════════════════
-   Colour palette (5D glossy)
-   ═══════════════════════════════════════════════════════════════════ */
-
-const COLOR_META: Record<number, { glow: string; dark: string; light: string }> = {
-  0: { glow: "#ef4444", dark: "#b91c1c", light: "#fca5a5" },   // Red
-  1: { glow: "#3b82f6", dark: "#1d4ed8", light: "#93c5fd" },   // Blue
-  2: { glow: "#eab308", dark: "#ca8a04", light: "#fde047" },   // Yellow
-  3: { glow: "#22c55e", dark: "#15803d", light: "#86efac" },   // Green
-};
-
-/* ═══════════════════════════════════════════════════════════════════
-   Helpers
-   ═══════════════════════════════════════════════════════════════════ */
+const CENTRE = { x: 7.5, y: 7.5 } as const;
+const START_SET: ReadonlySet<number> = new Set(START_ARR);
 
 function trackXY(index: number): { x: number; y: number } {
   const n = TRACK_PATH.length;
-  const c = TRACK_PATH[((index % n) + n) % n]!;
+  const c = TRACK_PATH[((index % n) + n) % n] ?? [0, 0];
   return { x: c[0] + 0.5, y: c[1] + 0.5 };
 }
 
 function posFor(color: LudoColor, tokenIdx: number, steps: number): { x: number; y: number } {
   if (steps < 0) {
-    const s = BASE_SPOTS[color]![tokenIdx]!;
+    const s = (BASE_SPOTS[color as unknown as number] ?? [])[tokenIdx] ?? CENTRE;
     return { x: s[0], y: s[1] };
   }
   if (steps <= 50) {
     const cell = trackCell(color, steps);
-    return cell === null ? CENTRE : trackXY(cell);
+    return cell == null ? CENTRE : trackXY(cell);
   }
   if (steps < FINISH_STEP) {
-    const h = HOME_PATH[color]![steps - 51]!;
+    const h = (HOME_PATH[color as unknown as number] ?? [])[steps - 51] ?? CENTRE;
     return { x: h[0] + 0.5, y: h[1] + 0.5 };
   }
   return CENTRE;
 }
 
 function starPoints(cx: number, cy: number, r: number): string {
-  const inner = r * 0.42;
+  const inner = r * 0.45;
   const pts: string[] = [];
   for (let i = 0; i < 10; i += 1) {
-    const ang = (-Math.PI / 2) + (i * Math.PI) / 5;
+    const ang = -Math.PI / 2 + (i * Math.PI) / 5;
     const rad = i % 2 === 0 ? r : inner;
-    pts.push(
-      `${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`
-    );
+    pts.push(`${(cx + rad * Math.cos(ang)).toFixed(3)},${(cy + rad * Math.sin(ang)).toFixed(3)}`);
   }
   return pts.join(" ");
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Board geometry rendering (SVG)
-   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   Board Surface (SVG)
+   ═══════════════════════════════════════════════════════════════ */
 
 function BoardSurface({ activeSeat }: { activeSeat: LudoColor | null }) {
+  const activeNum = activeSeat == null ? -1 : Number(activeSeat);
+
   return (
-    <svg
-      viewBox="0 0 15 15"
-      className="block h-auto w-full max-w-[460px] aspect-square"
-      role="img"
-      aria-label="AAA 5D Ludo Board"
-    >
+    <svg viewBox="0 0 15 15" className="block h-full w-full drop-shadow-md" role="img" aria-label="Ludo Board">
       <defs>
-        {/* Glossy base gradients per colour */}
-        {([0, 1, 2, 3] as const).map((c) => {
-          const col = LUDO_COLORS[c]!;
-          const meta = COLOR_META[c]!;
-          return (
-            <linearGradient
-              key={`base-${c}`}
-              id={`base-grad-${c}`}
-              x1="0" y1="0" x2="1" y2="1"
-            >
-              <stop offset="0" stopColor={meta.light} stopOpacity="0.9" />
-              <stop offset="0.35" stopColor={col} />
-              <stop offset="1" stopColor={meta.dark} />
-            </linearGradient>
-          );
-        })}
-
-        {/* Track tile gradient */}
+        {([0, 1, 2, 3] as const).map((c) => (
+          <linearGradient key={`base-grad-${c}`} id={`base-grad-${c}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor={colorOf(c)} stopOpacity="0.9" />
+            <stop offset="1" stopColor={colorOf(c)} />
+          </linearGradient>
+        ))}
         <linearGradient id="track-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FFFDF9" stopOpacity="0.92" />
-          <stop offset="1" stopColor="#E2D7BE" />
-        </linearGradient>
-
-        {/* Yard / base block gradient */}
-        <linearGradient id="yard-grad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FFFFFF" />
-          <stop offset="1" stopColor="#EAE1CC" />
+          <stop offset="1" stopColor="#F0F0F0" />
         </linearGradient>
-
-        {/* Centre triangle gradients */}
-        {([0, 1, 2, 3] as const).map((c) => {
-          const col = LUDO_COLORS[c]!;
-          const meta = COLOR_META[c]!;
-          return (
-            <linearGradient
-              key={`centre-${c}`}
-              id={`centre-grad-${c}`}
-              x1="0" y1="0" x2="1" y2="1"
-            >
-              <stop offset="0" stopColor={meta.light} stopOpacity="0.95" />
-              <stop offset="1" stopColor={col} />
-            </linearGradient>
-          );
-        })}
-
-        {/* Drop shadow filter for tokens */}
-        <filter id="token-shadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" />
-          <feOffset dx="0.5" dy="0.8" result="offsetblur" />
-          <feComponentTransfer>
-            <feFuncA type="linear" slope="0.45" />
-          </feComponentTransfer>
-          <feMerge>
-            <feMergeNode />
-            <feMergeNode in="SourceGraphic" />
-          </feMerge>
-        </filter>
       </defs>
 
-      {/* Outer board surface — deep wood */}
-      <rect
-        x="0" y="0" width="15" height="15"
-        fill="#1A1107"
-        rx="1.2"
-        stroke="#2D1F0C"
-        strokeWidth="0.14"
-      />
+      <rect x="0" y="0" width="15" height="15" fill="#FFFFFF" rx="0.5" stroke="#E0E0E0" strokeWidth="0.1" />
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CENTRE HOME — four colour triangles meeting at centre point
-          ══════════════════════════════════════════════════════════════ */}
+      {/* Center 4 Triangles */}
       <g>
-        {/* Green — top triangle */}
-        <polygon
-          points="7.5,1 7.5,6 1,6"
-          fill="url(#centre-grad-3)"
-          stroke="#2D1F0C"
-          strokeWidth="0.08"
-        />
-        {/* Yellow — right triangle */}
-        <polygon
-          points="14,7.5 9,7.5 9,14"
-          fill="url(#centre-grad-2)"
-          stroke="#2D1F0C"
-          strokeWidth="0.08"
-        />
-        {/* Blue — bottom triangle */}
-        <polygon
-          points="7.5,14 7.5,9 14,9"
-          fill="url(#centre-grad-1)"
-          stroke="#2D1F0C"
-          strokeWidth="0.08"
-        />
-        {/* Red — left triangle */}
-        <polygon
-          points="1,7.5 1,1 6,1 6,7.5"
-          fill="url(#centre-grad-0)"
-          stroke="#2D1F0C"
-          strokeWidth="0.08"
-        />
-        {/* Centre pinwheel seam */}
-        <path
-          d="M7.5,1 L7.5,7.5 L1,7.5 M7.5,14 L7.5,7.5 L14,7.5 M1,7.5 L7.5,7.5 L7.5,1 M14,7.5 L7.5,7.5 L7.5,14"
-          stroke="#2D1F0C"
-          strokeWidth="0.1"
-          fill="none"
-        />
+        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#333" strokeWidth="0.05" />
+        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#333" strokeWidth="0.05" />
+        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke="#333" strokeWidth="0.05" />
+        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke="#333" strokeWidth="0.05" />
       </g>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          HOME CORRIDORS / ARMS — 6-cell colour paths into centre
-          ══════════════════════════════════════════════════════════════ */}
+      {/* Home Paths */}
       <g>
-        {([0, 1, 2, 3] as const).flatMap((c) => {
-          const col = LUDO_COLORS[c]!;
-          return HOME_PATH[c]!.map(([colX, rowY], j) => (
-            <rect
-              key={`home-${c}-${j}`}
-              x={colX} y={rowY} width={1} height={1}
-              fill={col}
-              fillOpacity="0.92"
-              stroke="#2D1F0C"
-              strokeWidth="0.06"
-            />
-          ));
-        })}
-      </g>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          BASE ZONES — 6×6 glossy colour blocks in each corner
-          ══════════════════════════════════════════════════════════════ */}
-      <g>
-        {([0, 1, 2, 3] as const).map((c) => {
-          const q = BASE_QUAD[c]!;
-          const col = LUDO_COLORS[c]!;
-          return (
-            <g key={`base-${c}`}>
+        {([0, 1, 2, 3] as const).flatMap((c) =>
+          (HOME_PATH[c] ?? []).map((cell, j) => {
+            const cx = cell[0];
+            const cy = cell[1];
+            return (
               <rect
-                x={q[0]} y={q[1]} width={6} height={6}
-                fill={`url(#base-grad-${c})`}
-                stroke="#1F140A"
-                strokeWidth="0.08"
-                rx="0.9"
+                key={`home-${c}-${j}`}
+                x={cx}
+                y={cy}
+                width={1}
+                height={1}
+                fill={colorOf(c)}
+                stroke="#333"
+                strokeWidth="0.05"
               />
-              {/* Token socket positions (subtle rings) */}
-              {BASE_SPOTS[c]!.map(([sx, sy], i) => (
-                <circle
-                  key={`socket-${c}-${i}`}
-                  cx={sx} cy={sy} r={0.62}
-                  fill="none"
-                  stroke="rgba(255,255,255,.25)"
-                  strokeWidth="0.05"
-                  strokeDasharray="0.4 0.4"
-                />
-              ))}
-              {/* Active-player halo */}
-              {activeSeat === c && (
-                <rect
-                  x={q[0] + 0.15}
-                  y={q[1] + 0.15}
-                  width={5.7}
-                  height={5.7}
-                  rx={0.8}
-                  fill="none"
-                  stroke={col}
-                  strokeWidth={0.18}
-                  style={{ filter: `drop-shadow(0 0 5px ${col})` }}
-                />
-              )}
-            </g>
-          );
-        })}
+            );
+          })
+        )}
       </g>
 
-      {/* ══════════════════════════════════════════════════════════════
-          TRACK PATH — 52 high-contrast cells around the perimeter
-          ══════════════════════════════════════════════════════════════ */}
+      {/* Track Cells */}
       <g>
-        {TRACK_PATH.map(([col, row], i) => {
+        {TRACK_PATH.map((cell, i) => {
+          const col = cell[0];
+          const row = cell[1];
           const isSafe = SAFE_CELLS.has(i);
           const isStart = START_SET.has(i);
-          const cellColor = isStart
-            ? LUDO_COLORS[START_INDEX.indexOf(i)]!
-            : "url(#track-grad)";
+          const playerIdx = START_ARR.indexOf(i);
+          const cellColor = isStart && playerIdx >= 0 ? colorOf(playerIdx) : "url(#track-grad)";
+          
+          let rotation = 0;
+          if (i === START_ARR[0]) rotation = 0;
+          if (i === START_ARR[1]) rotation = 90;
+          if (i === START_ARR[2]) rotation = 180;
+          if (i === START_ARR[3]) rotation = 270;
+          
           return (
             <g key={`trk-${i}`}>
               <rect
-                x={col} y={row} width={1} height={1}
+                x={col}
+                y={row}
+                width={1}
+                height={1}
                 fill={cellColor}
-                fillOpacity={isStart ? 0.98 : 0.92}
-                stroke="#2D1F0C"
-                strokeWidth="0.06"
+                stroke="#333"
+                strokeWidth="0.04"
               />
-              {/* Safe-house shield icon */}
-              {isSafe && (
-                <path
-                  d={`M${col + 0.5},${row + 0.28} L${col + 0.72},${row + 0.62} L${col + 0.28},${row + 0.62} Z`}
-                  fill="#FFFFFF"
-                  stroke="none"
-                />
-              )}
-              {/* Start-gate star */}
               {isStart && (
+                <>
+                  <path
+                    d={`M${col + 0.5},${row + 0.2} L${col + 0.8},${row + 0.6} L${col + 0.2},${row + 0.6} Z`}
+                    fill="rgba(255,255,255,0.8)"
+                    transform={`rotate(${rotation}, ${col + 0.5}, ${row + 0.5})`}
+                  />
+                  <text x={col + 0.5} y={row + 0.75} fontSize="0.4" textAnchor="middle" fill="#fff">🔒</text>
+                </>
+              )}
+              {isSafe && !isStart && (
                 <polygon
-                  points={starPoints(col + 0.5, row + 0.5, 0.34)}
-                  fill="#FFFFFF"
-                  stroke="#2D1F0C"
-                  strokeWidth="0.04"
+                  points={starPoints(col + 0.5, row + 0.5, 0.3)}
+                  fill="#FFC107"
+                  stroke="#B8860B"
+                  strokeWidth="0.03"
                 />
               )}
             </g>
@@ -348,81 +222,72 @@ function BoardSurface({ activeSeat }: { activeSeat: LudoColor | null }) {
         })}
       </g>
 
-      {/* ══════════════════════════════════════════════════════════════
-          DIRECTIONAL ARROWS — clockwise movement cues on each track side
-          ══════════════════════════════════════════════════════════════ */}
+      {/* Base Quadrants */}
       <g>
-        {/* Left side (going down) */}
-        {([6, 4, 2] as const).map((i) => {
-          const [cx, cy] = TRACK_PATH[i];
+        {([0, 1, 2, 3] as const).map((c) => {
+          const q = BASE_QUAD[c] ?? [0, 0];
+          const col = colorOf(c);
           return (
-            <path
-              key={`arr-l-${i}`}
-              d={`M${cx + 0.5},${cy + 0.35} L${cx + 0.5},${cy + 0.65}`}
-              stroke="#FFFFFF"
-              strokeWidth="0.07"
-              strokeLinecap="round"
-              markerEnd="url(#arrow-head-white)"
-            />
-          );
-        })}
-        {/* Bottom side (going right) */}
-        {([12, 10, 8] as const).map((i) => {
-          const [cx, cy] = TRACK_PATH[i];
-          return (
-            <path
-              key={`arr-b-${i}`}
-              d={`M${cx + 0.35},${cy + 0.5} L${cx + 0.65},${cy + 0.5}`}
-              stroke="#FFFFFF"
-              strokeWidth="0.07"
-              strokeLinecap="round"
-              markerEnd="url(#arrow-head-white)"
-            />
-          );
-        })}
-        {/* Right side (going up) */}
-        {([24, 26, 28] as const).map((i) => {
-          const [cx, cy] = TRACK_PATH[i];
-          return (
-            <path
-              key={`arr-r-${i}`}
-              d={`M${cx + 0.5},${cy + 0.65} L${cx + 0.5},${cy + 0.35}`}
-              stroke="#FFFFFF"
-              strokeWidth="0.07"
-              strokeLinecap="round"
-              markerEnd="url(#arrow-head-white)"
-            />
-          );
-        })}
-        {/* Top side (going left) */}
-        {([36, 38, 40] as const).map((i) => {
-          const [cx, cy] = TRACK_PATH[i];
-          return (
-            <path
-              key={`arr-t-${i}`}
-              d={`M${cx + 0.65},${cy + 0.5} L${cx + 0.35},${cy + 0.5}`}
-              stroke="#FFFFFF"
-              strokeWidth="0.07"
-              strokeLinecap="round"
-              markerEnd="url(#arrow-head-white)"
-            />
+            <g key={`base-quad-${c}`}>
+              <rect
+                x={q[0] + 0.05}
+                y={q[1] + 0.05}
+                width={5.9}
+                height={5.9}
+                fill={col}
+                rx="1.2"
+                stroke="#333"
+                strokeWidth="0.1"
+              />
+              <rect
+                x={q[0] + 0.6}
+                y={q[1] + 0.6}
+                width={4.8}
+                height={4.8}
+                fill="#FFFFFF"
+                rx="0.8"
+                stroke="#ddd"
+                strokeWidth="0.05"
+              />
+              {(BASE_SPOTS[c] ?? []).map((spot, i) => {
+                const sx = spot[0];
+                const sy = spot[1];
+                return (
+                  <circle
+                    key={`socket-${c}-${i}`}
+                    cx={sx}
+                    cy={sy}
+                    r={0.55}
+                    fill="#FFFFFF"
+                    stroke={col}
+                    strokeWidth="0.2"
+                  />
+                );
+              })}
+              {activeNum === c && (
+                <rect
+                  x={q[0] + 0.05}
+                  y={q[1] + 0.05}
+                  width={5.9}
+                  height={5.9}
+                  rx={1.2}
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth={0.2}
+                  style={{ filter: `drop-shadow(0 0 4px ${col})` }}
+                />
+              )}
+            </g>
           );
         })}
       </g>
-
-      {/* White arrow-head marker (defined once) */}
-      <defs>
-        <marker id="arrow-head-white" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
-          <path d="M0,0 L0,7 L7,3.5 Z" fill="#FFFFFF" />
-        </marker>
-      </defs>
     </svg>
   );
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   Pawn computation (game logic — unchanged)
-   ═══════════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════════
+   Pawn Builder
+   ═══════════════════════════════════════════════════════════════ */
 
 interface Pawn {
   key: string;
@@ -436,25 +301,32 @@ interface Pawn {
   stackCount: number;
 }
 
+type PlayerShape = { tokens: ReadonlyArray<{ steps: number }> };
+
 function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[] {
   const raw: Pawn[] = [];
-  (state.players as LudoGameState["players"][number][]).forEach((p, c) => {
+  const players = (state.players as unknown as ReadonlyArray<PlayerShape>) ?? [];
+
+  players.forEach((p, c) => {
+    if (!p || !Array.isArray(p.tokens)) return;
     p.tokens.forEach((t, i) => {
       if (t.steps >= FINISH_STEP) return;
-      const pos = posFor(c as LudoColor, i, t.steps);
+      const color = c as unknown as LudoColor;
+      const pos = posFor(color, i, t.steps);
       raw.push({
         key: `${c}-${i}`,
-        color: c as LudoColor,
+        color,
         idx: i,
         steps: t.steps,
         x: pos.x,
         y: pos.y,
-        movable: c === state.turn && selectable.includes(i),
+        movable: Number(color) === Number(state.turn) && selectable.includes(i),
         stackIndex: 0,
         stackCount: 1,
       });
     });
   });
+
   const groups = new Map<string, Pawn[]>();
   for (const p of raw) {
     const k = `${p.x.toFixed(2)},${p.y.toFixed(2)}`;
@@ -471,6 +343,43 @@ function buildPawns(state: LudoGameState, selectable: readonly number[]): Pawn[]
   return raw;
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   Player HUD
+   ═══════════════════════════════════════════════════════════════ */
+
+const PLAYER_INFO = [
+  { name: "busybrai...", flag: "🇳🇬", pos: "bottom-[-30px] left-0", avatar: "🧔🏽‍♂️" },
+  { name: "Azeel", flag: "🇦🇪", pos: "bottom-[-30px] right-0", avatar: "👦🏽" },
+  { name: "Miray", flag: "🇺🇸", pos: "top-[-30px] right-0", avatar: "👩🏼" },
+  { name: "Manish", flag: "🇮🇳", pos: "top-[-30px] left-0", avatar: "👨🏽" },
+];
+
+function PlayerHUD() {
+  return (
+    <>
+      {PLAYER_INFO.map((p, i) => (
+        <div key={i} className={`absolute ${p.pos} flex items-center gap-2 z-30`}>
+          <div className="flex items-center gap-1 rounded-full bg-[#1a1642]/80 border border-white/20 px-3 py-1 shadow-lg backdrop-blur-md">
+            <span className="text-sm">{p.flag}</span>
+            <span className="text-xs font-bold text-white tracking-wide">{p.name}</span>
+          </div>
+        </div>
+      ))}
+      <div className="absolute top-[-80px] left-0 w-16 h-16 rounded-2xl overflow-hidden border-2 border-green-500 bg-gray-800 flex items-center justify-center text-3xl shadow-xl z-30">{PLAYER_INFO[3].avatar}</div>
+      <div className="absolute top-[-80px] right-0 w-16 h-16 rounded-2xl overflow-hidden border-2 border-yellow-500 bg-gray-800 flex items-center justify-center text-3xl shadow-xl z-30">{PLAYER_INFO[2].avatar}</div>
+      <div className="absolute bottom-[-80px] left-0 w-16 h-16 rounded-2xl overflow-hidden border-2 border-red-500 bg-gray-800 flex items-center justify-center text-3xl shadow-xl z-30">{PLAYER_INFO[0].avatar}</div>
+      <div className="absolute bottom-[-80px] right-0 w-16 h-16 rounded-2xl overflow-hidden border-2 border-blue-500 bg-gray-800 flex items-center justify-center text-3xl shadow-xl z-30">{PLAYER_INFO[1].avatar}</div>
+    </>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Main Component
+   ═══════════════════════════════════════════════════════════════ */
+
+const STACK_DX = 0.22;
+const STACK_DY = 0.22;
+
 export function LudoBoard({
   state,
   selectable,
@@ -483,86 +392,99 @@ export function LudoBoard({
   seedCustom?: { animal?: string | null; color?: string | null } | null;
 }) {
   const pawns = buildPawns(state, selectable);
-  const activeSeat: LudoColor | null = state.winner === null ? state.turn : null;
+
+  const winnerVal = (state as unknown as { winner?: LudoColor | null }).winner;
+  const activeSeat: LudoColor | null = winnerVal == null ? state.turn : null;
+
   return (
-    <div className="relative select-none mx-auto w-full max-w-[460px] p-1 sm:p-2">
-      <div className="relative rounded-[6%] p-[2.5%]" style={WOOD_FRAME}>
-        <div className="relative overflow-hidden rounded-[4%] shadow-[inset_0_2px_16px_rgba(0,0,0,.7)] ring-2 ring-black/70">
-          <BoardSurface activeSeat={activeSeat} />
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-[#2D2B7C] to-[#1C154A] p-8 font-sans">
+      <div className="relative mx-auto w-full max-w-[500px]">
+        
+        <PlayerHUD />
 
-          {/* HTML Overlay Layer for Pawns */}
-          <div className="absolute inset-0">
-            {pawns.map((p) => {
-              const dx = p.stackCount > 1 ? (p.stackIndex - (p.stackCount - 1) / 2) * 0.28 : 0;
-              const col = LUDO_COLORS[p.color]!;
-              const customAnimal = p.color === 0 && seedCustom?.animal ? seedCustom.animal : null;
-              const animalEmoji = SEED_ANIMALS.find((a) => a.key === customAnimal)?.emoji ?? "🦁";
+        <div className="relative rounded-[12px] bg-white p-2 shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-4 border-gray-200">
+          <div className="relative w-full aspect-square overflow-hidden rounded-md">
+            <BoardSurface activeSeat={activeSeat} />
 
-              return (
-                <motion.button
-                  key={p.key}
-                  type="button"
-                  aria-label={`${LUDO_NAMES[p.color]} pawn ${p.idx + 1}`}
-                  disabled={!p.movable}
-                  onClick={() => p.movable && onSelect(p.idx)}
-                  initial={false}
-                  animate={{
-                    left: `${((p.x + dx) / GRID) * 100}%`,
-                    top: `${(p.y / GRID) * 100}%`,
-                    x: "-50%",
-                    y: "-62%",
-                  }}
-                  transition={{ type: "spring", stiffness: 240, damping: 22, mass: 0.55 }}
-                  className="absolute z-20 grid aspect-square cursor-default place-items-center"
-                  style={{ width: `${(100 / GRID) * 1.05}%` }}
-                >
-                  <motion.span
-                    key={`hop-${p.steps}`}
-                    className="relative flex flex-col items-center h-full w-full justify-end"
-                    initial={{ scale: 0.8, y: -8 }}
-                    animate={{ scale: 1, y: 0 }}
-                    transition={{ type: "spring", stiffness: 450, damping: 14 }}
+            <div className="absolute inset-0">
+              {pawns.map((p) => {
+                const scale = p.stackCount > 1 ? Math.max(0.6, 1 - (p.stackCount - 1) * 0.15) : 1;
+                const mid = (p.stackCount - 1) / 2;
+                const dx = p.stackCount > 1 ? (p.stackIndex - mid) * STACK_DX : 0;
+                const dy = p.stackCount > 1 ? (p.stackIndex - mid) * STACK_DY : 0;
+
+                const col = colorOf(p.color);
+                const customAnimal = Number(p.color) === 0 && seedCustom?.animal ? seedCustom.animal : null;
+                const animalEmoji = SEED_ANIMALS.find((a) => a.key === customAnimal)?.emoji;
+
+                let tokenVisual = "";
+                if (p.color === 0) tokenVisual = animalEmoji ?? "💂🏽"; 
+                if (p.color === 1) tokenVisual = "💧"; 
+                if (p.color === 2) tokenVisual = "🏰"; 
+                if (p.color === 3) tokenVisual = "🟢"; 
+
+                return (
+                  <motion.button
+                    key={p.key}
+                    type="button"
+                    aria-label={`${nameOf(p.color)} pawn ${p.idx + 1}`}
+                    aria-disabled={!p.movable}
+                    disabled={!p.movable}
+                    onClick={() => {
+                      if (p.movable) onSelect(p.idx);
+                    }}
+                    initial={false}
+                    animate={{
+                      left: `${((p.x + dx) / GRID) * 100}%`,
+                      top: `${((p.y + dy) / GRID) * 100}%`,
+                      scale,
+                      x: "-50%",
+                      y: "-50%",
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                    className={[
+                      "absolute z-20 flex items-center justify-center focus:outline-none transition-transform",
+                      p.movable ? "cursor-pointer hover:scale-110" : "cursor-default",
+                    ].join(" ")}
+                    style={{ width: `${(100 / GRID) * 1.1}%`, height: `${(100 / GRID) * 1.1}%` }}
                   >
-                    <span className="absolute bottom-0 h-[22%] w-[80%] rounded-[50%] bg-black/60 blur-[1px]" />
-                    <span
-                      className="relative z-10 flex h-[48%] w-[58%] items-center justify-center rounded-full border-2 border-white/80 shadow-md"
-                      style={{
-                        background: `radial-gradient(circle at 35% 30%, #fff, ${col} 65%, rgba(0,0,0,.6) 130%)`,
-                      }}
+                    <motion.div
+                      key={`hop-${p.steps}`}
+                      className="relative flex h-full w-full items-center justify-center"
+                      initial={{ y: -10, scale: 0.8 }}
+                      animate={{ y: 0, scale: 1 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
                     >
-                      <span className="text-xs sm:text-sm drop-shadow-sm">{p.color === 0 ? animalEmoji : "♟️"}</span>
-                    </span>
-                    <span
-                      className="relative -mt-1 h-[36%] w-[38%] border-x border-white/40 shadow-inner"
-                      style={{
-                        background: `linear-gradient(90deg, rgba(0,0,0,.3), ${col} 50%, rgba(255,255,255,.4))`,
-                      }}
-                    />
-                    <span
-                      className="relative -mt-0.5 h-[20%] w-[85%] rounded-full border border-white/70 shadow-lg"
-                      style={{
-                        background: `linear-gradient(180deg, ${col}, rgba(0,0,0,.6))`,
-                      }}
-                    />
-                  </motion.span>
+                      <div className="absolute bottom-0 h-1/3 w-3/4 rounded-[50%] bg-black/40 blur-[1px]" />
+                      
+                      <div 
+                        className="relative z-10 flex aspect-square h-[80%] items-center justify-center rounded-full border-2 border-white/50 shadow-[0_4px_8px_rgba(0,0,0,0.4),inset_0_-2px_6px_rgba(0,0,0,0.3),inset_0_2px_6px_rgba(255,255,255,0.6)]"
+                        style={{
+                          background: `radial-gradient(circle at 30% 30%, #ffffff, ${col} 70%, rgba(0,0,0,0.8) 120%)`,
+                          fontSize: "1.2rem",
+                          lineHeight: 1,
+                        }}
+                      >
+                         {p.color === 1 ? (
+                           <div className="h-[80%] w-[70%] bg-blue-400 rounded-[50%_50%_50%_50%/60%_60%_40%_40%] shadow-inner" />
+                         ) : (
+                           <span className="drop-shadow-md">{tokenVisual}</span>
+                         )}
+                      </div>
+                    </motion.div>
 
-                  {p.movable && (
-                    <motion.span
-                      className="pointer-events-none absolute inset-[-25%] rounded-full ring-2"
-                      animate={{ scale: [1, 1.18, 1], opacity: [0.95, 0.4, 0.95] }}
-                      transition={{ repeat: Infinity, duration: 1.1 }}
-                      style={{ borderColor: col, boxShadow: `0 0 16px ${col}` }}
-                    />
-                  )}
-
-                  {p.stackCount > 1 && p.stackIndex === p.stackCount - 1 && (
-                    <span className="absolute -right-1 -top-1 rounded-full bg-black/90 px-1.5 text-[9px] font-black leading-4 text-amber-300">
-                      ×{p.stackCount}
-                    </span>
-                  )}
-                </motion.button>
-              );
-            })}
+                    {p.movable && (
+                      <motion.div
+                        className="pointer-events-none absolute inset-[-15%] rounded-full border-2"
+                        animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.2, 0.8] }}
+                        transition={{ repeat: Infinity, duration: 1.2 }}
+                        style={{ borderColor: "#FFFFFF", boxShadow: `0 0 10px ${col}` }}
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
