@@ -7,14 +7,23 @@ import {
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
+import { 
+  ArrowLeft, Heart, Users, Volume2, Settings, Home, 
+  Compass, Image as ImageIcon, Gamepad2, MessageSquare, User, Smile 
+} from "lucide-react";
 
 const GRID = 15;
+
+// 0=Red(BL), 1=Blue(BR), 2=Yellow(TR), 3=Green(TL)
 const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"]; 
 const HEX_DARK = ["#B71C1C", "#1565C0", "#F9A825", "#2E7D32"];
+const HEX_LIGHT = ["#FF8A80", "#82B1FF", "#FFF59D", "#A5D6A7"];
 
 function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
+function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
 
+// Standard Clockwise Pathway
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
   [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
@@ -71,60 +80,161 @@ function posFor(color: number, tokenIdx: number, steps: number) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   3D REALISTIC DICE
+   5D CSS PAWN
    ═══════════════════════════════════════════════════════════════ */
-function Dice({ color, positionClass, value, isRolling, onRoll }: { color: string, positionClass: string, value: number, isRolling: boolean, onRoll?: () => void }) {
-  const dots = useMemo(() => {
-    const dot = "w-2.5 h-2.5 bg-gray-800 rounded-full shadow-inner";
-    if (value === 1) return <div className={dot} />;
-    if (value === 2) return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/></div>;
-    if (value === 3) return <div className="grid grid-cols-3 gap-1"><div className={dot}/><div className={dot}/><div className={dot}/></div>;
-    if (value === 4) return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
-    if (value === 5) return <div className="grid grid-cols-2 gap-2 relative"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot + " absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"}/></div>;
-    return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
-  }, [value]);
+function Pawn({ color, size = 24 }: { color: number, size?: number }) {
+  const baseBg = "linear-gradient(to bottom, " + colorOf(color) + ", " + darkColorOf(color) + ")";
+  const bodyBg = "linear-gradient(to right, " + darkColorOf(color) + ", " + colorOf(color) + ", " + lightColorOf(color) + ")";
+  const headBg = "radial-gradient(circle at 30% 30%, " + lightColorOf(color) + ", " + colorOf(color) + " 60%, " + darkColorOf(color) + ")";
 
   return (
-    <motion.div
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      className={"absolute z-[100] cursor-pointer " + positionClass}
-      onClick={onRoll}
-      style={{ filter: "drop-shadow(0 10px 15px rgba(0,0,0,0.5))" }}
-    >
-      <motion.div 
-        className="w-12 h-12 bg-white rounded-xl border-b-4 border-r-4 border-gray-300 shadow-2xl flex items-center justify-center p-1 will-change-transform"
-        animate={isRolling ? { 
-          rotateX: [0, 360, 720, 1080], 
-          rotateY: [0, 360, 720, 1080],
-          scale: [1, 1.2, 1.2, 1] 
-        } : { rotateX: 15, rotateY: 15, y: [0, -3, 0] }}
-        transition={isRolling ? { duration: 1, ease: "easeOut" } : { repeat: Infinity, duration: 2 }}
-        style={{ transformStyle: "preserve-3d" }}
-      >
-        {dots}
-      </motion.div>
-    </motion.div>
+    <div className="relative flex items-center justify-center drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]" style={{ width: size, height: size }}>
+      {/* Base */}
+      <div 
+        className="absolute bottom-0 w-[80%] h-[20%] rounded-[50%]"
+        style={{ background: baseBg }}
+      />
+      {/* Body/Stem */}
+      <div 
+        className="absolute bottom-[10%] w-[40%] h-[50%] rounded-b-[40%] rounded-t-[20%]"
+        style={{ background: bodyBg }}
+      />
+      {/* Head */}
+      <div 
+        className="absolute top-0 w-[60%] h-[50%] rounded-full shadow-[inset_-2px_-2px_4px_rgba(0,0,0,0.4),inset_2px_2px_4px_rgba(255,255,255,0.8)]"
+        style={{ background: headBg }}
+      />
+    </div>
   );
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   BOARD SURFACE
+   THE 5D GLASS DICE (Replaced with your premium code)
+   ═══════════════════════════════════════════════════════════════ */
+const FACE_ROT: Record<number, { x: number; y: number }> = {
+  1: { x: 0, y: 0 }, 2: { x: -90, y: 0 }, 3: { x: 0, y: -90 },
+  4: { x: 0, y: 90 }, 5: { x: 90, y: 0 }, 6: { x: 0, y: 180 },
+};
+
+const PIPS: Record<number, readonly number[]> = {
+  1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+};
+
+const GLASS_FACE: React.CSSProperties = {
+  background: "linear-gradient(145deg, rgba(255,255,255,.95) 0%, rgba(236,245,255,.74) 44%, rgba(178,206,238,.58) 100%)",
+  boxShadow: [
+    "inset 0 0 0 1px rgba(255,255,255,.9)",
+    "inset .1rem .1rem .32rem rgba(255,255,255,.95)",
+    "inset -.12rem -.14rem .34rem rgba(23,53,99,.4)",
+    "inset 0 0 .85rem rgba(126,175,232,.3)",
+    "0 0 .45rem rgba(158,205,255,.28)",
+  ].join(", "),
+};
+
+const PIP_STYLE: React.CSSProperties = {
+  background: "radial-gradient(circle at 32% 28%, #7b8494 0%, #232a36 52%, #05070c 100%)",
+  boxShadow: [
+    "inset 0 .07rem .09rem rgba(0,0,0,.95)",
+    "inset 0 -.05rem .07rem rgba(255,255,255,.28)",
+    "0 .05rem .06rem rgba(255,255,255,.8)",
+  ].join(", "),
+};
+
+const SPECULAR: React.CSSProperties = {
+  background: "linear-gradient(128deg, rgba(255,255,255,.8) 0%, rgba(255,255,255,.12) 30%, transparent 48%)",
+};
+
+function Face({ value, transform }: { value: number; transform: string }) {
+  return (
+    <div
+      className="absolute grid h-full w-full grid-cols-3 grid-rows-3 gap-[8%] rounded-[13%] p-[12%]"
+      style={{ ...GLASS_FACE, transform, backfaceVisibility: "hidden" }}
+      aria-hidden
+    >
+      {Array.from({ length: 9 }, (_, i) => (
+        <span key={i} className="grid place-items-center">
+          {PIPS[value]!.includes(i) ? (
+            <span className="h-[68%] w-[68%] rounded-full" style={PIP_STYLE} />
+          ) : null}
+        </span>
+      ))}
+      <span className="pointer-events-none absolute inset-0 rounded-[13%]" style={SPECULAR} />
+    </div>
+  );
+}
+
+function LudoDice({ value, rolling, active = false, size = 46 }: { value: number; rolling: boolean; active?: boolean; size?: number; }) {
+  const face = FACE_ROT[Math.min(6, Math.max(1, value))] ?? FACE_ROT[1]!;
+  const idle = { rotateX: face.x, rotateY: face.y };
+  const animate = rolling
+    ? {
+        rotateX: [0, 900 + face.x, face.x],
+        rotateY: [0, 1080 + face.y, face.y],
+        y: [0, -22, 0, -9, 0],
+        scaleY: [1, 1, 0.93, 1, 1],
+      }
+    : idle;
+
+  return (
+    <div className="relative grid place-items-center" style={{ perspective: 640, width: size, height: size }} aria-hidden>
+      <span
+        className="pointer-events-none absolute -inset-[14%] rounded-[26%] blur-[3px]"
+        style={{
+          background: active
+            ? "radial-gradient(circle, rgba(96,165,250,.45), transparent 68%)"
+            : "radial-gradient(circle, rgba(255,255,255,.14), transparent 70%)",
+        }}
+      />
+      <motion.div
+        className="relative h-full w-full"
+        style={{ transformStyle: "preserve-3d" }}
+        initial={idle}
+        animate={animate}
+        transition={
+          rolling
+            ? { duration: 1.05, times: [0, 0.6, 0.8, 0.92, 1], ease: [0.22, 0.9, 0.3, 1] }
+            : { type: "spring", stiffness: 130, damping: 14 }
+        }
+      >
+        {/* FIX: Replaced backticks with string concatenation to prevent TS errors */}
+        <Face value={1} transform={"translateZ(" + (size / 2) + "px)"} />
+        <Face value={6} transform={"rotateY(180deg) translateZ(" + (size / 2) + "px)"} />
+        <Face value={3} transform={"rotateY(90deg) translateZ(" + (size / 2) + "px)"} />
+        <Face value={4} transform={"rotateY(-90deg) translateZ(" + (size / 2) + "px)"} />
+        <Face value={2} transform={"rotateX(90deg) translateZ(" + (size / 2) + "px)"} />
+        <Face value={5} transform={"rotateX(-90deg) translateZ(" + (size / 2) + "px)"} />
+      </motion.div>
+      <span
+        className={`pointer-events-none absolute -bottom-[16%] left-1/2 h-[15%] w-[80%] -translate-x-1/2 rounded-[50%] ${
+          rolling ? "animate-[cc-ludo-die-shadow_520ms_ease-in-out_infinite]" : ""
+        }`}
+        style={{
+          background: `radial-gradient(ellipse at center, ${
+            active ? "rgba(56,189,248,.6)" : "rgba(0,0,0,.6)"
+          } , transparent 70%)`,
+        }}
+      />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   THE 5D BOARD SURFACE
    ═══════════════════════════════════════════════════════════════ */
 const BoardSurface = React.memo(() => {
   return (
-    <svg viewBox="0 0 15 15" className="block h-full w-full bg-white rounded-xl shadow-inner p-1" role="img">
+    <svg viewBox="0 0 15 15" className="block h-full w-full bg-white rounded-sm" role="img">
       <g>
-        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#222" strokeWidth="0.08" />
-        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#222" strokeWidth="0.08" />
-        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke="#222" strokeWidth="0.08" />
-        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke="#222" strokeWidth="0.08" />
+        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#111" strokeWidth="0.05" />
+        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#111" strokeWidth="0.05" />
+        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke="#111" strokeWidth="0.05" />
+        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke="#111" strokeWidth="0.05" />
       </g>
       <g>
         {[0, 1, 2, 3].map((c) => (
           <g key={"home-" + c}>
             {HOME_PATH[c].map((cell, j) => (
-              <rect key={"h-" + c + "-" + j} x={cell[0]} y={cell[1]} width={1} height={1} fill={colorOf(c)} stroke="#222" strokeWidth="0.05" />
+              <rect key={"h-" + c + "-" + j} x={cell[0]} y={cell[1]} width={1} height={1} fill={colorOf(c)} stroke="#111" strokeWidth="0.05" />
             ))}
           </g>
         ))}
@@ -139,9 +249,9 @@ const BoardSurface = React.memo(() => {
           let cellColor = "#FFFFFF";
           if (isStart) {
             if (i === 0) cellColor = colorOf(0);
-            if (i === 14) cellColor = colorOf(1);
+            if (i === 14) cellColor = colorOf(3);
             if (i === 28) cellColor = colorOf(2);
-            if (i === 42) cellColor = colorOf(3);
+            if (i === 42) cellColor = colorOf(1);
           }
 
           let rot = 0;
@@ -152,15 +262,12 @@ const BoardSurface = React.memo(() => {
 
           return (
             <g key={"trk-" + i}>
-              <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke="#222" strokeWidth="0.05" />
+              <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke="#111" strokeWidth="0.05" />
               {(isSafe || isStart) && (
-                <path d={"M" + (col+0.5) + "," + (row+0.25) + " L" + (col+0.6) + "," + (row+0.45) + " L" + (col+0.8) + "," + (row+0.45) + " L" + (col+0.65) + "," + (row+0.6) + " L" + (col+0.7) + "," + (row+0.8) + " L" + (col+0.5) + "," + (row+0.7) + " L" + (col+0.3) + "," + (row+0.8) + " L" + (col+0.35) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.45) + " L" + (col+0.4) + "," + (row+0.45) + " Z"} fill={isStart ? "#FFF" : "#FFC107"} stroke="#222" strokeWidth="0.02" />
+                <path d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.6) + "," + (row+0.45) + " L" + (col+0.8) + "," + (row+0.45) + " L" + (col+0.65) + "," + (row+0.65) + " L" + (col+0.7) + "," + (row+0.8) + " L" + (col+0.5) + "," + (row+0.7) + " L" + (col+0.3) + "," + (row+0.8) + " L" + (col+0.35) + "," + (row+0.65) + " L" + (col+0.2) + "," + (row+0.45) + " L" + (col+0.4) + "," + (row+0.45) + " Z"} fill={isStart ? "#FFF" : "#FFC107"} stroke="#111" strokeWidth="0.03" />
               )}
               {isStart && (
-                <>
-                  <path d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.7) + "," + (row+0.5) + " L" + (col+0.3) + "," + (row+0.5) + " Z"} fill="#FFF" transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} />
-                  <text x={col+0.5} y={row+0.9} fontSize="0.45" textAnchor="middle" fill="#222">🔒</text>
-                </>
+                <path d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.8) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.6) + " Z"} fill="rgba(255,255,255,0.7)" transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} />
               )}
             </g>
           );
@@ -170,14 +277,14 @@ const BoardSurface = React.memo(() => {
         {[0, 1, 2, 3].map((c) => {
           const q = BASE_QUAD[c];
           const col = colorOf(c);
+          const dark = darkColorOf(c);
           return (
             <g key={"base-" + c}>
-              <rect x={q[0] + 0.1} y={q[1] + 0.1} width={5.8} height={5.8} fill={col} rx="1.5" stroke="#222" strokeWidth="0.1" />
-              <rect x={q[0] + 0.6} y={q[1] + 0.6} width={4.8} height={4.8} fill="#FFF" rx="1" stroke="#222" strokeWidth="0.05" />
+              <rect x={q[0] + 0.05} y={q[1] + 0.05} width={5.9} height={5.9} fill={col} rx="1.5" stroke="#111" strokeWidth="0.1" />
+              <rect x={q[0] + 0.5} y={q[1] + 0.5} width={5} height={5} fill="#F8F9FA" rx="1" stroke="#DDD" strokeWidth="0.05" />
               {BASE_SPOTS[c].map((spot, i) => (
                 <g key={"spot-" + c + "-" + i}>
-                  <circle cx={spot[0]} cy={spot[1] + 0.05} r={0.6} fill="rgba(0,0,0,0.15)" />
-                  <circle cx={spot[0]} cy={spot[1]} r={0.6} fill="#FFF" stroke={darkColorOf(c)} strokeWidth="0.15" />
+                  <circle cx={spot[0]} cy={spot[1]} r={0.65} fill="transparent" stroke={dark} strokeWidth="0.1" strokeDasharray="0.2 0.1" />
                 </g>
               ))}
             </g>
@@ -190,9 +297,9 @@ const BoardSurface = React.memo(() => {
 BoardSurface.displayName = "BoardSurface";
 
 /* ═══════════════════════════════════════════════════════════════
-   MAIN COMPONENT (Full Screen Layout)
+   MAIN COMPONENT
    ═══════════════════════════════════════════════════════════════ */
-interface Pawn {
+interface PawnData {
   key: string;
   color: number;
   idx: number;
@@ -212,10 +319,10 @@ interface LudoBoardProps {
   onRoll?: () => void;
 }
 
-export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, rolling, onRoll }: LudoBoardProps) {
+export function LudoBoard({ state, selectable, onSelect, diceValue, rolling, onRoll }: LudoBoardProps) {
   
   const pawns = useMemo(() => {
-    const result: Pawn[] = [];
+    const result: PawnData[] = [];
     const players = (state.players as unknown as ReadonlyArray<{ tokens: ReadonlyArray<{ steps: number }> }>) || [];
     
     players.forEach((p, c) => {
@@ -237,147 +344,196 @@ export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, 
   const activeSeat = winnerVal == null ? Number(state.turn) : null;
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full bg-[#2C2563] overflow-hidden font-sans relative select-none">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3b3283] to-[#1a153d] opacity-80 pointer-events-none" />
+    <div className="flex flex-col h-[100dvh] w-full bg-[#050814] overflow-hidden font-sans relative select-none">
+      
+      {/* INJECT CUSTOM KEYFRAMES FOR THE 5D DICE SHADOW */}
+      <style>{`
+        @keyframes cc-ludo-die-shadow {
+          0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.8; }
+          50% { transform: translateX(-50%) scale(1.3); opacity: 0.3; }
+        }
+      `}</style>
 
-      {/* TOP HEADER (Aero) */}
-      <div className="relative z-10 flex items-center justify-between p-3 pt-6 px-4">
-        <div className="flex gap-2">
-          <button className="w-8 h-8 rounded bg-[#4a438a]/60 flex items-center justify-center text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
-          <button className="w-8 h-8 rounded bg-[#4a438a]/60 flex items-center justify-center text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2l3 7h7l-5.5 4.5 2 7L12 16l-6.5 4.5 2-7L2 9h7z"/></svg></button>
-          <button className="w-8 h-8 rounded bg-[#4a438a]/60 flex items-center justify-center text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></button>
+      {/* Background Ambience */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-[#1A2342] to-[#050814] opacity-90 pointer-events-none" />
+
+      {/* ─── TOP HEADER ─── */}
+      <div className="relative z-20 flex items-center justify-between px-4 pt-6 pb-2">
+        <button className="w-9 h-9 rounded-xl bg-[#1A2342] flex items-center justify-center text-white border border-white/10">
+          <ArrowLeft size={18} />
+        </button>
+        <div className="flex flex-col items-center">
+          <div className="flex items-center gap-2 text-white font-black text-lg tracking-wide">
+            <Heart size={18} className="text-red-500 fill-red-500" /> Couples Corner
+          </div>
+          <div className="flex items-center gap-1 text-[10px] text-blue-300 font-semibold">
+            <Users size={12} /> 4 Players • 3D Ludo
+          </div>
         </div>
-        <div className="bg-[#4a438a]/60 px-6 py-1.5 rounded-md text-white font-bold text-sm border border-white/10">Aero</div>
-        <div className="bg-black/40 rounded-full flex items-center gap-1 px-3 py-1 border border-white/10">
-          <span className="text-cyan-400 text-lg leading-none">💎</span>
-          <span className="text-white text-sm font-bold">0</span>
-          <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center text-[10px] font-bold text-white ml-1">+</div>
+        <div className="flex gap-2">
+          <button className="w-9 h-9 rounded-full bg-[#1A2342] flex items-center justify-center text-white border border-white/10"><Volume2 size={16} /></button>
+          <button className="w-9 h-9 rounded-full bg-[#1A2342] flex items-center justify-center text-white border border-white/10"><Settings size={16} /></button>
         </div>
       </div>
 
-      {/* MAIN PLAY AREA */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between px-4 pb-2">
-        
-        {/* Top Profiles */}
-        <div className="flex justify-between items-start mt-6">
+      {/* ─── TOP OPPONENTS ─── */}
+      <div className="relative z-20 flex justify-between items-start px-4 mt-2">
+        <div className="flex items-center gap-2">
           <div className="relative">
-            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-2xl">👨🏽</span>
+            <div className="w-12 h-12 rounded-full border-2 border-green-500 p-0.5 bg-black overflow-hidden">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=David" alt="David" className="w-full h-full rounded-full bg-blue-900" />
             </div>
-            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4 pr-2">
-              <span className="text-[10px]">🇮🇳</span><span className="text-[10px] text-white font-bold">Manish</span>
-            </div>
-            {activeSeat === 3 && <Dice color={colorOf(3)} positionClass="top-12 -right-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#050814]" />
           </div>
-
-          <div className="relative">
-            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-2xl">👩🏼</span>
-            </div>
-            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4 pl-2">
-              <span className="text-[10px]">🇺🇸</span><span className="text-[10px] text-white font-bold">Miray</span>
-            </div>
-            {activeSeat === 2 && <Dice color={colorOf(2)} positionClass="top-12 -left-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1"><span className="text-white text-xs font-bold">David</span></div>
+            <span className="bg-blue-600 text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full w-max">Lv.9</span>
+            <span className="text-[10px] text-gray-300 mt-0.5 flex items-center gap-1">🇳🇬 Nigeria</span>
           </div>
         </div>
 
-        {/* THE BOARD */}
-        <div className="relative w-full max-w-[420px] mx-auto aspect-square rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] p-1 bg-[#2C2563] border-2 border-white/20 my-2">
-          <BoardSurface />
-          
-          <div className="absolute inset-0 p-1">
-            {pawns.map((p) => {
-              const customAnimal = p.color === 0 && seedCustom?.animal ? seedCustom.animal : null;
-              return (
-                <motion.button
-                  key={p.key} type="button" disabled={!p.movable}
-                  onClick={() => { if (p.movable) onSelect(p.idx); }}
-                  initial={false}
-                  style={{ 
-                    left: ((p.x / GRID) * 100) + "%", 
-                    top: ((p.y / GRID) * 100) + "%",
-                    width: ((100 / GRID) * 1.6) + "%", 
-                    height: ((100 / GRID) * 1.6) + "%" 
-                  }}
-                  className="absolute z-20 flex items-center justify-center focus:outline-none -translate-x-1/2 -translate-y-1/2"
-                >
-                  <motion.div 
-                    key={"hop-" + p.steps} 
-                    className="relative flex h-full w-full items-center justify-center drop-shadow-xl will-change-transform" 
-                    initial={{ y: -15, scale: 0.8 }} 
-                    animate={{ y: 0, scale: 1 }} 
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+        <div className="flex flex-col items-center justify-center bg-[#1A2342] border border-white/10 rounded-2xl px-4 py-2">
+          <Home size={16} className="text-white mb-1" />
+          <span className="text-white text-xs font-bold">Meet Here</span>
+          <span className="text-[10px] text-gray-400">(No Drop)</span>
+        </div>
+
+        <div className="flex items-center gap-2 flex-row-reverse">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-pink-500 p-0.5 bg-black overflow-hidden">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Bella" alt="Bella" className="w-full h-full rounded-full bg-pink-900" />
+            </div>
+            <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#050814]" />
+          </div>
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1"><span className="text-white text-xs font-bold">Bella</span></div>
+            <span className="bg-pink-600 text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full w-max">Lv.7</span>
+            <span className="text-[10px] text-gray-300 mt-0.5 flex items-center gap-1">🇬🇧 UK</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ─── THE 5D BOARD (Perfectly Centered) ─── */}
+      <div className="relative z-10 flex-1 flex items-center justify-center p-4">
+        <div className="relative w-full max-w-[380px] aspect-square rounded-[2rem] bg-[#2A1D11] p-2 shadow-[0_20px_50px_rgba(0,0,0,0.8),inset_0_4px_10px_rgba(255,255,255,0.2)]">
+          <div className="relative w-full h-full rounded-[1.5rem] bg-white p-1 shadow-[inset_0_4px_15px_rgba(0,0,0,0.5)] overflow-hidden">
+            <BoardSurface />
+            
+            <div className="absolute inset-0 p-1">
+              {pawns.map((p) => {
+                return (
+                  <motion.button
+                    key={p.key} type="button" disabled={!p.movable}
+                    onClick={() => { if (p.movable) onSelect(p.idx); }}
+                    initial={false}
+                    style={{ 
+                      left: ((p.x / GRID) * 100) + "%", 
+                      top: ((p.y / GRID) * 100) + "%",
+                      width: ((100 / GRID) * 1.2) + "%", 
+                      height: ((100 / GRID) * 1.2) + "%" 
+                    }}
+                    className="absolute z-20 flex items-center justify-center focus:outline-none -translate-x-1/2 -translate-y-1/2"
                   >
-                    {customAnimal ? (
-                      <span className="text-[24px] leading-none">{customAnimal}</span>
-                    ) : (
-                      // Matches image exactly: Red Soldier, Blue Drop, Yellow Chess, Green Paw
-                      <span className="text-[26px] leading-none select-none">
-                        {p.color === 0 ? "💂🏽" : p.color === 1 ? "💧" : p.color === 2 ? "♟️" : "🐾"}
-                      </span>
+                    <motion.div 
+                      key={"hop-" + p.steps} 
+                      className="relative flex h-full w-full items-center justify-center will-change-transform" 
+                      initial={{ y: -20, scale: 0.5 }} 
+                      animate={{ y: 0, scale: 1 }} 
+                      transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    >
+                      <Pawn color={p.color} size={24} />
+                    </motion.div>
+                    {p.movable && (
+                      <motion.div className="pointer-events-none absolute inset-[-20%] rounded-full border-2 border-cyan-400 shadow-[0_0_15px_#22d3ee]" animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.2, 0.8] }} transition={{ repeat: Infinity, duration: 1.2 }} />
                     )}
-                  </motion.div>
-                  {p.movable && (
-                    <motion.div className="pointer-events-none absolute inset-0 rounded-full border-2 border-white shadow-[0_0_10px_#fff]" animate={{ scale: [1, 1.2, 1], opacity: [0.8, 0.2, 0.8] }} transition={{ repeat: Infinity, duration: 1.2 }} />
-                  )}
-                </motion.button>
-              );
-            })}
+                  </motion.button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* ─── BOTTOM PLAYERS & 5D DICE ─── */}
+      <div className="relative z-20 flex items-center justify-between px-4 mb-2">
+        
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-2 border-cyan-500 p-0.5 bg-black overflow-hidden">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Tunde" alt="Tunde" className="w-full h-full rounded-full bg-green-900" />
+            </div>
+            <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#050814]" />
+          </div>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-1"><span className="text-white text-xs font-bold">Tunde</span></div>
+            <span className="bg-emerald-600 text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full w-max">Lv.5</span>
+            <span className="text-[10px] text-gray-300 mt-0.5 flex items-center gap-1">🇳🇬 Nigeria</span>
           </div>
         </div>
 
-        {/* Bottom Profiles */}
-        <div className="flex justify-between items-end mb-2">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-2xl">🧔🏽‍♂️</span>
-            </div>
-            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4 pr-2">
-              <span className="text-[10px]">🇳🇬</span><span className="text-[10px] text-white font-bold">busybrai...</span>
-            </div>
-            {activeSeat === 0 && (
-              <motion.div 
-                className="absolute -top-10 left-1/2 -translate-x-1/2 text-green-500 z-30 filter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]"
-                animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1 }}
-              >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21L4 9h16L12 21z" /></svg>
-              </motion.div>
-            )}
-            {activeSeat === 0 && <Dice color={colorOf(0)} positionClass="-top-14 -right-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
-          </div>
+        {/* INTEGRATED 5D DICE */}
+        <div className="relative -mt-10 flex flex-col items-center cursor-pointer" onClick={onRoll}>
+          <LudoDice value={diceValue || 1} rolling={rolling || false} active={true} size={54} />
+          <span className="mt-2 text-[10px] font-bold text-cyan-400 uppercase tracking-widest z-10 drop-shadow-md">
+            Tap to Roll
+          </span>
+        </div>
 
+        <div className="flex items-center gap-2 flex-row-reverse">
           <div className="relative">
-            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-2xl">👦🏽</span>
+            <div className="w-12 h-12 rounded-full border-2 border-yellow-500 p-0.5 bg-black overflow-hidden">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Aisha" alt="Aisha" className="w-full h-full rounded-full bg-yellow-900" />
             </div>
-            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4 pl-2">
-              <span className="text-[10px]">🇦🇪</span><span className="text-[10px] text-white font-bold">Zaki</span>
-            </div>
-            {activeSeat === 1 && <Dice color={colorOf(1)} positionClass="-top-14 -left-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#050814]" />
+          </div>
+          <div className="flex flex-col items-end">
+            <div className="flex items-center gap-1"><span className="text-white text-xs font-bold">Aisha</span></div>
+            <span className="bg-yellow-600 text-[8px] font-bold text-white px-1.5 py-0.5 rounded-full w-max">Lv.10</span>
+            <span className="text-[10px] text-gray-300 mt-0.5 flex items-center gap-1">🇨🇦 Canada</span>
           </div>
         </div>
 
       </div>
 
-      {/* BOTTOM NAVIGATION BAR */}
-      <div className="relative z-10 flex items-center justify-between px-4 pb-6">
-        <div className="flex gap-2">
-          <div className="w-10 h-10 rounded-xl bg-gray-800 border border-white/20 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" /></div>
-          <div className="w-10 h-10 rounded-xl bg-gray-800 border border-white/20 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Max" alt="avatar" /></div>
-          <div className="w-10 h-10 rounded-xl bg-[#1a153d] border border-white/20 flex flex-col items-center justify-center relative">
-            <span className="text-cyan-400 text-[8px] leading-none">💎 6</span>
-            <span className="text-white text-[10px] font-bold">↺</span>
-            <div className="absolute -top-1 -right-1 bg-red-500 text-[8px] font-bold text-white px-1 rounded-full">23</div>
+      {/* ─── STATUS BAR ─── */}
+      <div className="relative z-20 px-4 mb-2">
+        <div className="flex items-center justify-between bg-[#1A2342] border border-white/10 rounded-full px-4 py-2">
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-xs text-gray-300 font-semibold">Tunde is thinking...</span>
           </div>
+          <Smile size={16} className="text-gray-400" />
         </div>
-        
-        <div className="flex gap-2">
-          <button className="px-6 py-2 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase tracking-widest">Emoji</button>
-          <button className="px-6 py-2 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase tracking-widest">Chat</button>
-        </div>
-        
-        <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-orange-500 overflow-hidden flex items-center justify-center text-2xl">🎅</div>
       </div>
+
+      {/* ─── BOTTOM NAVIGATION ─── */}
+      <div className="relative z-20 w-full flex justify-between items-center px-6 pb-6 pt-2">
+        <div className="flex flex-col items-center gap-1 text-gray-400">
+          <Compass size={22} />
+          <span className="text-[10px] font-bold">Explore</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 text-gray-400">
+          <ImageIcon size={22} />
+          <span className="text-[10px] font-bold">Moments</span>
+        </div>
+        
+        <div className="relative -top-4 flex flex-col items-center gap-1">
+          <div className="w-14 h-14 rounded-full bg-[#E53935] flex items-center justify-center shadow-[0_0_20px_rgba(229,57,53,0.6)] border-4 border-[#050814]">
+            <Gamepad2 size={28} className="text-white" />
+          </div>
+          <span className="text-[10px] text-white font-bold">Games</span>
+        </div>
+
+        <div className="flex flex-col items-center gap-1 text-gray-400 relative">
+          <MessageSquare size={22} />
+          <div className="absolute -top-1 -right-2 bg-red-500 text-[10px] font-bold text-white w-4 h-4 flex items-center justify-center rounded-full border border-[#050814]">2</div>
+          <span className="text-[10px] font-bold">Messages</span>
+        </div>
+        <div className="flex flex-col items-center gap-1 text-gray-400">
+          <User size={22} />
+          <span className="text-[10px] font-bold">Profile</span>
+        </div>
+      </div>
+
     </div>
   );
 }
