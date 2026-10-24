@@ -26,7 +26,7 @@ import {
   setAudioMuted,
 } from "@/lib/game/ludoAudio";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { LudoBoard } from "./LudoBoard";
+import  LudoBoard  from "./LudoBoard";
 import { LudoHud } from "./LudoHud";
 import { soundEngine } from "./soundEngine";
 import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";

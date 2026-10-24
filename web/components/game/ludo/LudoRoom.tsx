@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 // Make sure this imports LudoBoard, not AeroLudoBoard
-import { LudoBoard } from "./LudoBoard"; 
+import  LudoBoard  from "./LudoBoard"; 
 import { LudoHud } from "./LudoHud";
 import { LudoEmojiBar } from "./LudoEmojiBar";
 import { LudoRealtimeManager } from "./LudoRealtime";
