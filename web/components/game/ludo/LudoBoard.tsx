@@ -162,7 +162,9 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
               {isStart && (
                 <path 
                   d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.8) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.6) + " Z"} 
-                  fill="rgba(255,255,255,0.85)" 
+                  fill="#FFD700" 
+                  stroke="#B8860B"
+                  strokeWidth="0.04"
                   transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} 
                 />
               )}
@@ -288,7 +290,7 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
   }, [state, selectable]);
 
   return (
-    <div className="relative w-full max-w-[min(82vw,44vh)] aspect-square rounded-[1.5rem] bg-[#12192E] p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] border border-white/10 mx-auto my-auto">
+    <div className="relative w-full max-w-[min(80vw,42vh)] aspect-square rounded-[1.5rem] bg-[#12192E] p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] border border-white/10 mx-auto my-auto">
       <div className="relative w-full h-full rounded-[1.2rem] bg-white p-1 shadow-[inset_0_3px_12px_rgba(0,0,0,0.5)] overflow-hidden">
         <BoardSurface isNeon={isNeon} />
         
