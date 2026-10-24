@@ -34,16 +34,6 @@ import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
 import { LudoTopBar } from "./LudoTopBar";
 import { LudoLobby, LudoWinScreen, type LudoMode } from "./LudoLobby";
 
-/**
- * LudoSuperstar — the match orchestrator.
- *
- * Flow: menu (mode + stake) → board → win. Each turn runs as a locked
- * sequence: roll (1 s wooden tumble) → resolve → pick pawn (auto if only one,
- * "thinking" delays for bots, tap for humans) → hop + SFX → extra roll or
- * pass. A 15 s turn clock lets the house play for you on expiry; three
- * consecutive sixes forfeit the turn. Seat 0 is the local player in
- * vs-COMPUTER; Pass-and-Play hot-seats all four.
- */
 type Phase = "menu" | "board" | "win";
 
 export function LudoSuperstar({
@@ -58,10 +48,7 @@ export function LudoSuperstar({
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("menu");
   const [mode, setMode] = useState<LudoMode>("cpu");
-  /** Board rules variant — picked in the lobby, frozen into the state at start. */
   const [rules, setRules] = useState<LudoRules>("classic");
-  /** Seat display names; seat 0 is the device holder ("You"). Friends mode
-   *  lets the lobby rename seats 1–3 to whoever is playing around you. */
   const [names, setNames] = useState<string[]>(["You", SEATS[1].name, SEATS[2].name, SEATS[3].name]);
   const [bet, setBet] = useState(100);
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
@@ -69,23 +56,19 @@ export function LudoSuperstar({
   const [rolling, setRolling] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("Pick a mode and stake to play.");
-  /** Turn timer — the value itself is never rendered (the countdown only drives
-   *  `houseAct` on expiry), so it lives in a ref rather than state. */
+  
   const clockRef = useRef(TURN_SECONDS);
   const [soundOn, setSoundOn] = useState(true);
   const [bursts, setBursts] = useState<EmojiBurst[]>([]);
   const [toast, setToast] = useState<string | null>(null);
   const [winnerSeat, setWinnerSeat] = useState<LudoColor | null>(null);
 
-  // ── Custom photo avatar for the local player (seat 0), from the profile
-  // photo gallery the app upload pipeline maintains (profiles.photos jsonb,
-  // bucket "photos"). profiles.avatar_url was retired by migration 015 — the
-  // uploader writes photos, not avatar_url — so the primary photo's public
-  // URL is the avatar source of truth here, with initials as the fallback. ──
   const [photoUrls, setPhotoUrls] = useState<(string | null)[]>([null, null, null, null]);
-  /** The local player's saved seed customization (animal + colour), applied to seat 0. */
   const [seedCustom, setSeedCustom] = useState<{ animal?: string | null; color?: string | null } | null>(null);
   const [seedCustomOpen, setSeedCustomOpen] = useState(false);
+  
+  // Board theme switcher toggle state (Aero vs Classic Neon)
+  const [boardTheme, setBoardTheme] = useState<"Aero" | "Classic">("Aero");
 
   useEffect(() => {
     if (!isSupabaseConfigured()) return;
@@ -116,7 +99,6 @@ export function LudoSuperstar({
     return () => { alive = false; };
   }, []);
 
-  /** Seats dealt into the match: duo plays the diagonal pair (you + friend). */
   const activeSeats: LudoColor[] = mode === "duo" ? [0, 2] : [0, 1, 2, 3];
   const players = activeSeats.length;
   const pot = potFor(bet, players);
@@ -129,9 +111,6 @@ export function LudoSuperstar({
   const timersRef = useRef<number[]>([]);
   const burstIdRef = useRef(0);
 
-  /* Mirror the render-time state into refs for the timer callbacks that
-   *  outlive the render they were created in. Synced in an effect (not during
-   *  render) so React's ref rules stay happy. */
   useEffect(() => {
     gameRef.current = game;
     rollingRef.current = rolling;
@@ -139,7 +118,6 @@ export function LudoSuperstar({
     phaseRef.current = phase;
   }, [game, rolling, selectable, phase]);
 
-  /** Schedule work inside the current turn sequence (all cleared on exit). */
   const later = (fn: () => void, ms: number): number => {
     const id = window.setTimeout(fn, ms);
     timersRef.current.push(id);
@@ -155,7 +133,6 @@ export function LudoSuperstar({
   const dName = (c: LudoColor): string => names[c] ?? SEATS[c].name;
 
   const pushBurst = (emoji: string): void => {
-    // Emoji tap → synthesised SFX + live commentator voice.
     soundEngine.playEmojiAudio(emoji);
     const id = (burstIdRef.current += 1);
     setBursts((b) => [...b, { id, emoji }]);
@@ -171,7 +148,7 @@ export function LudoSuperstar({
     const at = activeSeats.indexOf(color);
     const next = activeSeats[(at + 1) % activeSeats.length]!;
     setGame((g) => ({ ...g, turn: next, canRoll: true, consecutiveSixes: 0 }));
-    setStatus(`${dName(next)} to roll…`);
+    setStatus(dName(next) + " to roll…");
     busyRef.current = false;
     setBusy(false);
   };
@@ -191,6 +168,7 @@ export function LudoSuperstar({
       setBusy(false);
     }, 950);
   };
+
   const playToken = (color: LudoColor, idx: number, d: number): void => {
     const g = JSON.parse(JSON.stringify(gameRef.current)) as LudoGameState;
     const res = applyMove(g, color, idx, d);
@@ -213,10 +191,10 @@ export function LudoSuperstar({
     const nm = dName(color);
     setStatus(
       res.captured
-        ? `${nm} captured a pawn! 😈`
+        ? nm + " captured a pawn! 😈"
         : res.finished
-          ? `${nm} sent a pawn home! 🏠`
-          : `${nm} moved ${d} square${d === 1 ? "" : "s"}.`,
+          ? nm + " sent a pawn home! 🏠"
+          : nm + " moved " + d + " square" + (d === 1 ? "" : "s") + ".",
     );
     if ((res.captured || res.finished) && isBot(color) && Math.random() < 0.55) {
       const emoji = botReaction(color);
@@ -231,7 +209,7 @@ export function LudoSuperstar({
         }
         if (res.extraTurn) {
           setGame((x) => ({ ...x, canRoll: true }));
-          setStatus(isBot(color) ? `${SEATS[color].name} rolls again!` : `${nm} gets another roll!`);
+          setStatus(isBot(color) ? SEATS[color].name + " rolls again!" : nm + " gets another roll!");
           busyRef.current = false;
           setBusy(false);
           return;
@@ -245,7 +223,7 @@ export function LudoSuperstar({
   const resolveRoll = (color: LudoColor, d: number): void => {
     const g = gameRef.current;
     if (d === 6 && g.consecutiveSixes >= 3) {
-      setStatus(`Three sixes in a row — ${dName(color)} forfeits the turn!`);
+      setStatus("Three sixes in a row — " + dName(color) + " forfeits the turn!");
       later(() => finishTurn(color), 1200);
       return;
     }
@@ -256,7 +234,7 @@ export function LudoSuperstar({
       setBusy(false);
       rollingRef.current = false;
       setRolling(false);
-      setStatus(`${dName(color)} can't move — the turn passes.`);
+      setStatus(dName(color) + " can't move — the turn passes.");
       later(() => finishTurn(color), 1200);
       return;
     }
@@ -265,19 +243,20 @@ export function LudoSuperstar({
       return;
     }
     if (isBot(color)) {
-      setStatus(`${SEATS[color].name} ${thinkSuffix(color)}`);
+      setStatus(SEATS[color].name + " " + thinkSuffix(color));
       later(() => playToken(color, chooseBotMove(g, color, d) ?? opts[0]!, d), botMoveDelay(color));
       return;
     }
     setSelectable(opts);
     setStatus(
       mode === "cpu"
-        ? `Tap a glowing pawn to move ${d}.`
-        : `${dName(color)}, tap a glowing pawn to move ${d}.`,
+        ? "Tap a glowing pawn to move " + d + "."
+        : dName(color) + ", tap a glowing pawn to move " + d + ".",
     );
     busyRef.current = false;
     setBusy(false);
   };
+
   const runRoll = (color: LudoColor): void => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -285,7 +264,7 @@ export function LudoSuperstar({
     setRolling(true);
     rollingRef.current = true;
     clockRef.current = TURN_SECONDS;
-    setStatus(isBot(color) ? `${SEATS[color].name} rolls the dice…` : `${dName(color)} rolls the dice…`);
+    setStatus(isBot(color) ? SEATS[color].name + " rolls the dice…" : dName(color) + " rolls the dice…");
     playWoodRoll();
     later(() => {
       const d = rollDice();
@@ -297,13 +276,12 @@ export function LudoSuperstar({
         canRoll: false,
         consecutiveSixes: d === 6 ? prev.consecutiveSixes + 1 : 0,
       }));
-      setStatus(`${dName(color)} rolled a ${d}${d === 6 ? " 🔥" : ""}`);
+      setStatus(dName(color) + " rolled a " + d + (d === 6 ? " 🔥" : ""));
       announceRoll(d);
       later(() => resolveRoll(color, d), 460);
     }, 1000);
   };
 
-  /** Turn-clock expiry: the house rolls / picks for the local side. */
   const houseAct = (): void => {
     if (busyRef.current || rollingRef.current || phaseRef.current !== "board") return;
     const g = gameRef.current;
@@ -334,6 +312,7 @@ export function LudoSuperstar({
     primeAudio();
     runRoll(game.turn);
   };
+
   const start = (): void => {
     if (balance < bet) return;
     clearTimers();
@@ -364,6 +343,7 @@ export function LudoSuperstar({
     }
     start();
   };
+
   const restart = playAgain;
   const leave = (): void => {
     clearTimers();
@@ -372,32 +352,30 @@ export function LudoSuperstar({
     setPhase("menu");
     router.push("/games");
   };
+
   const toggleSound = (): void => {
     const next = !soundOn;
     setSoundOn(next);
     setAudioMuted(!next);
     soundEngine.setMuted(!next);
   };
-  /* Bot driver: when a bot holds the dice and everything is idle, think → roll. */
+
   useEffect(() => {
     if (phase !== "board" || mode !== "cpu" || game.winner !== null) return;
     const c = game.turn;
     if (c === 0) return;
     if (!game.canRoll || rolling || busy || selectable.length > 0) return;
     const id = window.setTimeout(() => {
-      setStatus(`${SEATS[c].name} ${thinkSuffix(c)}`);
+      setStatus(SEATS[c].name + " " + thinkSuffix(c));
       runRoll(c);
     }, botThinkDelay(c));
     return () => window.clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, mode, game.turn, game.canRoll, game.winner, rolling, busy, selectable.length]);
 
-  /* Fresh clock whenever the turn changes (also when entering the match). */
   useEffect(() => {
     clockRef.current = TURN_SECONDS;
   }, [phase, game.turn]);
 
-  /* 1 s countdown for human-held turns; expiry hands play to the house. */
   useEffect(() => {
     if (phase !== "board" || game.winner !== null) return;
     if (mode === "cpu" && game.turn !== 0) return;
@@ -412,7 +390,6 @@ export function LudoSuperstar({
       clockRef.current = c - 1;
     }, 1000);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, game.turn, mode, game.winner]);
 
   const humanSeatTurn = mode !== "cpu" || game.turn === 0;
@@ -426,13 +403,12 @@ export function LudoSuperstar({
       ? "Tap to Roll"
       : selectable.length > 0
         ? "Pick a pawn"
-        : `${dName(game.turn)} to roll`;
+        : dName(game.turn) + " to roll";
   const youWon = winnerSeat !== null && (mode !== "cpu" || winnerSeat === 0);
   const winnerName = winnerSeat !== null ? dName(winnerSeat) : "";
-  /*LOGIC_SLOT_2*/
 
   return (
-    <div className="relative mx-auto w-full max-w-xl">
+    <div className="relative mx-auto w-full max-w-xl h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#050814] pb-2">
       <LudoTopBar
         soundOn={soundOn}
         onToggleSound={toggleSound}
@@ -440,6 +416,27 @@ export function LudoSuperstar({
         onLeave={leave}
         onCustomizeSeed={() => setSeedCustomOpen(true)}
       />
+
+      {/* Board Theme Switcher Header Bar (Aero vs Classic Neon) */}
+      {phase === "board" && (
+        <div className="flex justify-center items-center py-1 z-20">
+          <div className="flex items-center gap-1 bg-[#121A33] p-1 rounded-xl border border-white/10 shadow-md">
+            <button 
+              onClick={() => setBoardTheme("Aero")}
+              className={"px-3 py-0.5 rounded-lg text-[11px] font-extrabold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow" : "text-gray-400")}
+            >
+              Aero
+            </button>
+            <button 
+              onClick={() => setBoardTheme("Classic")}
+              className={"px-3 py-0.5 rounded-lg text-[11px] font-extrabold transition-all " + (boardTheme === "Classic" ? "bg-purple-600 text-white shadow" : "text-gray-400")}
+            >
+              Classic
+            </button>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50">
           <div className="rounded-xl border border-white/20 bg-slate-900/90 px-3 py-1.5 text-[10px] font-black text-white shadow-2xl">
@@ -448,7 +445,7 @@ export function LudoSuperstar({
         </div>
       )}
       {phase === "menu" ? (
-        <div className="mt-4">
+        <div className="mt-4 flex-1 overflow-y-auto">
           <LudoLobby
             balance={balance}
             bet={bet}
@@ -466,24 +463,22 @@ export function LudoSuperstar({
           />
         </div>
       ) : (
-        <>
-          {/* Player HUD (seat cards + the active player's attached dice) sits
-              directly above the board; the old floating corner pods are gone. */}
-          <div className="relative mt-3">
-            <LudoHud
-              state={game}
-              dice={game.dice}
-              rolling={rolling}
-              canRollNow={humanCanAct}
-              onRoll={handleRoll}
-              hubLabel={hubLabel}
-              names={names}
-            />
+        <div className="flex-1 flex flex-col justify-between overflow-hidden">
+          <LudoHud
+            state={game}
+            dice={game.dice}
+            rolling={rolling}
+            canRollNow={humanCanAct}
+            onRoll={handleRoll}
+            hubLabel={hubLabel}
+            names={names}
+          />
+          <div className="flex-1 flex items-center justify-center overflow-hidden my-1">
             <LudoBoard
               state={game}
               selectable={sel}
               onSelect={pickToken}
-              seedCustom={seedCustom}
+              isNeon={boardTheme === "Classic"}
             />
           </div>
           <LudoStatusBar
@@ -502,7 +497,7 @@ export function LudoSuperstar({
               onExit={leave}
             />
           ) : null}
-        </>
+        </div>
       )}
       <LudoSeedCustomizerModal
         open={seedCustomOpen}
