@@ -406,7 +406,8 @@ export function LudoSuperstar({
   const winnerName = winnerSeat !== null ? dName(winnerSeat) : "";
 
   return (
-    <div className="relative mx-auto w-full max-w-xl h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#050814] pb-1">
+    <div className="relative mx-auto w-full max-w-md h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#090D1A] text-white">
+      {/* Top Header Navigation */}
       <LudoTopBar
         soundOn={soundOn}
         onToggleSound={toggleSound}
@@ -415,18 +416,19 @@ export function LudoSuperstar({
         onCustomizeSeed={() => setSeedCustomOpen(true)}
       />
 
+      {/* Theme Switcher Bar (Aero / Classic) */}
       {phase === "board" && (
-        <div className="flex justify-center items-center py-0.5 z-20">
-          <div className="flex items-center gap-1 bg-[#121A33] p-0.5 rounded-xl border border-white/10 shadow-md">
+        <div className="flex justify-center items-center py-1 z-20">
+          <div className="flex items-center gap-1 bg-[#121A33] px-2 py-0.5 rounded-full border border-white/10 shadow">
             <button 
               onClick={() => setBoardTheme("Aero")}
-              className={"px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow" : "text-gray-400")}
+              className={"px-3 py-0.5 rounded-full text-[10px] font-bold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow-md" : "text-gray-400")}
             >
               Aero
             </button>
             <button 
               onClick={() => setBoardTheme("Classic")}
-              className={"px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold transition-all " + (boardTheme === "Classic" ? "bg-purple-600 text-white shadow" : "text-gray-400")}
+              className={"px-3 py-0.5 rounded-full text-[10px] font-bold transition-all " + (boardTheme === "Classic" ? "bg-purple-600 text-white shadow-md" : "text-gray-400")}
             >
               Classic
             </button>
@@ -435,14 +437,15 @@ export function LudoSuperstar({
       )}
 
       {toast && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 z-50">
-          <div className="rounded-xl border border-white/20 bg-slate-900/90 px-3 py-1.5 text-[10px] font-black text-white shadow-2xl">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-50">
+          <div className="rounded-xl border border-white/20 bg-slate-900/95 px-3 py-1.5 text-[10px] font-bold text-white shadow-xl">
             {toast}
           </div>
         </div>
       )}
+
       {phase === "menu" ? (
-        <div className="mt-4 flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto">
           <LudoLobby
             balance={balance}
             bet={bet}
@@ -460,31 +463,43 @@ export function LudoSuperstar({
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col justify-between overflow-hidden px-2 pb-1">
-          <LudoHud
-            state={game}
-            dice={game.dice}
-            rolling={rolling}
-            canRollNow={humanCanAct}
-            onRoll={handleRoll}
-            hubLabel={hubLabel}
-            names={names}
-          />
-          <div className="flex-1 flex items-center justify-center overflow-hidden my-0.5">
-            <LudoBoard
+        <div className="flex-1 flex flex-col justify-between px-3 py-1 overflow-hidden">
+          {/* Top Opponent Pods / HUD */}
+          <div className="w-full z-20">
+            <LudoHud
               state={game}
-              selectable={sel}
-              onSelect={pickToken}
-              isNeon={boardTheme === "Classic"}
+              dice={game.dice}
+              rolling={rolling}
+              canRollNow={humanCanAct}
+              onRoll={handleRoll}
+              hubLabel={hubLabel}
+              names={names}
             />
           </div>
-          <LudoStatusBar
-            status={status}
-            thinking={thinking}
-            pot={pot}
-            bursts={bursts}
-            onReact={pushBurst}
-          />
+
+          {/* Centered Square Ludo Board - Perfectly Scaled with Zero Clipping */}
+          <div className="flex-1 flex items-center justify-center my-auto overflow-hidden">
+            <div className="w-full max-w-[min(84vw,40vh)] aspect-square">
+              <LudoBoard
+                state={game}
+                selectable={sel}
+                onSelect={pickToken}
+                isNeon={boardTheme === "Classic"}
+              />
+            </div>
+          </div>
+
+          {/* Bottom Status Bar & Action Controls */}
+          <div className="w-full pb-2 z-20">
+            <LudoStatusBar
+              status={status}
+              thinking={thinking}
+              pot={pot}
+              bursts={bursts}
+              onReact={pushBurst}
+            />
+          </div>
+
           {phase === "win" && winnerSeat !== null ? (
             <LudoWinScreen
               winnerName={winnerName}
@@ -496,6 +511,7 @@ export function LudoSuperstar({
           ) : null}
         </div>
       )}
+
       <LudoSeedCustomizerModal
         open={seedCustomOpen}
         onClose={() => setSeedCustomOpen(false)}
