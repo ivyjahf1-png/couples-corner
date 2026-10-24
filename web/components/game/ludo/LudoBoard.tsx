@@ -19,26 +19,22 @@ function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
 function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
 
 /* 
-  PERFECT CLOCKWISE 52-CELL OUTER TRACK
-  Index 0 = Red Start Gate [6, 13] (Your Blue Circle)
+  EXACT INDUSTRY-STANDARD CLOCKWISE TRACK PATH
+  Index 0 = Red Starting Gate [6, 13]
 */
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
-  // Red Start & Upward Left Track (0..5)
-  [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], [5, 8],
-  // Green Approach Track (6..11)
-  [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], [0, 7],
-  // Green Corner & Green Start Gate (12..18)
-  [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 5],
-  // Green Upper Track to Yellow Approach (19..24)
-  [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], [7, 0],
-  // Yellow Corner & Yellow Start Gate (25..31)
-  [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [9, 6],
-  // Yellow Right Track to Blue Approach (32..37)
-  [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], [14, 7],
-  // Blue Corner & Blue Start Gate (38..44)
-  [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 9],
-  // Blue Down Track back to Red Gate (45..51)
-  [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], [7, 14],
+  [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
+  [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+  [0, 7], [0, 6],
+  [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
+  [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
+  [7, 0], [8, 0],
+  [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 6],
+  [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6],
+  [14, 7], [14, 8],
+  [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 8],
+  [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14],
+  [7, 14], [6, 14],
 ];
 
 const BASE_QUAD: Record<number, readonly [number, number]> = {
@@ -52,15 +48,14 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
 };
 
-// Colored Home Run Columns (The straight path into center triangle)
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Red Home Path (Upward)
-  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Blue Home Path (Leftward)
-  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],     // Yellow Home Path (Downward)
-  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],     // Green Home Path (Rightward)
+  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
+  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
 };
 
-const START_SET = new Set([0, 13, 26, 39]);
+const START_SET = new Set([0, 14, 28, 42]);
 const SAFE_STARS = new Set([8, 21, 34, 47]);
 
 function posFor(color: number, tokenIdx: number, steps: number) {
@@ -82,7 +77,7 @@ function posFor(color: number, tokenIdx: number, steps: number) {
   return { x: 7.5, y: 7.5 };
 }
 
-function TempleSeed({ color, size = 28 }: { color: number; size?: number }) {
+function TempleSeed({ color, size = 26 }: { color: number; size?: number }) {
   const primary = colorOf(color);
   const dark = darkColorOf(color);
   const light = lightColorOf(color);
@@ -146,16 +141,16 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
           let cellColor = isNeon ? "#0F172A" : "#FFFFFF";
           if (isStart) {
             if (i === 0) cellColor = colorOf(0);
-            if (i === 13) cellColor = colorOf(3);
-            if (i === 26) cellColor = colorOf(2);
-            if (i === 39) cellColor = colorOf(1);
+            if (i === 14) cellColor = colorOf(3);
+            if (i === 28) cellColor = colorOf(2);
+            if (i === 42) cellColor = colorOf(1);
           }
 
           let rot = 0;
           if (i === 0) rot = 0;
-          if (i === 13) rot = 90;
-          if (i === 26) rot = 180;
-          if (i === 39) rot = 270;
+          if (i === 14) rot = 90;
+          if (i === 28) rot = 180;
+          if (i === 42) rot = 270;
 
           return (
             <g key={"trk-" + i}>
@@ -280,16 +275,16 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
         let offsetX = 0;
         let offsetY = 0;
         if (total === 2) {
-          offsetX = index === 0 ? -0.16 : 0.16;
-          offsetY = index === 0 ? -0.16 : 0.16;
+          offsetX = index === 0 ? -0.15 : 0.15;
+          offsetY = index === 0 ? -0.15 : 0.15;
         } else if (total === 3) {
           const angles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
-          offsetX = Math.cos(angles[index]) * 0.2;
-          offsetY = Math.sin(angles[index]) * 0.2;
+          offsetX = Math.cos(angles[index]) * 0.18;
+          offsetY = Math.sin(angles[index]) * 0.18;
         } else if (total >= 4) {
           const angles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
-          offsetX = Math.cos(angles[index % 4]) * 0.22;
-          offsetY = Math.sin(angles[index % 4]) * 0.22;
+          offsetX = Math.cos(angles[index % 4]) * 0.2;
+          offsetY = Math.sin(angles[index % 4]) * 0.2;
         }
         adjustedPawns.push({ ...p, offsetX, offsetY });
       });
@@ -299,11 +294,11 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
   }, [state, selectable]);
 
   return (
-    <div className="relative w-full max-w-[min(80vw,42vh)] aspect-square rounded-[1.5rem] bg-[#12192E] p-2 shadow-[0_15px_40px_rgba(0,0,0,0.8)] border border-white/10 mx-auto my-auto">
-      <div className="relative w-full h-full rounded-[1.2rem] bg-white p-1 shadow-[inset_0_3px_12px_rgba(0,0,0,0.5)] overflow-hidden">
+    <div className="relative w-full max-w-[min(76vw,36vh)] aspect-square rounded-[1.2rem] bg-[#12192E] p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] border border-white/10 mx-auto my-auto">
+      <div className="relative w-full h-full rounded-[1rem] bg-white p-0.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] overflow-hidden">
         <BoardSurface isNeon={isNeon} />
         
-        <div className="absolute inset-0 p-1">
+        <div className="absolute inset-0 p-0.5">
           {pawns.map((p) => {
             const posX = p.x + p.offsetX;
             const posY = p.y + p.offsetY;
@@ -326,15 +321,15 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
                 <motion.div 
                   key={"hop-" + p.steps} 
                   className="relative flex h-full w-full items-center justify-center will-change-transform" 
-                  initial={{ y: -14, scale: 0.6 }} 
+                  initial={{ y: -12, scale: 0.6 }} 
                   animate={{ y: 0, scale: 1 }} 
                   transition={{ type: "spring", stiffness: 420, damping: 16 }}
                 >
-                  <TempleSeed color={p.color} size={24} />
+                  <TempleSeed color={p.color} size={22} />
                 </motion.div>
                 {p.movable && (
                   <motion.div 
-                    className="pointer-events-none absolute inset-[-15%] rounded-full border-2 border-cyan-300 shadow-[0_0_10px_#22d3ee]" 
+                    className="pointer-events-none absolute inset-[-15%] rounded-full border-2 border-cyan-300 shadow-[0_0_8px_#22d3ee]" 
                     animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.3, 0.9] }} 
                     transition={{ repeat: Infinity, duration: 1.1 }} 
                   />

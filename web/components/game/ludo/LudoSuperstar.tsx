@@ -66,8 +66,6 @@ export function LudoSuperstar({
   const [photoUrls, setPhotoUrls] = useState<(string | null)[]>([null, null, null, null]);
   const [seedCustom, setSeedCustom] = useState<{ animal?: string | null; color?: string | null } | null>(null);
   const [seedCustomOpen, setSeedCustomOpen] = useState(false);
-  
-  // Board theme switcher toggle state (Aero vs Classic Neon)
   const [boardTheme, setBoardTheme] = useState<"Aero" | "Classic">("Aero");
 
   useEffect(() => {
@@ -408,7 +406,7 @@ export function LudoSuperstar({
   const winnerName = winnerSeat !== null ? dName(winnerSeat) : "";
 
   return (
-    <div className="relative mx-auto w-full max-w-xl h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#050814] pb-2">
+    <div className="relative mx-auto w-full max-w-xl h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#050814] pb-1">
       <LudoTopBar
         soundOn={soundOn}
         onToggleSound={toggleSound}
@@ -417,19 +415,18 @@ export function LudoSuperstar({
         onCustomizeSeed={() => setSeedCustomOpen(true)}
       />
 
-      {/* Board Theme Switcher Header Bar (Aero vs Classic Neon) */}
       {phase === "board" && (
-        <div className="flex justify-center items-center py-1 z-20">
-          <div className="flex items-center gap-1 bg-[#121A33] p-1 rounded-xl border border-white/10 shadow-md">
+        <div className="flex justify-center items-center py-0.5 z-20">
+          <div className="flex items-center gap-1 bg-[#121A33] p-0.5 rounded-xl border border-white/10 shadow-md">
             <button 
               onClick={() => setBoardTheme("Aero")}
-              className={"px-3 py-0.5 rounded-lg text-[11px] font-extrabold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow" : "text-gray-400")}
+              className={"px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow" : "text-gray-400")}
             >
               Aero
             </button>
             <button 
               onClick={() => setBoardTheme("Classic")}
-              className={"px-3 py-0.5 rounded-lg text-[11px] font-extrabold transition-all " + (boardTheme === "Classic" ? "bg-purple-600 text-white shadow" : "text-gray-400")}
+              className={"px-2.5 py-0.5 rounded-lg text-[10px] font-extrabold transition-all " + (boardTheme === "Classic" ? "bg-purple-600 text-white shadow" : "text-gray-400")}
             >
               Classic
             </button>
@@ -463,7 +460,7 @@ export function LudoSuperstar({
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col justify-between overflow-hidden">
+        <div className="flex-1 flex flex-col justify-between overflow-hidden px-2 pb-1">
           <LudoHud
             state={game}
             dice={game.dice}
@@ -473,7 +470,7 @@ export function LudoSuperstar({
             hubLabel={hubLabel}
             names={names}
           />
-          <div className="flex-1 flex items-center justify-center overflow-hidden my-1">
+          <div className="flex-1 flex items-center justify-center overflow-hidden my-0.5">
             <LudoBoard
               state={game}
               selectable={sel}
