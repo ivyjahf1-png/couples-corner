@@ -7,7 +7,6 @@ import {
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
-import { SEED_ANIMALS } from "./LudoSeedCustomizerModal";
 
 const GRID = 15;
 const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"]; 
@@ -15,13 +14,6 @@ const HEX_DARK = ["#B71C1C", "#1565C0", "#F9A825", "#2E7D32"];
 
 function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
-
-const SEED_IMAGES = [
-  "/assets/red-soldier.png",
-  "/assets/blue-drop.png",
-  "/assets/yellow-castle.png",
-  "/assets/green-disc.png"
-];
 
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
@@ -78,42 +70,50 @@ function posFor(color: number, tokenIdx: number, steps: number) {
   return { x: 7.5, y: 7.5 };
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   3D REALISTIC DICE
+   ═══════════════════════════════════════════════════════════════ */
 function Dice({ color, positionClass, value, isRolling, onRoll }: { color: string, positionClass: string, value: number, isRolling: boolean, onRoll?: () => void }) {
   const dots = useMemo(() => {
     const dot = "w-2.5 h-2.5 bg-gray-800 rounded-full shadow-inner";
     if (value === 1) return <div className={dot} />;
-    if (value === 2) return <div className="grid grid-cols-2 gap-3"><div className={dot}/><div className={dot}/></div>;
+    if (value === 2) return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/></div>;
     if (value === 3) return <div className="grid grid-cols-3 gap-1"><div className={dot}/><div className={dot}/><div className={dot}/></div>;
-    if (value === 4) return <div className="grid grid-cols-2 gap-3"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
-    if (value === 5) return <div className="grid grid-cols-2 gap-3 relative"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot + " absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"}/></div>;
-    return <div className="grid grid-cols-2 gap-3"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
+    if (value === 4) return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
+    if (value === 5) return <div className="grid grid-cols-2 gap-2 relative"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot + " absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"}/></div>;
+    return <div className="grid grid-cols-2 gap-2"><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/><div className={dot}/></div>;
   }, [value]);
 
   return (
     <motion.div
-      initial={{ scale: 0, opacity: 0, y: 20 }}
-      animate={{ scale: 1, opacity: 1, y: 0 }}
-      className={"absolute z-50 cursor-pointer " + positionClass}
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      className={"absolute z-[100] cursor-pointer " + positionClass}
       onClick={onRoll}
-      style={{ filter: "drop-shadow(0 0 15px " + color + ")" }}
+      style={{ filter: "drop-shadow(0 10px 15px rgba(0,0,0,0.5))" }}
     >
       <motion.div 
-        className="w-14 h-14 bg-white rounded-xl border border-gray-300 shadow-xl flex items-center justify-center p-2 will-change-transform"
-        animate={isRolling ? { rotate: [0, 360, 720], scale: [1, 1.2, 1] } : { rotate: 12, y: [0, -8, 0] }}
-        transition={isRolling ? { duration: 1 } : { repeat: Infinity, duration: 2 }}
+        className="w-12 h-12 bg-white rounded-xl border-b-4 border-r-4 border-gray-300 shadow-2xl flex items-center justify-center p-1 will-change-transform"
+        animate={isRolling ? { 
+          rotateX: [0, 360, 720, 1080], 
+          rotateY: [0, 360, 720, 1080],
+          scale: [1, 1.2, 1.2, 1] 
+        } : { rotateX: 15, rotateY: 15, y: [0, -3, 0] }}
+        transition={isRolling ? { duration: 1, ease: "easeOut" } : { repeat: Infinity, duration: 2 }}
+        style={{ transformStyle: "preserve-3d" }}
       >
         {dots}
       </motion.div>
-      <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white uppercase tracking-wider drop-shadow-md">
-        Roll
-      </div>
     </motion.div>
   );
 }
 
+/* ═══════════════════════════════════════════════════════════════
+   BOARD SURFACE
+   ═══════════════════════════════════════════════════════════════ */
 const BoardSurface = React.memo(() => {
   return (
-    <svg viewBox="0 0 15 15" className="block h-full w-full drop-shadow-md bg-white rounded-lg p-1" role="img">
+    <svg viewBox="0 0 15 15" className="block h-full w-full bg-white rounded-xl shadow-inner p-1" role="img">
       <g>
         <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#222" strokeWidth="0.08" />
         <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#222" strokeWidth="0.08" />
@@ -189,6 +189,9 @@ const BoardSurface = React.memo(() => {
 });
 BoardSurface.displayName = "BoardSurface";
 
+/* ═══════════════════════════════════════════════════════════════
+   MAIN COMPONENT (Full Screen Layout)
+   ═══════════════════════════════════════════════════════════════ */
 interface Pawn {
   key: string;
   color: number;
@@ -234,10 +237,10 @@ export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, 
   const activeSeat = winnerVal == null ? Number(state.turn) : null;
 
   return (
-    <div className="flex flex-col w-full bg-[#2C2563] overflow-hidden font-sans relative rounded-3xl shadow-2xl border border-white/10 mt-4 pb-2">
+    <div className="flex flex-col h-[100dvh] w-full bg-[#2C2563] overflow-hidden font-sans relative select-none">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#3b3283] to-[#1a153d] opacity-80 pointer-events-none" />
 
-      {/* Top Header */}
+      {/* TOP HEADER (Aero) */}
       <div className="relative z-10 flex items-center justify-between p-3 pt-6 px-4">
         <div className="flex gap-2">
           <button className="w-8 h-8 rounded bg-[#4a438a]/60 flex items-center justify-center text-white"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
@@ -252,40 +255,39 @@ export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, 
         </div>
       </div>
 
-      {/* Main Play Area */}
-      <div className="relative z-10 flex-1 flex flex-col justify-between px-4 pb-4">
+      {/* MAIN PLAY AREA */}
+      <div className="relative z-10 flex-1 flex flex-col justify-between px-4 pb-2">
         
+        {/* Top Profiles */}
         <div className="flex justify-between items-start mt-6">
           <div className="relative">
-            <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-3xl">👨🏽</span>
+            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
+              <span className="text-2xl">👨🏽</span>
             </div>
-            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-[#1a153d] px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4">
+            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4 pr-2">
               <span className="text-[10px]">🇮🇳</span><span className="text-[10px] text-white font-bold">Manish</span>
             </div>
-            {activeSeat === 3 && <Dice color={colorOf(3)} positionClass="top-16 left-4" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            {activeSeat === 3 && <Dice color={colorOf(3)} positionClass="top-12 -right-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
           </div>
 
           <div className="relative">
-            <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-3xl">👩🏼</span>
+            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
+              <span className="text-2xl">👩🏼</span>
             </div>
-            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-[#1a153d] px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4">
+            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4 pl-2">
               <span className="text-[10px]">🇺🇸</span><span className="text-[10px] text-white font-bold">Miray</span>
             </div>
-            {activeSeat === 2 && <Dice color={colorOf(2)} positionClass="top-16 right-4" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            {activeSeat === 2 && <Dice color={colorOf(2)} positionClass="top-12 -left-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
           </div>
         </div>
 
-        <div className="relative w-full max-w-[420px] mx-auto aspect-square my-2 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] border-4 border-white/20 p-0.5 bg-white">
+        {/* THE BOARD */}
+        <div className="relative w-full max-w-[420px] mx-auto aspect-square rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] p-1 bg-[#2C2563] border-2 border-white/20 my-2">
           <BoardSurface />
           
           <div className="absolute inset-0 p-1">
             {pawns.map((p) => {
-              // If player 0 has custom animal seed, use emoji, otherwise use AAA image asset
               const customAnimal = p.color === 0 && seedCustom?.animal ? seedCustom.animal : null;
-              const animalEmoji = SEED_ANIMALS.find((a) => a.key === customAnimal)?.emoji;
-
               return (
                 <motion.button
                   key={p.key} type="button" disabled={!p.movable}
@@ -307,19 +309,12 @@ export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, 
                     transition={{ type: "spring", stiffness: 400, damping: 15 }}
                   >
                     {customAnimal ? (
-                      <span className="text-[28px] leading-none">{animalEmoji}</span>
+                      <span className="text-[24px] leading-none">{customAnimal}</span>
                     ) : (
-                      <img 
-                        src={SEED_IMAGES[p.color]} 
-                        alt="pawn" 
-                        className="w-[95%] h-[95%] object-contain drop-shadow-[0_4px_6px_rgba(0,0,0,0.5)]" 
-                        onError={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          if (e.currentTarget.parentElement) {
-                            e.currentTarget.parentElement.innerHTML = '<span class="text-2xl">♟️</span>';
-                          }
-                        }}
-                      />
+                      // Matches image exactly: Red Soldier, Blue Drop, Yellow Chess, Green Paw
+                      <span className="text-[26px] leading-none select-none">
+                        {p.color === 0 ? "💂🏽" : p.color === 1 ? "💧" : p.color === 2 ? "♟️" : "🐾"}
+                      </span>
                     )}
                   </motion.div>
                   {p.movable && (
@@ -331,53 +326,57 @@ export function LudoBoard({ state, selectable, onSelect, seedCustom, diceValue, 
           </div>
         </div>
 
+        {/* Bottom Profiles */}
         <div className="flex justify-between items-end mb-2">
           <div className="relative">
-            <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-3xl">🧔🏽‍♂️</span>
+            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
+              <span className="text-2xl">🧔🏽‍♂️</span>
             </div>
-            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-[#1a153d] px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4">
+            <div className="absolute top-1/2 -right-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pl-4 pr-2">
               <span className="text-[10px]">🇳🇬</span><span className="text-[10px] text-white font-bold">busybrai...</span>
             </div>
             {activeSeat === 0 && (
               <motion.div 
-                className="absolute -top-12 left-1/2 -translate-x-1/2 text-green-500 z-30 filter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]"
-                animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 1 }}
+                className="absolute -top-10 left-1/2 -translate-x-1/2 text-green-500 z-30 filter drop-shadow-[0_0_10px_rgba(34,197,94,0.8)]"
+                animate={{ y: [0, 6, 0] }} transition={{ repeat: Infinity, duration: 1 }}
               >
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21L4 9h16L12 21z" /></svg>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21L4 9h16L12 21z" /></svg>
               </motion.div>
             )}
-            {activeSeat === 0 && <Dice color={colorOf(0)} positionClass="bottom-16 left-4" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            {activeSeat === 0 && <Dice color={colorOf(0)} positionClass="-top-14 -right-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
           </div>
 
           <div className="relative">
-            <div className="w-14 h-14 rounded-xl bg-gray-800 border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
-              <span className="text-3xl">👦🏽</span>
+            <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.5)] flex items-center justify-center overflow-hidden z-10 relative">
+              <span className="text-2xl">👦🏽</span>
             </div>
-            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-[#1a153d] px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4">
-              <span className="text-[10px]">🇦🇪</span><span className="text-[10px] text-white font-bold">Azeel</span>
+            <div className="absolute top-1/2 -left-4 -translate-y-1/2 bg-black/80 px-3 py-0.5 rounded-full border border-white/20 flex items-center gap-1 whitespace-nowrap z-0 pr-4 pl-2">
+              <span className="text-[10px]">🇦🇪</span><span className="text-[10px] text-white font-bold">Zaki</span>
             </div>
-            {activeSeat === 1 && <Dice color={colorOf(1)} positionClass="bottom-16 right-4" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
+            {activeSeat === 1 && <Dice color={colorOf(1)} positionClass="-top-14 -left-12" value={diceValue || 1} isRolling={rolling || false} onRoll={onRoll} />}
           </div>
         </div>
 
       </div>
 
-      <div className="relative z-10 flex items-center justify-between px-4 pb-4">
+      {/* BOTTOM NAVIGATION BAR */}
+      <div className="relative z-10 flex items-center justify-between px-4 pb-6">
         <div className="flex gap-2">
           <div className="w-10 h-10 rounded-xl bg-gray-800 border border-white/20 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="avatar" /></div>
           <div className="w-10 h-10 rounded-xl bg-gray-800 border border-white/20 overflow-hidden"><img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Max" alt="avatar" /></div>
           <div className="w-10 h-10 rounded-xl bg-[#1a153d] border border-white/20 flex flex-col items-center justify-center relative">
-            <span className="text-cyan-400 text-[8px] leading-none">💎 2</span>
+            <span className="text-cyan-400 text-[8px] leading-none">💎 6</span>
             <span className="text-white text-[10px] font-bold">↺</span>
-            <div className="absolute -top-1 -right-1 bg-red-500 text-[8px] font-bold text-white px-1 rounded-full">25</div>
+            <div className="absolute -top-1 -right-1 bg-red-500 text-[8px] font-bold text-white px-1 rounded-full">23</div>
           </div>
         </div>
+        
         <div className="flex gap-2">
-          <button className="px-4 py-1.5 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase">Emoji</button>
-          <button className="px-4 py-1.5 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase">Chat</button>
+          <button className="px-6 py-2 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase tracking-widest">Emoji</button>
+          <button className="px-6 py-2 rounded-full bg-[#4a438a]/60 text-white text-xs font-bold border border-white/10 uppercase tracking-widest">Chat</button>
         </div>
-        <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-orange-500 overflow-hidden flex items-center justify-center text-2xl">🦌</div>
+        
+        <div className="w-12 h-12 rounded-xl bg-gray-800 border-2 border-orange-500 overflow-hidden flex items-center justify-center text-2xl">🎅</div>
       </div>
     </div>
   );
