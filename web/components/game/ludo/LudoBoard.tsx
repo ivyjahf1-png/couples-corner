@@ -18,19 +18,27 @@ function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
 function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
 
+/* 
+  PERFECT CLOCKWISE 52-CELL OUTER TRACK
+  Index 0 = Red Start Gate [6, 13] (Your Blue Circle)
+*/
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
-  [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
-  [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
-  [0, 7], [0, 6],
-  [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
-  [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
-  [7, 0], [8, 0],
-  [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 6],
-  [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6],
-  [14, 7], [14, 8],
-  [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 8],
-  [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14],
-  [7, 14], [6, 14],
+  // Red Start & Upward Left Track (0..5)
+  [6, 13], [6, 12], [6, 11], [6, 10], [6, 9], [5, 8],
+  // Green Approach Track (6..11)
+  [4, 8], [3, 8], [2, 8], [1, 8], [0, 8], [0, 7],
+  // Green Corner & Green Start Gate (12..18)
+  [0, 6], [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 5],
+  // Green Upper Track to Yellow Approach (19..24)
+  [6, 4], [6, 3], [6, 2], [6, 1], [6, 0], [7, 0],
+  // Yellow Corner & Yellow Start Gate (25..31)
+  [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [9, 6],
+  // Yellow Right Track to Blue Approach (32..37)
+  [10, 6], [11, 6], [12, 6], [13, 6], [14, 6], [14, 7],
+  // Blue Corner & Blue Start Gate (38..44)
+  [14, 8], [13, 8], [12, 8], [11, 8], [10, 8], [9, 8], [8, 9],
+  // Blue Down Track back to Red Gate (45..51)
+  [8, 10], [8, 11], [8, 12], [8, 13], [8, 14], [7, 14],
 ];
 
 const BASE_QUAD: Record<number, readonly [number, number]> = {
@@ -44,14 +52,15 @@ const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
 };
 
+// Colored Home Run Columns (The straight path into center triangle)
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
-  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
-  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
-  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
+  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Red Home Path (Upward)
+  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Blue Home Path (Leftward)
+  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],     // Yellow Home Path (Downward)
+  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],     // Green Home Path (Rightward)
 };
 
-const START_SET = new Set([0, 14, 28, 42]);
+const START_SET = new Set([0, 13, 26, 39]);
 const SAFE_STARS = new Set([8, 21, 34, 47]);
 
 function posFor(color: number, tokenIdx: number, steps: number) {
@@ -137,16 +146,16 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
           let cellColor = isNeon ? "#0F172A" : "#FFFFFF";
           if (isStart) {
             if (i === 0) cellColor = colorOf(0);
-            if (i === 14) cellColor = colorOf(3);
-            if (i === 28) cellColor = colorOf(2);
-            if (i === 42) cellColor = colorOf(1);
+            if (i === 13) cellColor = colorOf(3);
+            if (i === 26) cellColor = colorOf(2);
+            if (i === 39) cellColor = colorOf(1);
           }
 
           let rot = 0;
           if (i === 0) rot = 0;
-          if (i === 14) rot = 90;
-          if (i === 28) rot = 180;
-          if (i === 42) rot = 270;
+          if (i === 13) rot = 90;
+          if (i === 26) rot = 180;
+          if (i === 39) rot = 270;
 
           return (
             <g key={"trk-" + i}>
