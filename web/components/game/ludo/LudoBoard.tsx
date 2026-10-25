@@ -343,3 +343,6 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
     </div>
   );
 }
+
+// Default export added to resolve TS2613 module error when imported without curly braces
+export default LudoBoard;
