@@ -1,32 +1,27 @@
 ﻿"use client";
-
-import React from "react";
-import { 
-  ArrowLeft, 
-  Trophy, 
-  Lock, 
-  Smile, 
-  MessageSquare, 
-  PhoneCall, 
-  Sparkles 
-} from "lucide-react";
-import { 
+import React, { useMemo } from "react";
+import { motion } from "framer-motion";
+import {
   FINISH_STEP,
   trackCell,
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
 
-interface LudoBoardProps {
-  state: LudoGameState;
-  selectable: readonly number[];
-  onSelect: (tokenIdx: number) => void;
-  diceValue?: number;
-  rolling?: boolean;
-  onRoll?: () => void;
-  isNeon?: boolean; //
-}
+const GRID = 15;
 
+const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"]; 
+const HEX_DARK = ["#B71C1C", "#1565C0", "#F9A825", "#2E7D32"];
+const HEX_LIGHT = ["#FF8A80", "#82B1FF", "#FFF59D", "#A5D6A7"];
+
+function colorOf(c: number) { return COLORS[c] || "#888"; }
+function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
+function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
+
+/* 
+  EXACT INDUSTRY-STANDARD CLOCKWISE TRACK PATH
+  Index 0 = Red Starting Gate [6, 13]
+*/
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
   [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
@@ -42,274 +37,309 @@ const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [7, 14], [6, 14],
 ];
 
-const HOME_PATHS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]], // Red
-  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]], // Blue
-  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]], // Yellow
-  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]], // Green
+const BASE_QUAD: Record<number, readonly [number, number]> = {
+  0: [0, 9], 1: [9, 9], 2: [9, 0], 3: [0, 0], 
 };
 
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1.8, 10.8], [4.2, 10.8], [1.8, 13.2], [4.2, 13.2]], // Red
-  1: [[10.8, 10.8], [13.2, 10.8], [10.8, 13.2], [13.2, 13.2]], // Blue
-  2: [[10.8, 1.8], [13.2, 1.8], [10.8, 4.2], [13.2, 4.2]], // Yellow
-  3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]], // Green
+  0: [[1.8, 10.8], [4.2, 10.8], [1.8, 13.2], [4.2, 13.2]],
+  1: [[10.8, 10.8], [13.2, 10.8], [10.8, 13.2], [13.2, 13.2]],
+  2: [[10.8, 1.8], [13.2, 1.8], [10.8, 4.2], [13.2, 4.2]],
+  3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
 };
 
-function getCoords(color: number, tokenIdx: number, steps: number) {
+const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
+  0: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  1: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
+  2: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
+};
+
+const START_SET = new Set([0, 14, 28, 42]);
+const SAFE_STARS = new Set([8, 21, 34, 47]);
+
+function posFor(color: number, tokenIdx: number, steps: number) {
   if (steps < 0) {
-    const spot = BASE_SPOTS[color]?.[tokenIdx] || [7, 7];
-    return { col: spot[0], row: spot[1] };
-  }
-  if (steps === FINISH_STEP) {
-    return { col: 7, row: 7 };
+    const s = BASE_SPOTS[color][tokenIdx];
+    return { x: s[0], y: s[1] };
   }
   if (steps <= 50) {
-    const cellIdx = trackCell(color as LudoColor, steps);
-    const safeCellIdx = cellIdx !== null ? cellIdx : 0;
-    const pos = TRACK_PATH[((safeCellIdx % 52) + 52) % 52] || [7, 7];
-    return { col: pos[0], row: pos[1] };
+    const cell = trackCell(color as LudoColor, steps);
+    if (cell === null || cell === undefined) return { x: 7.5, y: 7.5 };
+    const n = TRACK_PATH.length;
+    const c = TRACK_PATH[((cell % n) + n) % n];
+    return { x: c[0] + 0.5, y: c[1] + 0.5 };
   }
-  const homePath = HOME_PATHS[color];
-  const pos = homePath?.[steps - 51] || [7, 7];
-  return { col: pos[0], row: pos[1] };
+  if (steps < FINISH_STEP) {
+    const h = HOME_PATH[color][steps - 51];
+    return { x: h[0] + 0.5, y: h[1] + 0.5 };
+  }
+  return { x: 7.5, y: 7.5 };
 }
 
-export default function LudoBoard({
-  state,
-  selectable,
-  onSelect,
-  diceValue = 1,
-  rolling = false,
-  onRoll,
-}: LudoBoardProps) {
-  const currentTurn = Number(state.turn);
-  const players = (state.players as unknown as ReadonlyArray<{ tokens: ReadonlyArray<{ steps: number }> }>) || [];
+export function TempleSeed({ color, size = 22 }: { color: number; size?: number }) {
+  const primary = colorOf(color);
+  const dark = darkColorOf(color);
+  const light = lightColorOf(color);
 
   return (
-    <div className="relative w-full min-h-screen bg-[#11132A] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1F2251] via-[#11132A] to-[#080A1A] text-white flex flex-col items-center justify-between p-3 select-none font-sans overflow-x-hidden">
-      
-      {/* Top Header Bar */}
-      <div className="w-full max-w-[380px] flex items-center justify-between pt-2 mb-1 z-20">
-        <button className="w-9 h-9 bg-[#1E224F] hover:bg-[#2A2E6E] rounded-xl flex items-center justify-center border border-indigo-500/30 text-slate-300 shadow-md">
-          <ArrowLeft size={18} />
-        </button>
-        
-        <div className="bg-[#1E224F] border border-indigo-500/40 px-5 py-1.5 rounded-full shadow-inner flex items-center gap-2">
-          <Sparkles size={14} className="text-amber-400" />
-          <span className="text-xs font-black tracking-wider uppercase text-slate-200">Classic</span>
-        </div>
+    <div 
+      className="relative flex flex-col items-center justify-end drop-shadow-[0_4px_6px_rgba(0,0,0,0.7)] pointer-events-none select-none" 
+      style={{ width: size, height: size * 1.15 }}
+    >
+      <div 
+        className="w-[55%] h-[42%] rounded-t-full rounded-b-md z-30 shadow-[inset_-2px_-2px_4px_rgba(0,0,0,0.5),inset_2px_2px_4px_rgba(255,255,255,0.8)] border border-white/30"
+        style={{ background: "radial-gradient(circle at 35% 35%, " + light + ", " + primary + " 70%, " + dark + ")" }}
+      />
+      <div 
+        className="w-[75%] h-[38%] -mt-[8%] rounded-sm z-20 shadow-[inset_0_0_6px_rgba(0,0,0,0.4)]"
+        style={{ background: "linear-gradient(to right, " + dark + ", " + primary + ", " + light + ")" }}
+      />
+      <div 
+        className="w-[95%] h-[24%] -mt-[4%] rounded-md z-10 shadow-[0_3px_5px_rgba(0,0,0,0.8)] border border-black/30"
+        style={{ background: "linear-gradient(to bottom, " + primary + ", " + dark + ")" }}
+      />
+    </div>
+  );
+}
 
-        <div className="flex items-center gap-1.5 bg-[#1E224F] border border-indigo-500/40 px-3 py-1 rounded-full shadow-lg">
-          <span className="text-sky-400 font-bold text-xs">💎</span>
-          <span className="text-xs font-black text-slate-100">0</span>
-          <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center text-[10px] font-extrabold text-white ml-0.5">+</div>
-        </div>
-      </div>
+const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
+  const gridStroke = isNeon ? "#1E293B" : "#111111";
+  const bgFill = isNeon ? "#0A0F1D" : "#FFFFFF";
 
-      {/* GAME BOARD WRAPPER */}
-      <div className="relative w-full max-w-[370px] aspect-square my-auto">
-        
-        {/* TOP-LEFT PLAYER (Green) */}
-        <div className="absolute -top-12 left-0 z-30 flex items-center gap-2">
-          <div className={currentTurn === 3 ? "relative p-0.5 rounded-2xl border-2 border-emerald-400 animate-pulse shadow-[0_0_20px_rgba(52,211,153,0.8)] bg-[#151838]" : "relative p-0.5 rounded-2xl border-2 border-emerald-600/60 bg-[#151838]"}>
-            <div className="w-10 h-10 rounded-xl bg-[#1E224F] flex items-center justify-center text-lg">👩🏽‍🦰</div>
-            <span className="absolute -bottom-1 -right-1 text-[9px]">🇲🇽</span>
-          </div>
-          <span className="text-xs font-bold text-slate-200">Itzel</span>
-        </div>
-
-        {/* TOP-RIGHT PLAYER (Yellow) */}
-        <div className="absolute -top-12 right-0 z-30 flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-200">Miray</span>
-          <div className={currentTurn === 2 ? "relative p-0.5 rounded-2xl border-2 border-amber-400 animate-pulse shadow-[0_0_20px_rgba(251,191,36,0.8)] bg-[#151838]" : "relative p-0.5 rounded-2xl border-2 border-amber-600/60 bg-[#151838]"}>
-            <div className="w-10 h-10 rounded-xl bg-[#1E224F] flex items-center justify-center text-lg">👱🏼‍♀️</div>
-            <span className="absolute -bottom-1 -right-1 text-[9px]">🇺🇸</span>
-          </div>
-        </div>
-
-        {/* THE MAIN SQUARE LUDO BOARD */}
-        <div className="w-full h-full bg-white rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] p-2.5 grid grid-cols-15 grid-rows-15 gap-0.5 relative border border-slate-200">
+  return (
+    <svg viewBox="0 0 15 15" className="block h-full w-full rounded-lg" style={{ backgroundColor: bgFill }} role="img">
+      <g>
+        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke={gridStroke} strokeWidth="0.05" />
+        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke={gridStroke} strokeWidth="0.05" />
+        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke={gridStroke} strokeWidth="0.05" />
+        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke={gridStroke} strokeWidth="0.05" />
+      </g>
+      <g>
+        {[0, 1, 2, 3].map((c) => (
+          <g key={"home-" + c}>
+            {HOME_PATH[c].map((cell, j) => (
+              <rect 
+                key={"h-" + c + "-" + j} 
+                x={cell[0]} y={cell[1]} 
+                width={1} height={1} 
+                fill={isNeon ? darkColorOf(c) : colorOf(c)} 
+                stroke={gridStroke} 
+                strokeWidth="0.05" 
+              />
+            ))}
+          </g>
+        ))}
+      </g>
+      <g>
+        {TRACK_PATH.map((cell, i) => {
+          const col = cell[0];
+          const row = cell[1];
+          const isSafe = SAFE_STARS.has(i);
+          const isStart = START_SET.has(i);
           
-          {/* Green Base */}
-          <div className="col-span-6 row-span-6 bg-[#22c55e] rounded-2xl p-3 flex flex-col justify-between shadow-inner relative">
-            <div className="w-full h-full bg-white rounded-xl grid grid-cols-2 gap-2 p-3 items-center justify-center shadow-inner">
-              {players[3]?.tokens?.map((token, idx) => {
-                const isMovable = currentTurn === 3 && selectable.includes(idx);
-                return (
-                  token.steps === -1 ? (
-                    <button
-                      key={idx}
-                      onClick={() => currentTurn === 3 && onSelect(idx)}
-                      className={isMovable ? "w-6 h-6 rounded-full bg-slate-900 border-2 border-emerald-500 flex items-center justify-center text-xs shadow transition scale-110 ring-4 ring-emerald-400 animate-bounce cursor-pointer" : "w-6 h-6 rounded-full bg-slate-900 border-2 border-emerald-500 flex items-center justify-center text-xs shadow transition"}
-                    >
-                      🛡️
-                    </button>
-                  ) : <div key={idx} className="w-6 h-6 opacity-0"></div>
-                );
-              })}
-            </div>
-          </div>
+          let cellColor = isNeon ? "#0F172A" : "#FFFFFF";
+          if (isStart) {
+            if (i === 0) cellColor = colorOf(0);
+            if (i === 14) cellColor = colorOf(3);
+            if (i === 28) cellColor = colorOf(2);
+            if (i === 42) cellColor = colorOf(1);
+          }
 
-          {/* Top Pathway */}
-          <div className="col-span-3 row-span-6 bg-slate-50 flex flex-col items-center justify-between py-1 border border-slate-200">
-            <div className="w-full h-1/6 bg-amber-400 flex items-center justify-center text-[10px]">⭐</div>
-            <div className="w-full h-1/6 bg-yellow-100 flex items-center justify-center"><Lock size={12} className="text-amber-600"/></div>
-            <div className="w-full h-1/6 bg-amber-400 flex items-center justify-center">🏰</div>
-          </div>
+          let rot = 0;
+          if (i === 0) rot = 0;
+          if (i === 14) rot = 90;
+          if (i === 28) rot = 180;
+          if (i === 42) rot = 270;
 
-          {/* Yellow Base */}
-          <div className="col-span-6 row-span-6 bg-[#eab308] rounded-2xl p-3 flex flex-col justify-between shadow-inner relative">
-            <div className="w-full h-full bg-white rounded-xl grid grid-cols-2 gap-2 p-3 items-center justify-center shadow-inner">
-              {players[2]?.tokens?.map((token, idx) => {
-                const isMovable = currentTurn === 2 && selectable.includes(idx);
-                return (
-                  token.steps === -1 ? (
-                    <button
-                      key={idx}
-                      onClick={() => currentTurn === 2 && onSelect(idx)}
-                      className={isMovable ? "w-6 h-6 rounded-full bg-slate-900 border-2 border-amber-400 flex items-center justify-center text-xs shadow transition scale-110 ring-4 ring-amber-300 animate-bounce cursor-pointer" : "w-6 h-6 rounded-full bg-slate-900 border-2 border-amber-400 flex items-center justify-center text-xs shadow transition"}
-                    >
-                      🏰
-                    </button>
-                  ) : <div key={idx} className="w-6 h-6 opacity-0"></div>
-                );
-              })}
-            </div>
-          </div>
+          return (
+            <g key={"trk-" + i}>
+              <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke={gridStroke} strokeWidth="0.05" />
+              {(isSafe || isStart) && (
+                <path 
+                  d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.6) + "," + (row+0.45) + " L" + (col+0.8) + "," + (row+0.45) + " L" + (col+0.65) + "," + (row+0.65) + " L" + (col+0.7) + "," + (row+0.8) + " L" + (col+0.5) + "," + (row+0.7) + " L" + (col+0.3) + "," + (row+0.8) + " L" + (col+0.35) + "," + (row+0.65) + " L" + (col+0.2) + "," + (row+0.45) + " L" + (col+0.4) + "," + (row+0.45) + " Z"} 
+                  fill={isStart ? "#FFF" : "#FFC107"} 
+                  stroke="#111" 
+                  strokeWidth="0.03" 
+                />
+              )}
+              {isStart && (
+                <path 
+                  d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.8) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.6) + " Z"} 
+                  fill="#FFD700" 
+                  stroke="#B8860B"
+                  strokeWidth="0.04"
+                  transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} 
+                />
+              )}
+            </g>
+          );
+        })}
+      </g>
+      <g>
+        {[0, 1, 2, 3].map((c) => {
+          const q = BASE_QUAD[c];
+          const col = colorOf(c);
+          const dark = darkColorOf(c);
+          return (
+            <g key={"base-" + c}>
+              <rect 
+                x={q[0] + 0.05} y={q[1] + 0.05} 
+                width={5.9} height={5.9} 
+                fill={isNeon ? "#0B132B" : col} 
+                rx="1.2" 
+                stroke={isNeon ? col : "#111"} 
+                strokeWidth={isNeon ? "0.2" : "0.1"} 
+              />
+              <rect 
+                x={q[0] + 0.5} y={q[1] + 0.5} 
+                width={5} height={5} 
+                fill={isNeon ? "#050814" : "#F8F9FA"} 
+                rx="0.8" 
+                stroke={isNeon ? col : "#DDD"} 
+                strokeWidth="0.05" 
+              />
+              {BASE_SPOTS[c].map((spot, i) => (
+                <g key={"spot-" + c + "-" + i}>
+                  <circle 
+                    cx={spot[0]} cy={spot[1]} r={0.7} 
+                    fill={isNeon ? "transparent" : col} 
+                    stroke={isNeon ? col : dark} 
+                    strokeWidth="0.12" 
+                  />
+                  {!isNeon && (
+                    <circle cx={spot[0]} cy={spot[1]} r={0.5} fill="#FFFFFF" />
+                  )}
+                </g>
+              ))}
+            </g>
+          );
+        })}
+      </g>
+    </svg>
+  );
+});
+BoardSurface.displayName = "BoardSurface";
 
-          {/* Center Finish Triangle */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-14 h-14 bg-slate-900 border-2 border-amber-400 rounded-xl flex items-center justify-center z-30 shadow-2xl rotate-45">
-            <Trophy size={20} className="text-amber-400 -rotate-45" />
-          </div>
+interface PawnData {
+  key: string;
+  color: number;
+  idx: number;
+  steps: number;
+  x: number;
+  y: number;
+  movable: boolean;
+}
 
-          {/* Blue Base */}
-          <div className="col-span-6 row-span-6 bg-[#3b82f6] rounded-2xl p-3 flex flex-col justify-between shadow-inner relative self-end">
-            <div className="w-full h-full bg-white rounded-xl grid grid-cols-2 gap-2 p-3 items-center justify-center shadow-inner">
-              {players[1]?.tokens?.map((token, idx) => {
-                const isMovable = currentTurn === 1 && selectable.includes(idx);
-                return (
-                  token.steps === -1 ? (
-                    <button
-                      key={idx}
-                      onClick={() => currentTurn === 1 && onSelect(idx)}
-                      className={isMovable ? "w-6 h-6 rounded-full bg-slate-900 border-2 border-blue-500 flex items-center justify-center text-xs shadow transition scale-110 ring-4 ring-blue-400 animate-bounce cursor-pointer" : "w-6 h-6 rounded-full bg-slate-900 border-2 border-blue-500 flex items-center justify-center text-xs shadow transition"}
-                    >
-                      💧
-                    </button>
-                  ) : <div key={idx} className="w-6 h-6 opacity-0"></div>
-                );
-              })}
-            </div>
-          </div>
+interface LudoBoardProps {
+  state: LudoGameState;
+  selectable: readonly number[];
+  onSelect: (tokenIdx: number) => void;
+  isNeon?: boolean;
+  diceValue?: number;
+  rolling?: boolean;
+  onRoll?: () => void;
+  canRoll?: boolean;
+  names?: readonly string[];
+}
 
-          {/* Red Base */}
-          <div className="col-span-6 row-span-6 bg-[#ef4444] rounded-2xl p-3 flex flex-col justify-between shadow-inner relative self-end">
-            <div className="w-full h-full bg-white rounded-xl grid grid-cols-2 gap-2 p-3 items-center justify-center shadow-inner">
-              {players[0]?.tokens?.map((token, idx) => {
-                const isMovable = currentTurn === 0 && selectable.includes(idx);
-                return (
-                  token.steps === -1 ? (
-                    <button
-                      key={idx}
-                      onClick={() => currentTurn === 0 && onSelect(idx)}
-                      className={isMovable ? "w-6 h-6 rounded-full bg-slate-900 border-2 border-red-500 flex items-center justify-center text-xs shadow transition scale-110 ring-4 ring-red-400 animate-bounce cursor-pointer" : "w-6 h-6 rounded-full bg-slate-900 border-2 border-red-500 flex items-center justify-center text-xs shadow transition"}
-                    >
-                      🐅
-                    </button>
-                  ) : <div key={idx} className="w-6 h-6 opacity-0"></div>
-                );
-              })}
-            </div>
-          </div>
+export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoBoardProps) {
+  const pawns = useMemo(() => {
+    const rawPawns: PawnData[] = [];
+    const players = (state.players as unknown as ReadonlyArray<{ tokens: ReadonlyArray<{ steps: number }> }>) || [];
+    
+    players.forEach((p, c) => {
+      if (!p || !Array.isArray(p.tokens)) return;
+      p.tokens.forEach((t, i) => {
+        if (t.steps >= FINISH_STEP) return;
+        const pos = posFor(c, i, t.steps);
+        rawPawns.push({
+          key: c + "-" + i, color: c, idx: i, steps: t.steps,
+          x: pos.x, y: pos.y,
+          movable: c === Number(state.turn) && selectable.includes(i),
+        });
+      });
+    });
 
-          {/* Track Seeds Overlay */}
-          <div className="absolute inset-0 grid grid-cols-15 grid-rows-15 pointer-events-none p-2.5">
-            {players.map((player, colorIdx) =>
-              player?.tokens?.map((token, tokenIdx) => {
-                if (token.steps === -1) return null;
-                const coords = getCoords(colorIdx, tokenIdx, token.steps);
-                const isMovable = currentTurn === colorIdx && selectable.includes(tokenIdx);
-                const icons = ["🐅", "💧", "🏰", "🛡️"];
+    const coordMap = new Map<string, PawnData[]>();
+    rawPawns.forEach((p) => {
+      const keyStr = p.x.toFixed(2) + "_" + p.y.toFixed(2);
+      if (!coordMap.has(keyStr)) coordMap.set(keyStr, []);
+      coordMap.get(keyStr)!.push(p);
+    });
 
-                const borderColor = colorIdx === 0 ? "border-red-500" : colorIdx === 3 ? "border-emerald-500" : colorIdx === 2 ? "border-amber-400" : "border-blue-500";
-                const movableClass = isMovable ? "w-6 h-6 rounded-full bg-slate-900 text-white border-2 flex items-center justify-center text-[10px] shadow-lg scale-125 ring-2 ring-white animate-bounce cursor-pointer " + borderColor : "w-6 h-6 rounded-full bg-slate-900 text-white border-2 flex items-center justify-center text-[10px] shadow-lg " + borderColor;
+    const adjustedPawns: (PawnData & { offsetX: number; offsetY: number })[] = [];
 
-                return (
-                  <div
-                    key={colorIdx + "-" + tokenIdx}
-                    className="absolute z-30 transition-all duration-300 ease-in-out flex items-center justify-center pointer-events-auto"
-                    style={{
-                      left: (coords.col / 15) * 100 + "%",
-                      top: (coords.row / 15) * 100 + "%",
-                      width: (1 / 15) * 100 + "%",
-                      height: (1 / 15) * 100 + "%",
-                    }}
-                  >
-                    <button
-                      onClick={() => currentTurn === colorIdx && onSelect(tokenIdx)}
-                      className={movableClass}
-                    >
-                      {icons[colorIdx]}
-                    </button>
-                  </div>
-                );
-              })
-            )}
-          </div>
+    coordMap.forEach((group) => {
+      const total = group.length;
+      group.forEach((p, index) => {
+        let offsetX = 0;
+        let offsetY = 0;
+        if (total === 2) {
+          offsetX = index === 0 ? -0.15 : 0.15;
+          offsetY = index === 0 ? -0.15 : 0.15;
+        } else if (total === 3) {
+          const angles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
+          offsetX = Math.cos(angles[index]) * 0.18;
+          offsetY = Math.sin(angles[index]) * 0.18;
+        } else if (total >= 4) {
+          const angles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
+          offsetX = Math.cos(angles[index % 4]) * 0.2;
+          offsetY = Math.sin(angles[index % 4]) * 0.2;
+        }
+        adjustedPawns.push({ ...p, offsetX, offsetY });
+      });
+    });
+
+    return adjustedPawns;
+  }, [state, selectable]);
+
+  return (
+    <div className="relative w-full aspect-square rounded-[1.2rem] bg-[#12192E] p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] border border-white/10 mx-auto">
+      <div className="relative w-full h-full rounded-[1rem] bg-white p-0.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] overflow-visible">
+        <BoardSurface isNeon={isNeon} />
+        
+        <div className="absolute inset-0 p-0.5 pointer-events-none">
+          {pawns.map((p) => {
+            const posX = p.x + p.offsetX;
+            const posY = p.y + p.offsetY;
+
+            return (
+              <motion.button
+                key={p.key}
+                type="button"
+                disabled={!p.movable}
+                onClick={() => { if (p.movable) onSelect(p.idx); }}
+                initial={false}
+                style={{ 
+                  left: ((posX / GRID) * 100) + "%", 
+                  top: ((posY / GRID) * 100) + "%",
+                  width: ((100 / GRID) * 1.1) + "%", 
+                  height: ((100 / GRID) * 1.1) + "%" 
+                }}
+                className="absolute z-20 flex items-center justify-center focus:outline-none -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
+              >
+                <motion.div 
+                  key={"hop-" + p.steps} 
+                  className="relative flex h-full w-full items-center justify-center will-change-transform" 
+                  initial={{ y: -12, scale: 0.6 }} 
+                  animate={{ y: 0, scale: 1 }} 
+                  transition={{ type: "spring", stiffness: 420, damping: 16 }}
+                >
+                  <TempleSeed color={p.color} size={22} />
+                </motion.div>
+                {p.movable && (
+                  <motion.div 
+                    className="pointer-events-none absolute inset-[-15%] rounded-full border-2 border-cyan-300 shadow-[0_0_8px_#22d3ee]" 
+                    animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.3, 0.9] }} 
+                    transition={{ repeat: Infinity, duration: 1.1 }} 
+                  />
+                )}
+              </motion.button>
+            );
+          })}
         </div>
-
-        {/* BOTTOM-LEFT PLAYER (Red) with Side Dice */}
-        <div className="absolute -bottom-14 left-0 z-30 flex items-center gap-3">
-          <div className="relative">
-            {currentTurn === 0 && (
-              <div className="absolute -top-7 left-2 text-emerald-400 animate-bounce z-30">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 18L4 8h16L12 18z"/></svg>
-              </div>
-            )}
-            <div className={currentTurn === 0 ? "relative p-0.5 rounded-2xl border-2 border-red-400 shadow-[0_0_15px_rgba(239,68,68,0.8)] bg-[#151838]" : "relative p-0.5 rounded-2xl border-2 border-red-600/60 bg-[#151838]"}>
-              <div className="w-10 h-10 rounded-xl bg-[#1E224F] flex items-center justify-center text-lg">🧔🏽‍♂️</div>
-              <span className="absolute -bottom-1 -right-1 text-[9px]">🇳🇬</span>
-            </div>
-          </div>
-          <span className="text-xs font-bold text-white">busybrain...</span>
-
-          {/* Interactive Dice beside Red Profile */}
-          <button 
-            onClick={onRoll}
-            className={rolling ? "w-11 h-11 bg-white rounded-2xl border-2 border-red-400 shadow-xl flex items-center justify-center text-lg font-black text-slate-900 active:scale-95 transition cursor-pointer hover:bg-slate-50 animate-spin" : "w-11 h-11 bg-white rounded-2xl border-2 border-red-400 shadow-xl flex items-center justify-center text-lg font-black text-slate-900 active:scale-95 transition cursor-pointer hover:bg-slate-50"}
-          >
-            {diceValue}
-          </button>
-        </div>
-
-        {/* BOTTOM-RIGHT PLAYER (Blue) */}
-        <div className="absolute -bottom-14 right-0 z-30 flex items-center gap-2">
-          <span className="text-xs font-bold text-slate-200">Azeel</span>
-          <div className={currentTurn === 1 ? "relative p-0.5 rounded-2xl border-2 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.8)] bg-[#151838]" : "relative p-0.5 rounded-2xl border-2 border-blue-600/60 bg-[#151838]"}>
-            <div className="w-10 h-10 rounded-xl bg-[#1E224F] flex items-center justify-center text-lg">👦🏽</div>
-            <span className="absolute -bottom-1 -right-1 text-[9px]">🇸🇦</span>
-          </div>
-        </div>
-
       </div>
-
-      {/* Bottom Action Buttons Bar */}
-      <div className="w-full max-w-[380px] flex items-center gap-2 mt-12 z-20">
-        <button className="flex-1 py-2.5 bg-[#1E224F] hover:bg-[#2A2E6E] border border-indigo-500/30 rounded-2xl text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg text-slate-200 cursor-pointer">
-          <Smile size={15} className="text-amber-400" />
-          <span>Emoji</span>
-        </button>
-        <button className="flex-1 py-2.5 bg-[#1E224F] hover:bg-[#2A2E6E] border border-indigo-500/30 rounded-2xl text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg text-slate-200 cursor-pointer">
-          <MessageSquare size={15} className="text-sky-400" />
-          <span>Chat</span>
-        </button>
-        <button className="flex-1 py-2.5 bg-[#1E224F] hover:bg-[#2A2E6E] border border-indigo-500/30 rounded-2xl text-[11px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-lg text-slate-200 cursor-pointer">
-          <PhoneCall size={15} className="text-emerald-400" />
-          <span>Call</span>
-        </button>
-      </div>
-
     </div>
   );
 }

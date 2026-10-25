@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useRouter } from "next/navigation";
 import {
@@ -26,8 +27,7 @@ import {
   setAudioMuted,
 } from "@/lib/game/ludoAudio";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import  LudoBoard  from "./LudoBoard";
-import { LudoHud } from "./LudoHud";
+import { LudoBoard, TempleSeed } from "./LudoBoard";
 import { soundEngine } from "./soundEngine";
 import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
@@ -35,6 +35,83 @@ import { LudoTopBar } from "./LudoTopBar";
 import { LudoLobby, LudoWinScreen, type LudoMode } from "./LudoLobby";
 
 type Phase = "menu" | "board" | "win";
+
+const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"];
+function colorOf(c: number) { return COLORS[c] || "#888"; }
+
+// AAA Standard 3D/5D Animated Dice Component
+function AAADiceCube({ dice, rolling, canRoll, onRoll }: { dice: number; rolling: boolean; canRoll: boolean; onRoll: () => void }) {
+  return (
+    <motion.button
+      type="button"
+      onClick={onRoll}
+      disabled={!canRoll || rolling}
+      className={`relative flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 border-2 shadow-xl transition-all ${
+        canRoll && !rolling ? "border-cyan-400 shadow-cyan-500/40 cursor-pointer hover:scale-105" : "border-white/20 opacity-90 cursor-default"
+      }`}
+      animate={rolling ? { rotateX: [0, 360, 720], rotateY: [0, 360, 720], scale: [1, 1.15, 1] } : { scale: 1 }}
+      transition={{ duration: 0.6, ease: "easeInOut" }}
+    >
+      <span className="text-xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+        {rolling ? "🎲" : dice || "🎲"}
+      </span>
+      {canRoll && !rolling && (
+        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+        </span>
+      )}
+    </motion.button>
+  );
+}
+
+// Player Profile Card placed below each opponent / player home board
+function PlayerCardWithDice({
+  color,
+  name,
+  isCurrent,
+  isYou,
+  dice,
+  rolling,
+  canRoll,
+  onRoll,
+}: {
+  color: number;
+  name: string;
+  isCurrent: boolean;
+  isYou: boolean;
+  dice: number;
+  rolling: boolean;
+  canRoll: boolean;
+  onRoll: () => void;
+}) {
+  const primary = colorOf(color);
+
+  return (
+    <div className={`flex items-center justify-between p-2 rounded-xl border transition-all ${
+      isCurrent ? "ring-2 ring-cyan-400 bg-slate-800/95 shadow-lg shadow-cyan-500/25" : "bg-slate-900/70"
+    }`} style={{ borderColor: primary }}>
+      <div className="flex items-center gap-2 min-w-0">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-md shrink-0 border border-white/30" style={{ backgroundColor: primary }}>
+          <TempleSeed color={color} size={16} />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-xs font-bold text-white truncate">{isYou ? "YOU" : name}</span>
+          <span className="text-[10px] text-slate-300">{isCurrent ? "Playing Turn..." : "Waiting"}</span>
+        </div>
+      </div>
+
+      {/* Dice appears automatically right next to the current player's profile card when it's their turn */}
+      <AnimatePresence>
+        {isCurrent && (
+          <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}>
+            <AAADiceCube dice={dice} rolling={rolling} canRoll={canRoll} onRoll={onRoll} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 export function LudoSuperstar({
   balance,
@@ -194,10 +271,6 @@ export function LudoSuperstar({
           ? nm + " sent a pawn home! 🏠"
           : nm + " moved " + d + " square" + (d === 1 ? "" : "s") + ".",
     );
-    if ((res.captured || res.finished) && isBot(color) && Math.random() < 0.55) {
-      const emoji = botReaction(color);
-      if (emoji) pushBurst(emoji);
-    }
     later(
       () => {
         const w = g.winner;
@@ -246,11 +319,7 @@ export function LudoSuperstar({
       return;
     }
     setSelectable(opts);
-    setStatus(
-      mode === "cpu"
-        ? "Tap a glowing pawn to move " + d + "."
-        : dName(color) + ", tap a glowing pawn to move " + d + ".",
-    );
+    setStatus("Tap a glowing pawn to move " + d + ".");
     busyRef.current = false;
     setBusy(false);
   };
@@ -327,9 +396,7 @@ export function LudoSuperstar({
     setWinnerSeat(null);
     setGame(freshGame(0, rules));
     clockRef.current = TURN_SECONDS;
-    setStatus(
-      mode === "cpu" ? "Your move — tap the dice to roll." : "You start — tap the dice to roll!",
-    );
+    setStatus("Your move — tap the dice on your card to roll.");
     onLose(bet);
     setPhase("board");
   };
@@ -371,10 +438,6 @@ export function LudoSuperstar({
   }, [phase, mode, game.turn, game.canRoll, game.winner, rolling, busy, selectable.length]);
 
   useEffect(() => {
-    clockRef.current = TURN_SECONDS;
-  }, [phase, game.turn]);
-
-  useEffect(() => {
     if (phase !== "board" || game.winner !== null) return;
     if (mode === "cpu" && game.turn !== 0) return;
     const id = window.setInterval(() => {
@@ -395,19 +458,11 @@ export function LudoSuperstar({
     phase === "board" && game.winner === null && !rolling && !busy && game.canRoll && humanSeatTurn;
   const sel = phase === "board" && humanSeatTurn && !rolling && !busy ? selectable : [];
   const thinking = phase === "board" && isBot(game.turn) && busy;
-  const hubLabel = rolling
-    ? "Rolling…"
-    : humanCanAct
-      ? "Tap to Roll"
-      : selectable.length > 0
-        ? "Pick a pawn"
-        : dName(game.turn) + " to roll";
   const youWon = winnerSeat !== null && (mode !== "cpu" || winnerSeat === 0);
   const winnerName = winnerSeat !== null ? dName(winnerSeat) : "";
 
   return (
     <div className="relative mx-auto w-full max-w-md h-[100dvh] flex flex-col justify-between overflow-hidden select-none bg-[#090D1A] text-white">
-      {/* Top Header Navigation */}
       <LudoTopBar
         soundOn={soundOn}
         onToggleSound={toggleSound}
@@ -416,7 +471,6 @@ export function LudoSuperstar({
         onCustomizeSeed={() => setSeedCustomOpen(true)}
       />
 
-      {/* Theme Switcher Bar (Aero / Classic) */}
       {phase === "board" && (
         <div className="flex justify-center items-center py-1 z-20">
           <div className="flex items-center gap-1 bg-[#121A33] px-2 py-0.5 rounded-full border border-white/10 shadow">
@@ -464,22 +518,33 @@ export function LudoSuperstar({
         </div>
       ) : (
         <div className="flex-1 flex flex-col justify-between px-3 py-1 overflow-hidden">
-          {/* Top Opponent Pods / HUD */}
-          <div className="w-full z-20">
-            <LudoHud
-              state={game}
+          {/* Top opponent player cards positioned near Top-Left / Top-Right home boards */}
+          <div className="grid grid-cols-2 gap-2 w-full z-20">
+            <PlayerCardWithDice
+              color={3}
+              name={names[3]}
+              isCurrent={game.turn === 3}
+              isYou={false}
               dice={game.dice}
-              rolling={rolling}
-              canRollNow={humanCanAct}
+              rolling={rolling && game.turn === 3}
+              canRoll={humanCanAct && game.turn === 3}
               onRoll={handleRoll}
-              hubLabel={hubLabel}
-              names={names}
+            />
+            <PlayerCardWithDice
+              color={2}
+              name={names[2]}
+              isCurrent={game.turn === 2}
+              isYou={false}
+              dice={game.dice}
+              rolling={rolling && game.turn === 2}
+              canRoll={humanCanAct && game.turn === 2}
+              onRoll={handleRoll}
             />
           </div>
 
-          {/* Centered Square Ludo Board - Perfectly Scaled with Zero Clipping */}
+          {/* Centered Ludo Board */}
           <div className="flex-1 flex items-center justify-center my-auto overflow-hidden">
-            <div className="w-full max-w-[min(84vw,40vh)] aspect-square">
+            <div className="w-full max-w-[min(76vw,34vh)] aspect-square">
               <LudoBoard
                 state={game}
                 selectable={sel}
@@ -489,8 +554,31 @@ export function LudoSuperstar({
             </div>
           </div>
 
-          {/* Bottom Status Bar & Action Controls */}
-          <div className="w-full pb-2 z-20">
+          {/* Bottom player cards: Bottom-Left (YOU / Red) and Bottom-Right (Blue) */}
+          <div className="grid grid-cols-2 gap-2 w-full z-20 mb-1">
+            <PlayerCardWithDice
+              color={0}
+              name={names[0]}
+              isCurrent={game.turn === 0}
+              isYou={true}
+              dice={game.dice}
+              rolling={rolling && game.turn === 0}
+              canRoll={humanCanAct && game.turn === 0}
+              onRoll={handleRoll}
+            />
+            <PlayerCardWithDice
+              color={1}
+              name={names[1]}
+              isCurrent={game.turn === 1}
+              isYou={false}
+              dice={game.dice}
+              rolling={rolling && game.turn === 1}
+              canRoll={humanCanAct && game.turn === 1}
+              onRoll={handleRoll}
+            />
+          </div>
+
+          <div className="w-full pb-1 z-20">
             <LudoStatusBar
               status={status}
               thinking={thinking}
