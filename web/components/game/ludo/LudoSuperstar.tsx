@@ -39,34 +39,30 @@ type Phase = "menu" | "board" | "win";
 const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"];
 function colorOf(c: number) { return COLORS[c] || "#888"; }
 
-// AAA Standard 3D/5D Animated Dice Component
 function AAADiceCube({ dice, rolling, canRoll, onRoll }: { dice: number; rolling: boolean; canRoll: boolean; onRoll: () => void }) {
   return (
     <motion.button
       type="button"
       onClick={onRoll}
       disabled={!canRoll || rolling}
-      className={`relative flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 border-2 shadow-xl transition-all ${
-        canRoll && !rolling ? "border-cyan-400 shadow-cyan-500/40 cursor-pointer hover:scale-105" : "border-white/20 opacity-90 cursor-default"
-      }`}
-      animate={rolling ? { rotateX: [0, 360, 720], rotateY: [0, 360, 720], scale: [1, 1.15, 1] } : { scale: 1 }}
-      transition={{ duration: 0.6, ease: "easeInOut" }}
+      className={"relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-2 shadow-2xl transition-all " + (canRoll && !rolling ? "border-cyan-400 shadow-cyan-500/60 cursor-pointer hover:scale-110" : "border-white/20 opacity-90 cursor-default")}
+      animate={rolling ? { rotateX: [0, 360, 720, 1080], rotateY: [0, 360, 720, 1080], scale: [1, 1.25, 0.9, 1.15, 1] } : { scale: 1 }}
+      transition={{ duration: 0.7, ease: "easeInOut" }}
     >
-      <span className="text-xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+      <span className="text-2xl font-black text-white drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)]">
         {rolling ? "🎲" : dice || "🎲"}
       </span>
       {canRoll && !rolling && (
-        <span className="absolute -top-1 -right-1 flex h-3 w-3">
+        <span className="absolute -top-1 -right-1 flex h-4 w-4">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500"></span>
+          <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500"></span>
         </span>
       )}
     </motion.button>
   );
 }
 
-// Player Profile Card placed below each opponent / player home board
-function PlayerCardWithDice({
+function PlayerCornerCard({
   color,
   name,
   isCurrent,
@@ -75,6 +71,7 @@ function PlayerCardWithDice({
   rolling,
   canRoll,
   onRoll,
+  photoUrl,
 }: {
   color: number;
   name: string;
@@ -84,27 +81,30 @@ function PlayerCardWithDice({
   rolling: boolean;
   canRoll: boolean;
   onRoll: () => void;
+  photoUrl?: string | null;
 }) {
   const primary = colorOf(color);
 
   return (
-    <div className={`flex items-center justify-between p-2 rounded-xl border transition-all ${
-      isCurrent ? "ring-2 ring-cyan-400 bg-slate-800/95 shadow-lg shadow-cyan-500/25" : "bg-slate-900/70"
-    }`} style={{ borderColor: primary }}>
-      <div className="flex items-center gap-2 min-w-0">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center shadow-md shrink-0 border border-white/30" style={{ backgroundColor: primary }}>
-          <TempleSeed color={color} size={16} />
-        </div>
-        <div className="flex flex-col min-w-0">
-          <span className="text-xs font-bold text-white truncate">{isYou ? "YOU" : name}</span>
-          <span className="text-[10px] text-slate-300">{isCurrent ? "Playing Turn..." : "Waiting"}</span>
-        </div>
+    <div className={"relative flex items-center gap-3 px-3 py-2 rounded-2xl border-2 backdrop-blur-md transition-all " + (isCurrent ? "bg-slate-900/95 shadow-[0_0_25px_rgba(34,211,238,0.35)] scale-[1.03]" : "bg-slate-950/75 opacity-80")} style={{ borderColor: isCurrent ? "#22d3ee" : primary }}>
+      <div className="relative w-10 h-10 rounded-full flex items-center justify-center shadow-md shrink-0 border-2 border-white/40 overflow-hidden" style={{ backgroundColor: primary }}>
+        {photoUrl ? (
+          <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
+        ) : (
+          <TempleSeed color={color} size={22} />
+        )}
       </div>
 
-      {/* Dice appears automatically right next to the current player's profile card when it's their turn */}
+      <div className="flex flex-col min-w-[80px]">
+        <span className="text-xs font-black text-white truncate max-w-[100px]">{isYou ? "YOU" : name}</span>
+        <span className={"text-[10px] font-bold " + (isCurrent ? "text-cyan-300 animate-pulse" : "text-slate-400")}>
+          {isCurrent ? "Playing..." : "Waiting"}
+        </span>
+      </div>
+
       <AnimatePresence>
         {isCurrent && (
-          <motion.div initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }}>
+          <motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} className="absolute -right-3.5 z-30">
             <AAADiceCube dice={dice} rolling={rolling} canRoll={canRoll} onRoll={onRoll} />
           </motion.div>
         )}
@@ -266,9 +266,9 @@ export function LudoSuperstar({
     const nm = dName(color);
     setStatus(
       res.captured
-        ? nm + " captured a pawn! 😈"
+        ? nm + " captured a seed! 😈"
         : res.finished
-          ? nm + " sent a pawn home! 🏠"
+          ? nm + " sent a seed home! 🏠"
           : nm + " moved " + d + " square" + (d === 1 ? "" : "s") + ".",
     );
     later(
@@ -319,7 +319,7 @@ export function LudoSuperstar({
       return;
     }
     setSelectable(opts);
-    setStatus("Tap a glowing pawn to move " + d + ".");
+    setStatus("Tap a glowing seed to move " + d + ".");
     busyRef.current = false;
     setBusy(false);
   };
@@ -473,7 +473,7 @@ export function LudoSuperstar({
 
       {phase === "board" && (
         <div className="flex justify-center items-center py-1 z-20">
-          <div className="flex items-center gap-1 bg-[#121A33] px-2 py-0.5 rounded-full border border-white/10 shadow">
+          <div className="flex items-center gap-1 bg-[#121A33] px-2.5 py-0.5 rounded-full border border-white/10 shadow">
             <button 
               onClick={() => setBoardTheme("Aero")}
               className={"px-3 py-0.5 rounded-full text-[10px] font-bold transition-all " + (boardTheme === "Aero" ? "bg-blue-600 text-white shadow-md" : "text-gray-400")}
@@ -517,10 +517,9 @@ export function LudoSuperstar({
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col justify-between px-3 py-1 overflow-hidden">
-          {/* Top opponent player cards positioned near Top-Left / Top-Right home boards */}
-          <div className="grid grid-cols-2 gap-2 w-full z-20">
-            <PlayerCardWithDice
+        <div className="flex-1 flex flex-col justify-between px-2.5 py-1 overflow-hidden">
+          <div className="flex justify-between items-center w-full px-1 z-20">
+            <PlayerCornerCard
               color={3}
               name={names[3]}
               isCurrent={game.turn === 3}
@@ -530,7 +529,7 @@ export function LudoSuperstar({
               canRoll={humanCanAct && game.turn === 3}
               onRoll={handleRoll}
             />
-            <PlayerCardWithDice
+            <PlayerCornerCard
               color={2}
               name={names[2]}
               isCurrent={game.turn === 2}
@@ -542,9 +541,8 @@ export function LudoSuperstar({
             />
           </div>
 
-          {/* Centered Ludo Board */}
-          <div className="flex-1 flex items-center justify-center my-auto overflow-hidden">
-            <div className="w-full max-w-[min(76vw,34vh)] aspect-square">
+          <div className="flex-1 flex items-center justify-center my-auto overflow-hidden px-1">
+            <div className="w-full max-w-[min(96vw,46vh)] aspect-square">
               <LudoBoard
                 state={game}
                 selectable={sel}
@@ -554,9 +552,8 @@ export function LudoSuperstar({
             </div>
           </div>
 
-          {/* Bottom player cards: Bottom-Left (YOU / Red) and Bottom-Right (Blue) */}
-          <div className="grid grid-cols-2 gap-2 w-full z-20 mb-1">
-            <PlayerCardWithDice
+          <div className="flex justify-between items-center w-full px-1 z-20 mb-1">
+            <PlayerCornerCard
               color={0}
               name={names[0]}
               isCurrent={game.turn === 0}
@@ -565,8 +562,9 @@ export function LudoSuperstar({
               rolling={rolling && game.turn === 0}
               canRoll={humanCanAct && game.turn === 0}
               onRoll={handleRoll}
+              photoUrl={photoUrls[0]}
             />
-            <PlayerCardWithDice
+            <PlayerCornerCard
               color={1}
               name={names[1]}
               isCurrent={game.turn === 1}

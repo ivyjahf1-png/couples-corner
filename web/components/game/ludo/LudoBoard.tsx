@@ -18,10 +18,6 @@ function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
 function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
 
-/* 
-  EXACT INDUSTRY-STANDARD CLOCKWISE TRACK PATH
-  Index 0 = Red Starting Gate [6, 13]
-*/
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
   [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
@@ -77,26 +73,26 @@ function posFor(color: number, tokenIdx: number, steps: number) {
   return { x: 7.5, y: 7.5 };
 }
 
-export function TempleSeed({ color, size = 22 }: { color: number; size?: number }) {
+export function TempleSeed({ color, size = 26 }: { color: number; size?: number }) {
   const primary = colorOf(color);
   const dark = darkColorOf(color);
   const light = lightColorOf(color);
 
   return (
     <div 
-      className="relative flex flex-col items-center justify-end drop-shadow-[0_4px_6px_rgba(0,0,0,0.7)] pointer-events-none select-none" 
-      style={{ width: size, height: size * 1.15 }}
+      className="relative flex flex-col items-center justify-end drop-shadow-[0_6px_8px_rgba(0,0,0,0.85)] pointer-events-none select-none" 
+      style={{ width: size, height: size * 1.35 }}
     >
       <div 
-        className="w-[55%] h-[42%] rounded-t-full rounded-b-md z-30 shadow-[inset_-2px_-2px_4px_rgba(0,0,0,0.5),inset_2px_2px_4px_rgba(255,255,255,0.8)] border border-white/30"
+        className="w-[50%] h-[38%] rounded-t-full rounded-b-md z-30 shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.6),inset_2px_2px_6px_rgba(255,255,255,0.9)] border border-white/40"
         style={{ background: "radial-gradient(circle at 35% 35%, " + light + ", " + primary + " 70%, " + dark + ")" }}
       />
       <div 
-        className="w-[75%] h-[38%] -mt-[8%] rounded-sm z-20 shadow-[inset_0_0_6px_rgba(0,0,0,0.4)]"
+        className="w-[70%] h-[32%] -mt-[6%] rounded-sm z-20 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]"
         style={{ background: "linear-gradient(to right, " + dark + ", " + primary + ", " + light + ")" }}
       />
       <div 
-        className="w-[95%] h-[24%] -mt-[4%] rounded-md z-10 shadow-[0_3px_5px_rgba(0,0,0,0.8)] border border-black/30"
+        className="w-[95%] h-[28%] -mt-[4%] rounded-md z-10 shadow-[0_4px_6px_rgba(0,0,0,0.9)] border border-black/40"
         style={{ background: "linear-gradient(to bottom, " + primary + ", " + dark + ")" }}
       />
     </div>
@@ -108,7 +104,7 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
   const bgFill = isNeon ? "#0A0F1D" : "#FFFFFF";
 
   return (
-    <svg viewBox="0 0 15 15" className="block h-full w-full rounded-lg" style={{ backgroundColor: bgFill }} role="img">
+    <svg viewBox="0 0 15 15" className="block h-full w-full rounded-xl" style={{ backgroundColor: bgFill }} role="img">
       <g>
         <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke={gridStroke} strokeWidth="0.05" />
         <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke={gridStroke} strokeWidth="0.05" />
@@ -147,7 +143,6 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
           }
 
           let rot = 0;
-          if (i === 0) rot = 0;
           if (i === 14) rot = 90;
           if (i === 28) rot = 180;
           if (i === 42) rot = 270;
@@ -231,7 +226,7 @@ interface PawnData {
   movable: boolean;
 }
 
-interface LudoBoardProps {
+export interface LudoBoardProps {
   state: LudoGameState;
   selectable: readonly number[];
   onSelect: (tokenIdx: number) => void;
@@ -269,12 +264,10 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
     });
 
     const adjustedPawns: (PawnData & { offsetX: number; offsetY: number })[] = [];
-
     coordMap.forEach((group) => {
       const total = group.length;
       group.forEach((p, index) => {
-        let offsetX = 0;
-        let offsetY = 0;
+        let offsetX = 0, offsetY = 0;
         if (total === 2) {
           offsetX = index === 0 ? -0.15 : 0.15;
           offsetY = index === 0 ? -0.15 : 0.15;
@@ -290,13 +283,12 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
         adjustedPawns.push({ ...p, offsetX, offsetY });
       });
     });
-
     return adjustedPawns;
   }, [state, selectable]);
 
   return (
-    <div className="relative w-full aspect-square rounded-[1.2rem] bg-[#12192E] p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.8)] border border-white/10 mx-auto">
-      <div className="relative w-full h-full rounded-[1rem] bg-white p-0.5 shadow-[inset_0_2px_10px_rgba(0,0,0,0.5)] overflow-visible">
+    <div className="relative w-full aspect-square rounded-2xl bg-[#0F172A] p-2 shadow-[0_15px_40px_rgba(0,0,0,0.85)] border border-white/15 mx-auto">
+      <div className="relative w-full h-full rounded-xl bg-white p-0.5 shadow-[inset_0_3px_12px_rgba(0,0,0,0.6)] overflow-visible">
         <BoardSurface isNeon={isNeon} />
         
         <div className="absolute inset-0 p-0.5 pointer-events-none">
@@ -314,24 +306,24 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
                 style={{ 
                   left: ((posX / GRID) * 100) + "%", 
                   top: ((posY / GRID) * 100) + "%",
-                  width: ((100 / GRID) * 1.1) + "%", 
-                  height: ((100 / GRID) * 1.1) + "%" 
+                  width: ((100 / GRID) * 1.2) + "%", 
+                  height: ((100 / GRID) * 1.2) + "%" 
                 }}
                 className="absolute z-20 flex items-center justify-center focus:outline-none -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
               >
                 <motion.div 
                   key={"hop-" + p.steps} 
                   className="relative flex h-full w-full items-center justify-center will-change-transform" 
-                  initial={{ y: -12, scale: 0.6 }} 
+                  initial={{ y: -16, scale: 0.5 }} 
                   animate={{ y: 0, scale: 1 }} 
-                  transition={{ type: "spring", stiffness: 420, damping: 16 }}
+                  transition={{ type: "spring", stiffness: 450, damping: 15 }}
                 >
-                  <TempleSeed color={p.color} size={22} />
+                  <TempleSeed color={p.color} size={28} />
                 </motion.div>
                 {p.movable && (
                   <motion.div 
-                    className="pointer-events-none absolute inset-[-15%] rounded-full border-2 border-cyan-300 shadow-[0_0_8px_#22d3ee]" 
-                    animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.3, 0.9] }} 
+                    className="pointer-events-none absolute inset-[-18%] rounded-full border-2 border-cyan-400 shadow-[0_0_12px_#22d3ee]" 
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.9, 0.3, 0.9] }} 
                     transition={{ repeat: Infinity, duration: 1.1 }} 
                   />
                 )}
@@ -344,5 +336,4 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
   );
 }
 
-// Default export added to resolve TS2613 module error when imported without curly braces
 export default LudoBoard;
