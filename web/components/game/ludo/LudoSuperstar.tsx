@@ -27,7 +27,7 @@ import {
   setAudioMuted,
 } from "@/lib/game/ludoAudio";
 import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/client";
-import { LudoBoard, TempleSeed } from "./LudoBoard";
+import { LudoBoard } from "./LudoBoard";
 import { soundEngine } from "./soundEngine";
 import { LudoSeedCustomizerModal } from "./LudoSeedCustomizerModal";
 import { LudoStatusBar, type EmojiBurst } from "./LudoStatusBar";
@@ -36,79 +36,42 @@ import { LudoLobby, LudoWinScreen, type LudoMode } from "./LudoLobby";
 
 type Phase = "menu" | "board" | "win";
 
-const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"];
-function colorOf(c: number) { return COLORS[c] || "#888"; }
-
+// 5D Interactive Physical Rolling Cube
 function AAADiceCube({ dice, rolling, canRoll, onRoll }: { dice: number; rolling: boolean; canRoll: boolean; onRoll: () => void }) {
   return (
     <motion.button
       type="button"
       onClick={onRoll}
       disabled={!canRoll || rolling}
-      className={"relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-slate-950 border-2 shadow-2xl transition-all " + (canRoll && !rolling ? "border-cyan-400 shadow-cyan-500/60 cursor-pointer hover:scale-110" : "border-white/20 opacity-90 cursor-default")}
-      animate={rolling ? { rotateX: [0, 360, 720, 1080], rotateY: [0, 360, 720, 1080], scale: [1, 1.25, 0.9, 1.15, 1] } : { scale: 1 }}
+      className={"relative flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 border-2 border-white shadow-[0_10px_25px_rgba(234,179,8,0.6)] transition-all " + (canRoll && !rolling ? "cursor-pointer hover:scale-110 animate-bounce" : "opacity-90 cursor-default")}
+      animate={rolling ? { rotateX: [0, 360, 720, 1080], rotateY: [0, 360, 720, 1080], scale: [1, 1.3, 0.8, 1.2, 1] } : { scale: 1 }}
       transition={{ duration: 0.7, ease: "easeInOut" }}
     >
-      <span className="text-2xl font-black text-white drop-shadow-[0_3px_6px_rgba(0,0,0,0.9)]">
+      <span className="text-3xl font-black text-slate-950 drop-shadow-[0_2px_4px_rgba(255,255,255,0.8)]">
         {rolling ? "🎲" : dice || "🎲"}
       </span>
-      {canRoll && !rolling && (
-        <span className="absolute -top-1 -right-1 flex h-4 w-4">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-4 w-4 bg-cyan-500"></span>
-        </span>
-      )}
     </motion.button>
   );
 }
 
-function PlayerCornerCard({
-  color,
+// In-Board Floating Player Name Badge matching Image 2
+function BoardPlayerBadge({
   name,
   isCurrent,
   isYou,
-  dice,
-  rolling,
-  canRoll,
-  onRoll,
   photoUrl,
 }: {
-  color: number;
   name: string;
   isCurrent: boolean;
   isYou: boolean;
-  dice: number;
-  rolling: boolean;
-  canRoll: boolean;
-  onRoll: () => void;
   photoUrl?: string | null;
 }) {
-  const primary = colorOf(color);
-
   return (
-    <div className={"relative flex items-center gap-3 px-3 py-2 rounded-2xl border-2 backdrop-blur-md transition-all " + (isCurrent ? "bg-slate-900/95 shadow-[0_0_25px_rgba(34,211,238,0.35)] scale-[1.03]" : "bg-slate-950/75 opacity-80")} style={{ borderColor: isCurrent ? "#22d3ee" : primary }}>
-      <div className="relative w-10 h-10 rounded-full flex items-center justify-center shadow-md shrink-0 border-2 border-white/40 overflow-hidden" style={{ backgroundColor: primary }}>
-        {photoUrl ? (
-          <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
-        ) : (
-          <TempleSeed color={color} size={22} />
-        )}
+    <div className={"flex items-center gap-2 px-3 py-1 rounded-full border border-white/20 backdrop-blur-md shadow-lg bg-black/80 " + (isCurrent ? "ring-2 ring-yellow-400 scale-105" : "")}>
+      <div className="w-6 h-6 rounded-full border border-white/40 overflow-hidden bg-slate-700 shrink-0">
+        {photoUrl ? <img src={photoUrl} alt={name} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-500" />}
       </div>
-
-      <div className="flex flex-col min-w-[80px]">
-        <span className="text-xs font-black text-white truncate max-w-[100px]">{isYou ? "YOU" : name}</span>
-        <span className={"text-[10px] font-bold " + (isCurrent ? "text-cyan-300 animate-pulse" : "text-slate-400")}>
-          {isCurrent ? "Playing..." : "Waiting"}
-        </span>
-      </div>
-
-      <AnimatePresence>
-        {isCurrent && (
-          <motion.div initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.4, opacity: 0 }} className="absolute -right-3.5 z-30">
-            <AAADiceCube dice={dice} rolling={rolling} canRoll={canRoll} onRoll={onRoll} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <span className="text-[11px] font-bold text-white truncate max-w-[80px]">{isYou ? "YOU" : name}</span>
     </div>
   );
 }
@@ -126,7 +89,7 @@ export function LudoSuperstar({
   const [phase, setPhase] = useState<Phase>("menu");
   const [mode, setMode] = useState<LudoMode>("cpu");
   const [rules, setRules] = useState<LudoRules>("classic");
-  const [names, setNames] = useState<string[]>(["You", SEATS[1].name, SEATS[2].name, SEATS[3].name]);
+  const [names, setNames] = useState<string[]>(["busybrain...", "Zaki", "Bella", "Martin"]);
   const [bet, setBet] = useState(100);
   const [game, setGame] = useState<LudoGameState>(() => freshGame());
   const [selectable, setSelectable] = useState<number[]>([]);
@@ -396,7 +359,7 @@ export function LudoSuperstar({
     setWinnerSeat(null);
     setGame(freshGame(0, rules));
     clockRef.current = TURN_SECONDS;
-    setStatus("Your move — tap the dice on your card to roll.");
+    setStatus("Your move — tap the dice to roll.");
     onLose(bet);
     setPhase("board");
   };
@@ -517,66 +480,49 @@ export function LudoSuperstar({
           />
         </div>
       ) : (
-        <div className="flex-1 flex flex-col justify-between px-2.5 py-1 overflow-hidden">
-          <div className="flex justify-between items-center w-full px-1 z-20">
-            <PlayerCornerCard
-              color={3}
-              name={names[3]}
-              isCurrent={game.turn === 3}
-              isYou={false}
-              dice={game.dice}
-              rolling={rolling && game.turn === 3}
-              canRoll={humanCanAct && game.turn === 3}
-              onRoll={handleRoll}
-            />
-            <PlayerCornerCard
-              color={2}
-              name={names[2]}
-              isCurrent={game.turn === 2}
-              isYou={false}
-              dice={game.dice}
-              rolling={rolling && game.turn === 2}
-              canRoll={humanCanAct && game.turn === 2}
-              onRoll={handleRoll}
-            />
-          </div>
-
-          <div className="flex-1 flex items-center justify-center my-auto overflow-hidden px-1">
-            <div className="w-full max-w-[min(96vw,46vh)] aspect-square">
+        <div className="flex-1 flex flex-col justify-between py-1 overflow-hidden">
+          {/* Main Broad Board Layout matching Image 2 */}
+          <div className="relative flex-1 flex items-center justify-center my-auto overflow-visible px-1">
+            <div className="relative w-full max-w-[min(98vw,48vh)] aspect-square">
               <LudoBoard
                 state={game}
                 selectable={sel}
                 onSelect={pickToken}
                 isNeon={boardTheme === "Classic"}
               />
+
+              {/* Top-Left Player Badge (Green / Martin) */}
+              <div className="absolute top-2 left-2 z-30">
+                <BoardPlayerBadge name={names[3]} isCurrent={game.turn === 3} isYou={false} />
+              </div>
+
+              {/* Top-Right Player Badge (Yellow / Bella) */}
+              <div className="absolute top-2 right-2 z-30">
+                <BoardPlayerBadge name={names[2]} isCurrent={game.turn === 2} isYou={false} />
+              </div>
+
+              {/* Bottom-Left Player Badge (Red / YOU / busybrain...) */}
+              <div className="absolute bottom-2 left-2 z-30">
+                <BoardPlayerBadge name={names[0]} isCurrent={game.turn === 0} isYou={true} photoUrl={photoUrls[0]} />
+              </div>
+
+              {/* Bottom-Right Player Badge (Blue / Zaki) */}
+              <div className="absolute bottom-2 right-2 z-30">
+                <BoardPlayerBadge name={names[1]} isCurrent={game.turn === 1} isYou={false} />
+              </div>
+
+              {/* Floating Active 5D Dice Roller */}
+              <AnimatePresence>
+                {game.canRoll && (
+                  <div className="absolute top-12 right-12 z-40">
+                    <AAADiceCube dice={game.dice} rolling={rolling} canRoll={humanCanAct} onRoll={handleRoll} />
+                  </div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
 
-          <div className="flex justify-between items-center w-full px-1 z-20 mb-1">
-            <PlayerCornerCard
-              color={0}
-              name={names[0]}
-              isCurrent={game.turn === 0}
-              isYou={true}
-              dice={game.dice}
-              rolling={rolling && game.turn === 0}
-              canRoll={humanCanAct && game.turn === 0}
-              onRoll={handleRoll}
-              photoUrl={photoUrls[0]}
-            />
-            <PlayerCornerCard
-              color={1}
-              name={names[1]}
-              isCurrent={game.turn === 1}
-              isYou={false}
-              dice={game.dice}
-              rolling={rolling && game.turn === 1}
-              canRoll={humanCanAct && game.turn === 1}
-              onRoll={handleRoll}
-            />
-          </div>
-
-          <div className="w-full pb-1 z-20">
+          <div className="w-full px-2 pb-1 z-20">
             <LudoStatusBar
               status={status}
               thinking={thinking}

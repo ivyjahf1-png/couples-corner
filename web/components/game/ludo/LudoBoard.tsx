@@ -73,26 +73,26 @@ function posFor(color: number, tokenIdx: number, steps: number) {
   return { x: 7.5, y: 7.5 };
 }
 
-export function TempleSeed({ color, size = 26 }: { color: number; size?: number }) {
+export function TempleSeed({ color, size = 30 }: { color: number; size?: number }) {
   const primary = colorOf(color);
   const dark = darkColorOf(color);
   const light = lightColorOf(color);
 
   return (
     <div 
-      className="relative flex flex-col items-center justify-end drop-shadow-[0_6px_8px_rgba(0,0,0,0.85)] pointer-events-none select-none" 
-      style={{ width: size, height: size * 1.35 }}
+      className="relative flex flex-col items-center justify-end pointer-events-none select-none drop-shadow-[0_8px_10px_rgba(0,0,0,0.8)]" 
+      style={{ width: size, height: size * 1.45, transform: "translateY(-25%)" }}
     >
       <div 
-        className="w-[50%] h-[38%] rounded-t-full rounded-b-md z-30 shadow-[inset_-2px_-2px_6px_rgba(0,0,0,0.6),inset_2px_2px_6px_rgba(255,255,255,0.9)] border border-white/40"
+        className="w-[52%] h-[36%] rounded-t-full rounded-b-sm z-30 shadow-[inset_-2px_-2px_5px_rgba(0,0,0,0.6),inset_2px_2px_5px_rgba(255,255,255,0.9)] border border-white/40"
         style={{ background: "radial-gradient(circle at 35% 35%, " + light + ", " + primary + " 70%, " + dark + ")" }}
       />
       <div 
-        className="w-[70%] h-[32%] -mt-[6%] rounded-sm z-20 shadow-[inset_0_0_8px_rgba(0,0,0,0.5)]"
+        className="w-[72%] h-[30%] -mt-[6%] rounded-sm z-20 shadow-[inset_0_0_6px_rgba(0,0,0,0.5)] border-t border-white/30"
         style={{ background: "linear-gradient(to right, " + dark + ", " + primary + ", " + light + ")" }}
       />
       <div 
-        className="w-[95%] h-[28%] -mt-[4%] rounded-md z-10 shadow-[0_4px_6px_rgba(0,0,0,0.9)] border border-black/40"
+        className="w-[96%] h-[34%] -mt-[4%] rounded-md z-10 shadow-[0_4px_8px_rgba(0,0,0,0.9)] border border-black/50"
         style={{ background: "linear-gradient(to bottom, " + primary + ", " + dark + ")" }}
       />
     </div>
@@ -287,7 +287,7 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
   }, [state, selectable]);
 
   return (
-    <div className="relative w-full aspect-square rounded-2xl bg-[#0F172A] p-2 shadow-[0_15px_40px_rgba(0,0,0,0.85)] border border-white/15 mx-auto">
+    <div className="relative w-full aspect-square rounded-2xl bg-[#090D1A] p-1 shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 mx-auto">
       <div className="relative w-full h-full rounded-xl bg-white p-0.5 shadow-[inset_0_3px_12px_rgba(0,0,0,0.6)] overflow-visible">
         <BoardSurface isNeon={isNeon} />
         
@@ -306,25 +306,25 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
                 style={{ 
                   left: ((posX / GRID) * 100) + "%", 
                   top: ((posY / GRID) * 100) + "%",
-                  width: ((100 / GRID) * 1.2) + "%", 
-                  height: ((100 / GRID) * 1.2) + "%" 
+                  width: ((100 / GRID) * 1.25) + "%", 
+                  height: ((100 / GRID) * 1.25) + "%" 
                 }}
                 className="absolute z-20 flex items-center justify-center focus:outline-none -translate-x-1/2 -translate-y-1/2 pointer-events-auto"
               >
                 <motion.div 
                   key={"hop-" + p.steps} 
                   className="relative flex h-full w-full items-center justify-center will-change-transform" 
-                  initial={{ y: -16, scale: 0.5 }} 
+                  initial={{ y: -18, scale: 0.5 }} 
                   animate={{ y: 0, scale: 1 }} 
-                  transition={{ type: "spring", stiffness: 450, damping: 15 }}
+                  transition={{ type: "spring", stiffness: 480, damping: 14 }}
                 >
-                  <TempleSeed color={p.color} size={28} />
+                  <TempleSeed color={p.color} size={30} />
                 </motion.div>
                 {p.movable && (
                   <motion.div 
-                    className="pointer-events-none absolute inset-[-18%] rounded-full border-2 border-cyan-400 shadow-[0_0_12px_#22d3ee]" 
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.9, 0.3, 0.9] }} 
-                    transition={{ repeat: Infinity, duration: 1.1 }} 
+                    className="pointer-events-none absolute inset-[-20%] rounded-full border-2 border-cyan-400 shadow-[0_0_15px_#22d3ee]" 
+                    animate={{ scale: [1, 1.35, 1], opacity: [0.9, 0.3, 0.9] }} 
+                    transition={{ repeat: Infinity, duration: 1.0 }} 
                   />
                 )}
               </motion.button>
