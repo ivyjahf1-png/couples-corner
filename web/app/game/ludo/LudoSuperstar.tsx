@@ -9,14 +9,21 @@ interface Player {
   tokens: number[];
 }
 
-export function LudoSuperstar() {
+interface LudoProps {
+  balance?: number;
+  onWin?: (n: number) => void;
+  onLose?: (n: number) => void;
+}
+
+export function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
   const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game" | "victory">("dashboard");
-  const [wager, setWager] = useState<number>(10000000);
+  const [wager, setWager] = useState<number>(balance);
   const [playerCount, setPlayerCount] = useState<number>(2);
   const [subMode, setSubMode] = useState<string>("CLASSIC");
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [diceRolling, setDiceRolling] = useState<boolean>(false);
 
+  // Game Engine State
   const [currentPlayer, setCurrentPlayer] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number>(0);
   const [hasRolled, setHasRolled] = useState<boolean>(false);
@@ -39,7 +46,7 @@ export function LudoSuperstar() {
     [14, 7], [14, 6],
     [13, 6], [12, 6], [11, 6], [10, 6], [9, 6],
     [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0],
-    [7, 0], [6, 0],
+    [7, 0], [6, 0]
   ];
 
   const playAudio = (type: "click" | "roll" | "move" | "victory") => {
@@ -49,14 +56,11 @@ export function LudoSuperstar() {
         audioCtxRef.current = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       }
       const ctx = audioCtxRef.current;
-      if (ctx?.state === "suspended") ctx.resume();
+      if (ctx.state === "suspended") ctx.resume();
 
-      const now = ctx?.currentTime ?? 0;
-      const osc = ctx?.createOscillator();
-      const gain = ctx?.createGain();
-
-      if (!osc || !gain || !ctx) return;
-
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
 
@@ -164,6 +168,7 @@ export function LudoSuperstar() {
       if (player.tokens.every((p) => p >= 52)) {
         playAudio("victory");
         setCurrentScreen("victory");
+        if (onWin) onWin(wager * 2);
         return;
       }
 
@@ -290,11 +295,7 @@ export function LudoSuperstar() {
                   } else if (pos >= 0 && pos < mainPathGrid.length) {
                     const gridPos = mainPathGrid[pos];
                     if (gridPos[0] === r && gridPos[1] === c) {
-                      tokensOnCell.push({
-                        playerId: player.id,
-                        tokenIdx,
-                        color: player.color === "red" ? "bg-red-500" : "bg-yellow-400",
-                      });
+                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: player.color === "red" ? "bg-red-500" : "bg-yellow-400" });
                     }
                   }
                 });
@@ -335,6 +336,7 @@ export function LudoSuperstar() {
             <button
               onClick={() => {
                 if (confirm("Exit match and forfeit wager?")) {
+                  if (onLose) onLose(wager);
                   setCurrentScreen("dashboard");
                 }
               }}
