@@ -8,7 +8,7 @@ interface Player {
   name: string;
   avatar: string;
   countryFlag: string;
-  tokens: number[];
+  tokens: number[]; // -1 in yard, 0-51 main path, 52+ home stretch
 }
 
 interface LudoProps {
@@ -19,24 +19,25 @@ interface LudoProps {
 
 export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
   const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game" | "victory">("dashboard");
-  const [wager, setWager] = useState<number>(balance);
-  const [playerCount, setPlayerCount] = useState<number>(4);
-  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [wager] = useState<number>(balance);
+  const [playerCount] = useState<number>(4);
+  const [isMuted] = useState<boolean>(false);
   const [diceRolling, setDiceRolling] = useState<boolean>(false);
 
   const [currentPlayer, setCurrentPlayer] = useState<number>(0);
-  const [diceValue, setDiceValue] = useState<number>(0);
+  const [diceValues, setDiceValues] = useState<number[]>([]);
   const [hasRolled, setHasRolled] = useState<boolean>(false);
 
   const [players, setPlayers] = useState<Player[]>([
     { id: 0, color: "red", name: "busybrain...", avatar: "👑", countryFlag: "🇳🇬", tokens: [-1, -1, -1, -1] },
     { id: 1, color: "green", name: "AI Green", avatar: "🤖", countryFlag: "🇬🇧", tokens: [-1, -1, -1, -1] },
-    { id: 2, color: "yellow", name: "Itzel", avatar: "⭐", countryFlag: "🇲🇽", tokens: [-1, -1, -1, -1] },
+    { id: 2, color: "yellow", name: "Abdurahm...", avatar: "⭐", countryFlag: "🇲🇽", tokens: [-1, -1, -1, -1] },
     { id: 3, color: "blue", name: "AI Blue", avatar: "⚡", countryFlag: "🇺🇸", tokens: [-1, -1, -1, -1] },
   ]);
 
   const audioCtxRef = useRef<AudioContext | null>(null);
 
+  // Standard 52-step Ludo outer track grid coordinates [row, col]
   const mainPathGrid = [
     [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
     [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6],
@@ -51,6 +52,14 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
     [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0],
     [7, 0], [6, 0]
   ];
+
+  // Home yard seed circle coordinates for each color base
+  const homeYardPods: Record<string, [number, number][]> = {
+    green: [[1, 1], [1, 4], [4, 1], [4, 4]],
+    yellow: [[1, 10], [1, 13], [4, 10], [4, 13]],
+    red: [[10, 1], [10, 4], [13, 1], [13, 4]],
+    blue: [[10, 10], [10, 13], [13, 10], [13, 13]],
+  };
 
   const playAudio = (type: "roll" | "move") => {
     if (isMuted) return;
@@ -91,13 +100,14 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
 
   const startGame = () => {
     setCurrentPlayer(0);
-    setDiceValue(0);
+    setDiceValues([]);
     setHasRolled(false);
     setCurrentScreen("game");
   };
 
   const passTurn = (extraTurn: boolean) => {
     setHasRolled(false);
+    setDiceValues([]);
     if (!extraTurn) {
       setCurrentPlayer((prev) => (prev + 1) % playerCount);
     }
@@ -109,25 +119,29 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
     setDiceRolling(true);
 
     setTimeout(() => {
-      const rolledVal = Math.floor(Math.random() * 6) + 1;
-      setDiceValue(rolledVal);
+      // In Aero/Superstar mode, rolling double dice can happen (e.g. 6 and 6)
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
+      const rolls = [d1, d2];
+      setDiceValues(rolls);
       setHasRolled(true);
       setDiceRolling(false);
 
       const activePlayer = players[currentPlayer];
       const canMove = activePlayer.tokens.some(
-        (pos) => (pos === -1 && rolledVal === 6) || pos >= 0
+        (pos) => (pos === -1 && (rolls.includes(6))) || pos >= 0
       );
 
       if (!canMove) {
-        setTimeout(() => passTurn(false), 1000);
+        setTimeout(() => passTurn(false), 1200);
       }
-    }, 500);
+    }, 600);
   };
 
   const handleTokenClick = (playerId: number, tokenIdx: number) => {
-    if (!hasRolled || playerId !== currentPlayer) return;
+    if (!hasRolled || playerId !== currentPlayer || diceValues.length === 0) return;
 
+    const chosenDice = diceValues[0]; // Take first available die value
     const updatedPlayers = [...players];
     const player = updatedPlayers[playerId];
     const currentPos = player.tokens[tokenIdx];
@@ -140,16 +154,18 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
     };
 
     if (currentPos === -1) {
-      if (diceValue === 6) {
+      if (chosenDice === 6) {
         player.tokens[tokenIdx] = startPositions[player.color];
         playAudio("move");
+        setDiceValues(diceValues.slice(1)); // consume die
         setPlayers(updatedPlayers);
-        passTurn(true);
+        if (diceValues.length <= 1) passTurn(true);
       }
     } else {
-      const nextPos = (currentPos + diceValue) % mainPathGrid.length;
+      const nextPos = (currentPos + chosenDice) % mainPathGrid.length;
       player.tokens[tokenIdx] = nextPos;
       playAudio("move");
+      setDiceValues(diceValues.slice(1));
       setPlayers(updatedPlayers);
 
       if (player.tokens.every((p) => p >= 52)) {
@@ -158,11 +174,14 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
         return;
       }
 
-      passTurn(diceValue === 6);
+      if (diceValues.length <= 1) {
+        passTurn(chosenDice === 6);
+      }
     }
   };
 
-  const renderPlayerCard = (playerIndex: number, alignment: "top-right" | "top-left" | "bottom-left" | "bottom-right") => {
+  // Renders profile card with the floating side dice box attached to the active player's slot
+  const renderPlayerCard = (playerIndex: number, side: "top" | "bottom") => {
     const player = players[playerIndex];
     const isActive = currentPlayer === playerIndex;
 
@@ -174,54 +193,73 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
     };
 
     return (
-      <div
-        className={`flex items-center space-x-3 my-2 ${
-          alignment.includes("right") ? "justify-end" : "justify-start"
-        }`}
-      >
-        {isActive && (
-          <button
-            onClick={rollDice}
-            disabled={hasRolled || diceRolling}
-            className={`w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 border-2 border-white shadow-[0_0_15px_rgba(251,191,36,0.8)] flex items-center justify-center text-slate-950 font-black text-xl transition-transform ${
-              diceRolling ? "animate-spin" : "hover:scale-110 animate-bounce"
-            } ${hasRolled ? "opacity-50 cursor-not-allowed" : ""}`}
-            title="Roll Dice"
-          >
-            {diceRolling ? "🎲" : diceValue === 0 ? "🎲" : diceValue}
-          </button>
+      <div className={`flex items-center space-x-3 w-full my-1 ${side === "top" ? "justify-end" : "justify-between"} px-2`}>
+        {side === "bottom" && (
+          <div className="flex items-center space-x-2 bg-[#211142] border-2 border-red-500 rounded-2xl p-2 shadow-xl relative">
+            <span className="absolute -top-2 left-2 bg-slate-900 text-white text-[9px] px-1.5 rounded border border-purple-500/40">
+              {player.countryFlag}
+            </span>
+            <div className="relative">
+              <div className="w-11 h-11 rounded-xl bg-purple-950 border border-purple-500/30 flex items-center justify-center text-2xl shadow-inner">
+                {player.avatar}
+              </div>
+              {isActive && <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-slate-950 rounded-full animate-ping"></span>}
+            </div>
+            <div>
+              <div className="text-xs font-black text-white">{player.name}</div>
+              <div className="text-[10px] text-amber-400 font-bold">🪙 2</div>
+            </div>
+          </div>
         )}
 
-        <div
-          className={`flex items-center space-x-2 bg-[#211142] border-2 ${borderColors[player.color]} rounded-2xl p-2 shadow-xl relative`}
-        >
-          <span className="absolute -top-2 left-2 bg-slate-900 text-white text-[9px] px-1.5 rounded border border-purple-500/40">
-            {player.countryFlag}
-          </span>
-          <div className="relative">
-            <div className="w-11 h-11 rounded-xl bg-purple-950 border border-purple-500/30 flex items-center justify-center text-2xl">
-              {player.avatar}
+        {/* Dynamic Side Dice Box */}
+        {isActive ? (
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={rollDice}
+              disabled={hasRolled || diceRolling}
+              className={`w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 border-2 border-white shadow-[0_0_20px_rgba(251,191,36,0.9)] flex items-center justify-center text-slate-950 font-black text-xl transition-transform ${
+                diceRolling ? "animate-spin" : "hover:scale-110 animate-bounce"
+              } ${hasRolled ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              {diceRolling ? "🎲" : diceValues.length > 0 ? diceValues.join(" ") : "🎲"}
+            </button>
+          </div>
+        ) : (
+          <div className="w-12 h-12 rounded-2xl bg-slate-900/40 border border-purple-500/20 flex items-center justify-center text-[10px] text-purple-400 font-bold">
+            Waiting
+          </div>
+        )}
+
+        {side === "top" && (
+          <div className={`flex items-center space-x-2 bg-[#211142] border-2 ${borderColors[player.color]} rounded-2xl p-2 shadow-xl relative`}>
+            <span className="absolute -top-2 left-2 bg-slate-900 text-white text-[9px] px-1.5 rounded border border-purple-500/40">
+              {player.countryFlag}
+            </span>
+            <div className="relative">
+              <div className="w-11 h-11 rounded-xl bg-purple-950 border border-purple-500/30 flex items-center justify-center text-2xl shadow-inner">
+                {player.avatar}
+              </div>
+              {isActive && <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-slate-950 rounded-full animate-ping"></span>}
             </div>
-            {isActive && (
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-slate-950 rounded-full animate-ping"></span>
-            )}
+            <div>
+              <div className="text-xs font-black text-white">{player.name}</div>
+              <div className="text-[10px] text-amber-400 font-bold">🪙 2</div>
+            </div>
           </div>
-          <div>
-            <div className="text-xs font-black text-white">{player.name}</div>
-            <div className="text-[10px] text-amber-400 font-bold">🪙 2</div>
-          </div>
-        </div>
+        )}
       </div>
     );
   };
 
   return (
     <div className="w-full min-h-screen max-w-[480px] mx-auto bg-[#130826] text-white font-sans flex flex-col justify-between overflow-hidden relative shadow-2xl">
+      {/* TOP HEADER BAR */}
       <div className="flex items-center justify-between p-3 bg-[#1c0e38] border-b border-purple-500/20">
         <div className="flex items-center space-x-2">
           <button className="p-1.5 rounded-lg bg-purple-900/50 text-purple-300">☰</button>
           <span className="bg-purple-900/60 px-3 py-1 rounded-full text-xs font-bold text-amber-400 border border-amber-500/30">
-            Classic 4D
+            Aero
           </span>
         </div>
         <div className="flex items-center space-x-2 bg-purple-950/80 px-3 py-1 rounded-full border border-purple-500/30">
@@ -250,11 +288,11 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
       )}
 
       {currentScreen === "game" && (
-        <div className="flex-1 p-3 flex flex-col justify-between items-center">
-          <div className="w-full px-1">
-            {renderPlayerCard(2, "top-right")}
-          </div>
+        <div className="flex-1 p-2 flex flex-col justify-between items-center">
+          {/* TOP PLAYER (Yellow / Abdurahm...) */}
+          {renderPlayerCard(2, "top")}
 
+          {/* 4D STANDARD LUDO BOARD WITH GLOWING BASES & POD SEEDS */}
           <div className="w-full aspect-square grid grid-cols-15 gap-[1px] bg-[#1a0c36] border-4 border-purple-600/60 p-1.5 rounded-2xl shadow-[0_0_30px_rgba(147,51,234,0.3)] relative my-auto">
             {Array.from({ length: 225 }, (_, idx) => {
               const r = Math.floor(idx / 15);
@@ -266,27 +304,27 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
                 (r === 8 && c === 2);
 
               let cellColor = "bg-[#130826]/90";
-              if (r < 6 && c < 6) cellColor = "bg-emerald-600/40 border border-emerald-400/50 shadow-[inset_0_0_12px_rgba(16,185,129,0.4)]";
-              else if (r < 6 && c > 8) cellColor = "bg-yellow-500/40 border border-yellow-400/50 shadow-[inset_0_0_12px_rgba(234,179,8,0.4)]";
-              else if (r > 8 && c < 6) cellColor = "bg-red-600/40 border border-red-400/50 shadow-[inset_0_0_12px_rgba(239,68,68,0.4)]";
-              else if (r > 8 && c > 8) cellColor = "bg-blue-600/40 border border-blue-400/50 shadow-[inset_0_0_12px_rgba(59,130,246,0.4)]";
-              else if (r >= 6 && r <= 8 && c >= 6 && c <= 8) cellColor = "bg-purple-950/80";
+              if (r < 6 && c < 6) cellColor = "bg-emerald-600/40 border border-emerald-400/50 shadow-[inset_0_0_12px_rgba(16,185,129,0.3)]";
+              else if (r < 6 && c > 8) cellColor = "bg-yellow-500/40 border border-yellow-400/50 shadow-[inset_0_0_12px_rgba(234,179,8,0.3)]";
+              else if (r > 8 && c < 6) cellColor = "bg-red-600/40 border border-red-400/50 shadow-[inset_0_0_12px_rgba(239,68,68,0.3)]";
+              else if (r > 8 && c > 8) cellColor = "bg-blue-600/40 border border-blue-400/50 shadow-[inset_0_0_12px_rgba(59,130,246,0.3)]";
+              else if (r >= 6 && r <= 8 && c >= 6 && c <= 8) cellColor = "bg-purple-950/90";
+
+              let isPod = false;
+              Object.values(homeYardPods).forEach((coords) => {
+                coords.forEach((coord) => {
+                  if (coord[0] === r && coord[1] === c) isPod = true;
+                });
+              });
 
               const tokensOnCell: { playerId: number; tokenIdx: number; color: string }[] = [];
               players.forEach((player) => {
                 player.tokens.forEach((pos, tokenIdx) => {
                   if (pos === -1) {
-                    if (player.color === "green" && ((r === 1 && c === 1) || (r === 1 && c === 3) || (r === 3 && c === 1) || (r === 3 && c === 3))) {
-                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: "bg-emerald-400" });
-                    }
-                    if (player.color === "yellow" && ((r === 1 && c === 10) || (r === 1 && c === 12) || (r === 3 && c === 10) || (r === 3 && c === 12))) {
-                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: "bg-yellow-400" });
-                    }
-                    if (player.color === "red" && ((r === 10 && c === 1) || (r === 10 && c === 3) || (r === 12 && c === 1) || (r === 12 && c === 3))) {
-                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: "bg-red-500" });
-                    }
-                    if (player.color === "blue" && ((r === 10 && c === 10) || (r === 10 && c === 12) || (r === 12 && c === 10) || (r === 12 && c === 12))) {
-                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: "bg-blue-500" });
+                    const pods = homeYardPods[player.color];
+                    if (pods && pods[tokenIdx] && pods[tokenIdx][0] === r && pods[tokenIdx][1] === c) {
+                      const bgMap = { red: "bg-red-500", green: "bg-emerald-400", yellow: "bg-yellow-400", blue: "bg-blue-500" };
+                      tokensOnCell.push({ playerId: player.id, tokenIdx, color: bgMap[player.color] });
                     }
                   } else if (pos >= 0 && pos < mainPathGrid.length) {
                     const gridPos = mainPathGrid[pos];
@@ -300,13 +338,16 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
 
               return (
                 <div key={idx} className={`w-full h-full flex items-center justify-center relative ${cellColor}`}>
-                  {isStar && <span className="text-[8px]">⭐</span>}
+                  {isPod && tokensOnCell.length === 0 && (
+                    <div className="w-3 h-3 rounded-full border border-white/40 bg-black/30" />
+                  )}
+                  {isStar && <span className="text-[7px]">⭐</span>}
 
                   {tokensOnCell.map((t) => (
                     <button
                       key={`${t.playerId}-${t.tokenIdx}`}
                       onClick={() => handleTokenClick(t.playerId, t.tokenIdx)}
-                      className={`w-4 h-4 rounded-full border-2 border-white shadow-[0_0_8px_rgba(255,255,255,0.8)] font-black text-[7px] flex items-center justify-center z-20 ${t.color} text-slate-950`}
+                      className={`w-4 h-4 rounded-full border-2 border-white shadow-[0_0_10px_rgba(255,255,255,0.9)] font-black text-[7px] flex items-center justify-center z-20 ${t.color} text-slate-950 hover:scale-125 transition-transform`}
                     >
                       {t.tokenIdx + 1}
                     </button>
@@ -316,13 +357,13 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
             })}
           </div>
 
-          <div className="w-full px-1 flex justify-between items-center">
-            {renderPlayerCard(0, "bottom-left")}
-
-            <div className="flex space-x-2">
-              <button className="px-3 py-2 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">EMOJI</button>
-              <button className="px-3 py-2 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">CHAT</button>
-              <button className="px-3 py-2 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">CALL</button>
+          {/* BOTTOM PLAYER (busybrain) & ACTION BUTTONS */}
+          <div className="w-full flex flex-col space-y-1">
+            {renderPlayerCard(0, "bottom")}
+            <div className="flex space-x-2 px-1">
+              <button className="px-3 py-1.5 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">EMOJI</button>
+              <button className="px-3 py-1.5 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">CHAT</button>
+              <button className="px-3 py-1.5 bg-[#211142] border border-purple-500/50 rounded-xl text-xs font-bold text-purple-200">CALL</button>
             </div>
           </div>
         </div>
