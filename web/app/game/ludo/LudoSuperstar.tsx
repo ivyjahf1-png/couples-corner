@@ -369,3 +369,4 @@ export function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
     </div>
   );
 }
+export { LudoSuperstar };

@@ -1,6 +1,6 @@
 "use client";
 import { ArcadeEngine, CardsEngine, SportsEngine } from "./engines/TableEngines";
-import { LudoSuperstar } from "./ludo/LudoSuperstar";
+import LudoSuperstar from "./ludo/LudoSuperstar";
 import { MinesEngine } from "./engines/MinesEngine";
 import { MineIslandEngine } from "./engines/MineIslandEngine";
 import { SlotsEngine } from "./engines/SlotsEngine";
