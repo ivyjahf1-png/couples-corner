@@ -15,7 +15,7 @@ interface LudoProps {
   onLose?: (n: number) => void;
 }
 
-export function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
+export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
   const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game" | "victory">("dashboard");
   const [wager, setWager] = useState<number>(balance);
   const [playerCount, setPlayerCount] = useState<number>(2);
@@ -23,7 +23,6 @@ export function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [diceRolling, setDiceRolling] = useState<boolean>(false);
 
-  // Game Engine State
   const [currentPlayer, setCurrentPlayer] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number>(0);
   const [hasRolled, setHasRolled] = useState<boolean>(false);
@@ -369,4 +368,3 @@ export function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoProps) {
     </div>
   );
 }
-export { LudoSuperstar };
