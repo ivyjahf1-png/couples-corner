@@ -175,15 +175,20 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
     }
   };
 
-  // Helper to render pawn seed graphics based on player color
+  // Exact red soldier seeds from the screenshot
+  const renderRedSeed = (size = "md") => (
+    <div className={`${size === "sm" ? "w-5 h-6" : "w-6 h-7"} relative flex flex-col items-center`}>
+      <div className="w-full h-[55%] bg-red-700 rounded-t-md border border-red-900 relative">
+        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-3.5 h-2 bg-red-800 rounded-t-sm border border-red-950" />
+        <div className="absolute top-1 left-1/2 -translate-x-1/2 w-2.5 h-1.5 bg-amber-100 rounded-full" />
+      </div>
+      <div className="w-[70%] h-[45%] bg-red-600 rounded-b-md border border-red-800 -mt-0.5" />
+    </div>
+  );
+
+  // Simple seeds for other colors (not visible in screenshot but kept for logic)
   const renderPawnSeed = (color: string) => {
-    if (color === "red") {
-      return (
-        <div className="w-6 h-6 rounded-full bg-red-600 border-2 border-red-300 flex items-center justify-center shadow-[0_4px_6px_rgba(0,0,0,0.4)]">
-          <span className="text-[10px]">💂</span>
-        </div>
-      );
-    }
+    if (color === "red") return renderRedSeed();
     if (color === "yellow") {
       return (
         <div className="w-5 h-5 rounded-full bg-amber-400 border-2 border-amber-200 flex items-center justify-center shadow-md">
@@ -199,277 +204,302 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
       );
     }
     return (
-      <div className="w-5 h-5 bg-blue-600 clip-cone border-b-2 border-blue-300 shadow-md flex items-center justify-center">
+      <div className="w-5 h-5 bg-blue-600 rounded-full border-2 border-blue-300 shadow-md flex items-center justify-center">
         <div className="w-1.5 h-1.5 rounded-full bg-blue-200" />
       </div>
     );
   };
 
   return (
-    <div className="w-full min-h-screen max-w-[480px] mx-auto bg-[#32177a] text-white font-sans flex flex-col justify-between overflow-hidden relative shadow-2xl">
+    <div className="w-full min-h-screen max-w-[480px] mx-auto bg-[#2b1a6e] text-white font-sans flex flex-col justify-between overflow-hidden relative shadow-2xl">
       
-      {/* TOP BAR */}
-      <div className="flex items-center justify-between p-3 bg-[#24105c]/90 border-b border-purple-500/20">
-        <div className="flex items-center space-x-1.5">
-          <button className="p-1.5 rounded-lg bg-purple-900/60 text-purple-200 text-xs font-bold">☰</button>
-          <button className="p-1.5 rounded-lg bg-purple-900/60 text-purple-200 text-xs font-bold">🏆</button>
-          <button className="p-1.5 rounded-lg bg-purple-900/60 text-purple-200 text-xs font-bold">👁️</button>
-          <button className="p-1.5 rounded-lg bg-purple-900/60 text-purple-200 text-xs font-bold">🎯</button>
-          <span className="bg-purple-900/80 px-3 py-1 rounded-full text-xs font-black text-white border border-purple-400/30">
+      {/* TOP BAR - exact match */}
+      <div className="flex items-center justify-between px-3 py-2.5 bg-[#1e1048]/95">
+        <div className="flex items-center gap-1.5">
+          <button className="w-8 h-8 rounded-lg bg-[#3a2580] flex items-center justify-center text-sm">☰</button>
+          <button className="w-8 h-8 rounded-lg bg-[#3a2580] flex items-center justify-center text-sm">🏆</button>
+          <button className="w-8 h-8 rounded-lg bg-[#3a2580] flex items-center justify-center text-sm">👁️</button>
+          <button className="w-8 h-8 rounded-lg bg-[#3a2580] flex items-center justify-center text-sm">🎯</button>
+          <span className="bg-[#3a2580] px-3 py-1 rounded-full text-xs font-bold text-white">
             Aero
           </span>
         </div>
-        <div className="flex items-center space-x-2 bg-purple-950/90 px-3 py-1 rounded-full border border-cyan-500/40">
-          <span className="text-cyan-300 font-black text-xs">💎 0</span>
-          <button className="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">＋</button>
+        <div className="flex items-center gap-1.5 bg-[#1a0d3a] px-2.5 py-1 rounded-full border border-cyan-500/30">
+          <span className="text-cyan-300 text-sm">💎</span>
+          <span className="text-white font-bold text-sm">0</span>
+          <button className="w-5 h-5 rounded-full bg-emerald-500 text-slate-900 font-black text-xs flex items-center justify-center">+</button>
         </div>
       </div>
 
       {currentScreen === "game" && (
-        <div className="flex-1 px-3 py-2 flex flex-col justify-between items-center relative">
+        <div className="flex-1 px-2 py-1 flex flex-col justify-between items-center relative">
           
-          {/* TOP PLAYER PROFILES (Top-Left: Manish / Top-Right: Woozy mi...) */}
-          <div className="w-full flex justify-between items-start px-1 z-10">
-            <div className="relative">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 p-0.5 border-2 border-yellow-300 shadow-lg">
-                <div className="w-full h-full bg-slate-900 rounded-xl flex items-center justify-center text-xl overflow-hidden">
-                  {players[1].avatar}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <div className="flex space-x-1">
-                <button className="w-8 h-8 rounded-xl bg-purple-900/70 border border-purple-400/30 flex items-center justify-center text-xs">🎁</button>
-                <button className="w-8 h-8 rounded-xl bg-purple-900/70 border border-purple-400/30 flex items-center justify-center text-xs">⚡</button>
-              </div>
-              <div className="w-12 h-12 rounded-2xl p-0.5 border-2 border-pink-500 bg-gradient-to-tr from-yellow-400 to-pink-500 shadow-lg relative">
-                <div className="w-full h-full bg-slate-900 rounded-xl flex items-center justify-center text-xl overflow-hidden">
-                  {players[2].avatar}
+          {/* TOP RIGHT PROFILE + ICONS (exact placement) */}
+          <div className="w-full flex justify-end items-start pr-1 z-20 absolute top-2 right-3">
+            <div className="flex items-center gap-1.5">
+              <button className="w-8 h-8 rounded-xl bg-[#3a2580]/80 flex items-center justify-center text-sm">🎁</button>
+              <button className="w-8 h-8 rounded-xl bg-[#3a2580]/80 flex items-center justify-center text-sm">⚡</button>
+              <div className="w-12 h-12 rounded-2xl p-[2px] bg-gradient-to-br from-yellow-300 via-pink-500 to-purple-500 shadow-lg relative">
+                <div className="w-full h-full bg-slate-900 rounded-[14px] overflow-hidden flex items-center justify-center">
+                  <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Woozy&backgroundColor=b6e3f4" alt="avatar" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* MAIN 4D LUDO BOARD CLONE */}
-          <div className="w-full aspect-square bg-[#ffffff] border-[6px] border-[#22104d] rounded-[28px] p-1 shadow-[0_12px_30px_rgba(0,0,0,0.6)] grid grid-cols-15 gap-0 relative overflow-hidden my-auto">
+          {/* MAIN BOARD - exact clone */}
+          <div className="w-full max-w-[380px] aspect-square bg-white border-[5px] border-[#1a0d3a] rounded-[24px] shadow-[0_10px_30px_rgba(0,0,0,0.55)] grid grid-cols-15 grid-rows-15 gap-0 relative overflow-hidden my-1">
             
-            {/* GREEN BASE (TOP-LEFT) */}
-            <div className="col-span-6 row-span-6 bg-[#00a651] rounded-tl-[20px] p-3 flex items-center justify-center relative">
-              <div className="w-full h-full bg-white rounded-[22px] grid grid-cols-2 p-2 gap-2 shadow-inner">
-                {[0, 1, 2, 3].map((podIdx) => (
-                  <div key={podIdx} className="flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-[#00a651] flex items-center justify-center bg-emerald-50">
-                      {players[1].tokens[podIdx] === -1 && renderPawnSeed("green")}
-                    </div>
-                  </div>
-                ))}
+            {/* ========== GREEN YARD (TOP-LEFT) - large 4-pip die ========== */}
+            <div className="col-span-6 row-span-6 bg-[#00a651] rounded-tl-[18px] p-2.5 flex items-center justify-center relative">
+              <div className="w-full h-full bg-white rounded-[18px] relative shadow-inner flex items-center justify-center">
+                {/* 4 green pips */}
+                <div className="absolute top-[18%] left-[18%] w-[26%] h-[26%] rounded-full bg-[#00a651]" />
+                <div className="absolute top-[18%] right-[18%] w-[26%] h-[26%] rounded-full bg-[#00a651]" />
+                <div className="absolute bottom-[18%] left-[18%] w-[26%] h-[26%] rounded-full bg-[#00a651]" />
+                <div className="absolute bottom-[18%] right-[18%] w-[26%] h-[26%] rounded-full bg-[#00a651]" />
+                {/* home tokens (none visible in screenshot) */}
               </div>
             </div>
 
-            {/* TOP TRACK (COLUMNS 6 to 8, ROWS 0 to 5) */}
-            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 border-x border-slate-300 bg-white">
+            {/* ========== TOP TRACK (yellow home stretch) ========== */}
+            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6">
               {Array.from({ length: 18 }, (_, i) => {
                 const r = Math.floor(i / 3);
-                const c = 6 + (i % 3);
-                const isYellowHomePath = c === 7 && r > 0;
-                const isGreenStart = r === 1 && c === 6;
+                const c = i % 3;
+                const isYellowPath = c === 1 && r >= 1;
+                const isStar = (r === 2 && c === 2) || (r === 1 && c === 0);
+                const isLock = r === 1 && c === 1;
+                const isArrow = r === 5 && c === 0;
                 return (
                   <div
                     key={i}
                     className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
-                      isYellowHomePath ? "bg-[#ffc20e]" : isGreenStart ? "bg-[#00a651]" : "bg-white"
+                      isYellowPath ? "bg-[#ffc20e]" : "bg-white"
                     }`}
                   >
-                    {r === 2 && c === 8 && <span className="text-[10px]">⭐</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* YELLOW BASE (TOP-RIGHT) */}
-            <div className="col-span-6 row-span-6 bg-[#ffc20e] rounded-tr-[20px] p-3 flex items-center justify-center relative">
-              {/* Pinned Tag */}
-              <div className="absolute top-1 left-2 bg-[#22104d] text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-yellow-300 flex items-center space-x-1 z-10 shadow-md">
-                <span>🇧🇩</span>
-                <span>Woozy mi...</span>
-              </div>
-              <div className="w-full h-full bg-white rounded-[22px] grid grid-cols-2 p-2 gap-2 shadow-inner">
-                {[0, 1, 2, 3].map((podIdx) => (
-                  <div key={podIdx} className="flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-[#ffc20e] flex items-center justify-center bg-amber-50">
-                      {players[2].tokens[podIdx] === -1 && renderPawnSeed("yellow")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* LEFT TRACK (ROWS 6 to 8, COLS 0 to 5) */}
-            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 border-y border-slate-300 bg-white">
-              {Array.from({ length: 18 }, (_, i) => {
-                const r = 6 + Math.floor(i / 6);
-                const c = i % 6;
-                const isGreenHomePath = r === 7 && c < 5;
-                const isRedStart = r === 8 && c === 1;
-                return (
-                  <div
-                    key={i}
-                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
-                      isGreenHomePath ? "bg-[#00a651]" : isRedStart ? "bg-[#ed1c24]" : "bg-white"
-                    }`}
-                  >
-                    {r === 6 && c === 1 && <span className="text-[10px]">⭐</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* CENTER HOME HUB */}
-            <div className="col-span-3 row-span-3 bg-slate-900 relative flex items-center justify-center overflow-hidden border border-slate-400">
-              <div className="absolute top-0 left-0 w-full h-full border-t-[20px] border-t-[#ffc20e] border-r-[20px] border-r-[#0054a6] border-b-[20px] border-b-[#ed1c24] border-l-[20px] border-l-[#00a651]" />
-            </div>
-
-            {/* RIGHT TRACK (ROWS 6 to 8, COLS 9 to 14) */}
-            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 border-y border-slate-300 bg-white">
-              {Array.from({ length: 18 }, (_, i) => {
-                const r = 6 + Math.floor(i / 6);
-                const c = 9 + (i % 6);
-                const isBlueHomePath = r === 7 && c > 9;
-                const isYellowStart = r === 6 && c === 13;
-                return (
-                  <div
-                    key={i}
-                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
-                      isBlueHomePath ? "bg-[#0054a6]" : isYellowStart ? "bg-[#ffc20e]" : "bg-white"
-                    }`}
-                  >
-                    {r === 8 && c === 13 && <span className="text-[10px]">⭐</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* RED BASE (BOTTOM-LEFT) */}
-            <div className="col-span-6 row-span-6 bg-[#ed1c24] rounded-bl-[20px] p-3 flex items-center justify-center relative">
-              {/* Pinned Active Tag */}
-              <div className="absolute -bottom-2 left-3 bg-[#22104d] text-white text-[9px] font-black px-2 py-0.5 rounded-full border border-red-400 flex items-center space-x-1 z-10 shadow-md">
-                <span>🇳🇬</span>
-                <span>busybra...</span>
-              </div>
-              <div className="w-full h-full bg-white rounded-[22px] grid grid-cols-2 p-2 gap-2 shadow-inner">
-                {[0, 1, 2, 3].map((podIdx) => (
-                  <div key={podIdx} className="flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-[#ed1c24] flex items-center justify-center bg-red-50">
-                      {players[0].tokens[podIdx] === -1 && renderPawnSeed("red")}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* BOTTOM TRACK (COLUMNS 6 to 8, ROWS 9 to 14) */}
-            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 border-x border-slate-300 bg-white">
-              {Array.from({ length: 18 }, (_, i) => {
-                const r = 9 + Math.floor(i / 3);
-                const c = 6 + (i % 3);
-                const isRedHomePath = c === 7 && r < 14;
-                const isBlueStart = r === 13 && c === 8;
-                return (
-                  <div
-                    key={i}
-                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
-                      isRedHomePath ? "bg-[#ed1c24]" : isBlueStart ? "bg-[#0054a6]" : "bg-white"
-                    }`}
-                  >
-                    {r === 12 && c === 6 && <span className="text-[10px]">⭐</span>}
-                    {r === 13 && c === 7 && (
-                      <div className="absolute inset-0 flex items-center justify-center z-10">
-                        {renderPawnSeed("red")}
-                      </div>
+                    {isStar && <span className="text-[9px] text-amber-500">★</span>}
+                    {isLock && <span className="text-[11px]">🔒</span>}
+                    {isArrow && <span className="text-[10px] text-slate-600">↑</span>}
+                    {/* small yellow ring token as in screenshot */}
+                    {r === 3 && c === 2 && (
+                      <div className="w-3.5 h-3.5 rounded-full border-[3px] border-amber-400 bg-white" />
                     )}
                   </div>
                 );
               })}
             </div>
 
-            {/* BLUE BASE (BOTTOM-RIGHT) */}
-            <div className="col-span-6 row-span-6 bg-[#0054a6] rounded-br-[20px] p-3 flex items-center justify-center relative">
-              <div className="w-full h-full bg-white rounded-[22px] grid grid-cols-2 p-2 gap-2 shadow-inner">
-                {[0, 1, 2, 3].map((podIdx) => (
-                  <div key={podIdx} className="flex items-center justify-center">
-                    <div className="w-8 h-8 rounded-full border-[3px] border-[#0054a6] flex items-center justify-center bg-blue-50">
-                      {players[3].tokens[podIdx] === -1 && renderPawnSeed("blue")}
-                    </div>
-                  </div>
-                ))}
+            {/* ========== YELLOW YARD (TOP-RIGHT) - large 4-ring die ========== */}
+            <div className="col-span-6 row-span-6 bg-[#ffc20e] rounded-tr-[18px] p-2.5 flex items-center justify-center relative">
+              {/* Name tag exactly as screenshot */}
+              <div className="absolute -top-1 right-2 z-20 bg-[#1a0d3a] text-white text-[9px] font-bold px-2 py-0.5 rounded-full border border-yellow-300 flex items-center gap-1 shadow">
+                <span>🇧🇩</span>
+                <span>Woozy mi...</span>
+              </div>
+              <div className="w-full h-full bg-white rounded-[18px] relative shadow-inner flex items-center justify-center">
+                {/* 4 yellow rings */}
+                <div className="absolute top-[18%] left-[18%] w-[26%] h-[26%] rounded-full border-[4px] border-[#ffc20e] bg-white" />
+                <div className="absolute top-[18%] right-[18%] w-[26%] h-[26%] rounded-full border-[4px] border-[#ffc20e] bg-white" />
+                <div className="absolute bottom-[18%] left-[18%] w-[26%] h-[26%] rounded-full border-[4px] border-[#ffc20e] bg-white" />
+                <div className="absolute bottom-[18%] right-[18%] w-[26%] h-[26%] rounded-full border-[4px] border-[#ffc20e] bg-white" />
               </div>
             </div>
 
-            {/* GREEN ANIMATED TURN ARROW POINTING AT RED PLAYER TAG */}
+            {/* ========== LEFT TRACK (green home stretch) ========== */}
+            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3">
+              {Array.from({ length: 18 }, (_, i) => {
+                const r = Math.floor(i / 6);
+                const c = i % 6;
+                const isGreenPath = r === 1 && c <= 4;
+                const isStar = (r === 0 && c === 1) || (r === 2 && c === 2);
+                const isArrow = r === 1 && c === 0;
+                return (
+                  <div
+                    key={i}
+                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
+                      isGreenPath ? "bg-[#00a651]" : "bg-white"
+                    }`}
+                  >
+                    {isStar && <span className="text-[9px] text-emerald-600">★</span>}
+                    {isArrow && <span className="text-[10px] text-slate-600">←</span>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ========== CENTER HOME HUB (exact 4-triangle) ========== */}
+            <div className="col-span-3 row-span-3 relative overflow-hidden">
+              <div className="absolute inset-0 bg-slate-800" />
+              {/* Four colored triangles meeting at center */}
+              <div className="absolute top-0 left-0 w-0 h-0 border-t-[48px] border-t-[#00a651] border-r-[48px] border-r-transparent" />
+              <div className="absolute top-0 right-0 w-0 h-0 border-t-[48px] border-t-[#ffc20e] border-l-[48px] border-l-transparent" />
+              <div className="absolute bottom-0 right-0 w-0 h-0 border-b-[48px] border-b-[#0054a6] border-l-[48px] border-l-transparent" />
+              <div className="absolute bottom-0 left-0 w-0 h-0 border-b-[48px] border-b-[#ed1c24] border-r-[48px] border-r-transparent" />
+            </div>
+
+            {/* ========== RIGHT TRACK (blue home stretch) ========== */}
+            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3">
+              {Array.from({ length: 18 }, (_, i) => {
+                const r = Math.floor(i / 6);
+                const c = i % 6;
+                const isBluePath = r === 1 && c >= 1;
+                const isStar = (r === 0 && c === 4) || (r === 2 && c === 3);
+                const isArrow = r === 1 && c === 5;
+                return (
+                  <div
+                    key={i}
+                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
+                      isBluePath ? "bg-[#0054a6]" : "bg-white"
+                    }`}
+                  >
+                    {isStar && <span className="text-[9px] text-blue-500">★</span>}
+                    {isArrow && <span className="text-[10px] text-slate-600">→</span>}
+                    {/* small blue marker as in screenshot */}
+                    {r === 0 && c === 2 && (
+                      <div className="w-3 h-3 rounded-full bg-blue-500 border border-white" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ========== RED YARD (BOTTOM-LEFT) - large 1-pip die + 3 seeds ========== */}
+            <div className="col-span-6 row-span-6 bg-[#ed1c24] rounded-bl-[18px] p-2.5 flex items-center justify-center relative">
+              <div className="w-full h-full bg-white rounded-[18px] relative shadow-inner">
+                {/* large red pip (face 1) */}
+                <div className="absolute top-[22%] left-[18%] w-[32%] h-[32%] rounded-full bg-[#ed1c24]" />
+                
+                {/* 3 red soldier seeds exactly positioned like screenshot */}
+                <div className="absolute top-[18%] right-[18%]">
+                  {renderRedSeed("sm")}
+                </div>
+                <div className="absolute bottom-[16%] left-[22%]">
+                  {renderRedSeed("sm")}
+                </div>
+                <div className="absolute bottom-[16%] right-[22%]">
+                  {renderRedSeed("sm")}
+                </div>
+              </div>
+              
+              {/* Name tag + green arrow exactly as screenshot */}
+              <div className="absolute -bottom-3 left-3 z-30 flex flex-col items-start">
+                <div className="bg-[#1a0d3a] text-white text-[9px] font-bold px-2 py-0.5 rounded-full border border-red-400 flex items-center gap-1 shadow">
+                  <span>🇳🇬</span>
+                  <span>busybra...</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ========== BOTTOM TRACK (red home stretch) ========== */}
+            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6">
+              {Array.from({ length: 18 }, (_, i) => {
+                const r = Math.floor(i / 3);
+                const c = i % 3;
+                const isRedPath = c === 1 && r <= 4;
+                const isStar = (r === 3 && c === 0) || (r === 2 && c === 2);
+                const isLock = r === 4 && c === 1;
+                const isArrow = r === 0 && c === 2;
+                return (
+                  <div
+                    key={i}
+                    className={`border-[0.5px] border-slate-200 flex items-center justify-center relative ${
+                      isRedPath ? "bg-[#ed1c24]" : "bg-white"
+                    }`}
+                  >
+                    {isStar && <span className="text-[9px] text-red-500">★</span>}
+                    {isLock && <span className="text-[11px]">🔒</span>}
+                    {isArrow && <span className="text-[10px] text-slate-600">↓</span>}
+                    
+                    {/* the 4th red seed sitting on the path (exactly as screenshot) */}
+                    {r === 4 && c === 0 && (
+                      <div className="absolute inset-0 flex items-center justify-center z-10">
+                        {renderRedSeed("sm")}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* ========== BLUE YARD (BOTTOM-RIGHT) - large 4-pip die ========== */}
+            <div className="col-span-6 row-span-6 bg-[#0054a6] rounded-br-[18px] p-2.5 flex items-center justify-center relative">
+              <div className="w-full h-full bg-white rounded-[18px] relative shadow-inner flex items-center justify-center">
+                {/* 4 blue pips */}
+                <div className="absolute top-[18%] left-[18%] w-[26%] h-[26%] rounded-full bg-[#0054a6]" />
+                <div className="absolute top-[18%] right-[18%] w-[26%] h-[26%] rounded-full bg-[#0054a6]" />
+                <div className="absolute bottom-[18%] left-[18%] w-[26%] h-[26%] rounded-full bg-[#0054a6]" />
+                <div className="absolute bottom-[18%] right-[18%] w-[26%] h-[26%] rounded-full bg-[#0054a6]" />
+              </div>
+            </div>
+
+            {/* Green turn arrow pointing at red player tag */}
             {currentPlayer === 0 && (
-              <div className="absolute bottom-1 left-12 transform translate-y-full z-30 animate-bounce">
-                <span className="text-3xl text-emerald-400 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">⬇️</span>
+              <div className="absolute bottom-[-18px] left-[70px] z-40 animate-bounce">
+                <span className="text-3xl drop-shadow-lg">⬇️</span>
               </div>
             )}
           </div>
 
-          {/* BOTTOM PROFILE & DYNAMICS CONTROLS */}
-          <div className="w-full flex justify-between items-end px-1 mt-2">
+          {/* BOTTOM SECTION - exact layout from screenshot */}
+          <div className="w-full flex items-end justify-between px-1 mt-3 mb-1">
             
-            {/* Active Player Card Frame */}
-            <div className="flex items-center space-x-2">
-              <div className="relative w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-300 via-amber-500 to-amber-700 p-1 border-2 border-yellow-200 shadow-2xl">
-                <div className="w-full h-full bg-slate-950 rounded-xl flex items-center justify-center text-3xl overflow-hidden">
-                  {players[0].avatar}
+            {/* Left: Active player card + dice */}
+            <div className="flex items-end gap-2">
+              {/* Big active avatar (green warrior style matching screenshot feel) */}
+              <div className="relative">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-300 via-yellow-500 to-amber-700 p-[2px] shadow-xl">
+                  <div className="w-full h-full bg-slate-900 rounded-[14px] overflow-hidden flex items-center justify-center">
+                    <div className="text-3xl">🐉</div>
+                  </div>
                 </div>
-                <div className="absolute -top-2 -left-2 bg-amber-400 text-slate-950 font-black text-[9px] px-1.5 py-0.5 rounded-full shadow">
+                <div className="absolute -top-1.5 -left-1.5 bg-amber-400 text-slate-900 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border border-white shadow">
                   👑
                 </div>
               </div>
-              {/* Floral Dice Container */}
-              <div className="relative">
-                <button
-                  onClick={rollDice}
-                  disabled={hasRolled || diceRolling}
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-600 to-emerald-800 border-2 border-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.5)] flex items-center justify-center text-white font-black text-2xl transition-transform ${
-                    diceRolling ? "animate-spin" : "hover:scale-105 active:scale-95"
-                  }`}
-                >
-                  {diceRolling ? "🎲" : diceValues.length > 0 ? (
-                    <div className="flex space-x-1">
-                      {diceValues.map((v, idx) => (
-                        <span key={idx} className="bg-white text-slate-950 px-1.5 py-0.5 rounded text-xs font-black shadow">
-                          {v}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    "🎲"
-                  )}
-                </button>
 
-                {/* Dice Multiplier Badge */}
-                <div className="absolute -top-2 -right-2 bg-red-600 text-white font-black text-[9px] px-1.5 py-0.5 rounded-full border border-white shadow">
-                  25
+              {/* Dice / power-up area */}
+              <div className="flex flex-col items-center gap-0.5">
+                <div className="relative">
+                  <button
+                    onClick={rollDice}
+                    disabled={hasRolled || diceRolling}
+                    className={`w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-800 border-2 border-emerald-300 shadow-lg flex items-center justify-center transition-transform ${
+                      diceRolling ? "animate-spin" : "active:scale-95"
+                    }`}
+                  >
+                    {diceRolling ? (
+                      <span className="text-2xl">🎲</span>
+                    ) : diceValues.length > 0 ? (
+                      <div className="flex gap-0.5">
+                        {diceValues.map((v, idx) => (
+                          <span key={idx} className="bg-white text-slate-900 text-xs font-black px-1.5 py-0.5 rounded shadow">
+                            {v}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-2xl">🎲</span>
+                    )}
+                  </button>
+                  <div className="absolute -top-1.5 -right-1.5 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border border-white shadow">
+                    25
+                  </div>
                 </div>
-                
-                {/* Gem Re-roll Button */}
-                <button className="mt-1 w-full bg-purple-950/80 border border-purple-400/40 rounded-lg py-0.5 flex items-center justify-center text-[10px] text-cyan-300 font-bold">
+                <button className="w-full bg-[#1a0d3a] border border-purple-500/40 rounded-md py-0.5 flex items-center justify-center gap-1 text-[10px] text-cyan-300 font-bold">
                   💎 2
                 </button>
               </div>
             </div>
 
-            {/* Action Buttons (EMOJI, CHAT, CALL) */}
-            <div className="flex space-x-1.5">
-              <button className="px-3 py-2 bg-purple-900/60 border border-purple-400/30 rounded-xl text-xs font-black text-purple-200 hover:bg-purple-800/80 transition-colors">
+            {/* Right: EMOJI / CHAT / CALL */}
+            <div className="flex gap-1.5">
+              <button className="px-3.5 py-2 bg-[#3a2580]/80 border border-purple-400/30 rounded-xl text-[11px] font-bold text-purple-100">
                 EMOJI
               </button>
-              <button className="px-3 py-2 bg-purple-900/60 border border-purple-400/30 rounded-xl text-xs font-black text-purple-200 hover:bg-purple-800/80 transition-colors">
+              <button className="px-3.5 py-2 bg-[#3a2580]/80 border border-purple-400/30 rounded-xl text-[11px] font-bold text-purple-100">
                 CHAT
               </button>
-              <button className="px-3 py-2 bg-purple-900/60 border border-purple-400/30 rounded-xl text-xs font-black text-purple-200 hover:bg-purple-800/80 transition-colors">
+              <button className="px-3.5 py-2 bg-[#3a2580]/80 border border-purple-400/30 rounded-xl text-[11px] font-bold text-purple-100">
                 CALL
               </button>
             </div>
@@ -479,7 +509,7 @@ export default function LudoSuperstar({ balance = 10000, onWin, onLose }: LudoPr
 
       {currentScreen === "victory" && (
         <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-6 z-50">
-          <div className="bg-[#24105c] border-2 border-amber-400 rounded-3xl p-8 text-center max-w-sm w-full space-y-4 shadow-2xl">
+          <div className="bg-[#1e1048] border-2 border-amber-400 rounded-3xl p-8 text-center max-w-sm w-full space-y-4 shadow-2xl">
             <div className="text-6xl animate-bounce">🏆</div>
             <h2 className="text-3xl font-black text-amber-400">VICTORY!</h2>
             <p className="text-purple-200 font-bold">
