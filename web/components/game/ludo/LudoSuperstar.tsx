@@ -14,11 +14,11 @@ interface Player {
   isBot?: boolean;
 }
 
-export default function LudoPro() {
+export default function LudoSuperstar({ balance = 10000, onWin, onLose }: { balance?: number; onWin?: (n: number) => void; onLose?: (n: number) => void }) {
   const [screen, setScreen] = useState<"lobby" | "game" | "victory">("lobby");
   const [theme, setTheme] = useState<Theme>("classic");
   const [playerCount, setPlayerCount] = useState(4);
-  const [stake, setStake] = useState(1000);
+  const [stake, setStake] = useState(balance);
   const [mode, setMode] = useState<GameMode>("friends");
   const [currentPlayer, setCurrentPlayer] = useState(0);
   const [dice, setDice] = useState<number[]>([]);
