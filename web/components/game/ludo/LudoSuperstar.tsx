@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import React, { useCallback, useEffect, useMemo, useState } from "react";import { AnimatePresence, motion } from "framer-motion";
 
 type Color = "red" | "blue" | "yellow" | "green";
 type GameMode = "classic" | "quick" | "compact";
@@ -85,11 +84,21 @@ function createPlayers(mode: GameMode = "classic"): Player[] {
 
 function trackPosition(color: Color, step: number): [number, number] {
   if (step < 0) return [0, 0];
+  if (step === 0) {
+    // Exact starting home gate tile for each color
+    const gates: Record<Color, [number, number]> = {
+      green: [1, 6],
+      yellow: [8, 1],
+      red: [6, 13],
+      blue: [13, 8],
+    };
+    return gates[color];
+  }
   if (step >= 51) {
     const homeIdx = Math.min(step - 51, 5);
     return HOME_PATHS[color][homeIdx];
   }
-  return TRACK[(START[color] + step) % TRACK_LENGTH];
+  return TRACK[(START[color] + (step - 1)) % TRACK_LENGTH];
 }
 
 function DiceButton({
@@ -425,60 +434,10 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
   const current = players.find((player) => player.color === turn)!;
   const value = dice[turn];
 
-  const movable = useMemo(
-    () =>
-      current.tokens
-        .map((token, index) => {
-          if (token.step === FINISH) return -1;
-          if (token.step === -1) return value === 6 ? index : -1;
-          return token.step + value <= FINISH ? index : -1;
-        })
-        .filter((index) => index >= 0),
-    [current, value]
-  );
-
   const nextTurn = useCallback(() => {
     setTurn((old) => ORDER[(ORDER.indexOf(old) + 1) % ORDER.length]);
     setRolled(false);
   }, []);
-
-  const switchGameMode = (mode: GameMode) => {
-    setGameMode(mode);
-    setPlayers(createPlayers(mode));
-    setTurn("red");
-    setDice({ red: 1, blue: 1, yellow: 1, green: 1 });
-    setRolling(false);
-    setRolled(false);
-    setWinner(null);
-    setSettled(false);
-    setMessage(`Switched to ${mode.toUpperCase()} Ludo mode!`);
-  };
-
-  const roll = useCallback(() => {
-    if (rolling || rolled || winner) return;
-
-    setRolling(true);
-    const result = Math.floor(Math.random() * 6) + 1;
-
-    window.setTimeout(() => {
-      setDice((old) => ({ ...old, [turn]: result }));
-      setRolling(false);
-      setRolled(true);
-      setMessage(`${current.name} rolled a ${result}`);
-
-      const canMove = current.tokens.some((token) =>
-        token.step === -1
-          ? result === 6
-          : token.step !== FINISH && token.step + result <= FINISH
-      );
-
-      if (!canMove) {
-        setMessage(result === 6 ? "No move available. Roll again!" : "No available move.");
-        if (result === 6) setRolled(false);
-        else window.setTimeout(nextTurn, 700);
-      }
-    }, 700);
-  }, [current, nextTurn, rolling, rolled, turn, winner]);
 
   const moveToken = useCallback(
     (color: Color, index: number) => {
@@ -555,6 +514,86 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
     },
     [dice, nextTurn, onLose, onWin, players, rolled, rolling, settled, turn, wager, winner]
   );
+
+  // Automated AI Turn Handler
+  useEffect(() => {
+    if (turn === "red" || winner) return;
+
+    const timer = window.setTimeout(() => {
+      const aiResult = Math.floor(Math.random() * 6) + 1;
+      setDice((old) => ({ ...old, [turn]: aiResult }));
+      setMessage(`${current.name} rolled a ${aiResult}`);
+
+      const aiMovable = current.tokens
+        .map((token, index) => {
+          if (token.step === FINISH) return -1;
+          if (token.step === -1) return aiResult === 6 ? index : -1;
+          return token.step + aiResult <= FINISH ? index : -1;
+        })
+        .filter((index) => index >= 0);
+
+      if (aiMovable.length > 0) {
+        const chosenTokenIndex = aiMovable[0];
+        window.setTimeout(() => {
+          moveToken(turn, chosenTokenIndex);
+        }, 800);
+      } else {
+        window.setTimeout(nextTurn, 1000);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [turn, winner, current, moveToken, nextTurn]);
+
+  const movable = useMemo(
+    () =>
+      current.tokens
+        .map((token, index) => {
+          if (token.step === FINISH) return -1;
+          if (token.step === -1) return value === 6 ? index : -1;
+          return token.step + value <= FINISH ? index : -1;
+        })
+        .filter((index) => index >= 0),
+    [current, value]
+  );
+
+  const switchGameMode = (mode: GameMode) => {
+    setGameMode(mode);
+    setPlayers(createPlayers(mode));
+    setTurn("red");
+    setDice({ red: 1, blue: 1, yellow: 1, green: 1 });
+    setRolling(false);
+    setRolled(false);
+    setWinner(null);
+    setSettled(false);
+    setMessage(`Switched to ${mode.toUpperCase()} Ludo mode!`);
+  };
+
+  const roll = useCallback(() => {
+    if (rolling || rolled || winner) return;
+
+    setRolling(true);
+    const result = Math.floor(Math.random() * 6) + 1;
+
+    window.setTimeout(() => {
+      setDice((old) => ({ ...old, [turn]: result }));
+      setRolling(false);
+      setRolled(true);
+      setMessage(`${current.name} rolled a ${result}`);
+
+      const canMove = current.tokens.some((token) =>
+        token.step === -1
+          ? result === 6
+          : token.step !== FINISH && token.step + result <= FINISH
+      );
+
+      if (!canMove) {
+        setMessage(result === 6 ? "No move available. Roll again!" : "No available move.");
+        if (result === 6) setRolled(false);
+        else window.setTimeout(nextTurn, 700);
+      }
+    }, 700);
+  }, [current, nextTurn, rolling, rolled, turn, winner]);
 
   const restart = () => {
     setPlayers(createPlayers(gameMode));
