@@ -1,467 +1,642 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useCallback, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 
-type Theme = "classic" | "neon";
-type GameMode = "friends" | "computer";
-
-interface Player {
-  id: number;
-  color: "red" | "green" | "yellow" | "blue";
+type Color = "red" | "blue" | "yellow" | "green";
+type Token = { step: number };
+type Player = {
+  color: Color;
   name: string;
   flag: string;
-  tokens: number[]; // -1 = home, 0-51 main path
-  isBot?: boolean;
+  avatar: string;
+  tokens: Token[];
+};
+
+interface LudoSuperstarProps {
+  balance: number;
+  onWin: (amount: number) => void;
+  onLose: (amount: number) => void;
 }
 
-export default function LudoSuperstar({ balance = 10000, onWin, onLose }: { balance?: number; onWin?: (n: number) => void; onLose?: (n: number) => void }) {
-  const [screen, setScreen] = useState<"lobby" | "game" | "victory">("lobby");
-  const [theme, setTheme] = useState<Theme>("classic");
-  const [playerCount, setPlayerCount] = useState(4);
-  const [stake, setStake] = useState(balance);
-  const [mode, setMode] = useState<GameMode>("friends");
-  const [currentPlayer, setCurrentPlayer] = useState(0);
-  const [dice, setDice] = useState<number[]>([]);
-  const [isRolling, setIsRolling] = useState(false);
-  const [hasRolled, setHasRolled] = useState(false);
+const COLORS: Record<Color, string> = {
+  red: "#ed342d",
+  blue: "#0879d8",
+  yellow: "#ffc52c",
+  green: "#07932d",
+};
 
-  const [players, setPlayers] = useState<Player[]>([
-    { id: 0, color: "red", name: "busybrai...", flag: "🇳🇬", tokens: [-1, -1, -1, -1] },
-    { id: 1, color: "green", name: "Martin", flag: "🇮🇳", tokens: [-1, -1, -1, -1] },
-    { id: 2, color: "yellow", name: "Woozy", flag: "🇧🇩", tokens: [-1, -1, -1, -1] },
-    { id: 3, color: "blue", name: "Zaki", flag: "🇸🇦", tokens: [-1, -1, -1, -1] },
-  ]);
+const ORDER: Color[] = ["red", "blue", "yellow", "green"];
+const START: Record<Color, number> = {
+  red: 19,
+  blue: 32,
+  yellow: 45,
+  green: 6,
+};
+const TRACK_LENGTH = 52;
+const FINISH = 57;
+const SAFE = new Set([1, 6, 14, 19, 27, 32, 40, 45]);
 
-  // ========== THEME COLORS ==========
-  const colors = {
-    classic: {
-      red: "#e11d48",
-      green: "#16a34a",
-      yellow: "#eab308",
-      blue: "#2563eb",
-      boardBg: "#1e1b4b",
-      path: "#f8fafc",
-    },
-    neon: {
-      red: "#ff2d55",
-      green: "#00ff9d",
-      yellow: "#ffee00",
-      blue: "#00d4ff",
-      boardBg: "#0a0a1a",
-      path: "#111827",
-    },
-  }[theme];
+const TRACK: [number, number][] = [
+  [1, 6], [2, 6], [3, 6], [4, 6], [5, 6],
+  [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],
+  [7, 0], [8, 0],
+  [8, 1], [8, 2], [8, 3], [8, 4], [8, 5],
+  [9, 6], [10, 6], [11, 6], [12, 6], [13, 6], [14, 6],
+  [14, 7], [14, 8],
+  [13, 8], [12, 8], [11, 8], [10, 8], [9, 8],
+  [8, 9], [8, 10], [8, 11], [8, 12], [8, 13], [8, 14],
+  [7, 14], [6, 14],
+  [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
+  [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+  [0, 7], [0, 6],
+];
 
-  // ========== PROFESSIONAL 3D SEEDS ==========
-  const Seed = ({ color, size = 28 }: { color: string; size?: number }) => {
-    if (color === "red") {
-      // Soldier style (matches your reference)
-      return (
-        <div style={{ width: size, height: size * 1.25 }} className="relative">
-          <div className="absolute inset-x-1 top-0 h-[55%] bg-gradient-to-b from-red-500 to-red-700 rounded-t-md border border-red-900 shadow-lg">
-            <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-2.5 bg-red-800 rounded-t-sm" />
-            <div className="absolute top-1.5 left-1/2 -translate-x-1/2 w-2.5 h-1.5 bg-amber-100 rounded-full" />
-          </div>
-          <div className="absolute inset-x-2 bottom-0 h-[48%] bg-gradient-to-b from-red-600 to-red-800 rounded-b-md border border-red-900" />
+const HOME: Record<Color, [number, number][]> = {
+  red: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
+  blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
+  yellow: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
+  green: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
+};
+
+function createPlayers(): Player[] {
+  return [
+    { color: "red", name: "You", flag: "🇳🇬", avatar: "👑", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
+    { color: "blue", name: "Zaki", flag: "🇳🇬", avatar: "🧙", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
+    { color: "yellow", name: "Martin", flag: "🇮🇳", avatar: "🦁", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
+    { color: "green", name: "Aero", flag: "🇬🇧", avatar: "👹", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
+  ];
+}
+
+function trackPosition(color: Color, step: number): [number, number] {
+  return TRACK[(START[color] + step) % TRACK_LENGTH];
+}
+
+function Dice({
+  value,
+  rolling,
+  disabled,
+  onRoll,
+}: {
+  value: number;
+  rolling: boolean;
+  disabled: boolean;
+  onRoll: () => void;
+}) {
+  const rotations: Record<number, [number, number]> = {
+    1: [0, 0], 2: [-90, 0], 3: [0, -90],
+    4: [0, 90], 5: [90, 0], 6: [0, 180],
+  };
+  const [rx, ry] = rotations[value] ?? [0, 0];
+
+  const patterns: Record<number, number[]> = {
+    1: [4],
+    2: [0, 8],
+    3: [0, 4, 8],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8],
+  };
+
+  const face = (n: number, transform: string) => (
+    <div
+      key={n}
+      className="absolute inset-0 grid grid-cols-3 grid-rows-3 rounded-lg border border-slate-300 bg-gradient-to-br from-white to-slate-300 p-1 shadow-inner"
+      style={{ transform, backfaceVisibility: "hidden" }}
+    >
+      {Array.from({ length: 9 }, (_, i) => (
+        <div key={i} className="flex items-center justify-center">
+          {patterns[n].includes(i) && (
+            <span className="h-1 w-1 rounded-full bg-slate-900 sm:h-1.5 sm:w-1.5" />
+          )}
         </div>
-      );
-    }
-    if (color === "blue") {
-      return (
-        <div
-          style={{ width: size * 0.85, height: size }}
-          className="bg-gradient-to-b from-blue-400 to-blue-700 rounded-t-full rounded-b-md border-2 border-blue-300 shadow-lg relative"
-        >
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-blue-200 rounded-full" />
-        </div>
-      );
-    }
-    if (color === "green") {
-      return (
-        <div
-          style={{ width: size * 0.9, height: size * 0.9 }}
-          className="bg-gradient-to-br from-emerald-400 to-emerald-700 rounded-full border-2 border-emerald-200 shadow-lg flex items-center justify-center"
-        >
-          <div className="w-2.5 h-2.5 bg-emerald-100 rounded-full" />
-        </div>
-      );
-    }
-    // Yellow - coin style
-    return (
-      <div
-        style={{ width: size * 0.9, height: size * 0.9 }}
-        className="bg-gradient-to-br from-yellow-300 to-amber-500 rounded-full border-2 border-yellow-100 shadow-lg flex items-center justify-center"
+      ))}
+    </div>
+  );
+
+  return (
+    <button
+      type="button"
+      onClick={onRoll}
+      disabled={disabled || rolling}
+      aria-label="Roll dice"
+      className="flex shrink-0 flex-col items-center gap-1 disabled:opacity-50"
+    >
+      <motion.div
+        className="relative h-8 w-8 sm:h-10 sm:w-10"
+        style={{ perspective: 400 }}
+        animate={rolling
+          ? { rotateX: [0, 180, 360, 540, 720], rotateY: [0, 270, 540, 810, 1080] }
+          : { rotateX: rx, rotateY: ry }}
+        transition={rolling ? { duration: 0.8 } : { type: "spring", stiffness: 160 }}
       >
-        <div className="w-3 h-3 border-2 border-amber-700 rounded-full" />
-      </div>
-    );
-  };
-
-
-  // ========== DICE ==========
-  const DiceFace = ({ value }: { value: number }) => {
-    const dots: Record<number, string[]> = {
-      1: ["center"],
-      2: ["top-left", "bottom-right"],
-      3: ["top-left", "center", "bottom-right"],
-      4: ["top-left", "top-right", "bottom-left", "bottom-right"],
-      5: ["top-left", "top-right", "center", "bottom-left", "bottom-right"],
-      6: ["top-left", "top-right", "mid-left", "mid-right", "bottom-left", "bottom-right"],
-    };
-    return (
-      <div className="w-10 h-10 bg-white rounded-lg shadow-xl border border-gray-200 relative">
-        {dots[value]?.map((pos) => (
-          <div
-            key={pos}
-            className={`absolute w-2 h-2 bg-gray-900 rounded-full
-              ${pos === "center" ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" : ""}
-              ${pos === "top-left" ? "top-1.5 left-1.5" : ""}
-              ${pos === "top-right" ? "top-1.5 right-1.5" : ""}
-              ${pos === "bottom-left" ? "bottom-1.5 left-1.5" : ""}
-              ${pos === "bottom-right" ? "bottom-1.5 right-1.5" : ""}
-              ${pos === "mid-left" ? "top-1/2 left-1.5 -translate-y-1/2" : ""}
-              ${pos === "mid-right" ? "top-1/2 right-1.5 -translate-y-1/2" : ""}
-            `}
-          />
-        ))}
-      </div>
-    );
-  };
-
-  const rollDice = () => {
-    if (hasRolled || isRolling) return;
-    setIsRolling(true);
-    setTimeout(() => {
-      const v1 = Math.floor(Math.random() * 6) + 1;
-      const rolls = [v1];
-      if (v1 === 6) rolls.push(Math.floor(Math.random() * 6) + 1);
-      setDice(rolls);
-      setHasRolled(true);
-      setIsRolling(false);
-    }, 600);
-  };
-
-
-  // ========== LOBBY SCREEN ==========
-  if (screen === "lobby") {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-[#1e1b4b] to-[#0f0a2e] text-white flex flex-col items-center justify-center p-6">
-        <h1 className="text-4xl font-black mb-2 tracking-tight">
-          LUDO <span className="text-yellow-400">PRO</span>
-        </h1>
-        <p className="text-purple-300 mb-8">Professional 4-Player Experience</p>
-
-        {/* Theme Selector */}
-        <div className="flex gap-3 mb-8">
-          <button
-            onClick={() => setTheme("classic")}
-            className={`px-5 py-2 rounded-xl font-bold border-2 transition ${
-              theme === "classic" ? "bg-yellow-400 text-black border-yellow-300" : "border-purple-500 text-purple-200"
-            }`}
-          >
-            Classic
-          </button>
-          <button
-            onClick={() => setTheme("neon")}
-            className={`px-5 py-2 rounded-xl font-bold border-2 transition ${
-              theme === "neon" ? "bg-cyan-400 text-black border-cyan-300" : "border-purple-500 text-purple-200"
-            }`}
-          >
-            Neon Glow
-          </button>
+        <div className="relative h-full w-full" style={{ transformStyle: "preserve-3d" }}>
+          {face(1, "translateZ(16px)")}
+          {face(6, "rotateY(180deg) translateZ(16px)")}
+          {face(3, "rotateY(90deg) translateZ(16px)")}
+          {face(4, "rotateY(-90deg) translateZ(16px)")}
+          {face(2, "rotateX(90deg) translateZ(16px)")}
+          {face(5, "rotateX(-90deg) translateZ(16px)")}
         </div>
+      </motion.div>
+      <span className="text-[8px] font-black uppercase tracking-wider text-white/65">
+        {rolling ? "Rolling" : "Roll"}
+      </span>
+    </button>
+  );
+}
 
-        {/* Players */}
-        <div className="w-full max-w-xs mb-6">
-          <p className="text-sm text-purple-300 mb-2">Number of Players</p>
-          <div className="flex gap-2">
-            {[2, 3, 4].map((n) => (
-              <button
-                key={n}
-                onClick={() => setPlayerCount(n)}
-                className={`flex-1 py-3 rounded-xl font-bold ${
-                  playerCount === n ? "bg-emerald-500 text-white" : "bg-purple-900/60 text-purple-200"
-                }`}
-              >
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
+function PlayerPanel({
+  player,
+  active,
+  dice,
+  rolling,
+  canRoll,
+  onRoll,
+}: {
+  player: Player;
+  active: boolean;
+  dice: number;
+  rolling: boolean;
+  canRoll: boolean;
+  onRoll: () => void;
+}) {
+  const homeCount = player.tokens.filter((token) => token.step === FINISH).length;
 
-        {/* Mode */}
-        <div className="w-full max-w-xs mb-6">
-          <p className="text-sm text-purple-300 mb-2">Game Mode</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode("friends")}
-              className={`flex-1 py-3 rounded-xl font-bold ${
-                mode === "friends" ? "bg-pink-500" : "bg-purple-900/60"
-              }`}
-            >
-              Friends
-            </button>
-            <button
-              onClick={() => setMode("computer")}
-              className={`flex-1 py-3 rounded-xl font-bold ${
-                mode === "computer" ? "bg-pink-500" : "bg-purple-900/60"
-              }`}
-            >
-              Vs Computer
-            </button>
-          </div>
-        </div>
-
-        {/* Stake */}
-        <div className="w-full max-w-xs mb-10">
-          <p className="text-sm text-purple-300 mb-2">Stake Amount</p>
-          <div className="flex gap-2 flex-wrap">
-            {[500, 1000, 2000, 5000, 10000].map((s) => (
-              <button
-                key={s}
-                onClick={() => setStake(s)}
-                className={`px-4 py-2 rounded-lg font-bold text-sm ${
-                  stake === s ? "bg-amber-400 text-black" : "bg-purple-900/60"
-                }`}
-              >
-                {s.toLocaleString()}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={() => setScreen("game")}
-          className="w-full max-w-xs py-4 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-black text-lg rounded-2xl shadow-xl active:scale-95 transition"
-        >
-          START GAME • {stake.toLocaleString()}
-        </button>
-      </div>
-    );
-  }
-
-
-
-  // ========== GAME BOARD ==========
   return (
     <div
-      className={`min-h-screen flex flex-col ${
-        theme === "neon" ? "bg-[#050510]" : "bg-[#1e1b4b]"
-      }`}
+      className="flex min-w-0 items-center gap-1.5 rounded-xl border px-1.5 py-1.5 sm:gap-2 sm:px-2"
+      style={{
+        background: active ? `${COLORS[player.color]}30` : "#17164fbd",
+        borderColor: active ? COLORS[player.color] : "#ffffff22",
+        boxShadow: active ? `0 0 12px ${COLORS[player.color]}30` : undefined,
+      }}
     >
-      {/* Top Bar */}
-      <div className="flex items-center justify-between px-4 py-3">
-        <button onClick={() => setScreen("lobby")} className="text-white/80 text-xl">←</button>
-        <div className="font-black text-white tracking-wide">
-          COUPLE&apos;S <span className="text-yellow-400">★</span> LUDO
-        </div>
-        <div className="bg-black/40 px-3 py-1 rounded-full text-yellow-300 font-bold text-sm">
-          🪙 {stake.toLocaleString()}
-        </div>
-      </div>
-
-      {/* BOARD */}
-      <div className="flex-1 flex items-center justify-center p-2">
+      <Dice
+        value={dice}
+        rolling={rolling}
+        disabled={!canRoll}
+        onRoll={onRoll}
+      />
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <div
-          className={`relative w-full max-w-[400px] aspect-square rounded-3xl overflow-hidden shadow-2xl border-4 ${
-            theme === "neon" ? "border-cyan-500/30 shadow-cyan-500/20" : "border-[#312e81]"
-          }`}
-          style={{ background: colors.boardBg }}
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/40 text-lg sm:h-9 sm:w-9"
+          style={{ background: COLORS[player.color] }}
         >
-          {/* 15×15 Grid */}
-          <div className="absolute inset-2 grid grid-cols-15 grid-rows-15 gap-0">
-            {/* GREEN HOME */}
-            <div
-              className="col-span-6 row-span-6 rounded-tl-2xl flex items-center justify-center p-3"
-              style={{ background: colors.green }}
-            >
-              <div className="w-full h-full bg-white/95 rounded-2xl grid grid-cols-2 grid-rows-2 gap-2 p-3 place-items-center">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-[3px] border-green-500 flex items-center justify-center">
-                    {players[1]?.tokens[i] === -1 && <Seed color="green" size={26} />}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* TOP PATH (Yellow home stretch) */}
-            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6">
-              {Array.from({ length: 18 }).map((_, i) => {
-                const r = Math.floor(i / 3);
-                const c = i % 3;
-                const isHome = c === 1 && r > 0;
-                return (
-                  <div
-                    key={i}
-                    className="border border-white/10 flex items-center justify-center"
-                    style={{ background: isHome ? colors.yellow : colors.path }}
-                  >
-                    {r === 2 && c === 2 && <span className="text-yellow-500 text-xs">★</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* YELLOW HOME */}
-            <div
-              className="col-span-6 row-span-6 rounded-tr-2xl flex items-center justify-center p-3"
-              style={{ background: colors.yellow }}
-            >
-              <div className="w-full h-full bg-white/95 rounded-2xl grid grid-cols-2 grid-rows-2 gap-2 p-3 place-items-center">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-[3px] border-yellow-500 flex items-center justify-center">
-                    {players[2]?.tokens[i] === -1 && <Seed color="yellow" size={26} />}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* LEFT PATH */}
-            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3">
-              {Array.from({ length: 18 }).map((_, i) => {
-                const r = Math.floor(i / 6);
-                const c = i % 6;
-                const isHome = r === 1 && c < 5;
-                return (
-                  <div
-                    key={i}
-                    className="border border-white/10 flex items-center justify-center"
-                    style={{ background: isHome ? colors.green : colors.path }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* CENTER */}
-            <div className="col-span-3 row-span-3 relative overflow-hidden">
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `conic-gradient(
-                    ${colors.green} 0deg 90deg,
-                    ${colors.yellow} 90deg 180deg,
-                    ${colors.blue} 180deg 270deg,
-                    ${colors.red} 270deg 360deg
-                  )`,
-                }}
-              />
-            </div>
-
-            {/* RIGHT PATH */}
-            <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3">
-              {Array.from({ length: 18 }).map((_, i) => {
-                const r = Math.floor(i / 6);
-                const c = i % 6;
-                const isHome = r === 1 && c > 0;
-                return (
-                  <div
-                    key={i}
-                    className="border border-white/10 flex items-center justify-center"
-                    style={{ background: isHome ? colors.blue : colors.path }}
-                  />
-                );
-              })}
-            </div>
-
-            {/* RED HOME */}
-            <div
-              className="col-span-6 row-span-6 rounded-bl-2xl flex items-center justify-center p-3 relative"
-              style={{ background: colors.red }}
-            >
-              <div className="w-full h-full bg-white/95 rounded-2xl grid grid-cols-2 grid-rows-2 gap-2 p-3 place-items-center">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-[3px] border-red-500 flex items-center justify-center">
-                    {players[0]?.tokens[i] === -1 && <Seed color="red" size={26} />}
-                  </div>
-                ))}
-              </div>
-              {/* Name tag */}
-              <div className="absolute -bottom-3 left-4 bg-black/80 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-red-400 flex items-center gap-1">
-                🇳🇬 busybrai...
-              </div>
-            </div>
-
-            {/* BOTTOM PATH */}
-            <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6">
-              {Array.from({ length: 18 }).map((_, i) => {
-                const r = Math.floor(i / 3);
-                const c = i % 3;
-                const isHome = c === 1 && r < 5;
-                return (
-                  <div
-                    key={i}
-                    className="border border-white/10 flex items-center justify-center"
-                    style={{ background: isHome ? colors.red : colors.path }}
-                  >
-                    {r === 3 && c === 0 && <span className="text-red-500 text-xs">★</span>}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* BLUE HOME */}
-            <div
-              className="col-span-6 row-span-6 rounded-br-2xl flex items-center justify-center p-3 relative"
-              style={{ background: colors.blue }}
-            >
-              <div className="w-full h-full bg-white/95 rounded-2xl grid grid-cols-2 grid-rows-2 gap-2 p-3 place-items-center">
-                {[0, 1, 2, 3].map((i) => (
-                  <div key={i} className="w-9 h-9 rounded-full border-[3px] border-blue-500 flex items-center justify-center">
-                    {players[3]?.tokens[i] === -1 && <Seed color="blue" size={26} />}
-                  </div>
-                ))}
-              </div>
-              <div className="absolute -bottom-3 right-4 bg-black/80 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-blue-400 flex items-center gap-1">
-                🇸🇦 Zaki
-              </div>
-            </div>
-
+          {player.avatar}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[9px] font-black sm:text-[11px]">
+            {player.flag} {player.name}
           </div>
+          <div className="mt-1 text-[8px] text-white/60">{homeCount}/4 home</div>
         </div>
       </div>
+      {active && (
+        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full" style={{ background: COLORS[player.color] }} />
+      )}
+    </div>
+  );
+}
 
-      {/* BOTTOM CONTROLS */}
-      <div className="px-4 pb-6 pt-2 flex items-end justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 p-0.5 shadow-lg">
-            <div className="w-full h-full bg-slate-900 rounded-[14px] flex items-center justify-center text-2xl">
-              🐉
-            </div>
-          </div>
+function TokenButton({
+  color,
+  enabled,
+  onClick,
+}: {
+  color: Color;
+  enabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      className="flex h-[90%] w-[90%] items-center justify-center rounded-full border-2 border-white/80 text-[clamp(8px,2vw,15px)] font-black text-white shadow-[0_3px_3px_#0006,inset_0_2px_3px_#fff8] disabled:cursor-default"
+      style={{
+        background: `radial-gradient(circle at 30% 25%, white 0%, ${COLORS[color]} 28%, #222 180%)`,
+      }}
+    >
+      ♟
+    </button>
+  );
+}
 
-          <div className="relative">
-            <button
-              onClick={rollDice}
-              disabled={isRolling || hasRolled}
-              className={`w-16 h-16 rounded-2xl flex items-center justify-center gap-1 shadow-xl transition active:scale-95 ${
-                isRolling ? "animate-spin" : ""
-              } ${theme === "neon" ? "bg-cyan-500" : "bg-emerald-500"}`}
+function LudoBoard({
+  players,
+  turn,
+  canMove,
+  onMove,
+}: {
+  players: Player[];
+  turn: Color;
+  canMove: boolean;
+  onMove: (color: Color, index: number) => void;
+}) {
+  const tokenPositions = useMemo(() => {
+    const map = new Map<string, Array<{ color: Color; index: number }>>();
+    players.forEach((player) => {
+      player.tokens.forEach((token, index) => {
+        if (token.step < 0 || token.step >= FINISH) return;
+        const [x, y] = trackPosition(player.color, token.step);
+        const key = `${x},${y}`;
+        map.set(key, [...(map.get(key) ?? []), { color: player.color, index }]);
+      });
+    });
+    return map;
+  }, [players]);
+
+  const homeCells = useMemo(() => {
+    const map = new Map<string, Color>();
+    Object.entries(HOME).forEach(([color, cells]) => {
+      cells.forEach(([x, y]) => map.set(`${x},${y}`, color as Color));
+    });
+    return map;
+  }, []);
+
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-[5%] border-[3px] border-[#b99151] bg-[#fffce9] p-[1px] shadow-[0_8px_25px_#0005,inset_0_0_0_2px_#fff7]">
+      <div className="grid h-full w-full grid-cols-15 grid-rows-15">
+        {Array.from({ length: 225 }, (_, index) => {
+          const x = index % 15;
+          const y = Math.floor(index / 15);
+          const key = `${x},${y}`;
+
+          let base: Color | null = null;
+          if (x < 6 && y < 6) base = "green";
+          else if (x > 8 && y < 6) base = "yellow";
+          else if (x < 6 && y > 8) base = "red";
+          else if (x > 8 && y > 8) base = "blue";
+
+          const homeColor = homeCells.get(key);
+          const trackIndex = TRACK.findIndex(([tx, ty]) => tx === x && ty === y);
+          const isTrack = trackIndex >= 0;
+          const center = x >= 6 && x <= 8 && y >= 6 && y <= 8;
+          const pieces = tokenPositions.get(key) ?? [];
+
+          let background = "#fffdf2";
+          if (base) background = COLORS[base];
+          else if (homeColor) background = `${COLORS[homeColor]}e6`;
+          else if (SAFE.has(trackIndex)) background = "#f4e7cd";
+          else if (isTrack) background = "#fffdf3";
+          else if (center) background = "#f4e4c3";
+
+          const inBaseHome =
+            base &&
+            x >= (base === "yellow" || base === "blue" ? 10 : 1) &&
+            x <= (base === "yellow" || base === "blue" ? 13 : 4) &&
+            y >= (base === "red" || base === "blue" ? 10 : 1) &&
+            y <= (base === "red" || base === "blue" ? 13 : 4);
+
+          return (
+            <div
+              key={key}
+              className="relative flex items-center justify-center border-[0.5px] border-[#a79a79]/60"
+              style={{ background }}
             >
-              {dice.length > 0 ? (
-                dice.map((d, i) => <DiceFace key={i} value={d} />)
-              ) : (
-                <span className="text-2xl">🎲</span>
+              {base && (
+                <div className="absolute inset-[12%] rounded-[18%] border border-white/75 bg-white/15" />
               )}
-            </button>
-            <div className="absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white">
-              25
+
+              {inBaseHome && (
+                <div className="absolute inset-[9%] rounded-[20%] border-2 border-white/80 bg-[#fffceb] shadow-inner" />
+              )}
+
+              {homeColor && (
+                <div className="absolute inset-[12%] rounded-sm" style={{ background: COLORS[homeColor] }} />
+              )}
+
+              {SAFE.has(trackIndex) && isTrack && (
+                <span className="relative z-[1] text-[clamp(8px,2vw,16px)] text-white drop-shadow">★</span>
+              )}
+
+              {center && (
+                <svg viewBox="0 0 3 3" className="absolute inset-0 h-full w-full">
+                  <polygon points="0,0 3,0 1.5,1.5" fill={COLORS.yellow} />
+                  <polygon points="3,0 3,3 1.5,1.5" fill={COLORS.blue} />
+                  <polygon points="3,3 0,3 1.5,1.5" fill={COLORS.red} />
+                  <polygon points="0,3 0,0 1.5,1.5" fill={COLORS.green} />
+                </svg>
+              )}
+
+              {pieces.map((piece, pieceIndex) => (
+                <div
+                  key={`${piece.color}-${piece.index}`}
+                  className="absolute z-20 flex h-full w-full items-center justify-center"
+                  style={{ transform: `translate(${pieceIndex * 12}%, ${pieceIndex * 10}%)` }}
+                >
+                  <TokenButton
+                    color={piece.color}
+                    enabled={canMove && piece.color === turn}
+                    onClick={() => onMove(piece.color, piece.index)}
+                  />
+                </div>
+              ))}
             </div>
-            <div className="mt-1 text-center text-[10px] text-cyan-300 font-bold">💎 2</div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function LudoSuperstar({
+  balance,
+  onWin,
+  onLose,
+}: LudoSuperstarProps) {
+  const [players, setPlayers] = useState<Player[]>(createPlayers);
+  const [turn, setTurn] = useState<Color>("red");
+  const [dice, setDice] = useState<Record<Color, number>>({
+    red: 1, blue: 1, yellow: 1, green: 1,
+  });
+  const [rolling, setRolling] = useState(false);
+  const [rolled, setRolled] = useState(false);
+  const [message, setMessage] = useState("Roll the dice to begin");
+  const [winner, setWinner] = useState<Color | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [wager, setWager] = useState(100);
+  const [settled, setSettled] = useState(false);
+
+  const current = players.find((player) => player.color === turn)!;
+  const value = dice[turn];
+
+  const movable = useMemo(
+    () =>
+      current.tokens
+        .map((token, index) => {
+          if (token.step === FINISH) return -1;
+          if (token.step === -1) return value === 6 ? index : -1;
+          return token.step + value <= FINISH ? index : -1;
+        })
+        .filter((index) => index >= 0),
+    [current, value]
+  );
+
+  const nextTurn = useCallback(() => {
+    setTurn((old) => ORDER[(ORDER.indexOf(old) + 1) % ORDER.length]);
+    setRolled(false);
+  }, []);
+
+  const roll = useCallback(() => {
+    if (rolling || rolled || winner) return;
+
+    setRolling(true);
+    const result = Math.floor(Math.random() * 6) + 1;
+
+    window.setTimeout(() => {
+      setDice((old) => ({ ...old, [turn]: result }));
+      setRolling(false);
+      setRolled(true);
+      setMessage(`${current.name} rolled ${result}`);
+
+      const canMove = current.tokens.some((token) =>
+        token.step === -1
+          ? result === 6
+          : token.step !== FINISH && token.step + result <= FINISH
+      );
+
+      if (!canMove) {
+        setMessage(result === 6 ? "No move available. Roll again." : "No available move.");
+        if (result === 6) setRolled(false);
+        else window.setTimeout(nextTurn, 700);
+      }
+    }, 800);
+  }, [current, nextTurn, rolling, rolled, turn, winner]);
+
+  const moveToken = useCallback(
+    (color: Color, index: number) => {
+      if (color !== turn || !rolled || rolling || winner) return;
+
+      const result = dice[color];
+      const player = players.find((p) => p.color === color)!;
+      const token = player.tokens[index];
+
+      if (!token || token.step === FINISH) return;
+      if (token.step === -1 && result !== 6) return;
+
+      const destination = token.step === -1 ? 0 : token.step + result;
+      if (destination > FINISH) return;
+
+      const updated = players.map((p) => ({
+        ...p,
+        tokens: p.tokens.map((t) => ({ ...t })),
+      }));
+      const movingPlayer = updated.find((p) => p.color === color)!;
+      movingPlayer.tokens[index].step = destination;
+
+      let captured = false;
+
+      if (destination < 51) {
+        const [tx, ty] = trackPosition(color, destination);
+        const globalCell = (START[color] + destination) % TRACK_LENGTH;
+
+        if (!SAFE.has(globalCell)) {
+          updated.forEach((opponent) => {
+            if (opponent.color === color) return;
+            opponent.tokens.forEach((other) => {
+              if (other.step < 0 || other.step >= 51) return;
+              const [ox, oy] = trackPosition(opponent.color, other.step);
+              if (ox === tx && oy === ty) {
+                other.step = -1;
+                captured = true;
+              }
+            });
+          });
+        }
+      }
+
+      setPlayers(updated);
+
+      if (movingPlayer.tokens.every((t) => t.step === FINISH)) {
+        setWinner(color);
+        setMessage(`${movingPlayer.name} wins!`);
+
+        if (!settled) {
+          setSettled(true);
+          if (color === "red") {
+            const prize = wager * 2;
+            onWin(prize);
+          } else {
+            onLose(wager);
+          }
+        }
+        return;
+      }
+
+      setMessage(
+        destination === FINISH
+          ? "Token reached home!"
+          : captured
+            ? "Capture! Opponent returned to base."
+            : "Token moved."
+      );
+
+      if (result === 6 || captured || destination === FINISH) {
+        setRolled(false);
+      } else {
+        nextTurn();
+      }
+    },
+    [dice, nextTurn, onLose, onWin, players, rolled, rolling, settled, turn, wager, winner]
+  );
+
+  const restart = () => {
+    setPlayers(createPlayers());
+    setTurn("red");
+    setDice({ red: 1, blue: 1, yellow: 1, green: 1 });
+    setRolling(false);
+    setRolled(false);
+    setWinner(null);
+    setSettled(false);
+    setMessage("New game started");
+  };
+
+  const startWager = (amount: number) => {
+    if (!Number.isFinite(amount) || amount < 1 || amount > balance) {
+      setMessage("Choose a valid wager within your balance.");
+      return;
+    }
+    setWager(amount);
+    setMessage(`Wager selected: ${amount}`);
+  };
+
+  return (
+    <main className="ludo-screen relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden text-white">
+      <style jsx global>{`
+        * { box-sizing: border-box; }
+        .ludo-screen {
+          background-color: #211568;
+          background-image:
+            radial-gradient(circle, rgba(8,7,76,.28) 3px, transparent 4px),
+            radial-gradient(ellipse at 50% 35%, #5140c6 0%, #32238e 48%, #130b4b 100%);
+          background-size: 27px 27px, 100% 100%;
+          font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+        }
+        .grid-cols-15 { grid-template-columns: repeat(15, minmax(0, 1fr)); }
+        .grid-rows-15 { grid-template-rows: repeat(15, minmax(0, 1fr)); }
+        .ludo-content { width: 100%; max-width: 900px; min-height: 0; margin-inline: auto; }
+      `}</style>
+
+      <header className="ludo-content flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top))]">
+        <div className="flex min-w-0 items-center gap-1.5">
+          <button onClick={() => setMenuOpen((v) => !v)} className="h-9 w-9 rounded-lg bg-white/15 text-xl">☰</button>
+          <button onClick={() => setMessage("Trophy room")} className="h-9 w-9 rounded-lg bg-white/15">🏆</button>
+          <button onClick={() => setMessage("Spectator mode")} className="h-9 w-9 rounded-lg bg-white/15">◉</button>
+          <button onClick={() => setMessage("Missions")} className="h-9 w-9 rounded-lg bg-white/15">🎯</button>
+          <span className="hidden rounded-lg bg-white/15 px-3 py-2 text-xs font-black sm:block">Aero</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2 rounded-full bg-[#15114f] px-2 py-1 text-sm font-black">
+          <span className="text-2xl">💎</span>
+          {Math.floor(balance).toLocaleString()}
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lime-400 text-green-950">+</span>
+        </div>
+      </header>
+
+      <section className="ludo-content flex min-h-0 flex-1 flex-col justify-center gap-1 overflow-hidden px-2">
+        <div className="grid shrink-0 grid-cols-2 gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-fuchsia-300 bg-purple-900 text-2xl">👹</div>
+            <button className="h-9 min-w-0 flex-1 rounded-xl bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
+            <button className="h-9 w-8 shrink-0 rounded-xl bg-[#100b50]/65">🎁</button>
+          </div>
+          <div className="flex min-w-0 items-center gap-2">
+            <button className="h-9 w-8 shrink-0 rounded-xl bg-[#100b50]/65">🎁</button>
+            <button className="h-9 min-w-0 flex-1 rounded-xl bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-amber-300 bg-green-700 text-2xl">🌞</div>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          {["EMOJI", "CHAT", "CALL"].map((btn) => (
-            <button
-              key={btn}
-              className="px-4 py-2.5 bg-purple-900/60 border border-purple-500/40 rounded-xl text-xs font-bold text-purple-100"
-            >
-              {btn}
-            </button>
+        <div className="grid shrink-0 grid-cols-2 gap-2 px-1">
+          {(["green", "yellow"] as Color[]).map((color) => (
+            <PlayerPanel
+              key={color}
+              player={players.find((p) => p.color === color)!}
+              active={turn === color}
+              dice={dice[color]}
+              rolling={rolling && turn === color}
+              canRoll={turn === color && !rolled && !winner}
+              onRoll={roll}
+            />
           ))}
         </div>
-      </div>
 
-    </div>
+        <div className="flex min-h-0 flex-1 items-center justify-center py-1">
+          <div className="w-full max-w-[min(96vw,62vh)]">
+            <LudoBoard players={players} turn={turn} canMove={rolled && movable.length > 0} onMove={moveToken} />
+          </div>
+        </div>
+        <div className="grid shrink-0 grid-cols-2 gap-2 px-1">
+          {(["red", "blue"] as Color[]).map((color) => (
+            <PlayerPanel
+              key={color}
+              player={players.find((p) => p.color === color)!}
+              active={turn === color}
+              dice={dice[color]}
+              rolling={rolling && turn === color}
+              canRoll={turn === color && !rolled && !winner}
+              onRoll={roll}
+            />
+          ))}
+        </div>
+
+        <div className="flex shrink-0 items-center justify-between gap-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
+            <button onClick={() => setMessage("Emoji controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">EMOJI</button>
+            <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3
+            py-2 text-xs font-black">EMOJI</button>
+            <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">CHAT</button>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <button onClick={() => setMessage("Power-ups")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
+            <button onClick={() => setMessage("Gifts")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl">🎁</button>
+            <button onClick={restart} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-lg">↻</button>
+          </div>
+        </div>
+      </section>
+
+      <AnimatePresence>
+        {menuOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            className="absolute left-3 top-14 z-40 w-48 rounded-2xl border border-white/15 bg-[#21165f] p-3 shadow-2xl"
+          >
+            <div className="mb-2 font-black">Game menu</div>
+            <button onClick={restart} className="w-full rounded-lg bg-white/10 p-2 text-left text-sm">Restart game</button>
+            <label className="mt-3 block text-xs text-white/70">Wager amount</label>
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, balance)}
+              value={wager}
+              onChange={(e) => startWager(Number(e.target.value))}
+              className="mt-1 w-full rounded-lg bg-black/30 px-3 py-2 text-sm text-white"
+            />
+            <button onClick={() => setMenuOpen(false)} className="mt-2 w-full rounded-lg bg-white/10 p-2 text-sm">Close</button>
+          </motion.div>
+        )}
+        {winner && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/75
+p-5 backdrop-blur-sm"
+          >
+            <div className="w-full max-w-xs rounded-3xl border border-white/20 bg-[#21165f] p-7 text-center shadow-2xl">
+              <div className="text-5xl">🏆</div>
+              <h2 className="mt-3 text-2xl font-black" style={{ color: COLORS[winner] }}>{winner.toUpperCase()} WINS!</h2>
+              <button onClick={restart} className="mt-5 w-full rounded-xl bg-amber-400 px-4 py-3 font-black text-slate-950">Play again</button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div aria-live="polite" className="pointer-events-none absolute left-1/2 top-[13%] z-30 max-w-[90%] -translate-x-1/2 truncate rounded-full border border-white/10 bg-[#100b50]/85 px-3 py-1 text-center text-[10px] font-bold text-white/80">
+        {message}
+      </div>
+    </main>
   );
 }
