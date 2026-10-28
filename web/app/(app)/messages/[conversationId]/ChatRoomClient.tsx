@@ -1791,7 +1791,7 @@ export default function ChatRoomClient({
              * viewport zoomed in at 140% with the composer off the side of the
              * screen. 16px is the threshold, and the desktop layout keeps its
              * tighter 14px type. */
-            className="min-h-10 min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-3 py-2 text-base text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00] sm:text-sm chat-composer__field"
+            className="min-h-[36px] min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-4 py-2.5 text-base text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00] sm:text-sm md:text-base lg:text-base xl:text-base chat-composer__field"
             style={{ borderColor: THEME.hairline }}
           />
 
