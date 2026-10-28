@@ -167,9 +167,9 @@ function PlayerPanel({
     <div
       className="flex min-w-0 items-center gap-1.5 rounded-xl border px-1.5 py-1.5 sm:gap-2 sm:px-2"
       style={{
-        background: active ? `${COLORS[player.color]}30` : "#17164fbd",
+        background: active ? COLORS[player.color] + "30" : "#17164fbd",
         borderColor: active ? COLORS[player.color] : "#ffffff22",
-        boxShadow: active ? `0 0 12px ${COLORS[player.color]}30` : undefined,
+        boxShadow: active ? "0 0 12px " + COLORS[player.color] + "30" : undefined,
       }}
     >
       <Dice
@@ -215,8 +215,7 @@ function TokenButton({
       disabled={!enabled}
       className="flex h-[90%] w-[90%] items-center justify-center rounded-full border-2 border-white/80 text-[clamp(8px,2vw,15px)] font-black text-white shadow-[0_3px_3px_#0006,inset_0_2px_3px_#fff8] disabled:cursor-default"
       style={{
-        background: `radial-gradient(circle at 30% 25%, white 0%, ${COLORS[color]} 28%, #222 180%)`,
-      }}
+background: "radial-gradient(circle at 30% 25%, white 0%, " + COLORS[color] + " 28%, #222 180%)",      }}
     >
       ♟
     </button>
@@ -234,13 +233,13 @@ function LudoBoard({
   canMove: boolean;
   onMove: (color: Color, index: number) => void;
 }) {
-  const tokenPositions = useMemo(() => {
+const tokenPositions = useMemo(() => {
     const map = new Map<string, Array<{ color: Color; index: number }>>();
     players.forEach((player) => {
       player.tokens.forEach((token, index) => {
         if (token.step < 0 || token.step >= FINISH) return;
         const [x, y] = trackPosition(player.color, token.step);
-        const key = `${x},${y}`;
+        const key = ${x},${y};
         map.set(key, [...(map.get(key) ?? []), { color: player.color, index }]);
       });
     });
@@ -250,7 +249,7 @@ function LudoBoard({
   const homeCells = useMemo(() => {
     const map = new Map<string, Color>();
     Object.entries(HOME).forEach(([color, cells]) => {
-      cells.forEach(([x, y]) => map.set(`${x},${y}`, color as Color));
+      cells.forEach(([x, y]) => map.set(${x},${y}, color as Color));
     });
     return map;
   }, []);
@@ -261,7 +260,7 @@ function LudoBoard({
         {Array.from({ length: 225 }, (_, index) => {
           const x = index % 15;
           const y = Math.floor(index / 15);
-          const key = `${x},${y}`;
+          const key = ${x},${y};
 
           let base: Color | null = null;
           if (x < 6 && y < 6) base = "green";
@@ -277,7 +276,7 @@ function LudoBoard({
 
           let background = "#fffdf2";
           if (base) background = COLORS[base];
-          else if (homeColor) background = `${COLORS[homeColor]}e6`;
+          else if (homeColor) background = ${COLORS[homeColor]}e6;
           else if (SAFE.has(trackIndex)) background = "#f4e7cd";
           else if (isTrack) background = "#fffdf3";
           else if (center) background = "#f4e4c3";
@@ -320,11 +319,11 @@ function LudoBoard({
                 </svg>
               )}
 
-              {pieces.map((piece, pieceIndex) => (
+             {pieces.map((piece, pieceIndex) => (
                 <div
                   key={`${piece.color}-${piece.index}`}
                   className="absolute z-20 flex h-full w-full items-center justify-center"
-                  style={{ transform: `translate(${pieceIndex * 12}%, ${pieceIndex * 10}%)` }}
+                  style={{ transform: "translate(" + (pieceIndex * 12) + "%, " + (pieceIndex * 10) + "%)" }}
                 >
                   <TokenButton
                     color={piece.color}
@@ -389,7 +388,7 @@ export default function LudoSuperstar({
       setDice((old) => ({ ...old, [turn]: result }));
       setRolling(false);
       setRolled(true);
-      setMessage(`${current.name} rolled ${result}`);
+      setMessage(${current.name} rolled ${result});
 
       const canMove = current.tokens.some((token) =>
         token.step === -1
@@ -451,7 +450,7 @@ export default function LudoSuperstar({
 
       if (movingPlayer.tokens.every((t) => t.step === FINISH)) {
         setWinner(color);
-        setMessage(`${movingPlayer.name} wins!`);
+        setMessage(${movingPlayer.name} wins!);
 
         if (!settled) {
           setSettled(true);
@@ -499,7 +498,7 @@ export default function LudoSuperstar({
       return;
     }
     setWager(amount);
-    setMessage(`Wager selected: ${amount}`);
+    setMessage(Wager selected: ${amount});
   };
 
   return (
@@ -585,8 +584,6 @@ export default function LudoSuperstar({
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
             <button onClick={() => setMessage("Emoji controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">EMOJI</button>
-            <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3
-            py-2 text-xs font-black">EMOJI</button>
             <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">CHAT</button>
           </div>
           <div className="flex shrink-0 items-center gap-1">
@@ -623,8 +620,7 @@ export default function LudoSuperstar({
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/75
-p-5 backdrop-blur-sm"
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"
           >
             <div className="w-full max-w-xs rounded-3xl border border-white/20 bg-[#21165f] p-7 text-center shadow-2xl">
               <div className="text-5xl">🏆</div>
