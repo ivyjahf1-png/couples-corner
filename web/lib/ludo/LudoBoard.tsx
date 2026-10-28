@@ -8,9 +8,10 @@ import {
 } from "@/lib/ludo/engine";
 const GRID = 15;
 
-const COLORS = ["#E53935", "#1E88E5", "#FDD835", "#43A047"]; 
-const HEX_DARK = ["#B71C1C", "#1565C0", "#F9A825", "#2E7D32"];
-const HEX_LIGHT = ["#FF8A80", "#82B1FF", "#FFF59D", "#A5D6A7"];
+// Exact color palette matching the reference board: Red, Blue, Yellow, Green
+const COLORS = ["#D32F2F", "#1976D2", "#FBC02D", "#388E3C"]; 
+const HEX_DARK = ["#9A0007", "#0D47A1", "#F57F17", "#1B5E20"];
+const HEX_LIGHT = ["#FF6F60", "#63A4FF", "#FFF176", "#81C784"];
 
 function colorOf(c: number) { return COLORS[c] || "#888"; }
 function darkColorOf(c: number) { return HEX_DARK[c] || "#555"; }
@@ -36,10 +37,10 @@ const BASE_QUAD: Record<number, readonly [number, number]> = {
 };
 
 const BASE_SPOTS: Record<number, ReadonlyArray<readonly [number, number]>> = {
-  0: [[1.8, 10.8], [4.2, 10.8], [1.8, 13.2], [4.2, 13.2]],
-  1: [[10.8, 10.8], [13.2, 10.8], [10.8, 13.2], [13.2, 13.2]],
-  2: [[10.8, 1.8], [13.2, 1.8], [10.8, 4.2], [13.2, 4.2]],
-  3: [[1.8, 1.8], [4.2, 1.8], [1.8, 4.2], [4.2, 4.2]],
+  0: [[2.1, 11.1], [3.9, 11.1], [2.1, 12.9], [3.9, 12.9]],
+  1: [[11.1, 11.1], [12.9, 11.1], [11.1, 12.9], [12.9, 12.9]],
+  2: [[11.1, 2.1], [12.9, 2.1], [11.1, 3.9], [12.9, 3.9]],
+  3: [[2.1, 2.1], [3.9, 2.1], [2.1, 3.9], [3.9, 3.9]],
 };
 
 const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
@@ -97,18 +98,20 @@ export function TempleSeed({ color, size = 30 }: { color: number; size?: number 
   );
 }
 
-const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
-  const gridStroke = isNeon ? "#1E293B" : "#111111";
-  const bgFill = isNeon ? "#0A0F1D" : "#FFFFFF";
+const BoardSurface = React.memo(() => {
+  const gridStroke = "#E2E8F0"; // Clean light borders between track cells
 
   return (
-    <svg viewBox="0 0 15 15" className="block h-full w-full rounded-xl" style={{ backgroundColor: bgFill }} role="img">
+    <svg viewBox="0 0 15 15" className="block h-full w-full rounded-2xl shadow-inner" style={{ backgroundColor: "#FFFFFF" }} role="img">
+      {/* Center Home Triangles */}
       <g>
-        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke={gridStroke} strokeWidth="0.05" />
-        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke={gridStroke} strokeWidth="0.05" />
-        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke={gridStroke} strokeWidth="0.05" />
-        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke={gridStroke} strokeWidth="0.05" />
+        <polygon points="6,6 9,6 7.5,7.5" fill={colorOf(2)} stroke="#CBD5E1" strokeWidth="0.02" />
+        <polygon points="9,6 9,9 7.5,7.5" fill={colorOf(1)} stroke="#CBD5E1" strokeWidth="0.02" />
+        <polygon points="6,9 9,9 7.5,7.5" fill={colorOf(0)} stroke="#CBD5E1" strokeWidth="0.02" />
+        <polygon points="6,6 6,9 7.5,7.5" fill={colorOf(3)} stroke="#CBD5E1" strokeWidth="0.02" />
       </g>
+
+      {/* Home Stretch Lanes */}
       <g>
         {[0, 1, 2, 3].map((c) => (
           <g key={"home-" + c}>
@@ -117,14 +120,16 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
                 key={"h-" + c + "-" + j} 
                 x={cell[0]} y={cell[1]} 
                 width={1} height={1} 
-                fill={isNeon ? darkColorOf(c) : colorOf(c)} 
+                fill={colorOf(c)} 
                 stroke={gridStroke} 
-                strokeWidth="0.05" 
+                strokeWidth="0.03" 
               />
             ))}
           </g>
         ))}
       </g>
+
+      {/* Main Outer Track */}
       <g>
         {TRACK_PATH.map((cell, i) => {
           const col = cell[0]!;
@@ -132,7 +137,7 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
           const isSafe = SAFE_STARS.has(i);
           const isStart = START_SET.has(i);
           
-          let cellColor = isNeon ? "#0F172A" : "#FFFFFF";
+          let cellColor = "#FFFFFF";
           if (isStart) {
             if (i === 0) cellColor = colorOf(0);
             if (i === 14) cellColor = colorOf(3);
@@ -147,21 +152,21 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
 
           return (
             <g key={"trk-" + i}>
-              <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke={gridStroke} strokeWidth="0.05" />
+              <rect x={col} y={row} width={1} height={1} fill={cellColor} stroke={gridStroke} strokeWidth="0.03" />
               {(isSafe || isStart) && (
                 <path 
                   d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.6) + "," + (row+0.45) + " L" + (col+0.8) + "," + (row+0.45) + " L" + (col+0.65) + "," + (row+0.65) + " L" + (col+0.7) + "," + (row+0.8) + " L" + (col+0.5) + "," + (row+0.7) + " L" + (col+0.3) + "," + (row+0.8) + " L" + (col+0.35) + "," + (row+0.65) + " L" + (col+0.2) + "," + (row+0.45) + " L" + (col+0.4) + "," + (row+0.45) + " Z"} 
-                  fill={isStart ? "#FFF" : "#FFC107"} 
-                  stroke="#111" 
-                  strokeWidth="0.03" 
+                  fill={isStart ? "#FFFFFF" : "#F59E0B"} 
+                  stroke="#CBD5E1" 
+                  strokeWidth="0.02" 
                 />
               )}
               {isStart && (
                 <path 
-                  d={"M" + (col+0.5) + "," + (row+0.2) + " L" + (col+0.8) + "," + (row+0.6) + " L" + (col+0.2) + "," + (row+0.6) + " Z"} 
-                  fill="#FFD700" 
-                  stroke="#B8860B"
-                  strokeWidth="0.04"
+                  d={"M" + (col+0.5) + "," + (row+0.25) + " L" + (col+0.75) + "," + (row+0.6) + " L" + (col+0.25) + "," + (row+0.6) + " Z"} 
+                  fill="#FCD34D" 
+                  stroke="#D97706"
+                  strokeWidth="0.03"
                   transform={"rotate(" + rot + "," + (col+0.5) + "," + (row+0.5) + ")"} 
                 />
               )}
@@ -169,41 +174,36 @@ const BoardSurface = React.memo(({ isNeon }: { isNeon: boolean }) => {
           );
         })}
       </g>
+
+      {/* Four Color Base Quadrants with Exact Rounded White Cards */}
       <g>
         {[0, 1, 2, 3].map((c) => {
           const q = BASE_QUAD[c]!;
           const col = colorOf(c);
-          const dark = darkColorOf(c);
           return (
             <g key={"base-" + c}>
+              {/* Outer Solid Quadrant Background */}
               <rect 
-                x={q[0] + 0.05} y={q[1] + 0.05} 
-                width={5.9} height={5.9} 
-                fill={isNeon ? "#0B132B" : col} 
+                x={q[0]} y={q[1]} 
+                width={6} height={6} 
+                fill={col} 
+              />
+              {/* Large Heavily-Rounded White Card Container (Matching Reference) */}
+              <rect 
+                x={q[0] + 0.6} y={q[1] + 0.6} 
+                width={4.8} height={4.8} 
+                fill="#FFFFFF" 
                 rx="1.2" 
-                stroke={isNeon ? col : "#111"} 
-                strokeWidth={isNeon ? "0.2" : "0.1"} 
+                ry="1.2"
+                filter="drop-shadow(0px 2px 4px rgba(0,0,0,0.15))"
               />
-              <rect 
-                x={q[0] + 0.5} y={q[1] + 0.5} 
-                width={5} height={5} 
-                fill={isNeon ? "#050814" : "#F8F9FA"} 
-                rx="0.8" 
-                stroke={isNeon ? col : "#DDD"} 
-                strokeWidth="0.05" 
-              />
+              {/* 4 Inner Colored Pawn Destination Circles */}
               {BASE_SPOTS[c]!.map((spot, i) => (
-                <g key={"spot-" + c + "-" + i}>
-                  <circle 
-                    cx={spot[0]} cy={spot[1]} r={0.7} 
-                    fill={isNeon ? "transparent" : col} 
-                    stroke={isNeon ? col : dark} 
-                    strokeWidth="0.12" 
-                  />
-                  {!isNeon && (
-                    <circle cx={spot[0]} cy={spot[1]} r={0.5} fill="#FFFFFF" />
-                  )}
-                </g>
+                <circle 
+                  key={"spot-" + c + "-" + i}
+                  cx={spot[0]} cy={spot[1]} r={0.65} 
+                  fill={col} 
+                />
               ))}
             </g>
           );
@@ -238,7 +238,7 @@ export interface LudoBoardProps {
   names?: readonly string[];
 }
 
-export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoBoardProps) {
+export function LudoBoard({ state, selectable, onSelect }: LudoBoardProps) {
   const pawns = useMemo(() => {
     const rawPawns: PawnData[] = [];
     const players = (state.players as unknown as ReadonlyArray<{ tokens: ReadonlyArray<{ steps: number }> }>) || [];
@@ -248,13 +248,17 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
       p.tokens.forEach((t: { steps: number }, i: number) => {
         if (t.steps >= FINISH_STEP) return;
         const pos = posFor(c, i, t.steps);
-        rawPawns.push({
+        rawPawnRecord(rawPawns, {
           key: c + "-" + i, color: c, idx: i, steps: t.steps,
           x: pos.x, y: pos.y,
           movable: c === Number(state.turn) && selectable.includes(i),
         });
       });
     });
+
+    function rawPawnRecord(arr: PawnData[], item: PawnData) {
+      arr.push(item);
+    }
 
     const coordMap = new Map<string, PawnData[]>();
     rawPawns.forEach((p) => {
@@ -287,10 +291,10 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
   }, [state, selectable]);
 
   return (
-    <div className="relative w-full aspect-square rounded-2xl bg-[#090D1A] p-1 shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 mx-auto">
-      <div className="relative w-full h-full rounded-xl bg-white p-0.5 shadow-[inset_0_3px_12px_rgba(0,0,0,0.6)] overflow-visible">
-        <BoardSurface isNeon={isNeon} />
-        <div className="absolute inset-0 p-0.5 pointer-events-none">
+    <div className="relative w-full aspect-square rounded-[24px] bg-[#1E293B]/90 p-2 shadow-2xl border border-white/15 mx-auto flex items-center justify-center">
+      <div className="relative w-full h-full rounded-2xl bg-white overflow-hidden shadow-inner flex items-center justify-center">
+        <BoardSurface />
+        <div className="absolute inset-0 pointer-events-none">
           {pawns.map((p) => {
             const posX = p.x + (p.offsetX ?? 0);
             const posY = p.y + (p.offsetY ?? 0);

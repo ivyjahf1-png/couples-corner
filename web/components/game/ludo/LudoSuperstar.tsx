@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
+
 type Color = "red" | "blue" | "yellow" | "green";
 type Token = { step: number };
 type Player = {
@@ -172,11 +173,11 @@ function PlayerPanel({
         boxShadow: active ? "0 0 12px " + COLORS[player.color] + "30" : undefined,
       }}
     >
-      <Dice
-        value={dice}
+      <DiceButton
+        roll={dice}
         rolling={rolling}
         disabled={!canRoll}
-        onRoll={onRoll}
+        onClick={onRoll}
       />
       <div className="flex min-w-0 flex-1 items-center gap-1.5">
         <div
@@ -336,20 +337,47 @@ const tokenPositions = useMemo(() => {
     </div>
   );
 }
-export function DiceButton({ roll, rolling, onClick }: { roll: number; rolling: boolean; onClick: () => void }) {
+function DiceButton({ roll, rolling, onClick, disabled }: { roll?: number; rolling?: boolean; onClick?: () => void; disabled?: boolean }) {
+  const renderDots = (value: number) => {
+    const dots: { x: string; y: string }[] = [];
+    if (value === 1 || value === 3 || value === 5) dots.push({ x: "50%", y: "50%" });
+    if (value >= 2) { dots.push({ x: "22%", y: "22%" }, { x: "78%", y: "78%" }); }
+    if (value >= 4) { dots.push({ x: "78%", y: "22%" }, { x: "22%", y: "78%" }); }
+    if (value === 6) { dots.push({ x: "22%", y: "50%" }, { x: "78%", y: "50%" }); }
+
+    return dots.map((dot, index) => (
+      <div
+        key={index}
+        className="absolute h-2 w-2 rounded-full bg-slate-900 shadow-[inset_0_1px_2px_rgba(0,0,0,0.8)]"
+        style={{ left: dot.x, top: dot.y, transform: "translate(-50%, -50%)" }}
+      />
+    ));
+  };
+
   return (
-    <button
+    <motion.button
+      type="button"
       onClick={onClick}
-      disabled={rolling}
-      className={`relative group flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-white to-slate-100 shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(0,0,0,0.1)] border-2 border-white/80 transition-transform active:scale-95 ${
-        rolling ? "animate-pulse rotate-12" : "hover:scale-105"
-      }`}
+      disabled={disabled || rolling}
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.92 }}
+      className="relative flex h-11 w-11 shrink-0 items-center justify-center focus:outline-none cursor-pointer"
     >
-      <div className="absolute inset-1 rounded-xl bg-gradient-to-tr from-slate-100/50 to-white/80 pointer-events-none" />
-      <span className="relative z-10 text-2xl font-black text-slate-800 drop-shadow-sm">
-        {rolling ? "🎲" : roll || 1}
-      </span>
-    </button>
+      <motion.div
+        animate={
+          rolling
+            ? { rotateX: [0, 360, 720], rotateY: [0, 360, 720], scale: [1, 1.15, 1] }
+            : { rotateX: 0, rotateY: 0, scale: 1 }
+        }
+        transition={rolling ? { duration: 0.5, repeat: Infinity, ease: "linear" } : { type: "spring", stiffness: 300, damping: 20 }}
+        className="relative h-full w-full rounded-xl border-2 border-white/90 bg-gradient-to-br from-white via-slate-100 to-slate-300 shadow-[0_6px_16px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.9),inset_0_-4px_6px_rgba(0,0,0,0.25)] overflow-hidden"
+      >
+        <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/70 to-transparent pointer-events-none rounded-t-xl" />
+        <div className="relative h-full w-full">
+          {renderDots(roll || 1)}
+        </div>
+      </motion.div>
+    </motion.button>
   );
 }
 export default function LudoSuperstar({
