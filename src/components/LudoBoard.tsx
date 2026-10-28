@@ -7,7 +7,7 @@ import {
   trackCell,
   type LudoColor,
   type LudoGameState,
-} from "@/lib/ludo/engine";
+} from "../../../../web/lib/ludo/engine";
 
 const GRID = 15;
 
@@ -281,12 +281,12 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
           offsetY = index === 0 ? -0.15 : 0.15;
         } else if (total === 3) {
           const angles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3];
-          offsetX = Math.cos(angles[index]) * 0.18;
-          offsetY = Math.sin(angles[index]) * 0.18;
+          offsetX = Math.cos(angles[index]!) * 0.18;
+          offsetY = Math.sin(angles[index]!) * 0.18;
         } else if (total >= 4) {
           const angles = [Math.PI / 4, (3 * Math.PI) / 4, (5 * Math.PI) / 4, (7 * Math.PI) / 4];
-          offsetX = Math.cos(angles[index % 4]) * 0.2;
-          offsetY = Math.sin(angles[index % 4]) * 0.2;
+          offsetX = Math.cos(angles[index % 4]!) * 0.2;
+          offsetY = Math.sin(angles[index % 4]!) * 0.2;
         }
         adjustedPawns.push({ ...p, offsetX, offsetY });
       });
@@ -331,9 +331,9 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
                 </motion.div>
                 {p.movable && (
                   <motion.div 
-                    className="pointer-events-none absolute inset-[-15%] rounded-full border-2 border-cyan-300 shadow-[0_0_8px_#22d3ee]" 
-                    animate={{ scale: [1, 1.25, 1], opacity: [0.9, 0.3, 0.9] }} 
-                    transition={{ repeat: Infinity, duration: 1.1 }} 
+                    className="pointer-events-none absolute inset-[-20%] rounded-full border-2 border-cyan-400 shadow-[0_0_15px_#22d3ee]" 
+                    animate={{ scale: [1, 1.35, 1], opacity: [0.9, 0.3, 0.9] }} 
+                    transition={{ repeat: Infinity, duration: 1.0 }} 
                   />
                 )}
               </motion.button>
