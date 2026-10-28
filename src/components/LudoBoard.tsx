@@ -7,7 +7,21 @@ import {
   trackCell,
   type LudoColor,
   type LudoGameState,
-} from "../../../../web/lib/ludo/engine";
+} from "../../web/lib/ludo/engine";
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
+declare module "react/jsx-runtime" {
+  export const Fragment: any;
+  export function jsx(type: any, props: any, key?: any): any;
+  export function jsxs(type: any, props: any, key?: any): any;
+}
 
 const GRID = 15;
 
@@ -263,7 +277,7 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
     });
 
     const coordMap = new Map<string, PawnData[]>();
-    rawPawns.forEach((p) => {
+    rawPawns.forEach((p: PawnData) => {
       const keyStr = p.x.toFixed(2) + "_" + p.y.toFixed(2);
       if (!coordMap.has(keyStr)) coordMap.set(keyStr, []);
       coordMap.get(keyStr)!.push(p);
@@ -273,7 +287,7 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
 
     coordMap.forEach((group) => {
       const total = group.length;
-      group.forEach((p, index) => {
+      group.forEach((p: PawnData, index) => {
         let offsetX = 0;
         let offsetY = 0;
         if (total === 2) {
@@ -301,7 +315,7 @@ export function LudoBoard({ state, selectable, onSelect, isNeon = false }: LudoB
         <BoardSurface isNeon={isNeon} />
         
         <div className="absolute inset-0 p-0.5 pointer-events-none">
-          {pawns.map((p) => {
+          {pawns.map((p: PawnData) => {
             const posX = p.x + p.offsetX;
             const posY = p.y + p.offsetY;
 
