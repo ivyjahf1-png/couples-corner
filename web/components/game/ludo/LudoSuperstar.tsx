@@ -277,7 +277,7 @@ const tokenPositions = useMemo(() => {
           let background = "#fffdf2";
           if (base) background = COLORS[base];
           else if (homeColor) background = `${COLORS[homeColor]}e6`;
-          
+
           const inBaseHome =
             base &&
             x >= (base === "yellow" || base === "blue" ? 10 : 1) &&
@@ -336,7 +336,22 @@ const tokenPositions = useMemo(() => {
     </div>
   );
 }
-
+export function DiceButton({ roll, rolling, onClick }: { roll: number; rolling: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={rolling}
+      className={`relative group flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-white to-slate-100 shadow-[0_8px_20px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.9),inset_0_-2px_4px_rgba(0,0,0,0.1)] border-2 border-white/80 transition-transform active:scale-95 ${
+        rolling ? "animate-pulse rotate-12" : "hover:scale-105"
+      }`}
+    >
+      <div className="absolute inset-1 rounded-xl bg-gradient-to-tr from-slate-100/50 to-white/80 pointer-events-none" />
+      <span className="relative z-10 text-2xl font-black text-slate-800 drop-shadow-sm">
+        {rolling ? "🎲" : roll || 1}
+      </span>
+    </button>
+  );
+}
 export default function LudoSuperstar({
   balance,
   onWin,
@@ -499,23 +514,9 @@ export default function LudoSuperstar({
   };
 
   return (
-    <main className="ludo-screen relative flex h-[100dvh] min-h-0 w-full flex-col overflow-hidden text-white">
-      <style jsx global>{`
-        * { box-sizing: border-box; }
-        .ludo-screen {
-          background-color: #211568;
-          background-image:
-            radial-gradient(circle, rgba(8,7,76,.28) 3px, transparent 4px),
-            radial-gradient(ellipse at 50% 35%, #5140c6 0%, #32238e 48%, #130b4b 100%);
-          background-size: 27px 27px, 100% 100%;
-          font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-        }
-        .grid-cols-15 { grid-template-columns: repeat(15, minmax(0, 1fr)); }
-        .grid-rows-15 { grid-template-rows: repeat(15, minmax(0, 1fr)); }
-        .ludo-content { width: 100%; max-width: 900px; min-height: 0; margin-inline: auto; }
-      `}</style>
-
-      <header className="ludo-content flex shrink-0 items-center justify-between gap-2 px-3 pb-2 pt-[max(8px,env(safe-area-inset-top))]">
+    <main className="ludo-screen relative flex h-[100dvh] w-full flex-col items-center justify-between overflow-hidden bg-[#0F172A] p-2 select-none">
+      {/* Top Header */}
+      <header className="ludo-content flex shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-[max(4px,env(safe-area-inset-top))]">
         <div className="flex min-w-0 items-center gap-1.5">
           <button onClick={() => setMenuOpen((v) => !v)} className="h-9 w-9 rounded-lg bg-white/15 text-xl">☰</button>
           <button onClick={() => setMessage("Trophy room")} className="h-9 w-9 rounded-lg bg-white/15">🏆</button>
@@ -530,66 +531,56 @@ export default function LudoSuperstar({
         </div>
       </header>
 
-      <section className="ludo-content flex min-h-0 flex-1 flex-col justify-center gap-1 overflow-hidden px-2">
-        <div className="grid shrink-0 grid-cols-2 gap-2">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-fuchsia-300 bg-purple-900 text-2xl">👹</div>
-            <button className="h-9 min-w-0 flex-1 rounded-xl bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
-            <button className="h-9 w-8 shrink-0 rounded-xl bg-[#100b50]/65">🎁</button>
-          </div>
-          <div className="flex min-w-0 items-center gap-2">
-            <button className="h-9 w-8 shrink-0 rounded-xl bg-[#100b50]/65">🎁</button>
-            <button className="h-9 min-w-0 flex-1 rounded-xl bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-amber-300 bg-green-700 text-2xl">🌞</div>
-          </div>
-        </div>
+      {/* Top Player Panels (Green & Yellow) */}
+      <div className="ludo-content grid shrink-0 grid-cols-2 gap-2 px-1 py-1">
+        {(["green", "yellow"] as Color[]).map((color) => (
+          <PlayerPanel
+            key={color}
+            player={players.find((p) => p.color === color)!}
+            active={turn === color}
+            dice={dice[color]}
+            rolling={rolling && turn === color}
+            canRoll={turn === color && !rolled && !winner}
+            onRoll={roll}
+          />
+        ))}
+      </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 px-1">
-          {(["green", "yellow"] as Color[]).map((color) => (
-            <PlayerPanel
-              key={color}
-              player={players.find((p) => p.color === color)!}
-              active={turn === color}
-              dice={dice[color]}
-              rolling={rolling && turn === color}
-              canRoll={turn === color && !rolled && !winner}
-              onRoll={roll}
-            />
-          ))}
+      {/* Bounded Game Board Container (Prevents All Overlaps & Ensures Perfect Scaling) */}
+      <div className="relative flex w-full max-w-[min(100vw-16px,calc(100dvh-280px))] aspect-square items-center justify-center my-auto">
+        <div className="absolute inset-0 rounded-[24px] bg-[#1E293B]/80 backdrop-blur-md p-2 shadow-2xl border border-white/10 flex items-center justify-center">
+          <LudoBoard players={players} turn={turn} canMove={rolled && movable.length > 0} onMove={moveToken} />
         </div>
+      </div>
 
-        <div className="flex min-h-0 flex-1 items-center justify-center py-1">
-          <div className="w-full max-w-[min(96vw,62vh)]">
-            <LudoBoard players={players} turn={turn} canMove={rolled && movable.length > 0} onMove={moveToken} />
-          </div>
-        </div>
-        <div className="grid shrink-0 grid-cols-2 gap-2 px-1">
-          {(["red", "blue"] as Color[]).map((color) => (
-            <PlayerPanel
-              key={color}
-              player={players.find((p) => p.color === color)!}
-              active={turn === color}
-              dice={dice[color]}
-              rolling={rolling && turn === color}
-              canRoll={turn === color && !rolled && !winner}
-              onRoll={roll}
-            />
-          ))}
-        </div>
+      {/* Bottom Player Panels (Red & Blue) */}
+      <div className="ludo-content grid shrink-0 grid-cols-2 gap-2 px-1 py-1">
+        {(["red", "blue"] as Color[]).map((color) => (
+          <PlayerPanel
+            key={color}
+            player={players.find((p) => p.color === color)!}
+            active={turn === color}
+            dice={dice[color]}
+            rolling={rolling && turn === color}
+            canRoll={turn === color && !rolled && !winner}
+            onRoll={roll}
+          />
+        ))}
+      </div>
 
-        <div className="flex shrink-0 items-center justify-between gap-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
-            <button onClick={() => setMessage("Emoji controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">EMOJI</button>
-            <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">CHAT</button>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <button onClick={() => setMessage("Power-ups")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
-            <button onClick={() => setMessage("Gifts")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl">🎁</button>
-            <button onClick={restart} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-lg">↻</button>
-          </div>
+      {/* Bottom Action Footer */}
+      <div className="ludo-content flex shrink-0 items-center justify-between gap-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 px-1">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
+          <button onClick={() => setMessage("Emoji controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">EMOJI</button>
+          <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">CHAT</button>
         </div>
-      </section>
+        <div className="flex shrink-0 items-center gap-1">
+          <button onClick={() => setMessage("Power-ups")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
+          <button onClick={() => setMessage("Gifts")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl">🎁</button>
+          <button onClick={restart} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-lg">↻</button>
+        </div>
+      </div>
 
       <AnimatePresence>
         {menuOpen && (
@@ -627,6 +618,7 @@ export default function LudoSuperstar({
           </motion.div>
         )}
       </AnimatePresence>
+
       <div aria-live="polite" className="pointer-events-none absolute left-1/2 top-[13%] z-30 max-w-[90%] -translate-x-1/2 truncate rounded-full border border-white/10 bg-[#100b50]/85 px-3 py-1 text-center text-[10px] font-bold text-white/80">
         {message}
       </div>
