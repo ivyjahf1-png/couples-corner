@@ -263,7 +263,7 @@ function HighFidelityBoard({
       player.tokens.forEach((token, index) => {
         if (token.step === -1 && baseCoords[index]) {
           const [bx, by] = baseCoords[index];
-          map.set(${bx}, ${by}, { color: player.color, index });
+          map.set(`${bx},${by}`, { color: player.color, index });
         }
       });
     });
@@ -273,7 +273,7 @@ function HighFidelityBoard({
   const homeCells = useMemo(() => {
     const map = new Map<string, Color>();
     Object.entries(HOME_PATHS).forEach(([color, cells]) => {
-      cells.forEach(([x, y]) => map.set(${x}, ${y}, color as Color));
+      cells.forEach(([x, y]) => map.set(`${x},${y}`, color as Color));
     });
     return map;
   }, []);
@@ -284,26 +284,18 @@ function HighFidelityBoard({
         {Array.from({ length: 225 }, (_, index) => {
           const x = index % 15;
           const y = Math.floor(index / 15);
-          const key = ${x},${y};
+          const key = `${x},${y}`;
 
-          // Quadrant bases (6x6 corners)
           const isGreenBase = x < 6 && y < 6;
           const isYellowBase = x > 8 && y < 6;
           const isRedBase = x < 6 && y > 8;
           const isBlueBase = x > 8 && y > 8;
-
-          // Home cards inside 6x6 corners
-          const isGreenHomeCard = x >= 1 && x <= 4 && y >= 1 && y <= 4;
-          const isYellowHomeCard = x >= 10 && x <= 13 && y >= 1 && y <= 4;
-          const isRedHomeCard = x >= 1 && x <= 4 && y >= 10 && y <= 13;
-          const isBlueHomeCard = x >= 10 && x <= 13 && y >= 10 && y <= 13;
 
           const homeColor = homeCells.get(key);
           const trackIndex = TRACK.findIndex(([tx, ty]) => tx === x && ty === y);
           const isTrack = trackIndex >= 0;
           const center = x >= 6 && x <= 8 && y >= 6 && y <= 8;
 
-          // Background styles matching Image 2
           let cellBg = "#ffffff";
           if (isGreenBase) cellBg = COLORS.green;
           else if (isYellowBase) cellBg = COLORS.yellow;
@@ -312,11 +304,8 @@ function HighFidelityBoard({
           else if (homeColor) cellBg = COLORS[homeColor];
 
           const trackTokens = tokenMap.get(key) ?? [];
-          const baseToken = baseTokenMap.get(key);
 
-          // Render Corner Quadrants as solid color blocks with white rounded cards
           if (isGreenBase || isYellowBase || isRedBase || isBlueBase) {
-            // Only render base content once at top-left corner of each base
             const isBaseTopLeft =
               (isGreenBase && x === 0 && y === 0) ||
               (isYellowBase && x === 9 && y === 0) ||
@@ -339,10 +328,9 @@ function HighFidelityBoard({
                 className="col-span-6 row-span-6 relative flex items-center justify-center p-3"
                 style={{ background: COLORS[baseColor] }}
               >
-                {/* Rounded White Home Base Card */}
                 <div className="relative h-full w-full rounded-[28%] bg-white p-3 shadow-md grid grid-cols-2 grid-rows-2 gap-3 items-center justify-items-center">
                   {BASE_CELLS[baseColor].map(([bx, by], slotIdx) => {
-                    const slotKey = ${bx},${by};
+                    const slotKey = `${bx},${by}`;
                     const slotToken = baseTokenMap.get(slotKey);
                     return (
                       <div
@@ -371,7 +359,6 @@ function HighFidelityBoard({
               className="relative flex items-center justify-center border-[0.5px] border-slate-300"
               style={{ background: cellBg }}
             >
-              {/* Star Cells */}
               {SAFE.has(trackIndex) && isTrack && (
                 <span
                   className="relative z-[1] text-[clamp(10px,2vw,16px)] font-black"
@@ -392,7 +379,6 @@ function HighFidelityBoard({
                 </span>
               )}
 
-              {/* Center Finish Triangles */}
               {center && (
                 <svg viewBox="0 0 3 3" className="absolute inset-0 h-full w-full">
                   <polygon points="0,0 3,0 1.5,1.5" fill={COLORS.yellow} />
@@ -402,7 +388,6 @@ function HighFidelityBoard({
                 </svg>
               )}
 
-              {/* Active Tokens on Track */}
               {trackTokens.map((piece, pieceIndex) => (
                 <div
                   key={`${piece.color}-${piece.index}`}
@@ -466,7 +451,7 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
     setRolled(false);
     setWinner(null);
     setSettled(false);
-    setMessage(Switched to ${mode.toUpperCase()} Ludo mode!);
+    setMessage(`Switched to ${mode.toUpperCase()} Ludo mode!`);
   };
 
   const roll = useCallback(() => {
@@ -479,7 +464,7 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
       setDice((old) => ({ ...old, [turn]: result }));
       setRolling(false);
       setRolled(true);
-      setMessage(${current.name} rolled a ${result});
+      setMessage(`${current.name} rolled a ${result}`);
 
       const canMove = current.tokens.some((token) =>
         token.step === -1
@@ -541,7 +526,7 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
 
       if (movingPlayer.tokens.every((t) => t.step === FINISH)) {
         setWinner(color);
-        setMessage(${movingPlayer.name} wins!);
+        setMessage(`${movingPlayer.name} wins!`);
 
         if (!settled) {
           setSettled(true);
