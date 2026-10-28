@@ -3,8 +3,9 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 
-
 type Color = "red" | "blue" | "yellow" | "green";
+type GameMode = "classic" | "quick" | "compact";
+
 type Token = { step: number };
 type Player = {
   color: Color;
@@ -53,291 +54,55 @@ const TRACK: [number, number][] = [
   [0, 7], [0, 6],
 ];
 
-const HOME: Record<Color, [number, number][]> = {
+const HOME_PATHS: Record<Color, [number, number][]> = {
   red: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
   blue: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]],
   yellow: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
   green: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
 };
 
-function createPlayers(): Player[] {
+// Precise base positions for token circles inside home cards
+const BASE_CELLS: Record<Color, [number, number][]> = {
+  green: [[1, 1], [4, 1], [1, 4], [4, 4]],
+  yellow: [[10, 1], [13, 1], [10, 4], [13, 4]],
+  red: [[1, 10], [4, 10], [1, 13], [4, 13]],
+  blue: [[10, 10], [13, 10], [10, 13], [13, 13]],
+};
+
+function createPlayers(mode: GameMode = "classic"): Player[] {
+  // In Quick mode, 2 tokens start out at step 0 (already unlocked)
+  const initialTokens = (stepOverride: number) => Array.from({ length: 4 }, (_, i) => ({
+    step: mode === "quick" && i < 2 ? 0 : stepOverride,
+  }));
+
   return [
-    { color: "red", name: "You", flag: "🇳🇬", avatar: "👑", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
-    { color: "blue", name: "Zaki", flag: "🇳🇬", avatar: "🧙", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
-    { color: "yellow", name: "Martin", flag: "🇮🇳", avatar: "🦁", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
-    { color: "green", name: "Aero", flag: "🇬🇧", avatar: "👹", tokens: Array.from({ length: 4 }, () => ({ step: -1 })) },
+    { color: "red", name: "You", flag: "🇳🇬", avatar: "👑", tokens: initialTokens(-1) },
+    { color: "blue", name: "Zaki", flag: "🇳🇬", avatar: "🧙", tokens: initialTokens(-1) },
+    { color: "yellow", name: "Martin", flag: "🇮🇳", avatar: "🦁", tokens: initialTokens(-1) },
+    { color: "green", name: "Aero", flag: "🇬🇧", avatar: "👹", tokens: initialTokens(-1) },
   ];
 }
 
 function trackPosition(color: Color, step: number): [number, number] {
+  if (step < 0) return [0, 0];
+  if (step >= 51) {
+    const homeIdx = Math.min(step - 51, 5);
+    return HOME_PATHS[color][homeIdx];
+  }
   return TRACK[(START[color] + step) % TRACK_LENGTH];
 }
 
-function Dice({
-  value,
+function DiceButton({
+  roll,
   rolling,
-  disabled,
-  onRoll,
-}: {
-  value: number;
-  rolling: boolean;
-  disabled: boolean;
-  onRoll: () => void;
-}) {
-  const rotations: Record<number, [number, number]> = {
-    1: [0, 0], 2: [-90, 0], 3: [0, -90],
-    4: [0, 90], 5: [90, 0], 6: [0, 180],
-  };
-  const [rx, ry] = rotations[value] ?? [0, 0];
-
-  const patterns: Record<number, number[]> = {
-    1: [4],
-    2: [0, 8],
-    3: [0, 4, 8],
-    4: [0, 2, 6, 8],
-    5: [0, 2, 4, 6, 8],
-    6: [0, 2, 3, 5, 6, 8],
-  };
-
-  const face = (n: number, transform: string) => (
-    <div
-      key={n}
-      className="absolute inset-0 grid grid-cols-3 grid-rows-3 rounded-lg border border-slate-300 bg-gradient-to-br from-white to-slate-300 p-1 shadow-inner"
-      style={{ transform, backfaceVisibility: "hidden" }}
-    >
-      {Array.from({ length: 9 }, (_, i) => (
-        <div key={i} className="flex items-center justify-center">
-          {patterns[n].includes(i) && (
-            <span className="h-1 w-1 rounded-full bg-slate-900 sm:h-1.5 sm:w-1.5" />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-
-  return (
-    <button
-      type="button"
-      onClick={onRoll}
-      disabled={disabled || rolling}
-      aria-label="Roll dice"
-      className="flex shrink-0 flex-col items-center gap-1 disabled:opacity-50"
-    >
-      <motion.div
-        className="relative h-8 w-8 sm:h-10 sm:w-10"
-        style={{ perspective: 400 }}
-        animate={rolling
-          ? { rotateX: [0, 180, 360, 540, 720], rotateY: [0, 270, 540, 810, 1080] }
-          : { rotateX: rx, rotateY: ry }}
-        transition={rolling ? { duration: 0.8 } : { type: "spring", stiffness: 160 }}
-      >
-        <div className="relative h-full w-full" style={{ transformStyle: "preserve-3d" }}>
-          {face(1, "translateZ(16px)")}
-          {face(6, "rotateY(180deg) translateZ(16px)")}
-          {face(3, "rotateY(90deg) translateZ(16px)")}
-          {face(4, "rotateY(-90deg) translateZ(16px)")}
-          {face(2, "rotateX(90deg) translateZ(16px)")}
-          {face(5, "rotateX(-90deg) translateZ(16px)")}
-        </div>
-      </motion.div>
-      <span className="text-[8px] font-black uppercase tracking-wider text-white/65">
-        {rolling ? "Rolling" : "Roll"}
-      </span>
-    </button>
-  );
-}
-
-function PlayerPanel({
-  player,
-  active,
-  dice,
-  rolling,
-  canRoll,
-  onRoll,
-}: {
-  player: Player;
-  active: boolean;
-  dice: number;
-  rolling: boolean;
-  canRoll: boolean;
-  onRoll: () => void;
-}) {
-  const homeCount = player.tokens.filter((token) => token.step === FINISH).length;
-
-  return (
-    <div
-      className="flex min-w-0 items-center gap-1.5 rounded-xl border px-1.5 py-1.5 sm:gap-2 sm:px-2"
-      style={{
-        background: active ? COLORS[player.color] + "30" : "#17164fbd",
-        borderColor: active ? COLORS[player.color] : "#ffffff22",
-        boxShadow: active ? "0 0 12px " + COLORS[player.color] + "30" : undefined,
-      }}
-    >
-      <DiceButton
-        roll={dice}
-        rolling={rolling}
-        disabled={!canRoll}
-        onClick={onRoll}
-      />
-      <div className="flex min-w-0 flex-1 items-center gap-1.5">
-        <div
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/40 text-lg sm:h-9 sm:w-9"
-          style={{ background: COLORS[player.color] }}
-        >
-          {player.avatar}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-[9px] font-black sm:text-[11px]">
-            {player.flag} {player.name}
-          </div>
-          <div className="mt-1 text-[8px] text-white/60">{homeCount}/4 home</div>
-        </div>
-      </div>
-      {active && (
-        <span className="h-2 w-2 shrink-0 animate-pulse rounded-full" style={{ background: COLORS[player.color] }} />
-      )}
-    </div>
-  );
-}
-
-function TokenButton({
-  color,
-  enabled,
   onClick,
+  disabled,
 }: {
-  color: Color;
-  enabled: boolean;
-  onClick: () => void;
+  roll?: number;
+  rolling?: boolean;
+  onClick?: () => void;
+  disabled?: boolean;
 }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!enabled}
-      className="flex h-[90%] w-[90%] items-center justify-center rounded-full border-2 border-white/80 text-[clamp(8px,2vw,15px)] font-black text-white shadow-[0_3px_3px_#0006,inset_0_2px_3px_#fff8] disabled:cursor-default"
-      style={{
-background: "radial-gradient(circle at 30% 25%, white 0%, " + COLORS[color] + " 28%, #222 180%)",      }}
-    >
-      ♟
-    </button>
-  );
-}
-
-function LudoBoard({
-  players,
-  turn,
-  canMove,
-  onMove,
-}: {
-  players: Player[];
-  turn: Color;
-  canMove: boolean;
-  onMove: (color: Color, index: number) => void;
-}) {
-const tokenPositions = useMemo(() => {
-    const map = new Map<string, Array<{ color: Color; index: number }>>();
-    players.forEach((player) => {
-      player.tokens.forEach((token, index) => {
-        if (token.step < 0 || token.step >= FINISH) return;
-        const [x, y] = trackPosition(player.color, token.step);
-        const key = `${x},${y}`;
-        map.set(key, [...(map.get(key) ?? []), { color: player.color, index }]);
-      });
-    });
-    return map;
-  }, [players]);
-
-  const homeCells = useMemo(() => {
-    const map = new Map<string, Color>();
-    Object.entries(HOME).forEach(([color, cells]) => {
-      cells.forEach(([x, y]) => map.set(`${x},${y}`, color as Color));
-    });
-    return map;
-  }, []);
-
-  return (
-    <div className="relative aspect-square w-full overflow-hidden rounded-[5%] border-[3px] border-[#b99151] bg-[#fffce9] p-[1px] shadow-[0_8px_25px_#0005,inset_0_0_0_2px_#fff7]">
-      <div className="grid h-full w-full grid-cols-15 grid-rows-15">
-        {Array.from({ length: 225 }, (_, index) => {
-          const x = index % 15;
-          const y = Math.floor(index / 15);
-          const key = `${x},${y}`;
-
-          let base: Color | null = null;
-          if (x < 6 && y < 6) base = "green";
-          else if (x > 8 && y < 6) base = "yellow";
-          else if (x < 6 && y > 8) base = "red";
-          else if (x > 8 && y > 8) base = "blue";
-
-          const homeColor = homeCells.get(key);
-          const trackIndex = TRACK.findIndex(([tx, ty]) => tx === x && ty === y);
-          const isTrack = trackIndex >= 0;
-          const center = x >= 6 && x <= 8 && y >= 6 && y <= 8;
-          const pieces = tokenPositions.get(key) ?? [];
-
-          let background = "#fffdf2";
-          if (base) background = COLORS[base];
-          else if (homeColor) background = `${COLORS[homeColor]}e6`;
-
-          const inBaseHome =
-            base &&
-            x >= (base === "yellow" || base === "blue" ? 10 : 1) &&
-            x <= (base === "yellow" || base === "blue" ? 13 : 4) &&
-            y >= (base === "red" || base === "blue" ? 10 : 1) &&
-            y <= (base === "red" || base === "blue" ? 13 : 4);
-
-          return (
-            <div
-              key={key}
-              className="relative flex items-center justify-center border-[0.5px] border-[#a79a79]/60"
-              style={{ background }}
-            >
-              {base && (
-                <div className="absolute inset-[12%] rounded-[18%] border border-white/75 bg-white/15" />
-              )}
-
-              {inBaseHome && (
-                <div className="absolute inset-[9%] rounded-[20%] border-2 border-white/80 bg-[#fffceb] shadow-inner" />
-              )}
-
-              {homeColor && (
-                <div className="absolute inset-[12%] rounded-sm" style={{ background: COLORS[homeColor] }} />
-              )}
-
-              {SAFE.has(trackIndex) && isTrack && (
-                <span className="relative z-[1] text-[clamp(8px,2vw,16px)] text-white drop-shadow">★</span>
-              )}
-
-              {center && (
-                <svg viewBox="0 0 3 3" className="absolute inset-0 h-full w-full">
-                  <polygon points="0,0 3,0 1.5,1.5" fill={COLORS.yellow} />
-                  <polygon points="3,0 3,3 1.5,1.5" fill={COLORS.blue} />
-                  <polygon points="3,3 0,3 1.5,1.5" fill={COLORS.red} />
-                  <polygon points="0,3 0,0 1.5,1.5" fill={COLORS.green} />
-                </svg>
-              )}
-
-              {pieces.map((piece: { color: Color; index: number }, pieceIndex: number) => (
-                <div
-                  key={`${piece.color}-${piece.index}`}
-                  className="absolute z-20 flex h-full w-full items-center justify-center"
-                  style={{ transform: `translate(${pieceIndex * 12}%, ${pieceIndex * 10}%)` }}
-                >
-                  <TokenButton
-                    color={piece.color}
-                    enabled={canMove && piece.color === turn}
-                    onClick={() => onMove(piece.color, piece.index)}
-                  />
-                </div>
-              ))}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-function DiceButton({ roll, rolling, onClick, disabled }: { roll?: number; rolling?: boolean; onClick?: () => void; disabled?: boolean }) {
   const renderDots = (value: number) => {
     const dots: { x: string; y: string }[] = [];
     if (value === 1 || value === 3 || value === 5) dots.push({ x: "50%", y: "50%" });
@@ -369,27 +134,301 @@ function DiceButton({ roll, rolling, onClick, disabled }: { roll?: number; rolli
             ? { rotateX: [0, 360, 720], rotateY: [0, 360, 720], scale: [1, 1.15, 1] }
             : { rotateX: 0, rotateY: 0, scale: 1 }
         }
-        transition={rolling ? { duration: 0.5, repeat: Infinity, ease: "linear" } : { type: "spring", stiffness: 300, damping: 20 }}
+        transition={
+          rolling
+            ? { duration: 0.5, repeat: Infinity, ease: "linear" }
+            : { type: "spring", stiffness: 300, damping: 20 }
+        }
         className="relative h-full w-full rounded-xl border-2 border-white/90 bg-gradient-to-br from-white via-slate-100 to-slate-300 shadow-[0_6px_16px_rgba(0,0,0,0.6),inset_0_2px_4px_rgba(255,255,255,0.9),inset_0_-4px_6px_rgba(0,0,0,0.25)] overflow-hidden"
       >
         <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/70 to-transparent pointer-events-none rounded-t-xl" />
-        <div className="relative h-full w-full">
-          {renderDots(roll || 1)}
-        </div>
+        <div className="relative h-full w-full">{renderDots(roll || 1)}</div>
       </motion.div>
     </motion.button>
   );
 }
-export default function LudoSuperstar({
-  balance,
-  onWin,
-  onLose,
-}: LudoSuperstarProps) {
-  const [players, setPlayers] = useState<Player[]>(createPlayers);
+
+function PlayerPanel({
+  player,
+  active,
+  dice,
+  rolling,
+  canRoll,
+  onRoll,
+}: {
+  player: Player;
+  active: boolean;
+  dice: number;
+  rolling: boolean;
+  canRoll: boolean;
+  onRoll: () => void;
+}) {
+  const homeCount = player.tokens.filter((token) => token.step === FINISH).length;
+
+  return (
+    <div
+      className="flex min-w-0 items-center gap-1.5 rounded-xl border px-1.5 py-1.5 sm:gap-2 sm:px-2 transition-all duration-200"
+      style={{
+        background: active ? COLORS[player.color] + "35" : "#17164fbd",
+        borderColor: active ? COLORS[player.color] : "#ffffff22",
+        boxShadow: active ? `0 0 14px ${COLORS[player.color]}40` : undefined,
+      }}
+    >
+      <DiceButton roll={dice} rolling={rolling} disabled={!canRoll} onClick={onRoll} />
+      <div className="flex min-w-0 flex-1 items-center gap-1.5">
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/40 text-lg sm:h-9 sm:w-9 shadow-sm"
+          style={{ background: COLORS[player.color] }}
+        >
+          {player.avatar}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[9px] font-black sm:text-[11px] text-white">
+            {player.flag} {player.name}
+          </div>
+          <div className="mt-0.5 text-[8px] text-white/70 font-semibold">{homeCount}/4 home</div>
+        </div>
+      </div>
+      {active && (
+        <span
+          className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full shadow-sm"
+          style={{ background: COLORS[player.color] }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Token3DPiece({
+  color,
+  enabled,
+  onClick,
+}: {
+  color: Color;
+  enabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!enabled}
+      className={`relative flex h-[88%] w-[88%] items-center justify-center rounded-full transition-transform active:scale-90 ${
+        enabled ? "cursor-pointer animate-bounce" : "cursor-default"
+      }`}
+    >
+      <div
+        className="h-full w-full rounded-full border-2 border-white/90 text-[clamp(9px,2.2vw,16px)] font-black text-white flex items-center justify-center"
+        style={{
+          background: `radial-gradient(circle at 35% 30%, #ffffff 0%, ${COLORS[color]} 35%, #0f172a 100%)`,
+          boxShadow: `0 4px 8px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.8), 0 0 8px ${
+            enabled ? COLORS[color] : "transparent"
+          }`,
+        }}
+      >
+        ♟
+      </div>
+    </button>
+  );
+}
+
+function HighFidelityBoard({
+  players,
+  turn,
+  canMove,
+  onMove,
+}: {
+  players: Player[];
+  turn: Color;
+  canMove: boolean;
+  onMove: (color: Color, index: number) => void;
+}) {
+  const tokenMap = useMemo(() => {
+    const map = new Map<string, Array<{ color: Color; index: number }>>();
+    players.forEach((player) => {
+      player.tokens.forEach((token, index) => {
+        if (token.step < 0 || token.step >= FINISH) return;
+        const [x, y] = trackPosition(player.color, token.step);
+        const key = `${x},${y}`;
+        map.set(key, [...(map.get(key) ?? []), { color: player.color, index }]);
+      });
+    });
+    return map;
+  }, [players]);
+
+  const baseTokenMap = useMemo(() => {
+    const map = new Map<string, { color: Color; index: number }>();
+    players.forEach((player) => {
+      const baseCoords = BASE_CELLS[player.color];
+      player.tokens.forEach((token, index) => {
+        if (token.step === -1 && baseCoords[index]) {
+          const [bx, by] = baseCoords[index];
+          map.set(${bx}, ${by}, { color: player.color, index });
+        }
+      });
+    });
+    return map;
+  }, [players]);
+
+  const homeCells = useMemo(() => {
+    const map = new Map<string, Color>();
+    Object.entries(HOME_PATHS).forEach(([color, cells]) => {
+      cells.forEach(([x, y]) => map.set(${x}, ${y}, color as Color));
+    });
+    return map;
+  }, []);
+
+  return (
+    <div className="relative aspect-square w-full overflow-hidden rounded-[24px] border-4 border-[#b99151] bg-[#ffffff] p-[2px] shadow-[0_12px_32px_rgba(0,0,0,0.6)] select-none">
+      <div className="grid h-full w-full grid-cols-15 grid-rows-15">
+        {Array.from({ length: 225 }, (_, index) => {
+          const x = index % 15;
+          const y = Math.floor(index / 15);
+          const key = ${x},${y};
+
+          // Quadrant bases (6x6 corners)
+          const isGreenBase = x < 6 && y < 6;
+          const isYellowBase = x > 8 && y < 6;
+          const isRedBase = x < 6 && y > 8;
+          const isBlueBase = x > 8 && y > 8;
+
+          // Home cards inside 6x6 corners
+          const isGreenHomeCard = x >= 1 && x <= 4 && y >= 1 && y <= 4;
+          const isYellowHomeCard = x >= 10 && x <= 13 && y >= 1 && y <= 4;
+          const isRedHomeCard = x >= 1 && x <= 4 && y >= 10 && y <= 13;
+          const isBlueHomeCard = x >= 10 && x <= 13 && y >= 10 && y <= 13;
+
+          const homeColor = homeCells.get(key);
+          const trackIndex = TRACK.findIndex(([tx, ty]) => tx === x && ty === y);
+          const isTrack = trackIndex >= 0;
+          const center = x >= 6 && x <= 8 && y >= 6 && y <= 8;
+
+          // Background styles matching Image 2
+          let cellBg = "#ffffff";
+          if (isGreenBase) cellBg = COLORS.green;
+          else if (isYellowBase) cellBg = COLORS.yellow;
+          else if (isRedBase) cellBg = COLORS.red;
+          else if (isBlueBase) cellBg = COLORS.blue;
+          else if (homeColor) cellBg = COLORS[homeColor];
+
+          const trackTokens = tokenMap.get(key) ?? [];
+          const baseToken = baseTokenMap.get(key);
+
+          // Render Corner Quadrants as solid color blocks with white rounded cards
+          if (isGreenBase || isYellowBase || isRedBase || isBlueBase) {
+            // Only render base content once at top-left corner of each base
+            const isBaseTopLeft =
+              (isGreenBase && x === 0 && y === 0) ||
+              (isYellowBase && x === 9 && y === 0) ||
+              (isRedBase && x === 0 && y === 9) ||
+              (isBlueBase && x === 9 && y === 9);
+
+            if (!isBaseTopLeft) return null;
+
+            const baseColor: Color = isGreenBase
+              ? "green"
+              : isYellowBase
+              ? "yellow"
+              : isRedBase
+              ? "red"
+              : "blue";
+
+            return (
+              <div
+                key={key}
+                className="col-span-6 row-span-6 relative flex items-center justify-center p-3"
+                style={{ background: COLORS[baseColor] }}
+              >
+                {/* Rounded White Home Base Card */}
+                <div className="relative h-full w-full rounded-[28%] bg-white p-3 shadow-md grid grid-cols-2 grid-rows-2 gap-3 items-center justify-items-center">
+                  {BASE_CELLS[baseColor].map(([bx, by], slotIdx) => {
+                    const slotKey = ${bx},${by};
+                    const slotToken = baseTokenMap.get(slotKey);
+                    return (
+                      <div
+                        key={slotIdx}
+                        className="relative flex h-full w-full max-h-[80%] max-w-[80%] items-center justify-center rounded-full"
+                        style={{ background: COLORS[baseColor] }}
+                      >
+                        {slotToken && (
+                          <Token3DPiece
+                            color={slotToken.color}
+                            enabled={canMove && slotToken.color === turn}
+                            onClick={() => onMove(slotToken.color, slotToken.index)}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={key}
+              className="relative flex items-center justify-center border-[0.5px] border-slate-300"
+              style={{ background: cellBg }}
+            >
+              {/* Star Cells */}
+              {SAFE.has(trackIndex) && isTrack && (
+                <span
+                  className="relative z-[1] text-[clamp(10px,2vw,16px)] font-black"
+                  style={{
+                    color:
+                      trackIndex === 6
+                        ? COLORS.green
+                        : trackIndex === 19
+                        ? COLORS.red
+                        : trackIndex === 32
+                        ? COLORS.blue
+                        : trackIndex === 45
+                        ? COLORS.yellow
+                        : "#f59e0b",
+                  }}
+                >
+                  ★
+                </span>
+              )}
+
+              {/* Center Finish Triangles */}
+              {center && (
+                <svg viewBox="0 0 3 3" className="absolute inset-0 h-full w-full">
+                  <polygon points="0,0 3,0 1.5,1.5" fill={COLORS.yellow} />
+                  <polygon points="3,0 3,3 1.5,1.5" fill={COLORS.blue} />
+                  <polygon points="3,3 0,3 1.5,1.5" fill={COLORS.red} />
+                  <polygon points="0,3 0,0 1.5,1.5" fill={COLORS.green} />
+                </svg>
+              )}
+
+              {/* Active Tokens on Track */}
+              {trackTokens.map((piece, pieceIndex) => (
+                <div
+                  key={`${piece.color}-${piece.index}`}
+                  className="absolute z-30 flex h-full w-full items-center justify-center p-[1px]"
+                  style={{ transform: `translate(${pieceIndex * 10}%, ${pieceIndex * 10}%)` }}
+                >
+                  <Token3DPiece
+                    color={piece.color}
+                    enabled={canMove && piece.color === turn}
+                    onClick={() => onMove(piece.color, piece.index)}
+                  />
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarProps) {
+  const [gameMode, setGameMode] = useState<GameMode>("classic");
+  const [players, setPlayers] = useState<Player[]>(() => createPlayers("classic"));
   const [turn, setTurn] = useState<Color>("red");
-  const [dice, setDice] = useState<Record<Color, number>>({
-    red: 1, blue: 1, yellow: 1, green: 1,
-  });
+  const [dice, setDice] = useState<Record<Color, number>>({ red: 1, blue: 1, yellow: 1, green: 1 });
   const [rolling, setRolling] = useState(false);
   const [rolled, setRolled] = useState(false);
   const [message, setMessage] = useState("Roll the dice to begin");
@@ -418,6 +457,18 @@ export default function LudoSuperstar({
     setRolled(false);
   }, []);
 
+  const switchGameMode = (mode: GameMode) => {
+    setGameMode(mode);
+    setPlayers(createPlayers(mode));
+    setTurn("red");
+    setDice({ red: 1, blue: 1, yellow: 1, green: 1 });
+    setRolling(false);
+    setRolled(false);
+    setWinner(null);
+    setSettled(false);
+    setMessage(Switched to ${mode.toUpperCase()} Ludo mode!);
+  };
+
   const roll = useCallback(() => {
     if (rolling || rolled || winner) return;
 
@@ -428,7 +479,7 @@ export default function LudoSuperstar({
       setDice((old) => ({ ...old, [turn]: result }));
       setRolling(false);
       setRolled(true);
-      setMessage(`${current.name} rolled ${result}`);
+      setMessage(${current.name} rolled a ${result});
 
       const canMove = current.tokens.some((token) =>
         token.step === -1
@@ -437,11 +488,11 @@ export default function LudoSuperstar({
       );
 
       if (!canMove) {
-        setMessage(result === 6 ? "No move available. Roll again." : "No available move.");
+        setMessage(result === 6 ? "No move available. Roll again!" : "No available move.");
         if (result === 6) setRolled(false);
         else window.setTimeout(nextTurn, 700);
       }
-    }, 800);
+    }, 700);
   }, [current, nextTurn, rolling, rolled, turn, winner]);
 
   const moveToken = useCallback(
@@ -490,13 +541,12 @@ export default function LudoSuperstar({
 
       if (movingPlayer.tokens.every((t) => t.step === FINISH)) {
         setWinner(color);
-        setMessage(`${movingPlayer.name} wins!`);
+        setMessage(${movingPlayer.name} wins!);
 
         if (!settled) {
           setSettled(true);
           if (color === "red") {
-            const prize = wager * 2;
-            onWin(prize);
+            onWin(wager * 2);
           } else {
             onLose(wager);
           }
@@ -508,8 +558,8 @@ export default function LudoSuperstar({
         destination === FINISH
           ? "Token reached home!"
           : captured
-            ? "Capture! Opponent returned to base."
-            : "Token moved."
+          ? "Captured opponent! Rolling again."
+          : "Token moved."
       );
 
       if (result === 6 || captured || destination === FINISH) {
@@ -522,7 +572,7 @@ export default function LudoSuperstar({
   );
 
   const restart = () => {
-    setPlayers(createPlayers());
+    setPlayers(createPlayers(gameMode));
     setTurn("red");
     setDice({ red: 1, blue: 1, yellow: 1, green: 1 });
     setRolling(false);
@@ -532,35 +582,24 @@ export default function LudoSuperstar({
     setMessage("New game started");
   };
 
-  const startWager = (amount: number) => {
-    if (!Number.isFinite(amount) || amount < 1 || amount > balance) {
-      setMessage("Choose a valid wager within your balance.");
-      return;
-    }
-    setWager(amount);
-    setMessage(`Wager selected: ${amount}`);
-  };
-
   return (
-    <main className="ludo-screen relative flex h-[100dvh] w-full flex-col items-center justify-between overflow-hidden bg-[#0F172A] p-2 select-none">
-      {/* Top Header */}
-      <header className="ludo-content flex shrink-0 items-center justify-between gap-2 px-3 pb-1 pt-[max(4px,env(safe-area-inset-top))]">
-        <div className="flex min-w-0 items-center gap-1.5">
-          <button onClick={() => setMenuOpen((v) => !v)} className="h-9 w-9 rounded-lg bg-white/15 text-xl">☰</button>
-          <button onClick={() => setMessage("Trophy room")} className="h-9 w-9 rounded-lg bg-white/15">🏆</button>
-          <button onClick={() => setMessage("Spectator mode")} className="h-9 w-9 rounded-lg bg-white/15">◉</button>
-          <button onClick={() => setMessage("Missions")} className="h-9 w-9 rounded-lg bg-white/15">🎯</button>
-          <span className="hidden rounded-lg bg-white/15 px-3 py-2 text-xs font-black sm:block">Aero</span>
+    <main className="relative flex h-[100dvh] w-full flex-col items-center justify-between overflow-hidden bg-[#0F172A] p-2 select-none">
+      {/* Header */}
+      <header className="flex shrink-0 w-full max-w-md items-center justify-between gap-2 px-2 pt-1">
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => setMenuOpen((v) => !v)} className="h-9 w-9 rounded-lg bg-white/15 text-xl text-white">
+            ☰
+          </button>
+          <button onClick={() => setMessage("Trophy room")} className="h-9 w-9 rounded-lg bg-white/15 text-white">🏆</button>
         </div>
-        <div className="flex shrink-0 items-center gap-2 rounded-full bg-[#15114f] px-2 py-1 text-sm font-black">
-          <span className="text-2xl">💎</span>
+        <div className="flex items-center gap-1.5 rounded-full bg-[#15114f] px-3 py-1 text-sm font-black text-white border border-white/10">
+          <span className="text-xl">💎</span>
           {Math.floor(balance).toLocaleString()}
-          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-lime-400 text-green-950">+</span>
         </div>
       </header>
 
-      {/* Top Player Panels (Green & Yellow) */}
-      <div className="ludo-content grid shrink-0 grid-cols-2 gap-2 px-1 py-1">
+      {/* Top Players (Green & Yellow) */}
+      <div className="grid shrink-0 w-full max-w-md grid-cols-2 gap-2 px-1 py-1">
         {(["green", "yellow"] as Color[]).map((color) => (
           <PlayerPanel
             key={color}
@@ -573,16 +612,20 @@ export default function LudoSuperstar({
           />
         ))}
       </div>
-
-      {/* Bounded Game Board Container (Prevents All Overlaps & Ensures Perfect Scaling) */}
+      {/* Board Container */}
       <div className="relative flex w-full max-w-[min(100vw-16px,calc(100dvh-280px))] aspect-square items-center justify-center my-auto">
         <div className="absolute inset-0 rounded-[24px] bg-[#1E293B]/80 backdrop-blur-md p-2 shadow-2xl border border-white/10 flex items-center justify-center">
-          <LudoBoard players={players} turn={turn} canMove={rolled && movable.length > 0} onMove={moveToken} />
+          <HighFidelityBoard
+            players={players}
+            turn={turn}
+            canMove={rolled && movable.length > 0}
+            onMove={moveToken}
+          />
         </div>
       </div>
 
-      {/* Bottom Player Panels (Red & Blue) */}
-      <div className="ludo-content grid shrink-0 grid-cols-2 gap-2 px-1 py-1">
+      {/* Bottom Players (Red & Blue) */}
+      <div className="grid shrink-0 w-full max-w-md grid-cols-2 gap-2 px-1 py-1">
         {(["red", "blue"] as Color[]).map((color) => (
           <PlayerPanel
             key={color}
@@ -596,58 +639,63 @@ export default function LudoSuperstar({
         ))}
       </div>
 
-      {/* Bottom Action Footer */}
-      <div className="ludo-content flex shrink-0 items-center justify-between gap-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1 px-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
-          <button onClick={() => setMessage("Emoji controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">EMOJI</button>
-          <button onClick={() => setMessage("Chat controls")} className="rounded-full bg-white/15 px-3 py-2 text-xs font-black">CHAT</button>
+      {/* Action Footer */}
+      <div className="flex shrink-0 w-full max-w-md items-center justify-between gap-2 px-1 pb-1">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-amber-300 bg-red-800 text-xl">👑</div>
+          <button onClick={() => setMessage("Emoji list")} className="rounded-full bg-white/15 px-3 py-1.5 text-xs font-black text-white">EMOJI</button>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          <button onClick={() => setMessage("Power-ups")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl text-white/40">ϟ</button>
-          <button onClick={() => setMessage("Gifts")} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-xl">🎁</button>
-          <button onClick={restart} className="h-9 w-9 rounded-lg bg-[#100b50]/65 text-lg">↻</button>
+        <div className="flex items-center gap-1.5">
+          <button onClick={restart} className="h-9 w-9 rounded-lg bg-white/15 text-lg text-white">↻</button>
         </div>
       </div>
 
+      {/* Menu Drawer & Winner Modal */}
       <AnimatePresence>
         {menuOpen && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
-            className="absolute left-3 top-14 z-40 w-48 rounded-2xl border border-white/15 bg-[#21165f] p-3 shadow-2xl"
+            className="absolute left-3 top-14 z-50 w-56 rounded-2xl border border-white/20 bg-[#1E293B] p-4 shadow-2xl text-white"
           >
-            <div className="mb-2 font-black">Game menu</div>
-            <button onClick={restart} className="w-full rounded-lg bg-white/10 p-2 text-left text-sm">Restart game</button>
-            <label className="mt-3 block text-xs text-white/70">Wager amount</label>
-            <input
-              type="number"
-              min={1}
-              max={Math.max(1, balance)}
-              value={wager}
-              onChange={(e) => startWager(Number(e.target.value))}
-              className="mt-1 w-full rounded-lg bg-black/30 px-3 py-2 text-sm text-white"
-            />
-            <button onClick={() => setMenuOpen(false)} className="mt-2 w-full rounded-lg bg-white/10 p-2 text-sm">Close</button>
+            <div className="mb-3 font-black text-sm">Select Ludo Mode</div>
+            <div className="flex flex-col gap-1.5">
+              {(["classic", "quick", "compact"] as GameMode[]).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => { switchGameMode(m); setMenuOpen(false); }}
+                  className={`rounded-lg p-2 text-left text-xs font-bold capitalize ${
+                    gameMode === m ? "bg-amber-500 text-slate-950" : "bg-white/10 hover:bg-white/20"
+                  }`}
+                >
+                  {m} Ludo
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setMenuOpen(false)} className="mt-4 w-full rounded-lg bg-white/10 p-2 text-xs">Close</button>
           </motion.div>
         )}
         {winner && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 p-5 backdrop-blur-sm"
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-5 backdrop-blur-sm"
           >
-            <div className="w-full max-w-xs rounded-3xl border border-white/20 bg-[#21165f] p-7 text-center shadow-2xl">
+            <div className="w-full max-w-xs rounded-3xl border border-white/20 bg-[#1E293B] p-6 text-center shadow-2xl text-white">
               <div className="text-5xl">🏆</div>
-              <h2 className="mt-3 text-2xl font-black" style={{ color: COLORS[winner] }}>{winner.toUpperCase()} WINS!</h2>
-              <button onClick={restart} className="mt-5 w-full rounded-xl bg-amber-400 px-4 py-3 font-black text-slate-950">Play again</button>
+              <h2 className="mt-3 text-2xl font-black" style={{ color: COLORS[winner] }}>
+                {winner.toUpperCase()} WINS!
+              </h2>
+              <button onClick={restart} className="mt-5 w-full rounded-xl bg-amber-400 px-4 py-3 font-black text-slate-950">
+                Play again
+              </button>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div aria-live="polite" className="pointer-events-none absolute left-1/2 top-[13%] z-30 max-w-[90%] -translate-x-1/2 truncate rounded-full border border-white/10 bg-[#100b50]/85 px-3 py-1 text-center text-[10px] font-bold text-white/80">
+      <div className="pointer-events-none absolute left-1/2 top-[12%] z-40 max-w-[90%] -translate-x-1/2 truncate rounded-full border border-white/10 bg-[#0F172A]/90 px-3 py-1 text-center text-[10px] font-bold text-white shadow-lg">
         {message}
       </div>
     </main>
