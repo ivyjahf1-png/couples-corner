@@ -239,7 +239,7 @@ const tokenPositions = useMemo(() => {
       player.tokens.forEach((token, index) => {
         if (token.step < 0 || token.step >= FINISH) return;
         const [x, y] = trackPosition(player.color, token.step);
-        const key = ${x},${y};
+        const key = `${x},${y}`;
         map.set(key, [...(map.get(key) ?? []), { color: player.color, index }]);
       });
     });
@@ -249,7 +249,7 @@ const tokenPositions = useMemo(() => {
   const homeCells = useMemo(() => {
     const map = new Map<string, Color>();
     Object.entries(HOME).forEach(([color, cells]) => {
-      cells.forEach(([x, y]) => map.set(${x},${y}, color as Color));
+      cells.forEach(([x, y]) => map.set(`${x},${y}`, color as Color));
     });
     return map;
   }, []);
@@ -260,7 +260,7 @@ const tokenPositions = useMemo(() => {
         {Array.from({ length: 225 }, (_, index) => {
           const x = index % 15;
           const y = Math.floor(index / 15);
-          const key = ${x},${y};
+          const key = `${x},${y}`;
 
           let base: Color | null = null;
           if (x < 6 && y < 6) base = "green";
@@ -276,11 +276,8 @@ const tokenPositions = useMemo(() => {
 
           let background = "#fffdf2";
           if (base) background = COLORS[base];
-          else if (homeColor) background = ${COLORS[homeColor]}e6;
-          else if (SAFE.has(trackIndex)) background = "#f4e7cd";
-          else if (isTrack) background = "#fffdf3";
-          else if (center) background = "#f4e4c3";
-
+          else if (homeColor) background = `${COLORS[homeColor]}e6`;
+          
           const inBaseHome =
             base &&
             x >= (base === "yellow" || base === "blue" ? 10 : 1) &&
@@ -319,11 +316,11 @@ const tokenPositions = useMemo(() => {
                 </svg>
               )}
 
-             {pieces.map((piece, pieceIndex) => (
+              {pieces.map((piece: { color: Color; index: number }, pieceIndex: number) => (
                 <div
                   key={`${piece.color}-${piece.index}`}
                   className="absolute z-20 flex h-full w-full items-center justify-center"
-                  style={{ transform: "translate(" + (pieceIndex * 12) + "%, " + (pieceIndex * 10) + "%)" }}
+                  style={{ transform: `translate(${pieceIndex * 12}%, ${pieceIndex * 10}%)` }}
                 >
                   <TokenButton
                     color={piece.color}
@@ -388,7 +385,7 @@ export default function LudoSuperstar({
       setDice((old) => ({ ...old, [turn]: result }));
       setRolling(false);
       setRolled(true);
-      setMessage(${current.name} rolled ${result});
+      setMessage(`${current.name} rolled ${result}`);
 
       const canMove = current.tokens.some((token) =>
         token.step === -1
@@ -450,7 +447,7 @@ export default function LudoSuperstar({
 
       if (movingPlayer.tokens.every((t) => t.step === FINISH)) {
         setWinner(color);
-        setMessage(${movingPlayer.name} wins!);
+        setMessage(`${movingPlayer.name} wins!`);
 
         if (!settled) {
           setSettled(true);
@@ -498,7 +495,7 @@ export default function LudoSuperstar({
       return;
     }
     setWager(amount);
-    setMessage(Wager selected: ${amount});
+    setMessage(`Wager selected: ${amount}`);
   };
 
   return (

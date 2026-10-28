@@ -83,7 +83,7 @@ export function TempleSeed({ color, size = 30 }: { color: number; size?: number 
     >
       <div 
         className="w-[52%] h-[36%] rounded-t-full rounded-b-sm z-30 shadow-[inset_-2px_-2px_5px_rgba(0,0,0,0.6),inset_2px_2px_5px_rgba(255,255,255,0.9)] border border-white/40"
-        style={{ background: "radial-gradient(circle at 35% 35%, " + light + ", " + primary + " 70%, " + dark + ")" }}
+        style={{ background: `radial-gradient(circle at 35% 35%, ${light}, ${primary} 70%, ${dark})` }}
       />
       <div 
         className="w-[72%] h-[30%] -mt-[6%] rounded-sm z-20 shadow-[inset_0_0_6px_rgba(0,0,0,0.5)] border-t border-white/30"
