@@ -1,7 +1,11 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";import { AnimatePresence, motion } from "framer-motion";
-
+const ARROW_SHORTCUTS: Record<number, number> = {
+  12: 18,
+  25: 31,
+  38: 44,
+};
 type Color = "red" | "blue" | "yellow" | "green";
 type GameMode = "classic" | "quick" | "compact";
 
@@ -37,6 +41,13 @@ const START: Record<Color, number> = {
 const TRACK_LENGTH = 52;
 const FINISH = 57;
 const SAFE = new Set([1, 6, 14, 19, 27, 32, 40, 45]);
+// Safe star tiles: Home gates + 7th step resting tiles for each color arm
+const SAFE_STAR_TILES = [
+  // Home gates (step 0 equivalents on the board grid)
+  [1, 6], [8, 1], [6, 13], [13, 8],
+  // 7th resting tiles up each path
+  [2, 6], [8, 2], [5, 12], [12, 7] // (Adjust these to match your board's exact 7th tile coordinates)
+];
 
 const TRACK: [number, number][] = [
   [1, 6], [2, 6], [3, 6], [4, 6], [5, 6],
@@ -443,8 +454,7 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
     (color: Color, index: number) => {
       if (color !== turn || !rolled || rolling || winner) return;
 
-      const result = dice[color];
-      const player = players.find((p) => p.color === color)!;
+const result = dice[color] || dice[turn];      const player = players.find((p) => p.color === color)!;
       const token = player.tokens[index];
 
       if (!token || token.step === FINISH) return;
@@ -453,12 +463,20 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
       const destination = token.step === -1 ? 0 : token.step + result;
       if (destination > FINISH) return;
 
+      let finalDestination = destination;
+      if (ARROW_SHORTCUTS[destination]) {
+        finalDestination = ARROW_SHORTCUTS[destination];
+        setMessage(`${player.name}'s token hit an Aero arrow and skyrocketed!`);
+      }
+
+      if (finalDestination > FINISH) return;
+
       const updated = players.map((p) => ({
         ...p,
         tokens: p.tokens.map((t) => ({ ...t })),
       }));
       const movingPlayer = updated.find((p) => p.color === color)!;
-      movingPlayer.tokens[index].step = destination;
+      movingPlayer.tokens[index].step = finalDestination;
 
       let captured = false;
 
