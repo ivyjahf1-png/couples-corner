@@ -454,7 +454,8 @@ export default function LudoSuperstar({ balance, onWin, onLose }: LudoSuperstarP
     (color: Color, index: number) => {
       if (color !== turn || !rolled || rolling || winner) return;
 
-const result = dice[color] || dice[turn];      const player = players.find((p) => p.color === color)!;
+      const result = dice[color] || dice[turn];
+      const player = players.find((p) => p.color === color)!;
       const token = player.tokens[index];
 
       if (!token || token.step === FINISH) return;
@@ -533,35 +534,44 @@ const result = dice[color] || dice[turn];      const player = players.find((p) =
     [dice, nextTurn, onLose, onWin, players, rolled, rolling, settled, turn, wager, winner]
   );
 
-  // Automated AI Turn Handler
-  useEffect(() => {
-    if (turn === "red" || winner) return;
+ // Automated AI Turn Handler
+useEffect(() => {
+  if (turn === "red" || winner) return;
 
-    const timer = window.setTimeout(() => {
-      const aiResult = Math.floor(Math.random() * 6) + 1;
-      setDice((old) => ({ ...old, [turn]: aiResult }));
-      setMessage(`${current.name} rolled a ${aiResult}`);
+  const timer = window.setTimeout(() => {
+    const aiResult = Math.floor(Math.random() * 6) + 1;
+    setDice((old) => ({ ...old, [turn]: aiResult }));
+    setMessage(`${current.name} rolled a ${aiResult}`);
+    setRolled(true);
 
-      const aiMovable = current.tokens
-        .map((token, index) => {
-          if (token.step === FINISH) return -1;
-          if (token.step === -1) return aiResult === 6 ? index : -1;
-          return token.step + aiResult <= FINISH ? index : -1;
-        })
-        .filter((index) => index >= 0);
+    const aiMovable = current.tokens
+      .map((token, index) => {
+        if (token.step === FINISH) return -1;
+        if (token.step === -1) return aiResult === 6 ? index : -1;
+        return token.step + aiResult <= FINISH ? index : -1;
+      })
+      .filter((index) => index >= 0);
 
-      if (aiMovable.length > 0) {
-        const chosenTokenIndex = aiMovable[0];
-        window.setTimeout(() => {
-          moveToken(turn, chosenTokenIndex);
-        }, 800);
-      } else {
-        window.setTimeout(nextTurn, 1000);
-      }
-    }, 1000);
+    if (aiMovable.length > 0) {
+      const chosenTokenIndex = aiMovable[0];
+      window.setTimeout(() => {
+        moveToken(turn, chosenTokenIndex);
+        
+        // Industry Standard Rule: If rolled a 6, player gets another turn. Otherwise, advance turn.
+        if (aiResult !== 6) {
+          window.setTimeout(nextTurn, 1000);
+        } else {
+          // Reset rolled state so the AI can roll again for its bonus turn
+          window.setTimeout(() => setRolled(false), 500);
+        }
+      }, 800);
+    } else {
+      window.setTimeout(nextTurn, 1000);
+    }
+  }, 1000);
 
-    return () => clearTimeout(timer);
-  }, [turn, winner, current, moveToken, nextTurn]);
+  return () => clearTimeout(timer);
+}, [turn, winner, current, moveToken, nextTurn]);
 
   const movable = useMemo(
     () =>
@@ -742,4 +752,66 @@ const result = dice[color] || dice[turn];      const player = players.find((p) =
       </div>
     </main>
   );
+}
+
+function getValidMoves(player: Player, diceVal: number): number[] {
+  const validSeedIds: number[] = [];
+
+  player.tokens.forEach((token, index) => {
+    // Case 1: Token is in base. Needs a 6 to exit.
+    if (token.step === -1) {
+      if (diceVal === 6) {
+        validSeedIds.push(index);
+      }
+    } 
+    // Case 2: Token is active on the board or home stretch
+    else if (token.step < 58) {
+      const targetPosition = token.step + diceVal;
+      // Cannot exceed the final victory index (58)
+      if (targetPosition <= 58) {
+        validSeedIds.push(index);
+      }
+    }
+  });
+
+  return validSeedIds;
+}
+function moveSeed(player: Player, tokenId: number, diceVal: number, allPlayers: Player[]): {
+  newPosition: number;
+  captured: boolean;
+  extraTurn: boolean;
+} {
+  const token = player.tokens[tokenId];
+  let newPos: number;
+
+  if (token.step === -1 && diceVal === 6) {
+    newPos = 0;
+  } else {
+    newPos = token.step + diceVal;
+  }
+
+  token.step = newPos;
+
+  let captured = false;
+  if (newPos < 51) {
+    const globalCurrentIndex = (START[player.color] + newPos) % TRACK_LENGTH;
+
+    allPlayers.forEach((opponent) => {
+      if (opponent.color === player.color) return;
+
+      opponent.tokens.forEach((oppToken) => {
+        if (oppToken.step >= 0 && oppToken.step < 51) {
+          const oppGlobalIndex = (START[opponent.color] + oppToken.step) % TRACK_LENGTH;
+          if (oppGlobalIndex === globalCurrentIndex) {
+            oppToken.step = -1;
+            captured = true;
+          }
+        }
+      });
+    });
+  }
+
+  const extraTurn = diceVal === 6 || captured;
+
+  return { newPosition: newPos, captured, extraTurn };
 }
