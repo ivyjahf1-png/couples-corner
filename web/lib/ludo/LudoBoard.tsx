@@ -6,7 +6,33 @@ import {
   type LudoColor,
   type LudoGameState,
 } from "@/lib/ludo/engine";
+
+export interface Token {
+  id: number;
+  step: number;
+}
+
+export interface Player {
+  color: 'red' | 'blue' | 'yellow' | 'green';
+  name: string;
+  tokens: Token[];
+  avatar?: string;
+  flag?: string;
+}
+
 const GRID = 15;
+
+const START: Record<string, number> = {
+  red: 0,
+  green: 13,
+  yellow: 26,
+  blue: 39,
+};
+const FINISH = 56;
+const TRACK_LENGTH = 52;
+
+// Standard Ludo Safe Star Tile Indices (Global track positions 0 to 51)
+const SAFE_STAR_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 // Exact color palette matching the reference board: Red, Blue, Yellow, Green
 const COLORS = ["#D32F2F", "#1976D2", "#FBC02D", "#388E3C"]; 
@@ -340,3 +366,67 @@ export function LudoBoard({ state, selectable, onSelect }: LudoBoardProps) {
 }
 
 export default LudoBoard;
+
+type LudoTokenState = { step: number };
+
+function getValidMoves(player: Player, diceVal: number): number[] {
+  const validSeedIds: number[] = [];
+
+  player.tokens.forEach((token: LudoTokenState, index: number) => {
+    // Case 1: Token is in base. Needs a 6 to exit.
+    if (token.step === -1) {
+      if (diceVal === 6) {
+        validSeedIds.push(index);
+      }
+    } 
+    // Case 2: Token is active on the board or home stretch
+    else if (token.step < 58) {
+      const targetPosition = token.step + diceVal;
+      // Cannot exceed the final victory index (58)
+      if (targetPosition <= 58) {
+        validSeedIds.push(index);
+      }
+    }
+  });
+
+  return validSeedIds;
+}
+function moveSeed(player: Player, tokenId: number, diceVal: number, allPlayers: Player[]): {
+  newPosition: number;
+  captured: boolean;
+  extraTurn: boolean;
+} {
+  const token: LudoTokenState = player.tokens[tokenId];
+  let newPos: number;
+
+  if (token.step === -1 && diceVal === 6) {
+    newPos = 0;
+  } else {
+    newPos = token.step + diceVal;
+  }
+
+  token.step = newPos;
+
+  let captured = false;
+  if (newPos < 51) {
+    const globalCurrentIndex = (START[player.color] + newPos) % TRACK_LENGTH;
+
+    allPlayers.forEach((opponent) => {
+      if (opponent.color === player.color) return;
+
+      opponent.tokens.forEach((oppToken: LudoTokenState) => {
+        if (oppToken.step >= 0 && oppToken.step < 51) {
+          const oppGlobalIndex = (START[opponent.color] + oppToken.step) % TRACK_LENGTH;
+          if (oppGlobalIndex === globalCurrentIndex) {
+            oppToken.step = -1;
+            captured = true;
+          }
+        }
+      });
+    });
+  }
+
+  const extraTurn = diceVal === 6 || captured;
+
+  return { newPosition: newPos, captured, extraTurn };
+}
