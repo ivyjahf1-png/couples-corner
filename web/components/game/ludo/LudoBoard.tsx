@@ -34,6 +34,16 @@ const TRACK_LENGTH = 52;
 // Standard Ludo Safe Star Tile Indices (Global track positions 0 to 51)
 const SAFE_STAR_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
 
+// Inside your cell render loop where you draw each grid tile:
+const isSafeStar = SAFE_STAR_TILES.includes(globalTrackIndex);
+
+// Render star icon if true:
+{isSafeStar && (
+  <span className="text-amber-400 text-xs font-bold flex items-center justify-center">
+    ⭐
+  </span>
+)}
+
 // Exact color palette matching the reference board: Red, Blue, Yellow, Green
 const COLORS = ["#D32F2F", "#1976D2", "#FBC02D", "#388E3C"]; 
 const HEX_DARK = ["#9A0007", "#0D47A1", "#F57F17", "#1B5E20"];
@@ -409,15 +419,21 @@ function moveSeed(player: Player, tokenId: number, diceVal: number, allPlayers: 
 
   let captured = false;
   if (newPos < 51) {
-    const globalCurrentIndex = (START[player.color] + newPos) % TRACK_LENGTH;
+    const baseOffset = START[player.color] ?? 0;
+    const globalCurrentIndex = (baseOffset + newPos) % TRACK_LENGTH;
 
     allPlayers.forEach((opponent) => {
       if (opponent.color === player.color) return;
 
       opponent.tokens.forEach((oppToken: LudoTokenState) => {
         if (oppToken.step >= 0 && oppToken.step < 51) {
-          const oppGlobalIndex = (START[opponent.color] + oppToken.step) % TRACK_LENGTH;
-          if (oppGlobalIndex === globalCurrentIndex) {
+          const oppBaseOffset = START[opponent.color] ?? 0;
+          const oppGlobalIndex = (oppBaseOffset + oppToken.step) % TRACK_LENGTH;
+          
+          // Check if the destination is a safe star square
+          const isSafe = SAFE_STAR_TILES.includes(globalCurrentIndex);
+
+          if (oppGlobalIndex === globalCurrentIndex && !isSafe) {
             oppToken.step = -1;
             captured = true;
           }
