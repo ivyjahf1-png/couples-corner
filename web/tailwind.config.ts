@@ -2,9 +2,9 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./lib/**/*.{js,ts,jsx,tsx,mdx}",
+    "./app/*/.{js,ts,jsx,tsx,mdx}",
+    "./components/*/.{js,ts,jsx,tsx,mdx}",
+    "./lib/*/.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -80,6 +80,13 @@ const config: Config = {
         card: "var(--shadow-card)",
         lifted: "var(--shadow-lifted)",
         floating: "var(--shadow-floating)",
+      },
+      // --- ADDED THESE TWO LINES FOR THE LUDO BOARD ---
+      gridTemplateColumns: {
+        '15': 'repeat(15, minmax(0, 1fr))',
+      },
+      gridTemplateRows: {
+        '15': 'repeat(15, minmax(0, 1fr))',
       },
     },
   },
