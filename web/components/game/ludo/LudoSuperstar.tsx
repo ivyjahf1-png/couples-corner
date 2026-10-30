@@ -9,6 +9,7 @@ type Color = "red" | "blue" | "yellow" | "green";
 type GameMode = "classic" | "quick" | "compact";
 
 type Token = { step: number };
+export type LudoTokenState = Token;
 type Player = {
   color: Color;
   name: string;
