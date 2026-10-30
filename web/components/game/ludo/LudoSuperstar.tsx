@@ -41,13 +41,8 @@ const START: Record<Color, number> = {
 const TRACK_LENGTH = 52;
 const FINISH = 57;
 const SAFE = new Set([1, 6, 14, 19, 27, 32, 40, 45]);
-// Safe star tiles: Home gates + 7th step resting tiles for each color arm
-const SAFE_STAR_TILES = [
-  // Home gates (step 0 equivalents on the board grid)
-  [1, 6], [8, 1], [6, 13], [13, 8],
-  // 7th resting tiles up each path
-  [2, 6], [8, 2], [5, 12], [12, 7] // (Adjust these to match your board's exact 7th tile coordinates)
-];
+// Standard Ludo Safe Star Tile Indices (Global track positions 0 to 51)
+const SAFE_STAR_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
 
 const TRACK: [number, number][] = [
   [1, 6], [2, 6], [3, 6], [4, 6], [5, 6],
@@ -110,6 +105,52 @@ function trackPosition(color: Color, step: number): [number, number] {
     return HOME_PATHS[color][homeIdx];
   }
   return TRACK[(START[color] + (step - 1)) % TRACK_LENGTH];
+}
+
+function moveSeed(player: Player, tokenId: number, diceVal: number, allPlayers: Player[]): {
+  newPosition: number;
+  captured: boolean;
+  extraTurn: boolean;
+} {
+  const token: LudoTokenState = player.tokens[tokenId];
+  let newPos: number;
+
+  if (token.step === -1 && diceVal === 6) {
+    newPos = 0;
+  } else {
+    newPos = token.step + diceVal;
+  }
+
+  token.step = newPos;
+
+  let captured = false;
+  if (newPos < 51) {
+    const baseOffset = START[player.color] ?? 0;
+    const globalCurrentIndex = (baseOffset + newPos) % TRACK_LENGTH;
+
+    allPlayers.forEach((opponent) => {
+      if (opponent.color === player.color) return;
+
+      opponent.tokens.forEach((oppToken: LudoTokenState) => {
+        if (oppToken.step >= 0 && oppToken.step < 51) {
+          const oppBaseOffset = START[opponent.color] ?? 0;
+          const oppGlobalIndex = (oppBaseOffset + oppToken.step) % TRACK_LENGTH;
+          
+          // Check if the destination is a safe star square
+          const isSafe = SAFE_STAR_TILES.includes(globalCurrentIndex);
+
+          if (oppGlobalIndex === globalCurrentIndex && !isSafe) {
+            oppToken.step = -1;
+            captured = true;
+          }
+        }
+      });
+    });
+  }
+
+  const extraTurn = diceVal === 6 || captured;
+
+  return { newPosition: newPos, captured, extraTurn };
 }
 
 function DiceButton({
