@@ -150,7 +150,7 @@ export default function LudoSuperstarPage() {
 
     if (currentPos === -1) {
       if (diceValue === 6) {
-        player.tokens[tokenIdx] = playerId === 0 ? 38 : 12;
+        player.tokens[tokenIdx] = 0;
         playAudio("move");
         setPlayers(updatedPlayers);
         passTurn(true);

@@ -77,8 +77,8 @@ const HOME_PATH: Record<number, ReadonlyArray<readonly [number, number]>> = {
   3: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
 };
 
-const START_SET = new Set([0, 14, 28, 42]);
-const SAFE_STARS = new Set([8, 21, 34, 47]);
+const START_SET = new Set([0, 13, 26, 39]);
+const SAFE_STARS = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
 
 function posFor(color: number, tokenIdx: number, steps: number) {
   if (steps < 0) {
@@ -167,15 +167,15 @@ const BoardSurface = React.memo(() => {
           let cellColor = "#FFFFFF";
           if (isStart) {
             if (i === 0) cellColor = colorOf(0);
-            if (i === 14) cellColor = colorOf(3);
-            if (i === 28) cellColor = colorOf(2);
-            if (i === 42) cellColor = colorOf(1);
+            if (i === 13) cellColor = colorOf(3);
+            if (i === 26) cellColor = colorOf(2);
+            if (i === 39) cellColor = colorOf(1);
           }
 
           let rot = 0;
-          if (i === 14) rot = 90;
-          if (i === 28) rot = 180;
-          if (i === 42) rot = 270;
+          if (i === 13) rot = 90;
+          if (i === 26) rot = 180;
+          if (i === 39) rot = 270;
 
           return (
             <g key={"trk-" + i}>
