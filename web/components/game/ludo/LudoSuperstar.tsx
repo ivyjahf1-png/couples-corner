@@ -170,10 +170,9 @@ export default function LudoGame() {
       const roll = Math.floor(Math.random() * 6) + 1;
       setDiceValue(roll);
       setIsRolling(false);
-      logMessage(${activePlayer.name} rolled a ${roll}!);
-
+      logMessage(`${activePlayer.name} rolled a ${roll}!`);
       // Handle 3 consecutive 6s rule
-      if (roll === 6) {
+      if (roll === 6) { // <-- Fixed '1f' to 'if'
         const nextSixes = consecutiveSixes + 1;
         setConsecutiveSixes(nextSixes);
 
