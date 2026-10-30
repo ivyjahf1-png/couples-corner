@@ -123,13 +123,13 @@ export const LudoSuperstar: React.FC = () => {
     setDice(roll);
 
     const canMove = pawns[turn].some((p) => (p.step === 0 ? roll === 6 : p.step + roll <= 57));
-    if (!canMove) {
-  setStatusMessage(Rolled ${roll}. No moves!);  // ✅ Wrapped in backticks ` `
-  setTimeout(passTurn, 800);
-} else {
-  setWaitingForMove(true);
-  setStatusMessage(Rolled ${roll}! Tap your token.); // ✅ Wrapped in backticks ` `
-}
+  if (!canMove) {
+      setStatusMessage("Rolled " + roll + ". No moves!");
+      setTimeout(passTurn, 800);
+    } else {
+      setWaitingForMove(true);
+      setStatusMessage("Rolled " + roll + "! Tap your token.");
+    }
   };
 
   // Canvas Click
@@ -176,7 +176,7 @@ export const LudoSuperstar: React.FC = () => {
         // Win check
         const homeCount = nextPawns[turn].filter((p) => p.step === 57).length;
         if (homeCount >= (mode === 'QUICK' ? 1 : 4)) {
-          alert(🏆 Player ${turn} won $(stake * 4 * 0.9) coins!);
+       alert("🏆 Player " + turn + " won " + (stake * 4 * 0.9) + " coins!");
           setIsModalOpen(true);
           return;
         }
