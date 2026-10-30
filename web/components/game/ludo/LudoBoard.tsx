@@ -34,15 +34,6 @@ const TRACK_LENGTH = 52;
 // Standard Ludo Safe Star Tile Indices (Global track positions 0 to 51)
 const SAFE_STAR_TILES = [0, 8, 13, 21, 26, 34, 39, 47];
 
-// Inside your cell render loop where you draw each grid tile:
-const isSafeStar = SAFE_STAR_TILES.includes(globalTrackIndex);
-
-// Render star icon if true:
-{isSafeStar && (
-  <span className="text-amber-400 text-xs font-bold flex items-center justify-center">
-    ⭐
-  </span>
-)}
 
 // Exact color palette matching the reference board: Red, Blue, Yellow, Green
 const COLORS = ["#D32F2F", "#1976D2", "#FBC02D", "#388E3C"]; 
@@ -55,7 +46,7 @@ function lightColorOf(c: number) { return HEX_LIGHT[c] || "#ccc"; }
 
 const TRACK_PATH: ReadonlyArray<readonly [number, number]> = [
   [6, 13], [6, 12], [6, 11], [6, 10], [6, 9],
-  [5, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
+  [5//, 8], [4, 8], [3, 8], [2, 8], [1, 8], [0, 8],
   [0, 7], [0, 6],
   [1, 6], [2, 6], [3, 6], [4, 6], [5, 6], [6, 6],
   [6, 5], [6, 4], [6, 3], [6, 2], [6, 1], [6, 0],

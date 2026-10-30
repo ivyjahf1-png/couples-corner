@@ -1,5 +1,5 @@
 "use client";
-
+import { type LudoTokenState } from "@/lib/ludo/engine"; // (or wherever your types are defined)
 import React, { useCallback, useEffect, useMemo, useState } from "react";import { AnimatePresence, motion } from "framer-motion";
 const ARROW_SHORTCUTS: Record<number, number> = {
   12: 18,
