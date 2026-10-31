@@ -85,7 +85,7 @@ export default function LudoSuperstar({
 
   const [diceValue, setDiceValue] = useState<number>(4);
   const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [turnTimer, setTurnTimer] = useState<number>(20); // 20-second strict turn timer
+  const [turnTimer, setTurnTimer] = useState<number>(20);
   const [winner, setWinner] = useState<Color | null>(null);
 
   // Seed board positions (-1 = yard, 0 = gate, 1-56 = track/home)
@@ -96,7 +96,7 @@ export default function LudoSuperstar({
     blue: [-1, -1, -1, -1],
   });
 
-  // Searching matchmaking timer effect
+  // Searching matchmaking timer
   useEffect(() => {
     if (screen !== "searching") return;
     const interval = setInterval(() => {
@@ -112,9 +112,18 @@ export default function LudoSuperstar({
     return () => clearInterval(interval);
   }, [screen]);
 
-  // Turn timer & AI Bot automation effect (20s countdown for all players)
+  // Turn timer & Instant AI bot automation
   useEffect(() => {
     if (screen !== "game") return;
+
+    // If it's an AI turn, play immediately without waiting for timer expiry
+    if (currentTurn !== "red") {
+      const aiTimer = setTimeout(() => {
+        executeTurnAction();
+      }, 1000);
+      return () => clearTimeout(aiTimer);
+    }
+
     const timer = setInterval(() => {
       setTurnTimer((prev) => {
         if (prev <= 1) {
@@ -166,8 +175,8 @@ export default function LudoSuperstar({
       setTimeout(() => {
         setTurnIndex((prev) => (prev + 1) % turnOrder.length);
         setTurnTimer(20);
-      }, 1000);
-    }, 500);
+      }, 800);
+    }, 400);
   };
 
   const handleStartMatch = () => {
@@ -216,12 +225,19 @@ export default function LudoSuperstar({
           ))}
         </div>
 
-        {/* Stake Adjustment */}
+        {/* Stake Adjustment Selector */}
         <div className="bg-indigo-950/60 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between my-2">
-          <span className="text-xs font-bold text-indigo-200">Stake Bet</span>
-          <div className="flex items-center gap-1.5 font-black text-amber-400">
-            <span>🪙</span>
-            <span>{(betAmount / 1000000).toFixed(1)}M</span>
+          <span className="text-xs font-bold text-indigo-200">Select Stake Bet</span>
+          <div className="flex items-center gap-2">
+            {[5000000, 10000000, 25000000].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => setBetAmount(amt)}
+                className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${betAmount === amt ? "bg-amber-400 text-black border-amber-300 shadow" : "bg-indigo-900/50 text-indigo-200 border-indigo-500/30"}`}
+              >
+                {amt / 1000000}M
+              </button>
+            ))}
           </div>
         </div>
 
@@ -290,6 +306,12 @@ export default function LudoSuperstar({
               <span className="max-w-[35px] truncate">{players.green.name}</span>
             </div>
           </div>
+          {currentTurn === "green" && (
+            <div className="absolute top-10 left-4 z-20 animate-bounce">
+              <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
+              <Dice3DFace value={diceValue} isRolling={isRolling} />
+            </div>
+          )}
           <button onClick={() => setScreen("lobby")} className="text-[9px] bg-purple-900/60 border border-purple-500/30 px-1.5 py-1 rounded-lg text-purple-200">
             Lobby 🔄
           </button>
@@ -316,17 +338,16 @@ export default function LudoSuperstar({
               <span className="max-w-[35px] truncate">{players.yellow.name}</span>
             </div>
           </div>
+          {currentTurn === "yellow" && (
+            <div className="absolute top-10 right-4 z-20 animate-bounce">
+              <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
+              <Dice3DFace value={diceValue} isRolling={isRolling} />
+            </div>
+          )}
         </div>
       </div>
 
-      {currentTurn !== "red" && (
-        <div className="mx-auto flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-0.5 text-[9px] font-black text-amber-300 animate-pulse">
-          <Bot className="h-3 w-3" />
-          <span>AI BOT ({currentTurn.toUpperCase()}) PLAYING ({turnTimer}s)...</span>
-        </div>
-      )}
-
-      {/* Main 15x15 Board Grid with 9th Tile Star Safe House and Aero mode arrows */}
+      {/* Main 15x15 Board Grid with 9th Tile Star Safe House & Aero mode arrows */}
       <div className="relative flex flex-1 items-center justify-center w-full my-auto overflow-hidden">
         <div className="aspect-square w-full max-w-[85vw] max-h-[44vh] rounded-2xl border border-indigo-500/30 bg-[#120B2E] p-1 shadow-2xl">
           <div 
@@ -472,7 +493,7 @@ export default function LudoSuperstar({
       <div className="flex items-center justify-between px-1 pb-1 gap-1 w-full">
         
         {/* Left Player Profile Card (Red) */}
-        <div className={`flex items-center gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 ${currentTurn === "red" ? "border-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]" : "border-red-500/50"}`}>
+        <div className={`flex items-center gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 relative ${currentTurn === "red" ? "border-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]" : "border-red-500/50"}`}>
           <img src={players.red.avatarUrl} alt={players.red.name} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-0.5 text-[8px] font-bold">
@@ -505,7 +526,7 @@ export default function LudoSuperstar({
         </div>
 
         {/* Right Player Profile Card (Blue) */}
-        <div className={`flex items-center justify-end gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 ${currentTurn === "blue" ? "border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.8)]" : "border-blue-500/50"}`}>
+        <div className={`flex items-center justify-end gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 relative ${currentTurn === "blue" ? "border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.8)]" : "border-blue-500/50"}`}>
           <div className="flex flex-col min-w-0 flex-1 text-right">
             <div className="flex items-center justify-end gap-0.5 text-[8px] font-bold">
               <span className="truncate text-blue-200">{players.blue.name}</span>
@@ -514,27 +535,16 @@ export default function LudoSuperstar({
             <span className="text-[7px] text-blue-400 font-extrabold">{currentTurn === "blue" ? "PLAYING" : "Waiting"}</span>
           </div>
           <img src={players.blue.avatarUrl} alt={players.blue.name} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
+          {currentTurn === "blue" && (
+            <div className="absolute -top-11 right-6 z-20 animate-bounce">
+              <div className="flex flex-col items-center">
+                <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
+                <Dice3DFace value={diceValue} isRolling={isRolling} />
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Floating Dice for Green/Yellow Turns */}
-      {currentTurn === "green" && (
-        <div className="absolute top-14 left-16 z-20 animate-bounce">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
-            <Dice3DFace value={diceValue} isRolling={isRolling} />
-          </div>
-        </div>
-      )}
-
-      {currentTurn === "yellow" && (
-        <div className="absolute top-14 right-16 z-20 animate-bounce">
-          <div className="flex flex-col items-center">
-            <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
-            <Dice3DFace value={diceValue} isRolling={isRolling} />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
