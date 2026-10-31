@@ -1,11 +1,3 @@
-make sure this is a single tsx file
-do not change anything in the code only add - Separate computer-match selection page.
-- Entry/staking configuration before gameplay.
-- AI matchmaking backend interface.
-- Server-controlled AI moves and dice.
-- Shared gameplay board for online and computer matches
-
-
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
