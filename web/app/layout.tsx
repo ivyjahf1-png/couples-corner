@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
 import "../styles/splash.css";
@@ -13,16 +12,6 @@ import { FailureToasts } from "@/components/ui/FailureToasts";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
 import { AdSenseScript } from "@/components/ads/AdSenseScript";
 import { THEME_COLORS } from "@/lib/theme";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 /**
  * Canonical origin for absolute metadata URLs (og:image, og:url, icons,
@@ -174,7 +163,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className="h-full antialiased"
     >
       <head>
         <style dangerouslySetInnerHTML={{ __html: CRITICAL_CSS }} />
