@@ -168,7 +168,7 @@ const face: Record<number, string> = { 1: "âš€", 2: "âš", 3: "âš‚", 
 const cellKey = (r: number, c: number) => `${r}-${c}`;
 
 function Board({ match, currentUserId, selectedToken, onSelect, mode }: {
-  match: Match; currentUserId?: string; selectedToken?: string | null; onSelect: (tokenId: string, destination: number) => void;
+  match: Match; currentUserId?: string; selectedToken?: string | null; onSelect: (tokenId: string, destination: number) => void; mode?: "classic" | "aero";
 }) {
   const cells = useMemo(() => {
     const map = new Map<string, { type: string; color?: Player["color"]; safe?: boolean; step?: number }>();
@@ -226,7 +226,7 @@ function Board({ match, currentUserId, selectedToken, onSelect, mode }: {
       {item?.safe&&!legalHere.length?<span style={{fontSize:"clamp(7px,1.2vw,13px)",color:"#d6ad45"}}>â˜…</span>:null}
     </div>);
   }
-  return <div className="lp-boardwrap lp-boardwrap--{$mode === "aero" ? "aero" : "classic"}"><div className="lp-board">{squares}</div></div>;
+  return <div className={`lp-boardwrap lp-boardwrap--${mode === "aero" ? "aero" : "classic"}`}><div className="lp-board">{squares}</div></div>;
 }
 
 export default function LudoPrime({ backend, currentUser, onBack }: Props) {
@@ -359,7 +359,11 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
         <section className="lp-panel">
           <div className="lp-sectionhead"><h2>Choose entry amount</h2><span className="lp-muted">Optional</span></div>
           <div className="lp-stakes" style={{marginTop:10,gap:6}}>
-            {[0,100,1000,10000,100000,1000000,10000000].map(v=><button key={v} className={`lp-stake ${stake===v?"selected":""}`} onClick={()=>setStake(v)}>{v===0?"Free":v>=1000000\?`â‚¦\$\{\(v/1000000\)\|0}M`:v>=1000\?`â‚¦\$\{\(v/1000\)\|0}K`:`â‚¦\$\{v}`}</button>)}
+            {[0,100,1000,10000,100000,1000000,10000000].map(v => (
+              <button key={v} className={`lp-stake ${stake===v?"selected":""}`} onClick={()=>setStake(v)}>
+                {v===0 ? "Free" : v>=1000000 ? `₹${(v/1000000).toFixed(0)}M` : v>=1000 ? `₹${(v/1000).toFixed(0)}K` : `₹${v}`}
+              </button>
+            ))}
           </div>
           <p className="lp-note" style={{marginTop:15}}>Staking is handled before matchmaking and never appears on the gameplay board. Actual balance checks, escrow and settlement must be validated by your backend.</p>
           <div className="lp-actions">{matchType==="computer"

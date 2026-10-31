@@ -1637,22 +1637,22 @@ export default function ChatRoomClient({
         }}
       >
         {/* Quick replies. The design draws a horizontal scroll strip; with six
-           short pills `flex-wrap` shows every one of them without a swipe, which
+           short pills flex-wrap shows every one of them without a swipe, which
            is strictly better on a phone — and each pill is a real button, so the
            set stays keyboard-reachable. */}
         {/* QUICK REPLIES.
-             Horizontal SCROLL, not wrap. `flex-wrap` showed all six at once but
+             Horizontal SCROLL, not wrap. flex-wrap showed all six at once but
              pushed the composer below the fold on a short phone, which is the one
-             thing a chat composer must never do. `overflow-x-auto` +
-             `shrink-0` pills keeps the row exactly one line tall and lets it
-             swipe; `scrollbar-none` hides the bar so it does not eat 8px of the
+             thing a chat composer must never do. overflow-x-auto +
+             shrink-0 pills keeps the row exactly one line tall and lets it
+             swipe; scrollbar-none hides the bar so it does not eat 8px of the
              input's height.
 
-             The ORANGE is a border + text, not a fill: `#FF7A00` as a background
+             The ORANGE is a border + text, not a fill: #FF7A00 as a background
              would make six saturated chips fight the single orange Send button for
              attention, and the Send button is the one the member actually uses.
 
-             THIS COMMENT IS INSIDE `{}` AND THAT IS LOAD-BEARING. It used to sit
+             THIS COMMENT IS INSIDE {} AND THAT IS LOAD-BEARING. It used to sit
              here as a BARE block comment, and in a JSX CHILDREN position a bare
              block comment is not a comment to React at all — it is a literal text
              node, so the whole paragraph rendered on screen above the pills. Every
@@ -1725,124 +1725,124 @@ export default function ChatRoomClient({
             </div>
           </div>
         ) : (
-        <form onSubmit={onSubmit} className="flex items-center gap-2 chat-composer">
-          {/* LEFT: attachment (image) then mic (voice). Both open native pickers /
-              the recorder — the two media affordances live together on the left so
-              the center stays a clean text field. */}
-          <ChatPhotoUploadButton conversationId={conversationId} currentUserId={currentUserId} />
-          <button
-            type="button"
-            onClick={() => void startRecording()}
-            disabled={sendingRec}
-            aria-label="Record a voice message"
-            title="Voice message"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] disabled:opacity-50"
-          >
-            <Mic className="h-5 w-5" aria-hidden />
-          </button>
-          {/* THE GIFT BUTTON lives in the toolbar's left cluster (not a second row)
-              so gifting stays one tap away without the duplicate action bar this
-              composer used to render. It opens `GiftDrawer` in place. */}
-          <button
-            type="button"
-            onClick={() => setGiftOpen(true)}
-            aria-label="Send a gift"
-            title="Gift"
-            aria-expanded={giftOpen}
-            aria-haspopup="dialog"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
-          >
-            <Gift className="h-5 w-5" aria-hidden />
-          </button>
+          <form onSubmit={onSubmit} className="flex items-center gap-2 chat-composer">
+            {/* LEFT: attachment (image) then mic (voice). Both open native pickers /
+                the recorder — the two media affordances live together on the left so
+                the center stays a clean text field. */}
+            <ChatPhotoUploadButton conversationId={conversationId} currentUserId={currentUserId} />
+            <button
+              type="button"
+              onClick={() => void startRecording()}
+              disabled={sendingRec}
+              aria-label="Record a voice message"
+              title="Voice message"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00] disabled:opacity-50"
+            >
+              <Mic className="h-5 w-5" aria-hidden />
+            </button>
+            {/* THE GIFT BUTTON lives in the toolbar's left cluster (not a second row)
+                so gifting stays one tap away without the duplicate action bar this
+                composer used to render. It opens GiftDrawer in place. */}
+            <button
+              type="button"
+              onClick={() => setGiftOpen(true)}
+              aria-label="Send a gift"
+              title="Gift"
+              aria-expanded={giftOpen}
+              aria-haspopup="dialog"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C9C2E4] transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]"
+            >
+              <Gift className="h-5 w-5" aria-hidden />
+            </button>
 
-          <textarea
-            ref={inputRef}
-            value={draft}
-            onFocus={() => {
-              inputFocusedRef.current = true;
-            }}
-            onChange={(event) => {
-              setDraft(event.target.value);
-              /* ── ANNOUNCE TYPING ─────────────────────────────────────────────
-                 Must be called from the ACTUAL keystroke path. The hook can
-                 subscribe and expose `announceTyping`, but nothing else in the
-                 app writes to the draft — insert-an-emoji and tap-a-quick-reply
-                 also setDraft, and a member who fills the composer either way
-                 and then pauses is indistinguishable from one who typed. So the
-                 call goes here, on every change to this one field, which is the
-                 only path that means "this person is writing".
+            <textarea
+              ref={inputRef}
+              value={draft}
+              onFocus={() => {
+                inputFocusedRef.current = true;
+              }}
+              onChange={(event) => {
+                setDraft(event.target.value);
+                /* ── ANNOUNCE TYPING ─────────────────────────────────────────────
+                   Must be called from the ACTUAL keystroke path. The hook can
+                   subscribe and expose announceTyping, but nothing else in the
+                   app writes to the draft — insert-an-emoji and tap-a-quick-reply
+                   also setDraft, and a member who fills the composer either way
+                   and then pauses is indistinguishable from one who typed. So the
+                   call goes here, on every change to this one field, which is the
+                   only path that means "this person is writing".
 
-                 The hook throttles internally (1.5s floor), so this is a plain
-                 call — no local debounce, or two throttles would fight. */
-              announceTyping();
-              /* Typing during an edit means the member has moved on; drop back to
-                 composing rather than silently patching the old message. */
-              if (editingId) setEditingId(null);
-            }}
-            onKeyDown={onKeyDown}
-            rows={1}
-            placeholder={editingId ? "Edit your message..." : "Type a message..."}
-            aria-label="Message"
-            /* `text-base` ON MOBILE, `text-sm` from the `sm` breakpoint up.
-             *
-             * iOS Safari zooms the whole page in when a focused input's font
-             * size is under 16px, and it never zooms back out on blur. `text-sm`
-             * is 14px, so tapping the composer on a phone used to leave the
-             * viewport zoomed in at 140% with the composer off the side of the
-             * screen. 16px is the threshold, and the desktop layout keeps its
-             * tighter 14px type. */
-            className="min-h-[36px] min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-4 py-2.5 text-base text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00] sm:text-sm md:text-base lg:text-base xl:text-base chat-composer__field"
-            style={{ borderColor: THEME.hairline }}
-          />
+                   The hook throttles internally (1.5s floor), so this is a plain
+                   call — no local debounce, or two throttles would fight. */
+                announceTyping();
+                /* Typing during an edit means the member has moved on; drop back to
+                   composing rather than silently patching the old message. */
+                if (editingId) setEditingId(null);
+              }}
+              onKeyDown={onKeyDown}
+              rows={1}
+              placeholder={editingId ? "Edit your message..." : "Type a message..."}
+              aria-label="Message"
+              /* text-base ON MOBILE, text-sm from the sm breakpoint up.
+               *
+               * iOS Safari zooms the whole page in when a focused input's font
+               * size is under 16px, and it never zooms back out on blur. text-sm
+               * is 14px, so tapping the composer on a phone used to leave the
+               * viewport zoomed in at 140% with the composer off the side of the
+               * screen. 16px is the threshold, and the desktop layout keeps its
+               * tighter 14px type. */
+              className="min-h-[44px] min-w-0 flex-1 resize-none rounded-2xl border bg-white/[0.06] px-4 py-2 text-base text-white outline-none placeholder:text-[#B8B2D1] focus:border-[#FF7A00] sm:text-sm md:text-base lg:text-base xl:text-base chat-composer__field"
+              style={{ borderColor: THEME.hairline }}
+            />
 
-          <button
-            type="button"
-            aria-label="Insert emoji"
-            aria-expanded={isEmojiPickerOpen}
-            aria-controls={isEmojiPickerOpen ? EMOJI_PICKER_PANEL_ID : undefined}
-            title="Emoji"
-            onClick={() => {
-              const opening = !isEmojiPickerOpen;
-              setIsEmojiPickerOpen(opening);
-              /* OPENING DISMISSES THE SYSTEM KEYBOARD. A blur is the only
-                 thing a web page can ask a phone to hide its keyboard with;
-                 the drawer stands in for it until the member taps the field
-                 again. Closing does NOT re-focus, for the same reason in
-                 reverse — the member decides when typing resumes. */
-              if (opening) inputRef.current?.blur();
-            }}
-            className={[
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]",
-              isEmojiPickerOpen
-                ? "bg-white/10 text-[#FF7A00]"
-                : "text-[#C9C2E4] hover:bg-white/10",
-            ].join(" ")}
-          >
-            <Smile className="h-5 w-5" aria-hidden />
-          </button>
+            <button
+              type="button"
+              aria-label="Insert emoji"
+              aria-expanded={isEmojiPickerOpen}
+              aria-controls={isEmojiPickerOpen ? EMOJI_PICKER_PANEL_ID : undefined}
+              title="Emoji"
+              onClick={() => {
+                const opening = !isEmojiPickerOpen;
+                setIsEmojiPickerOpen(opening);
+                /* OPENING DISMISSES THE SYSTEM KEYBOARD. A blur is the only
+                   thing a web page can ask a phone to hide its keyboard with;
+                   the drawer stands in for it until the member taps the field
+                   again. Closing does NOT re-focus, for the same reason in
+                   reverse — the member decides when typing resumes. */
+                if (opening) inputRef.current?.blur();
+              }}
+              className={[
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF7A00]",
+                isEmojiPickerOpen
+                  ? "bg-white/10 text-[#FF7A00]"
+                  : "text-[#C9C2E4] hover:bg-white/10",
+              ].join(" ")}
+            >
+              <Smile className="h-5 w-5" aria-hidden />
+            </button>
 
-          <button
-            type="submit"
-            disabled={busy || draft.trim().length === 0}
-            aria-label="Send message"
-            title="Send"
-            /* THE SEND BUTTON IS ORANGE, NOT WHITE.
+            <button
+              type="submit"
+              disabled={busy || draft.trim().length === 0}
+              aria-label="Send message"
+              title="Send"
+              /* THE SEND BUTTON IS ORANGE, NOT WHITE.
 
-               `THEME.ink` is now `#FFFFFF` — it is the BODY TEXT colour, and the
-               old code reused it as this button's fill because on a light theme
-               the send button happened to be dark. Left alone, the retint would
-               have produced a white button that reads as the brightest, most
-               attention-grabbing object on a screen whose whole point is calm
-               legibility. It now uses the accent, which is what the design asks
-               for and what distinguishes it from the four grey utility icons
-               beside it. */
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFA040]"
-            style={{ backgroundColor: ORANGE }}
-          >
-            <Send className="h-4 w-4" aria-hidden />
-          </button>
-        </form>
+                 `THEME.ink` is now `#FFFFFF` — it is the BODY TEXT colour, and the
+                 old code reused it as this button's fill because on a light theme
+                 the send button happened to be dark. Left alone, the retint would
+                 have produced a white button that reads as the brightest, most
+                 attention-grabbing object on a screen whose whole point is calm
+                 legibility. It now uses the accent, which is what the design asks
+                 for and what distinguishes it from the four grey utility icons
+                 beside it. */
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white transition disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFA040]"
+              style={{ backgroundColor: ORANGE }}
+            >
+              <Send className="h-4 w-4" aria-hidden />
+            </button>
+          </form>
         )}
 
         {/* `role="status"` so a failed send is announced, not merely drawn. */}
