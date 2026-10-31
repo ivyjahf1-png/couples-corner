@@ -177,7 +177,7 @@ export default function LudoGame() {
         setConsecutiveSixes(nextSixes);
 
         if (nextSixes === 3) {
-          logMessage(3 consecutive 6s! Turn forfeited.);
+        logMessage(`3 consecutive 6s! Turn forfeited.`);
           setConsecutiveSixes(0);
           setTimeout(() => nextTurn(), 1000);
           return;
@@ -191,7 +191,7 @@ export default function LudoGame() {
       const moveableTokens = currentTokens.filter((t) => canMoveToken(t, roll));
 
       if (moveableTokens.length === 0) {
-        logMessage(No valid moves for ${activePlayer.name}.);
+        logMessage(`No valid moves for ${activePlayer.name}.`);
         setTimeout(() => nextTurn(), 1000);
       } else if (activePlayer.isAI) {
         // AI selects best token after roll
@@ -280,7 +280,7 @@ export default function LudoGame() {
               if (other.position === nextPos) {
                 captured = true;
                 soundManager.playCapture();
-                logMessage(${PLAYERS_CONFIG[token.color].name} captured ${PLAYERS_CONFIG[color].name}!);
+                logMessage(`${PLAYERS_CONFIG[token.color].name} captured ${PLAYERS_CONFIG[color].name}!`);
                 return { ...other, position: -1, stepCount: 0 };
               }
               return other;
@@ -292,13 +292,13 @@ export default function LudoGame() {
       // Check Win Condition (All 4 tokens at 999)
       if (newTokens[token.color].every((t) => t.position === 999)) {
         setWinner(token.color);
-        logMessage(🎉 ${PLAYERS_CONFIG[token.color].name} WINS THE GAME! 🎉);
+        logMessage(`${PLAYERS_CONFIG[token.color].name} WINS THE GAME!`);
         return newTokens;
       }
 
       // Turn transition
       if (roll === 6 || captured) {
-        logMessage(${PLAYERS_CONFIG[token.color].name} gets an extra turn!);
+        logMessage(`${PLAYERS_CONFIG[token.color].name} gets an extra turn!`);
         setDiceValue(null);
       } else {
         setTimeout(() => nextTurn(), 500);
@@ -458,7 +458,7 @@ export default function LudoGame() {
 
             return (
               <button
-                key={${token.color}-${token.id}}
+              key={`${token.color}-${token.id}`}
                 onClick={() => isClickable && diceValue && executeMove(token, diceValue)}
                 disabled={!isClickable}
                 style={{
