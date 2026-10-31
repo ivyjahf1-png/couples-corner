@@ -118,7 +118,7 @@ export default function LudoSuperstarPage() {
     const initialPlayers: Player[] = colors.map((col, idx) => ({
       id: idx,
       color: col,
-      name: Player ${idx + 1} (${col.toUpperCase()}),
+      name: `Player ${idx + 1} (${col.toUpperCase()})`,
       pawns: [0, 1, 2, 3].map((i) => ({ id: i, step: 0 }))
     }));
 
@@ -126,7 +126,7 @@ export default function LudoSuperstarPage() {
     setTurnIdx(0);
     setDice(null);
     setWaitingMove(false);
-    setStatusText(${initialPlayers[0].name}'s turn. Roll!);
+    setStatusText(`${initialPlayers[0].name}'s turn. Roll!`);
     setScreen("game");
   };
 
@@ -170,7 +170,7 @@ export default function LudoSuperstarPage() {
 
     // Safe Stars
     ctx.fillStyle = "#FBBF24";
-    ctx.font = ${tile * 0.55}px sans-serif;
+    ctx.font = `${tile * 0.55}px sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     SAFE_INDICES.forEach((idx) => {
@@ -239,11 +239,11 @@ export default function LudoSuperstarPage() {
     const canMove = active.pawns.some((p) => (p.step === 0 ? rolled === 6 : p.step + rolled <= 57));
 
     if (!canMove) {
-      setStatusText(Rolled a ${rolled}. No moves!);
+      setStatusText(`Rolled a ${rolled}. No moves!`);
       setTimeout(() => advanceTurn(false), 900);
     } else {
       setWaitingMove(true);
-      setStatusText(Rolled ${rolled}! Tap a token to move.);
+      setStatusText(`Rolled ${rolled}! Tap a token to move.`);
     }
   };
 
@@ -284,7 +284,7 @@ export default function LudoSuperstarPage() {
                       ep.step = 0; // Cut back to yard
                       bonusTurn = true;
                       playSfx("cut");
-                      setStatusText(Captured ${opp.name}! Bonus roll awarded!);
+                      setStatusText(`Captured ${opp.name}! Bonus roll awarded!`);
                     }
                   }
                 });
@@ -321,7 +321,7 @@ export default function LudoSuperstarPage() {
     setDice(null);
     if (!bonus) {
       setTurnIdx((prev) => (prev + 1) % players.length);
-      setStatusText(${players[(turnIdx + 1) % players.length].name}'s Turn);
+      setStatusText(`${players[(turnIdx + 1) % players.length].name}'s Turn`);
     }
   };
 
@@ -420,7 +420,7 @@ export default function LudoSuperstarPage() {
                 waitingMove ? "opacity-50 cursor-not-allowed" : "hover:scale-105 active:scale-95"
               }`}
             >
-              {dice ? DICE: ${dice} : "🎲 ROLL DICE"}
+              {dice ? `DICE: ${dice}` : "🎲 ROLL DICE"}
             </button>
 
             <button

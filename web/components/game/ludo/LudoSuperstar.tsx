@@ -128,8 +128,15 @@ class SoundController {
 
 const soundManager = new SoundController();
 
+// --- PROPS INTERFACE ---
+interface LudoGameProps {
+  balance?: number;
+  onWin?: (amount: number) => void;
+  onLose?: (amount: number) => void;
+}
+
 // --- MAIN COMPONENT ---
-export default function LudoGame() {
+export default function LudoGame({ balance, onWin, onLose }: LudoGameProps) {
   const [turnIndex, setTurnIndex] = useState<number>(0);
   const [diceValue, setDiceValue] = useState<number | null>(null);
   const [isRolling, setIsRolling] = useState<boolean>(false);
@@ -462,8 +469,8 @@ export default function LudoGame() {
                 onClick={() => isClickable && diceValue && executeMove(token, diceValue)}
                 disabled={!isClickable}
                 style={{
-                  left: ${((coord.x + 0.5 + offset / 4) / 15) * 100}%,
-                  top: ${((coord.y + 0.5 + offset / 4) / 15) * 100}%,
+                  left: `${((coord.x + 0.5 + offset / 4) / 15) * 100}%`,
+                  top: `${((coord.y + 0.5 + offset / 4) / 15) * 100}%`,
                 }}
                 className={`absolute w-[5.2%] h-[5.2%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg transition-all duration-300 z-20 flex items-center justify-center ${
                   token.color === 'red'

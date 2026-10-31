@@ -1,4 +1,3 @@
-import { PlayerColor, GameMode, Pawn, TRACK, HOME_PATHS, PLAYERS, SAFE_INDICES } from './path-to-your-constants-file';
 export type PlayerColor = 'RED' | 'GREEN' | 'YELLOW' | 'BLUE';
 export type GameMode = 'CLASSIC' | 'QUICK' | 'MASTER';
 
