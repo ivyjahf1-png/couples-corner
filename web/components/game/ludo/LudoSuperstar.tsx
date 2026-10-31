@@ -1,413 +1,736 @@
+
 "use client";
-import React, { useState, useEffect } from "react";
-import { Sparkles, Trophy, ArrowLeft, RefreshCw, Smile, MessageSquare, Bot, Plus, Minus } from "lucide-react";
 
-export type Color = "green" | "yellow" | "red" | "blue";
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  Trophy, ArrowLeft, RefreshCw, Smile, MessageSquare,
+  Bot, Plus, Minus, Settings, Sparkles, Volume2,
+  VolumeX, Crown, Zap, Shield, Globe, Coins
+} from "lucide-react";
 
-export interface Pawn {
+type Color = "green" | "yellow" | "red" | "blue";
+type Mode = "classic" | "aero";
+type Phase = "roll" | "move";
+
+interface Pawn {
   id: number;
   color: Color;
-  step: number; // -1 = Yard, 0..50 = Main Path, 51..56 = Home Stretch, 57 = Home
+  step: number;
 }
 
-export interface PlayerProfile {
+interface Player {
   name: string;
-  countryFlag: string;
-  avatarUrl: string;
-  isUser?: boolean;
+  flag: string;
+  avatar: string;
+  color: Color;
+  isHuman?: boolean;
 }
 
-// ----------------------------------------------------------------------
-// 1. INDUSTRY STANDARD LUDO BOARD PATHWAY & TILE MAPPING (15x15 Grid)
-// ----------------------------------------------------------------------
-// 52 Outer Track Coordinates [Row, Col] (0-indexed: 0..14)
-const MAIN_PATH: [number, number][] = [
-  // Green Track (Start at Green Home Gate = Tile 2)
-  [6, 1], [6, 2], [6, 3], [6, 4], [6, 5],
-  [5, 6], [4, 6], [3, 6], [2, 6], [1, 6], [0, 6], // Up top
-  [0, 7], // Top turning tile
-  [0, 8], [1, 8], [2, 8], [3, 8], [4, 8], [5, 8], // Down yellow
-  // Yellow Start at Tile 15 -> Tile 9 from Green Exit is [2, 6] & [2, 8]
-  [6, 9], [6, 10], [6, 11], [6, 12], [6, 13], [6, 14], // Right blue
-  [7, 14], // Right turning tile
-  [8, 14], [8, 13], [8, 12], [8, 11], [8, 10], [8, 9],
-  [9, 8], [10, 8], [11, 8], [12, 8], [13, 8], [14, 8], // Down red
-  [14, 7], // Bottom turning tile
-  [14, 6], [13, 6], [12, 6], [11, 6], [10, 6], [9, 6],
-  [8, 5], [8, 4], [8, 3], [8, 2], [8, 1], [8, 0], // Left green
-  [7, 0] // Left turning tile
+const PATH: [number, number][] = [
+  [6,1],[6,2],[6,3],[6,4],[6,5],
+  [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+  [0,7],
+  [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],
+  [6,9],[6,10],[6,11],[6,12],[6,13],[6,14],
+  [7,14],
+  [8,14],[8,13],[8,12],[8,11],[8,10],[8,9],
+  [9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+  [14,7],
+  [14,6],[13,6],[12,6],[11,6],[10,6],[9,6],
+  [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+  [7,0]
 ];
 
-// Start Gate Tile Indices on MAIN_PATH (2nd tile from yard exit)
-const START_TILES: Record<Color, number> = {
-  green: 1,  // [6, 2]
-  yellow: 14, // [2, 8]
-  blue: 27,  // [8, 12]
-  red: 40    // [12, 6]
+const START: Record<Color, number> = {
+  green: 1,
+  yellow: 14,
+  blue: 27,
+  red: 40
 };
 
-// Industry Standard Safe Stars (8 Universal Safe Tiles: 4 Home Gates + 4 9th-tile Stars)
-const SAFE_STAR_TILES = new Set([
-  1, 9,   // Green Gate & 9th tile beside Yellow
-  14, 22, // Yellow Gate & 9th tile beside Blue
-  27, 35, // Blue Gate & 9th tile beside Red
-  40, 48  // Red Gate & 9th tile beside Green
+// Gate tile is tile 1.
+// The ninth tile is therefore 8 positions after the gate.
+const SAFE = new Set([
+  1, 9,
+  14, 22,
+  27, 35,
+  40, 48
 ]);
 
-// Color Home Stretches (Tiles 51 to 56 leading to Center)
-const HOME_STRETCHES: Record<Color, [number, number][]> = {
-  green: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5], [7, 6]],
-  yellow: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7], [6, 7]],
-  blue: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9], [7, 8]],
-  red: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7], [8, 7]]
+// Aero launch tiles: fourth tile of each directional section.
+const AERO_LAUNCH = new Set([4, 17, 30, 43]);
+
+const HOME: Record<Color, [number, number][]> = {
+  green: [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+  yellow: [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]],
+  blue: [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+  red: [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]]
 };
 
-// ----------------------------------------------------------------------
-// 2. DYNAMIC MATCHMAKING & PROFILES (NO HARDCODED OPPONENTS)
-// ----------------------------------------------------------------------
-const NAMES_POOL: PlayerProfile[] = [
-  { name: "Manish", countryFlag: "🇮🇳", avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100" },
-  { name: "Azeel", countryFlag: "🇦🇪", avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" },
-  { name: "Miray", countryFlag: "🇹🇷", avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" },
-  { name: "Kemi", countryFlag: "🇳🇬", avatarUrl: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100" },
-  { name: "Lucas", countryFlag: "🇧🇷", avatarUrl: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100" }
+const YARD: Record<Color, [number, number][]> = {
+  green: [[1,1],[1,4],[4,1],[4,4]],
+  yellow: [[1,10],[1,13],[4,10],[4,13]],
+  red: [[10,1],[10,4],[13,1],[13,4]],
+  blue: [[10,10],[10,13],[13,10],[13,13]]
+};
+
+const PLAYERS: Player[] = [
+  {
+    name: "Manish",
+    flag: "🇮🇳",
+    avatar: "https://images.unsplash.com/photo-1507003211167-0a1dd7228f2d?w=150",
+    color: "green"
+  },
+  {
+    name: "Miray",
+    flag: "🇺🇸",
+    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150",
+    color: "yellow"
+  },
+  {
+    name: "busybrain",
+    flag: "🇳🇬",
+    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150",
+    color: "red",
+    isHuman: true
+  },
+  {
+    name: "Azeel",
+    flag: "🇦🇪",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150",
+    color: "blue"
+  }
 ];
 
-function generateOpponents(): Record<Color, PlayerProfile> {
-  const shuffled = [...NAMES_POOL].sort(() => 0.5 - Math.random());
-  return {
-    green: shuffled[0],
-    yellow: shuffled[1],
-    red: { name: "busybrain", countryFlag: "🇳🇬", avatarUrl: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100", isUser: true },
-    blue: shuffled[2]
-  };
-}
+const COLORS: Record<Color, string> = {
+  green: "#00a82c",
+  yellow: "#ffc629",
+  red: "#ed3023",
+  blue: "#0877db"
+};
 
-// ----------------------------------------------------------------------
-// 3. COMPONENT IMPLEMENTATION
-// ----------------------------------------------------------------------
-export default function LudoSuperstar({ balance = 223890000 }: { balance?: number }) {
-  const [screen, setScreen] = useState<"lobby" | "game">("game");
-  const [betAmount, setBetAmount] = useState<number>(10000000);
-  const [players, setPlayers] = useState<Record<Color, PlayerProfile>>(() => generateOpponents());
-  
-  // Game state
-  const [currentTurn, setCurrentTurn] = useState<Color>("red");
-  const [diceVal, setDiceVal] = useState<number>(6);
-  const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [turnTimer, setTurnTimer] = useState<number>(30);
+const DARK: Record<Color, string> = {
+  green: "#007b20",
+  yellow: "#d99b00",
+  red: "#a91612",
+  blue: "#0753a6"
+};
 
-  // Pawns state (4 per color, start in yard = -1)
-  const [pawns, setPawns] = useState<Pawn[]>([
-    { id: 0, color: "green", step: -1 }, { id: 1, color: "green", step: -1 }, { id: 2, color: "green", step: -1 }, { id: 3, color: "green", step: -1 },
-    { id: 4, color: "yellow", step: -1 }, { id: 5, color: "yellow", step: -1 }, { id: 6, color: "yellow", step: -1 }, { id: 7, color: "yellow", step: -1 },
-    { id: 8, color: "red", step: -1 }, { id: 9, color: "red", step: -1 }, { id: 10, color: "red", step: -1 }, { id: 11, color: "red", step: -1 },
-    { id: 12, color: "blue", step: -1 }, { id: 13, color: "blue", step: -1 }, { id: 14, color: "blue", step: -1 }, { id: 15, color: "blue", step: -1 }
-  ]);
+const STAKES = [
+  11000, 100000, 1000000, 5000000, 10000000
+];
 
-  // Automated 30s Turn Timer
+const formatCoins = (n: number) =>
+  n >= 1000000 ? `${n / 1000000}M` :
+  n >= 1000 ? `${n / 1000}K` : `${n}`;
+
+const initialPawns = (): Pawn[] =>
+  (["green","yellow","red","blue"] as Color[]).flatMap(
+    color => Array.from({ length: 4 }, (_, i) => ({
+      id: ["green","yellow","red","blue"].indexOf(color) * 4 + i,
+      color,
+      step: -1
+    }))
+  );
+
+export default function LudoSuperstar({
+  balance = 223890000
+}: {
+  balance?: number;
+}) {
+  const [screen, setScreen] = useState<"splash"|"game">("splash");
+  const [mode, setMode] = useState<Mode>("aero");
+  const [stake, setStake] = useState(1000000);
+  const [players] = useState(PLAYERS);
+  const [pawns, setPawns] = useState<Pawn[]>(initialPawns);
+  const [turn, setTurn] = useState<Color>("red");
+  const [dice, setDice] = useState(1);
+  const [phase, setPhase] = useState<Phase>("roll");
+  const [rolling, setRolling] = useState(false);
+  const [lastMessage, setLastMessage] = useState("Your turn! Roll the dice");
+  const [sound, setSound] = useState(true);
+  const [finished, setFinished] = useState<Color[]>([]);
+  const [matchId, setMatchId] = useState(0);
+
+  const isHuman = turn === "red";
+
   useEffect(() => {
-    if (screen !== "game") return;
-    const interval = setInterval(() => {
-      setTurnTimer((prev) => {
-        if (prev <= 1) {
-          handleAutoPlay();
-          return 30;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [screen, currentTurn, diceVal]);
+    const timer = setTimeout(() => setScreen("game"), 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const handleRollDice = () => {
-    if (isRolling) return;
-    setIsRolling(true);
-    setTurnTimer(30);
+  const coords = useCallback((pawn: Pawn): [number,number] => {
+    if (pawn.step < 0) {
+      return YARD[pawn.color][pawn.id % 4];
+    }
+
+    if (pawn.step < 51) {
+      return PATH[(START[pawn.color] + pawn.step) % 52];
+    }
+
+    return HOME[pawn.color][pawn.step - 51] || [7,7];
+  }, []);
+
+  const movable = useCallback((color: Color, roll: number) => {
+    return pawns.filter(p => {
+      if (p.color !== color || p.step >= 57) return false;
+      if (p.step === -1) return roll === 6;
+      return p.step + roll <= 57;
+    });
+  }, [pawns]);
+
+  const nextTurn = useCallback(() => {
+    const order: Color[] = ["red","green","yellow","blue"];
+    let index = order.indexOf(turn);
+
+    for (let i = 1; i <= 4; i++) {
+      const next = order[(index + i) % 4];
+      if (!finished.includes(next)) {
+        setTurn(next);
+        setPhase("roll");
+        setLastMessage(
+          next === "red" ? "Your turn! Roll the dice" :
+          `${players.find(p => p.color === next)?.name}'s turn`
+        );
+        return;
+      }
+    }
+  }, [turn, finished, players]);
+
+  const rollDice = useCallback(() => {
+    if (rolling || phase !== "roll" || finished.includes(turn)) return;
+
+    setRolling(true);
 
     setTimeout(() => {
-      const roll = Math.floor(Math.random() * 6) + 1;
-      setDiceVal(roll);
-      setIsRolling(false);
-      
-      // Auto move if stuck in yard without a 6
-      const colorPawns = pawns.filter((p) => p.color === currentTurn);
-      const allInYard = colorPawns.every((p) => p.step === -1);
-      
-      if (allInYard && roll !== 6) {
-        // Pass turn if no 6 rolled to exit yard
-        setTimeout(() => nextTurn(), 800);
+      const result = Math.floor(Math.random() * 6) + 1;
+      setDice(result);
+      setRolling(false);
+
+      const legal = movable(turn, result);
+
+      if (!legal.length) {
+        setLastMessage(
+          result === 6
+            ? "No available moves!"
+            : "No moves available. Turn passed."
+        );
+
+        setTimeout(() => {
+          if (result !== 6) nextTurn();
+          else setPhase("roll");
+        }, 850);
+
+        return;
       }
-    }, 400);
-  };
 
-  const handleAutoPlay = () => {
-    handleRollDice();
-  };
+      setPhase("move");
+      setLastMessage(
+        `${result}! ${turn === "red" ? "Choose" : "Opponent choosing"} a pawn`
+      );
+    }, 650);
+  }, [rolling, phase, turn, finished, movable, nextTurn]);
 
-  const movePawn = (pawnId: number) => {
-    const pawn = pawns.find((p) => p.id === pawnId);
-    if (!pawn || pawn.color !== currentTurn || isRolling) return;
+  const movePawn = useCallback((pawnId: number) => {
+    if (phase !== "move" || rolling) return;
 
-    // Must roll 6 to exit Yard onto 2nd tile (Home Gate)
-    if (pawn.step === -1) {
-      if (diceVal === 6) {
-        setPawns((prev) => prev.map((p) => (p.id === pawnId ? { ...p, step: 0 } : p)));
-        setTurnTimer(30);
+    const pawn = pawns.find(p => p.id === pawnId);
+    if (!pawn || pawn.color !== turn) return;
+
+    if (pawn.step === -1 && dice !== 6) return;
+    if (pawn.step !== -1 && pawn.step + dice > 57) return;
+
+    let newStep = pawn.step === -1 ? 0 : pawn.step + dice;
+    let captured = false;
+    let boost = false;
+
+    // Aero mode: landing on a launch tile shoots the pawn
+    // one additional tile forward.
+    if (
+      mode === "aero" &&
+      newStep < 51 &&
+      AERO_LAUNCH.has((START[pawn.color] + newStep) % 52)
+    ) {
+      newStep += 1;
+      boost = true;
+    }
+
+    const destination: Pawn = {
+      ...pawn,
+      step: newStep
+    };
+
+    const [r,c] = coords(destination);
+    const globalIndex = newStep < 51
+      ? (START[pawn.color] + newStep) % 52
+      : -1;
+
+    const isSafe = globalIndex >= 0 && SAFE.has(globalIndex);
+
+    setPawns(prev => {
+      const updated = prev.map(p =>
+        p.id === pawnId ? destination : { ...p }
+      );
+
+      // Capture opponents on the destination tile.
+      // Home lanes and safe squares are protected.
+      if (globalIndex >= 0 && !isSafe) {
+        updated.forEach(p => {
+          if (p.color === pawn.color || p.step < 0 || p.step >= 51) return;
+
+          const [pr,pc] = coords(p);
+
+          if (pr === r && pc === c) {
+            p.step = -1;
+            captured = true;
+          }
+        });
       }
-      return;
+
+      return updated;
+    });
+
+    if (newStep === 57) {
+      setLastMessage(`${pawn.color.toUpperCase()} pawn reached home!`);
+    } else if (captured) {
+      setLastMessage("Opponent captured! Great move!");
+    } else if (boost) {
+      setLastMessage("AERO BOOST! Pawn launched forward!");
+    } else {
+      setLastMessage("Pawn moved successfully!");
     }
 
-    // Advance pawn by dice value
-    if (pawn.step + diceVal <= 56) {
-      setPawns((prev) => prev.map((p) => (p.id === pawnId ? { ...p, step: p.step + diceVal } : p)));
-      if (diceVal !== 6) nextTurn();
-      else setTurnTimer(30);
+    // Determine whether the player has finished all four pawns.
+    setTimeout(() => {
+      setPawns(current => {
+        const won = current
+          .filter(p => p.color === pawn.color)
+          .every(p => p.step === 57);
+
+        if (won) {
+          setFinished(old =>
+            old.includes(pawn.color) ? old : [...old, pawn.color]
+          );
+        }
+        return current;
+      });
+    }, 100);
+
+    // Six, capture, or finishing gives another turn.
+    if (dice === 6 || captured || newStep === 57) {
+      setPhase("roll");
+      setLastMessage("Bonus turn! Roll again.");
+    } else {
+      setTimeout(nextTurn, 500);
     }
-  };
 
-  const nextTurn = () => {
-    const order: Color[] = ["red", "green", "yellow", "blue"];
-    const nextIndex = (order.indexOf(currentTurn) + 1) % 4;
-    setCurrentTurn(order[nextIndex]);
-    setTurnTimer(30);
-  };
+  }, [phase, rolling, pawns, turn, dice, mode, coords, nextTurn]);
 
-  const startNewMatch = () => {
-    setPlayers(generateOpponents());
-    setPawns(pawns.map((p) => ({ ...p, step: -1 })));
-    setScreen("game");
-  };
+  // AI opponents play automatically.
+  useEffect(() => {
+    if (screen !== "game" || turn === "red" || finished.includes(turn)) return;
 
-  // Helper to convert Pawn step into Grid Coordinates [r, c]
-  const getPawnCoords = (pawn: Pawn): [number, number] | null => {
-    if (pawn.step === -1) return null; // In yard
-    if (pawn.step < 51) {
-      const globalIdx = (START_TILES[pawn.color] + pawn.step) % 52;
-      return MAIN_PATH[globalIdx];
+    let timer: ReturnType<typeof setTimeout>;
+
+    if (phase === "roll") {
+      timer = setTimeout(() => rollDice(), 1000 + Math.random() * 700);
+    } else {
+      timer = setTimeout(() => {
+        const options = movable(turn, dice);
+
+        if (!options.length) {
+          nextTurn();
+          return;
+        }
+
+        // Prefer captures and reaching home.
+        const ranked = [...options].sort((a,b) => {
+          const score = (p: Pawn) => {
+            if (p.step === -1) return 4;
+            if (p.step + dice >= 57) return 10;
+            return p.step + dice;
+          };
+          return score(b) - score(a);
+        });
+
+        const selected = ranked[0];
+        movePawn(selected.id);
+      }, 900 + Math.random() * 700);
     }
-    const homeIdx = pawn.step - 51;
-    return HOME_STRETCHES[pawn.color][homeIdx] || [7, 7];
+
+    return () => clearTimeout(timer);
+  }, [screen, turn, phase, dice, finished, movable, rollDice, movePawn, nextTurn]);
+
+  const resetMatch = () => {
+    setPawns(initialPawns());
+    setTurn("red");
+    setDice(1);
+    setPhase("roll");
+    setFinished([]);
+    setLastMessage("New match started!");
+    setMatchId(id => id + 1);
   };
 
-  // ----------------------------------------------------------------------
-  // LOBBY STAKING & MODE SELECTION SCREEN
-  // ----------------------------------------------------------------------
-  if (screen === "lobby") {
+  // Splash screen
+  if (screen === "splash") {
     return (
-      <div className="flex h-screen w-full max-w-md mx-auto flex-col justify-between bg-[#130D32] p-4 text-white">
-        <div className="flex items-center justify-between pt-2">
-          <button onClick={() => setScreen("game")} className="p-2 rounded-xl bg-indigo-950 border border-indigo-500/40">
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <span className="text-base font-black">Live Match Lobby</span>
-          <div className="flex items-center gap-1 bg-amber-500/20 border border-amber-400 px-3 py-1 rounded-full text-xs font-black text-amber-300">
-            🪙 {(balance / 1000000).toFixed(1)}M
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center my-4">
-          <span className="text-xs text-indigo-300 font-bold">TOTAL WIN POOL</span>
-          <div className="flex items-center gap-2 text-3xl font-black text-cyan-300">
-            <Trophy className="h-7 w-7 text-amber-400" />
-            <span>{(betAmount * 2).toLocaleString()} Coins</span>
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-indigo-500/40 bg-indigo-950/60 p-4 space-y-4">
-          <div className="flex items-center justify-between bg-black/40 p-3 rounded-2xl border border-indigo-500/30">
-            <span className="text-xs font-bold text-indigo-200">Stake Bet:</span>
-            <div className="flex items-center gap-3">
-              <button onClick={() => setBetAmount(Math.max(1000000, betAmount - 1000000))} className="p-1 rounded-lg bg-indigo-900 border border-indigo-400">
-                <Minus className="h-4 w-4" />
-              </button>
-              <span className="text-base font-black text-amber-300">{(betAmount / 1000000).toFixed(1)}M</span>
-              <button onClick={() => setBetAmount(betAmount + 1000000)} className="p-1 rounded-lg bg-indigo-900 border border-indigo-400">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <button onClick={startNewMatch} className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-black font-black text-sm shadow-lg active:scale-95 transition">
-          START MATCH
-        </button>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#100641] text-white">
+        <Trophy size={75} className="text-yellow-400 mb-4 animate-bounce" />
+        <h1 className="text-5xl font-black italic text-yellow-400">
+          LUDO
+        </h1>
+        <h2 className="text-2xl font-black tracking-widest">
+          SUPERSTAR
+        </h2>
+        <Sparkles className="text-cyan-300 mt-5 animate-pulse" />
+        <p className="text-indigo-300 text-xs mt-4">
+          PREPARING YOUR GAME...
+        </p>
       </div>
     );
   }
 
-  // ----------------------------------------------------------------------
-  // ACTIVE GAME BOARD (CORRECT 9TH TILE STARS & NON-OVERLAPPING PROFILES)
-  // ----------------------------------------------------------------------
-  return (
-    <div className="flex h-screen w-full max-w-md mx-auto flex-col justify-between bg-[#080518] p-2 text-white select-none">
-      
-      {/* Top Header & Players */}
-      <div className="flex items-center justify-between px-2 pt-1">
-        {/* Green Player */}
-        <div className={`flex items-center gap-1.5 p-1 rounded-xl border ${currentTurn === "green" ? "border-emerald-400 bg-emerald-950/60 shadow-[0_0_10px_rgba(52,211,153,0.5)]" : "border-slate-800"}`}>
-          <img src={players.green.avatarUrl} className="h-9 w-9 rounded-lg object-cover" />
-          <div>
-            <div className="text-[10px] font-black">{players.green.name} {players.green.countryFlag}</div>
-            <div className="text-[8px] text-emerald-400 font-bold">Green</div>
-          </div>
-        </div>
+  const currentPlayer = players.find(p => p.color === turn)!;
 
-        {/* Balance & Timer */}
-        <div className="flex items-center gap-2">
-          <button onClick={() => setScreen("lobby")} className="text-[9px] bg-indigo-950 border border-indigo-500/40 px-2 py-1 rounded-lg text-indigo-200">
-            Lobby 🔄
-          </button>
-          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-black border border-amber-400 text-[10px] font-black text-amber-300">
-            {turnTimer}s
-          </div>
-        </div>
+  const getCell = (r: number, c: number) => {
+    const yard =
+      r < 6 && c < 6 ? "green" :
+      r < 6 && c > 8 ? "yellow" :
+      r > 8 && c < 6 ? "red" :
+      r > 8 && c > 8 ? "blue" : null;
 
-        {/* Yellow Player */}
-        <div className={`flex items-center gap-1.5 p-1 rounded-xl border ${currentTurn === "yellow" ? "border-amber-400 bg-amber-950/60 shadow-[0_0_10px_rgba(251,191,36,0.5)]" : "border-slate-800"}`}>
-          <div>
-            <div className="text-[10px] font-black text-right">{players.yellow.name} {players.yellow.countryFlag}</div>
-            <div className="text-[8px] text-amber-400 font-bold text-right">Yellow</div>
-          </div>
-          <img src={players.yellow.avatarUrl} className="h-9 w-9 rounded-lg object-cover" />
-        </div>
-      </div>
+    const idx = PATH.findIndex(([pr,pc]) => pr === r && pc === c);
+    const start = Object.entries(START).find(([,v]) => v === idx);
+    const homeColor =
+      r === 7 && c >= 1 && c <= 6 ? "green" :
+      c === 7 && r >= 1 && r <= 6 ? "yellow" :
+      r === 7 && c >= 8 && c <= 13 ? "blue" :
+      c === 7 && r >= 8 && r <= 13 ? "red" : null;
 
-      {/* MAIN 15x15 BOARD GRID */}
-      <div className="relative flex flex-1 items-center justify-center w-full my-auto overflow-hidden">
-        <div className="aspect-square w-full max-w-[88vw] max-h-[46vh] rounded-2xl border border-indigo-500/30 bg-[#120B2E] p-1 shadow-2xl">
-          <div className="grid h-full w-full gap-0.5 rounded-xl overflow-hidden bg-indigo-950/40" style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))", gridTemplateRows: "repeat(15, minmax(0, 1fr))" }}>
-            
-            {/* Render 15x15 Grid Cells */}
-            {Array.from({ length: 225 }).map((_, i) => {
-              const r = Math.floor(i / 15);
-              const c = i % 15;
+    const isCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
 
-              // Yards
-              const isGreenYard = r < 6 && c < 6;
-              const isYellowYard = r < 6 && c > 8;
-              const isRedYard = r > 8 && c < 6;
-              const isBlueYard = r > 8 && c > 8;
-              const isCenter = r >= 6 && r <= 8 && c >= 6 && c <= 8;
+    let background = "#fffdf0";
 
-              // Find path tile index if cell lies on main path
-              const mainIdx = MAIN_PATH.findIndex(([pr, pc]) => pr === r && pc === c);
-              const isStartGate = mainIdx !== -1 && Object.values(START_TILES).includes(mainIdx);
-              const isSafeStarTile = mainIdx !== -1 && SAFE_STAR_TILES.has(mainIdx);
+    if (yard) background = COLORS[yard];
+    else if (homeColor) background = COLORS[homeColor];
+    else if (isCenter) background = "#ffffff";
 
-              // Home stretch colors
-              const isGreenHome = r === 7 && c >= 1 && c <= 6;
-              const isYellowHome = c === 7 && r >= 1 && r <= 6;
-              const isBlueHome = r === 7 && c >= 8 && c <= 13;
-              const isRedHome = c === 7 && r >= 8 && r <= 13;
+    const pawnsHere = pawns.filter(p => {
+      const [pr,pc] = coords(p);
+      return pr === r && pc === c;
+    });
 
-              // Pawns on this cell
-              const activePawnsHere = pawns.filter((p) => {
-                const coords = getPawnCoords(p);
-                return coords && coords[0] === r && coords[1] === c;
-              });
+    const isSafe = idx >= 0 && SAFE.has(idx);
+    const isLaunch = idx >= 0 && AERO_LAUNCH.has(idx);
 
-              return (
-                <div
-                  key={i}
-                  className={`relative flex items-center justify-center text-[7px] ${
-                    isGreenYard ? "bg-emerald-950/90 border border-emerald-500/40" :
-                    isYellowYard ? "bg-amber-950/90 border border-amber-500/40" :
-                    isRedYard ? "bg-red-950/90 border border-red-500/40" :
-                    isBlueYard ? "bg-sky-950/90 border border-sky-500/40" :
-                    isCenter ? "bg-gradient-to-br from-indigo-900 to-black" :
-                    isGreenHome ? "bg-emerald-500/80 border border-emerald-300/40" :
-                    isYellowHome ? "bg-amber-500/80 border border-amber-300/40" :
-                    isBlueHome ? "bg-sky-500/80 border border-sky-300/40" :
-                    isRedHome ? "bg-red-500/80 border border-red-300/40" :
-                    "bg-indigo-950/60 border border-indigo-500/20"
-                  }`}
-                >
-                  {/* Standard Safe Stars & Gates */}
-                  {isStartGate && <span className="text-[9px]">🛡️</span>}
-                  {isSafeStarTile && !isStartGate && <span className="text-[10px] text-amber-300 font-bold drop-shadow">⭐</span>}
+    return (
+      <div
+        key={`${matchId}-${r}-${c}`}
+        className="relative flex items-center justify-center border border-slate-400/50 overflow-visible"
+        style={{ background }}
+      >
+        {isSafe && (
+          <span className="absolute text-[15px] z-[2] drop-shadow">
+            ⭐
+          </span>
+        )}
 
-                  {/* Render Pawns inside Yards */}
-                  {isGreenYard && r === 2 && c === 2 && (
-                    <div className="grid grid-cols-2 gap-1 p-1">
-                      {pawns.filter(p => p.color === "green" && p.step === -1).map(p => (
-                        <button key={p.id} onClick={() => movePawn(p.id)} className="h-3.5 w-3.5 rounded-full bg-emerald-400 border border-white shadow-md active:scale-95" />
-                      ))}
-                    </div>
-                  )}
-                  {isRedYard && r === 11 && c === 2 && (
-                    <div className="grid grid-cols-2 gap-1 p-1">
-                      {pawns.filter(p => p.color === "red" && p.step === -1).map(p => (
-                        <button key={p.id} onClick={() => movePawn(p.id)} className="h-3.5 w-3.5 rounded-full bg-red-500 border border-white shadow-md active:scale-95" />
-                      ))}
-                    </div>
-                  )}
+        {start && (
+          <span className="absolute z-[3] text-[11px]">
+            🛡️
+          </span>
+        )}
 
-                  {/* Render Active Pawns on Track */}
-                  {activePawnsHere.map((p) => (
-                    <button
-                      key={p.id}
-                      onClick={() => movePawn(p.id)}
-                      className={`absolute h-4 w-4 rounded-full border-2 border-white shadow-lg z-10 transition-all ${
-                        p.color === "green" ? "bg-emerald-400" :
-                        p.color === "yellow" ? "bg-amber-400" :
-                        p.color === "red" ? "bg-red-500" : "bg-sky-400"
-                      }`}
-                    />
-                  ))}
-                </div>
-              );
-            })}
+        {isLaunch && mode === "aero" && (
+          <span className="absolute z-[3] text-[14px] font-black text-blue-600 drop-shadow">
+            {idx === 1 || idx === 14 ? "↑" :
+             idx === 27 || idx === 40 ? "↓" : "➜"}
+          </span>
+        )}
 
-          </div>
-        </div>
-      </div>
-
-      {/* FOOTER: USER (busybrain - Bottom Left) & BLUE PLAYER (Bottom Right - NO OVERLAP) */}
-      <div className="flex items-end justify-between px-2 pb-1">
-        
-        {/* User profile & Real 3D Dice */}
-        <div className="flex items-center gap-2">
-          <div className={`flex items-center gap-1.5 p-1 rounded-xl border ${currentTurn === "red" ? "border-red-400 bg-red-950/60 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "border-slate-800"}`}>
-            <img src={players.red.avatarUrl} className="h-9 w-9 rounded-lg object-cover" />
-            <div>
-              <div className="text-[10px] font-black text-amber-300">busybrain (YOU)</div>
-              <div className="text-[8px] text-red-400 font-bold">Red</div>
-            </div>
-          </div>
-
-          {/* REAL 3D DICE BUTTON */}
+        {pawnsHere.map((p, index) => (
           <button
-            onClick={handleRollDice}
-            disabled={isRolling || currentTurn !== "red"}
-            className="h-10 w-10 rounded-xl bg-gradient-to-br from-white to-slate-300 border-2 border-slate-400 flex items-center justify-center shadow-lg active:scale-90 transition"
+            key={p.id}
+            onClick={() => movePawn(p.id)}
+            disabled={p.color !== turn || phase !== "move"}
+            className="absolute z-20 rounded-full border-2 border-white shadow-lg transition-transform hover:scale-125"
+            style={{
+              width: "72%",
+              height: "72%",
+              background: `radial-gradient(circle at 30% 25%, white 0%, ${COLORS[p.color]} 38%, ${DARK[p.color]} 100%)`,
+              transform: `translate(${index * 12 - 6}px,${index * 7 - 4}px)`,
+              cursor: p.color === turn && phase === "move" ? "pointer" : "default"
+            }}
           >
-            <span className={`text-xl font-black text-slate-900 ${isRolling ? "animate-spin" : ""}`}>
-              {diceVal}
+            <span className="text-white text-[8px] font-black drop-shadow">
+              {index + 1}
             </span>
           </button>
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center gap-1">
-          <button className="h-7 px-2 rounded-lg bg-indigo-950 border border-indigo-500/30 text-[9px] font-bold text-indigo-200">
-            <RefreshCw className="h-3 w-3 inline mr-0.5" /> 25
-          </button>
-          <button className="h-7 px-2 rounded-lg bg-indigo-950 border border-indigo-500/30 text-[9px] font-bold text-indigo-200">
-            <Smile className="h-3 w-3 inline mr-0.5" /> Emoji
-          </button>
-        </div>
-
-        {/* Blue Player */}
-        <div className={`flex items-center gap-1.5 p-1 rounded-xl border ${currentTurn === "blue" ? "border-sky-400 bg-sky-950/60 shadow-[0_0_10px_rgba(56,189,248,0.5)]" : "border-slate-800"}`}>
-          <div>
-            <div className="text-[10px] font-black text-right">{players.blue.name} {players.blue.countryFlag}</div>
-            <div className="text-[8px] text-sky-400 font-bold text-right">Blue</div>
-          </div>
-          <img src={players.blue.avatarUrl} className="h-9 w-9 rounded-lg object-cover" />
-        </div>
-
+        ))}
       </div>
-    </div>
+    );
+  };
+
+  return (
+    <main className="min-h-screen w-full overflow-x-hidden bg-[#100743] text-white select-none pb-4">
+
+      {/* TOP BAR */}
+      <header className="flex items-center justify-between p-3">
+        <button className="p-3 rounded-xl bg-indigo-950 border border-indigo-400">
+          <Settings size={22}/>
+        </button>
+
+        <div className="text-center">
+          <h1 className="text-3xl font-black italic text-yellow-400 drop-shadow-lg">
+            🏆 LUDO
+          </h1>
+          <p className="text-xs font-black tracking-[4px]">SUPERSTAR</p>
+        </div>
+
+        <div className="flex items-center gap-2 bg-indigo-950 border border-yellow-400 rounded-2xl px-3 py-2">
+          <Coins className="text-yellow-400" size={20}/>
+          <span className="font-black text-sm">{formatCoins(balance)}</span>
+          <Plus size={18} className="text-green-400"/>
+        </div>
+      </header>
+
+      {/* MATCH STATUS */}
+      <div className="flex justify-center items-center gap-2 mb-3">
+        <span className="rounded-full bg-green-500/20 border border-green-400 px-3 py-1 text-[10px] font-black text-green-300">
+          <Globe size={12} className="inline mr-1"/>
+          {isHuman ? "YOUR TURN" : "LIVE MATCH"}
+        </span>
+        <span className="text-[10px] text-indigo-200">
+          MATCH #{matchId + 1}
+        </span>
+      </div>
+
+      {/* PLAYERS TOP */}
+      <div className="grid grid-cols-2 gap-2 px-3 mb-2">
+        {players.slice(0,2).map(p => (
+          <div
+            key={p.color}
+            className={`flex items-center gap-2 rounded-xl p-2 border-2 ${
+              turn === p.color
+                ? "border-yellow-300 bg-indigo-800 shadow-lg"
+                : "border-indigo-700 bg-indigo-950"
+            }`}
+          >
+            <img
+              src={p.avatar}
+              className="w-11 h-11 rounded-xl object-cover border-2"
+              style={{ borderColor: COLORS[p.color] }}
+            />
+            <div className="min-w-0">
+              <p className="font-black text-xs truncate">
+                {p.name} {p.flag}
+              </p>
+              <p className="text-[10px] font-bold" style={{color:COLORS[p.color]}}>
+                {p.color.toUpperCase()}
+              </p>
+              <p className="text-[9px] text-green-300">
+                {turn === p.color ? "Playing" : "Online"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* BET AMOUNT */}
+      <div className="mx-3 mb-3 flex items-center justify-center gap-4 bg-indigo-950 border border-indigo-500 rounded-2xl p-2">
+        <button
+          onClick={() => setStake(s => STAKES[Math.max(0,STAKES.indexOf(s)-1)])}
+          disabled={stake === STAKES[0]}
+          className="p-2 rounded-lg bg-indigo-800"
+        >
+          <Minus size={18}/>
+        </button>
+
+        <div className="text-center">
+          <p className="text-[9px] text-indigo-300 font-bold">BET AMOUNT</p>
+          <p className="text-xl font-black text-yellow-400">
+            🪙 {formatCoins(stake)}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setStake(s => STAKES[Math.min(STAKES.length-1,STAKES.indexOf(s)+1)])}
+          disabled={stake === STAKES[STAKES.length-1]}
+          className="p-2 rounded-lg bg-indigo-800"
+        >
+          <Plus size={18}/>
+        </button>
+      </div>
+
+      {/* LUDO BOARD */}
+      <div className="w-full px-2">
+        <div className="relative mx-auto aspect-square w-full max-w-[620px] rounded-[28px] border-[5px] border-indigo-400 shadow-[0_0_30px_#4c36ff] overflow-hidden bg-white">
+          <div
+            className="grid w-full h-full"
+            style={{
+              gridTemplateColumns: "repeat(15,minmax(0,1fr))",
+              gridTemplateRows: "repeat(15,minmax(0,1fr))"
+            }}
+          >
+            {Array.from({length:225},(_,i) => getCell(
+              Math.floor(i/15),i%15
+            ))}
+          </div>
+
+          {/* YARD CENTRES */}
+          <div className="absolute inset-0 pointer-events-none grid grid-cols-2 grid-rows-2">
+            {(["green","yellow","red","blue"] as Color[]).map(color => (
+              <div
+                key={color}
+                className={`flex items-center justify-center ${
+                  color === "green" ? "col-start-1 row-start-1" :
+                  color === "yellow" ? "col-start-2 row-start-1" :
+                  color === "red" ? "col-start-1 row-start-2" :
+                  "col-start-2 row-start-2"
+                }`}
+              >
+                <div className="w-[65%] aspect-square rounded-[24%] bg-[#fffdf0] border-[3px] border-white shadow-inner flex items-center justify-center">
+                  <div className="grid grid-cols-2 gap-[22%] w-[65%] aspect-square">
+                    {Array.from({length:4},(_,i) => (
+                      <div
+                        key={i}
+                        className="rounded-full shadow-inner"
+                        style={{background:COLORS[color]}}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CENTRE FINISH */}
+          <div className="absolute left-[40%] top-[40%] w-[20%] aspect-square pointer-events-none">
+            <svg viewBox="0 0 100 100" className="w-full h-full drop-shadow">
+              <path d="M0 0 L100 0 L50 50 Z" fill="#ffc629" stroke="white" strokeWidth="1"/>
+              <path d="M100 0 L100 100 L50 50 Z" fill="#0877db" stroke="white" strokeWidth="1"/>
+              <path d="M100 100 L0 100 L50 50 Z" fill="#ed3023" stroke="white" strokeWidth="1"/>
+              <path d="M0 100 L0 0 L50 50 Z" fill="#00a82c" stroke="white" strokeWidth="1"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      {/* MESSAGE */}
+      <div className="text-center mt-3 mb-2">
+        <p className="text-xs font-bold text-cyan-200">
+          {lastMessage}
+        </p>
+      </div>
+
+      {/* BOTTOM PLAYERS */}
+      <div className="grid grid-cols-2 gap-2 px-3 mt-2">
+        {players.slice(2).concat(players.slice(0,0)).map(p => (
+          <div
+            key={p.color}
+            className={`flex items-center gap-2 rounded-xl p-2 border-2 ${
+              turn === p.color
+                ? "border-yellow-300 bg-indigo-800"
+                : "border-indigo-700 bg-indigo-950"
+            }`}
+          >
+            <img
+              src={p.avatar}
+              className="w-11 h-11 rounded-xl object-cover"
+              style={{border:`2px solid ${COLORS[p.color]}`}}
+            />
+            <div className="min-w-0">
+              <p className="text-xs font-black truncate">{p.name}</p>
+              <p className="text-[10px] font-bold" style={{color:COLORS[p.color]}}>
+                {p.color.toUpperCase()}
+              </p>
+              <p className="text-[9px] text-green-300">
+                {p.isHuman ? "YOU" : "Online"}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* GAME CONTROLS */}
+      <div className="flex items-center justify-around px-3 mt-4">
+
+        <button
+          onClick={() => setMode(m => m === "aero" ? "classic" : "aero")}
+          className="rounded-xl bg-indigo-900 border border-indigo-400 p-3 text-xs font-black"
+        >
+          <Settings size={20} className="mx-auto mb-1"/>
+          {mode.toUpperCase()}
+          <span className="block text-[9px] text-cyan-300">
+            MODE
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSound(s => !s)}
+          className="rounded-xl bg-indigo-900 border border-indigo-400 p-3"
+        >
+          {sound ? <Volume2/> : <VolumeX/>}
+        </button>
+
+        <button
+          onClick={resetMatch}
+          className="rounded-xl bg-purple-800 border border-purple-400 p-3 relative"
+        >
+          <RefreshCw size={23}/>
+          <span className="absolute -top-2 -right-2 bg-red-500 rounded-full text-xs px-1">
+            25
+          </span>
+        </button>
+
+        <button
+          onClick={rollDice}
+          disabled={!isHuman || phase !== "roll" || rolling}
+          className={`rounded-2xl p-4 min-w-[110px] font-black text-center shadow-xl border-2 ${
+            isHuman && phase === "roll"
+              ? "bg-gradient-to-b from-green-400 to-green-700 border-green-200 text-white"
+              : "bg-slate-700 border-slate-500 text-slate-300"
+          }`}
+        >
+          <span className={`block text-3xl ${rolling ? "animate-spin" : ""}`}>
+            🎲
+          </span>
+          <span className="text-sm">
+            {rolling ? "ROLLING" : phase === "move" && isHuman ? "SELECT PAWN" : "ROLL DICE"}
+          </span>
+          <span className="block text-[9px]">
+            {isHuman ? "YOUR TURN" : "WAITING"}
+          </span>
+        </button>
+      </div>
+
+      {/* STAKE SELECTOR */}
+      <div className="mx-3 mt-4 rounded-2xl border border-indigo-500 bg-indigo-950 p-3">
+        <p className="text-center text-xs font-black text-yellow-300 mb-3">
+          STAKE RANGE: 11K – 10M COINS
+        </p>
+
+        <div className="flex gap-2 justify-between">
+          {STAKES.map(value => (
+            <button
+              key={value}
+              onClick={() => setStake(value)}
+              className={`flex-1 rounded-lg py-3 text-[10px] font-black border ${
+                stake === value
+                  ? "bg-yellow-400 text-black border-yellow-200 shadow-[0_0_15px_#ffc629]"
+                  : "bg-indigo-900 text-white border-indigo-600"
+              }`}
+            >
+              {formatCoins(value)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-center text-[9px] text-indigo-400 mt-4">
+        LUDO SUPERSTAR • CLASSIC & AERO EDITION
+      </p>
+
+    </main>
   );
 }
