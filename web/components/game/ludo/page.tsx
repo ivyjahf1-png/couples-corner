@@ -327,16 +327,6 @@ export default function LudoSuperstarPage() {
 
   return (
     <div className="w-full min-h-screen max-w-[480px] mx-auto bg-slate-950 text-white font-sans flex flex-col justify-between shadow-2xl relative">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between p-4 bg-slate-900 border-b border-amber-500/30">
-        <div className="text-xl font-black text-amber-400 tracking-wider">LUDO PRO SUPERSTAR</div>
-        <button
-          onClick={() => setIsMuted(!isMuted)}
-          className="p-2 rounded-lg bg-slate-800 text-amber-400 border border-amber-500/30"
-        >
-          {isMuted ? "🔇" : "🔊"}
-        </button>
-      </div>
 
       {/* DASHBOARD */}
       {screen === "dashboard" && (
