@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot, Award, Zap } from "lucide-react";
+import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot, Award, Zap, Plus, Minus } from "lucide-react";
 
 export type Color = "red" | "green" | "yellow" | "blue";
 type LudoMode = "CLASSIC" | "AERO";
@@ -52,7 +52,7 @@ function Dice3DFace({ value, isRolling }: { value: number; isRolling: boolean })
   };
 
   return (
-    <div className={`relative h-9 w-9 rounded-xl bg-gradient-to-br from-white via-slate-100 to-slate-300 p-1 shadow-[0_4px_0_#64748b,0_6px_10px_rgba(0,0,0,0.5)] transition-transform duration-300 ${isRolling ? "animate-[spin_0.3s_linear_infinite] scale-110" : ""}`}>
+    <div className={`relative h-10 w-10 rounded-2xl bg-gradient-to-br from-white via-slate-100 to-slate-300 p-1 shadow-[0_5px_0_#475569,0_8px_15px_rgba(0,0,0,0.6)] transition-transform duration-300 ${isRolling ? "animate-[spin_0.3s_linear_infinite] scale-125" : "hover:scale-105"}`}>
       <div className="grid h-full w-full grid-cols-3 grid-rows-3 items-center justify-items-center">
         {renderPips(value)}
       </div>
@@ -68,7 +68,7 @@ export default function LudoSuperstar({
 }: LudoSuperstarProps) {
   const [screen, setScreen] = useState<"lobby" | "searching" | "game" | "win">("lobby");
   const [selectedMode, setSelectedMode] = useState<LudoMode>("CLASSIC");
-  const [betAmount, setBetAmount] = useState<number>(10000000);
+  const [betAmount, setBetAmount] = useState<number>(10000000); // Default 10M coins
   const [searchTimer, setSearchTimer] = useState<number>(3);
   
   const [opponents, setOpponents] = useState(() => getRandomOpponents());
@@ -116,7 +116,6 @@ export default function LudoSuperstar({
   useEffect(() => {
     if (screen !== "game") return;
 
-    // If it's an AI turn, play immediately without waiting for timer expiry
     if (currentTurn !== "red") {
       const aiTimer = setTimeout(() => {
         executeTurnAction();
@@ -186,6 +185,9 @@ export default function LudoSuperstar({
     setScreen("searching");
   };
 
+  const increaseStake = () => setBetAmount((prev) => prev + 1000000);
+  const decreaseStake = () => setBetAmount((prev) => Math.max(1000000, prev - 1000000));
+
   if (screen === "lobby") {
     return (
       <div className="flex h-screen w-full max-w-md mx-auto flex-col justify-between overflow-hidden bg-[#1E1B4B] p-4 text-white select-none">
@@ -225,19 +227,20 @@ export default function LudoSuperstar({
           ))}
         </div>
 
-        {/* Stake Adjustment Selector */}
-        <div className="bg-indigo-950/60 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between my-2">
-          <span className="text-xs font-bold text-indigo-200">Select Stake Bet</span>
-          <div className="flex items-center gap-2">
-            {[5000000, 10000000, 25000000].map((amt) => (
-              <button
-                key={amt}
-                onClick={() => setBetAmount(amt)}
-                className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${betAmount === amt ? "bg-amber-400 text-black border-amber-300 shadow" : "bg-indigo-900/50 text-indigo-200 border-indigo-500/30"}`}
-              >
-                {amt / 1000000}M
-              </button>
-            ))}
+        {/* Staking Controls (+ / - Buttons) */}
+        <div className="bg-indigo-950/60 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between my-2 shadow-lg">
+          <span className="text-xs font-bold text-indigo-200">Stake Coins</span>
+          <div className="flex items-center gap-3">
+            <button onClick={decreaseStake} className="h-8 w-8 flex items-center justify-center rounded-xl bg-indigo-900 border border-indigo-500/40 text-amber-300 font-black active:scale-95">
+              <Minus className="h-4 w-4" />
+            </button>
+            <div className="flex items-center gap-1 font-black text-amber-400 text-sm">
+              <span>🪙</span>
+              <span>{(betAmount / 1000000).toFixed(1)}M</span>
+            </div>
+            <button onClick={increaseStake} className="h-8 w-8 flex items-center justify-center rounded-xl bg-indigo-900 border border-indigo-500/40 text-amber-300 font-black active:scale-95">
+              <Plus className="h-4 w-4" />
+            </button>
           </div>
         </div>
 
@@ -347,7 +350,7 @@ export default function LudoSuperstar({
         </div>
       </div>
 
-      {/* Main 15x15 Board Grid with 9th Tile Star Safe House & Aero mode arrows */}
+      {/* Main 15x15 Board Grid with Star Safe House at 9th tile */}
       <div className="relative flex flex-1 items-center justify-center w-full my-auto overflow-hidden">
         <div className="aspect-square w-full max-w-[85vw] max-h-[44vh] rounded-2xl border border-indigo-500/30 bg-[#120B2E] p-1 shadow-2xl">
           <div 
@@ -378,7 +381,7 @@ export default function LudoSuperstar({
                 const col = idx % 3;
                 const isHomePath = col === 1 && row > 0;
                 const isStartTile = row === 1 && col === 2; // Gate/Shield
-                const isSafeStar = row === 3 && col === 0;   // Exactly on 9th tile / cry emoji position
+                const isSafeStar = row === 3 && col === 0;   // 9th tile star position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-amber-500/80 border border-amber-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-amber-400 text-[8px]">🛡️</span>}
@@ -407,7 +410,7 @@ export default function LudoSuperstar({
                 const col = idx % 6;
                 const isHomePath = row === 1 && col > 0;
                 const isStartTile = row === 0 && col === 1; // Gate/Shield
-                const isSafeStar = row === 2 && col === 2;   // Exactly on 9th tile / cry emoji position
+                const isSafeStar = row === 2 && col === 2;   // 9th tile star position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-emerald-500/80 border border-emerald-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-emerald-400 text-[8px]">🛡️</span>}
@@ -435,7 +438,7 @@ export default function LudoSuperstar({
                 const col = idx % 6;
                 const isHomePath = row === 1 && col < 5;
                 const isStartTile = row === 2 && col === 4; // Gate/Shield
-                const isSafeStar = row === 0 && col === 3;   // Exactly on 9th tile / cry emoji position
+                const isSafeStar = row === 0 && col === 3;   // 9th tile star position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-blue-500/80 border border-blue-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-blue-400 text-[8px]">🛡️</span>}
@@ -464,7 +467,7 @@ export default function LudoSuperstar({
                 const col = idx % 3;
                 const isHomePath = col === 1 && row < 5;
                 const isStartTile = row === 4 && col === 0; // Gate/Shield
-                const isSafeStar = row === 2 && col === 2;   // Exactly on 9th tile / cry emoji position
+                const isSafeStar = row === 2 && col === 2;   // 9th tile star position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-red-500/80 border border-red-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-red-400 text-[8px]">🛡️</span>}
@@ -503,7 +506,7 @@ export default function LudoSuperstar({
             <span className="text-[7px] text-red-400 font-extrabold">{currentTurn === "red" ? "YOUR TURN" : "Waiting"}</span>
           </div>
           {currentTurn === "red" && (
-            <div className="absolute -top-11 left-6 z-20 cursor-pointer animate-bounce" onClick={executeTurnAction}>
+            <div className="absolute -top-12 left-6 z-20 cursor-pointer animate-bounce" onClick={executeTurnAction}>
               <div className="flex flex-col items-center">
                 <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
                 <Dice3DFace value={diceValue} isRolling={isRolling} />
@@ -536,7 +539,7 @@ export default function LudoSuperstar({
           </div>
           <img src={players.blue.avatarUrl} alt={players.blue.name} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
           {currentTurn === "blue" && (
-            <div className="absolute -top-11 right-6 z-20 animate-bounce">
+            <div className="absolute -top-12 right-6 z-20 animate-bounce">
               <div className="flex flex-col items-center">
                 <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
                 <Dice3DFace value={diceValue} isRolling={isRolling} />
