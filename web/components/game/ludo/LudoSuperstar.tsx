@@ -1,3 +1,11 @@
+make sure this is a single tsx file
+do not change anything in the code only add - Separate computer-match selection page.
+- Entry/staking configuration before gameplay.
+- AI matchmaking backend interface.
+- Server-controlled AI moves and dice.
+- Shared gameplay board for online and computer matches
+
+
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
@@ -40,6 +48,8 @@ type Match = {
 
 type LudoBackend = {
   findMatch: (args: { mode: "classic" | "aero"; stake?: number }) => Promise<Match>;
+  findComputerMatch?: (args: { mode: "classic" | "aero"; stake?: number }) => Promise<Match>;
+  runComputerTurn?: (matchId: string) => Promise<Match>;
   getMatch?: (matchId: string) => Promise<Match>;
   rollDice: (matchId: string) => Promise<{ value: number; match: Match }>;
   moveToken: (args: { matchId: string; tokenId: string; destination: number }) => Promise<Match>;
@@ -56,7 +66,7 @@ type Props = {
   onBack?: () => void;
 };
 
-type Page = "home" | "mode" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
+type Page = "home" | "mode" | "computer" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
 
 const COLORS = {
   green: "#16b957",
@@ -230,6 +240,7 @@ function Board({ match, currentUserId, selectedToken, onSelect }: {
 export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [page,setPage]=useState<Page>("home");
   const [mode,setMode]=useState<"classic"|"aero">("classic");
+  const [matchType,setMatchType]=useState<"online"|"computer">("online");
   const [stake,setStake]=useState(0);
   const [match,setMatch]=useState<Match|null>(null);
   const [stats,setStats]=useState<{matches:number;wins:number;earnings:number;winRate:number}|null>(null);
@@ -248,6 +259,12 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
 
   useEffect(()=>{const s=document.createElement("style");s.setAttribute("data-ludoprime","");s.textContent=styles;document.head.appendChild(s);return()=>{document.head.removeChild(s)}},[]);
   useEffect(()=>{if(!match?.id||!backend?.subscribe)return;return backend.subscribe(match.id,setMatch)},[match?.id,backend]);
+  useEffect(()=>{
+    if(matchType!=="computer"||!match||match.status!=="active"||!backend?.runComputerTurn||match.currentPlayerId===currentUser?.id)return;
+    let cancelled=false;
+    backend.runComputerTurn(match.id).then(updated=>{if(!cancelled){setMatch(updated);setDice(updated.diceValue??null);if(updated.status==="finished")setPage("results")}}).catch(e=>{if(!cancelled)setError(e instanceof Error?e.message:"AI turn failed.")});
+    return()=>{cancelled=true};
+  },[match?.id,match?.currentPlayerId,match?.status,backend,matchType,currentUser?.id]);
   useEffect(()=>{if(!match?.turnEndsAt)return;const tick=()=>setSeconds(Math.max(0,Math.floor((new Date(match.turnEndsAt!).getTime()-Date.now())/1000)));tick();const id=window.setInterval(tick,1000);return()=>window.clearInterval(id)},[match?.turnEndsAt]);
   const go=(p:Page)=>{setError("");setPage(p)};
   const requireBackend=()=>{if(!backend){setError("Connect your game backend to use live matchmaking, dice, moves and staking.");return false}return true};
@@ -257,6 +274,16 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
     setLoading(true);setError("");
     try{const found=await backend!.findMatch({mode,stake});setMatch(found);setDice(found.diceValue??null);setSelectedToken(null);setPage("match")}
     catch(e){setError(e instanceof Error?e.message:"Matchmaking failed. Please try again.")}
+    finally{setLoading(false)}
+  },[backend,mode,stake]);
+
+  const findComputerMatch=useCallback(async()=>{
+    if(!backend?.findComputerMatch){setError("Connect your backend computer-match endpoint to start an AI match.");return;}
+    setLoading(true);setError("");
+    try{
+      const found=await backend.findComputerMatch({mode,stake});
+      setMatch(found);setDice(found.diceValue??null);setSelectedToken(null);setPage("match");
+    }catch(e){setError(e instanceof Error?e.message:"Computer matchmaking failed. Please try again.")}
     finally{setLoading(false)}
   },[backend,mode,stake]);
 
@@ -320,23 +347,38 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
           <button className="lp-mode" onClick={()=>{setMode("classic");go("stake")}}><div className="modeicon">🎲</div><h3>Classic Ludo</h3><p>Traditional Ludo experience. Race your four pieces home with familiar rules.</p><div className="lp-actions"><span className="lp-eyebrow">STANDARD ARENA →</span></div></button>
           <button className="lp-mode aero" onClick={()=>{setMode("aero");go("stake")}}><div className="modeicon">🚀</div><h3>Aero Ludo</h3><p>A faster, elevated arena. Distinct mode rules are supplied by the game server.</p><div className="lp-actions"><span className="lp-eyebrow">AERO ARENA →</span></div></button>
         </div>
+        <section className="lp-panel">
+          <div className="lp-sectionhead"><h2>Play against computer</h2><span className="lp-muted">AI match</span></div>
+          <p className="lp-note">Choose a separate computer-match flow with server-authoritative AI dice and moves.</p>
+          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={()=>{setMatchType("computer");go("computer")}}>Play computer match →</button></div>
+        </section>
+      </>}
+
+      {page==="computer"&&<>
+        <div className="lp-backrow"><Back to="mode"/><div><h1>Computer match</h1><div className="lp-muted">Choose your arena before entry configuration</div></div></div>
+        <div className="lp-modes">
+          <button className="lp-mode" onClick={()=>{setMode("classic");setMatchType("computer");go("stake")}}><div className="modeicon">🤖</div><h3>Classic vs AI</h3><p>Play Classic Ludo against computer opponents.</p></button>
+          <button className="lp-mode aero" onClick={()=>{setMode("aero");setMatchType("computer");go("stake")}}><div className="modeicon">🚀</div><h3>Aero vs AI</h3><p>Play Aero Ludo against computer opponents.</p></button>
+        </div>
       </>}
 
       {page==="stake"&&<>
-        <div className="lp-backrow"><Back to="mode"/><div><h1>Match entry</h1><div className="lp-muted">{mode==="classic"?"Classic":"Aero"} arena · Staking is configured separately</div></div></div>
+        <div className="lp-backrow"><Back to="mode"/><div><h1>Match entry</h1><div className="lp-muted">{mode==="classic"?"Classic":"Aero"} arena · {matchType==="computer"?"Computer match":"Online match"} · Staking is configured separately</div></div></div>
         <section className="lp-panel">
           <div className="lp-sectionhead"><h2>Choose entry amount</h2><span className="lp-muted">Optional</span></div>
           <div className="lp-stakes" style={{marginTop:16}}>
             {[0,100,250,500].map(v=><button key={v} className={`lp-stake ${stake===v?"selected":""}`} onClick={()=>setStake(v)}>{v===0?"Free":`₦${v}`}</button>)}
           </div>
           <p className="lp-note" style={{marginTop:15}}>Staking is handled before matchmaking and never appears on the gameplay board. Actual balance checks, escrow and settlement must be validated by your backend.</p>
-          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading?"Finding players…":"Find real players →"}</button><button className="lp-btn lp-secondary" onClick={()=>go("home")}>Cancel</button></div>
+          <div className="lp-actions">{matchType==="computer"
+              ?<button className="lp-btn lp-primary" onClick={findComputerMatch} disabled={loading}>{loading?"Preparing match…":"Start computer match →"}</button>
+              :<button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading?"Finding players…":"Find real players →"}</button>}<button className="lp-btn lp-secondary" onClick={()=>go("home")}>Cancel</button></div>
         </section>
       </>}
 
       {page==="match"&&match&&<>
         <div className="lp-gamehead">
-          <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{fontWeight:800,fontSize:14}}>Ludo arena</div><div className="lp-muted">{match.mode==="aero"?"Aero":"Classic"} · Match {match.id.slice(0,8)}</div></div></div>
+          <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{fontWeight:800,fontSize:14}}>Ludo arena</div><div className="lp-muted">{match.mode==="aero"?"Aero":"Classic"} · {matchType==="computer"?"Computer":"Online"} · Match {match.id.slice(0,8)}</div></div></div>
           <div className="lp-topright"><div className="lp-pill">⏱ {Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</div><button className="lp-iconbtn" onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"♫":"♩"}</button></div>
         </div>
         <div className="lp-players">{match.players.map(p=><PlayerCard key={p.id} p={p}/>)}</div>
@@ -346,7 +388,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
           <div className="lp-turn"><strong>{isMyTurn?"Your turn":activePlayer?`${activePlayer.name}'s turn`:"Waiting for turn"}</strong><div>{isMyTurn?"Roll the server dice to continue":"Waiting for the active player"}</div></div>
           <button className="lp-btn lp-primary" onClick={roll} disabled={!isMyTurn||rolling||!backend}>{rolling?"Rolling…":"Roll dice"}</button>
         </div>
-        {match.status==="waiting"&&<div className="lp-empty">Waiting for matchmaking to fill the room with real players…</div>}
+        {match.status==="waiting"&&<div className="lp-empty">Waiting for matchmaking to fill the room…</div>}
       </>}
 
       {page==="match"&&!match&&<><div className="lp-backrow"><Back/><h1>No active match</h1></div><div className="lp-empty">Start a match to enter the arena.</div></>}
