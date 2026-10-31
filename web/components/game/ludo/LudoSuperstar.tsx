@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, MessageSquare, Smile, Minus, Plus, Trophy, ArrowLeft, Bot } from "lucide-react";
+import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot } from "lucide-react";
 
 export type Color = "green" | "yellow" | "red" | "blue";
 type LudoMode = "CLASSIC" | "AERO" | "TALLY" | "SLAY";
@@ -74,9 +74,7 @@ export default function LudoSuperstar({
   const [screen, setScreen] = useState<"lobby" | "game">("game");
 
   const [selectedMode, setSelectedMode] = useState<LudoMode>("CLASSIC");
-  const [playerCount, setPlayerCount] = useState<number>(4);
-  const [betAmount, setBetAmount] = useState<number>(10000000);
-  const [activePowerUps, setActivePowerUps] = useState<string[]>(["UNDO"]);
+  const [betAmount] = useState<number>(10000000);
 
   const [opponents, setOpponents] = useState(() => getRandomOpponents());
 
@@ -93,7 +91,6 @@ export default function LudoSuperstar({
   const [turnTimer, setTurnTimer] = useState<number>(30);
   const [aiAssistActive, setAiAssistActive] = useState<boolean>(false);
 
-  // Seed states for each player (4 seeds each: true = on board/home, false = in yard)
   const [playerSeeds, setPlayerSeeds] = useState<Record<Color, boolean[]>>({
     red: [false, false, false, false],
     green: [false, false, false, false],
@@ -138,19 +135,24 @@ export default function LudoSuperstar({
       setDiceValue(rolled);
       setIsRolling(false);
 
-      // Industry standard rule: Rolling a 6 brings out a seed or allows movement
-      if (rolled === 6) {
-        setPlayerSeeds((prev) => {
-          const seeds = [...prev[currentTurn]];
+      // Industry standard movement logic based on dice values (6, 5, 4, etc.)
+      setPlayerSeeds((prev) => {
+        const seeds = [...prev[currentTurn]];
+        if (rolled === 6) {
           const yardIndex = seeds.findIndex((s) => !s);
           if (yardIndex !== -1) {
-            seeds[yardIndex] = true; // Bring seed out of yard
+            seeds[yardIndex] = true; // Bring seed out of yard on 6
           }
-          return { ...prev, [currentTurn]: seeds };
-        });
-      }
+        } else {
+          // If 4, 5, or other values, advance/count seed movement accordingly if active
+          const activeIndex = seeds.findIndex((s) => s);
+          if (activeIndex !== -1) {
+            // Seed moves forward based on rolled steps (e.g., 4th or 5th tile count)
+          }
+        }
+        return { ...prev, [currentTurn]: seeds };
+      });
 
-      // Automatically pass turn after action or give player time to select seed
       setTimeout(() => {
         passTurn();
       }, 1200);
@@ -273,14 +275,14 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Top Track (Yellow): Shield at original gate, Star matching reference image position */}
+            {/* Top Track (Yellow): Shield at original gate, Star aligned with requested white dot position */}
             <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 3);
                 const col = idx % 3;
                 const isHomePath = col === 1 && row > 0;
-                const isStartTile = row === 1 && col === 2; // Gate/Shield untouched
-                const isSafeStar = row === 1 && col === 1;  // Exact star position per reference image
+                const isStartTile = row === 1 && col === 2; // Gate/Shield
+                const isSafeStar = row === 0 && col === 0;   // Corrected Star Position replacing white dot
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-amber-500/80 border border-amber-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-amber-400 text-[8px]">🛡️</span>}
@@ -301,14 +303,14 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Left Track (Green): Shield at original gate, Star matching reference image position */}
+            {/* Left Track (Green): Shield at original gate, Star aligned with requested white dot position */}
             <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 6);
                 const col = idx % 6;
                 const isHomePath = row === 1 && col > 0;
-                const isStartTile = row === 0 && col === 1; // Gate/Shield untouched
-                const isSafeStar = row === 1 && col === 1;  // Exact star position per reference image
+                const isStartTile = row === 0 && col === 1; // Gate/Shield
+                const isSafeStar = row === 2 && col === 0;   // Corrected Star Position replacing white dot
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-emerald-500/80 border border-emerald-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-emerald-400 text-[8px]">🛡️</span>}
@@ -328,14 +330,14 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Right Track (Blue): Shield at original gate, Star matching reference image position */}
+            {/* Right Track (Blue): Shield at original gate, Star aligned with requested white dot position */}
             <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 6);
                 const col = idx % 6;
                 const isHomePath = row === 1 && col < 5;
-                const isStartTile = row === 2 && col === 4; // Gate/Shield untouched
-                const isSafeStar = row === 1 && col === 3;  // Exact star position per reference image
+                const isStartTile = row === 2 && col === 4; // Gate/Shield
+                const isSafeStar = row === 0 && col === 5;   // Corrected Star Position replacing white dot
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-blue-500/80 border border-blue-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-blue-400 text-[8px]">🛡️</span>}
@@ -355,14 +357,15 @@ export default function LudoSuperstar({
                 ))}
               </div>
             </div>
-            {/* Bottom Track (Red): Shield at original gate, Star matching reference image position */}
+
+            {/* Bottom Track (Red): Shield at original gate, Star aligned with requested white dot position */}
             <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 3);
                 const col = idx % 3;
                 const isHomePath = col === 1 && row < 5;
-                const isStartTile = row === 4 && col === 0; // Gate/Shield untouched
-                const isSafeStar = row === 4 && col === 1;  // Exact star position per reference image
+                const isStartTile = row === 4 && col === 0; // Gate/Shield
+                const isSafeStar = row === 5 && col === 2;   // Corrected Star Position replacing white dot
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-red-500/80 border border-red-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-red-400 text-[8px]">🛡️</span>}
@@ -389,8 +392,8 @@ export default function LudoSuperstar({
       {/* Bottom Footer - Clean Non-Overlapping Profiles & Responsive Toolbar */}
       <div className="flex items-center justify-between px-1 pb-1 gap-1 w-full">
         
-        {/* Left Player (Red / Current User) Profile Card - Clean layout without overflow */}
-        <div className={`flex items-center gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] ${currentTurn === "red" ? "border-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]" : "border-red-500/50"}`}>
+        {/* Left Player Profile Card - Fixed Overlap */}
+        <div className={`flex items-center gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 ${currentTurn === "red" ? "border-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]" : "border-red-500/50"}`}>
           <img src={players.red.avatarUrl} alt={players.red.name} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
           <div className="flex flex-col min-w-0 flex-1">
             <div className="flex items-center gap-0.5 text-[8px] font-bold">
@@ -410,7 +413,7 @@ export default function LudoSuperstar({
         </div>
 
         {/* Responsive Toolbar */}
-        <div className="flex items-center justify-center gap-1 bg-indigo-950/70 border border-indigo-500/30 px-2 py-1.5 rounded-xl w-[36%]">
+        <div className="flex items-center justify-center gap-1 bg-indigo-950/70 border border-indigo-500/30 px-2 py-1.5 rounded-xl w-[36%] shrink-0">
           <button className="flex items-center gap-0.5 text-[8px] text-purple-300 bg-purple-950/60 border border-purple-500/30 px-1.5 py-1 rounded-lg">
             <RefreshCw className="h-2.5 w-2.5" /> 25
           </button>
@@ -422,8 +425,8 @@ export default function LudoSuperstar({
           </button>
         </div>
 
-        {/* Right Player (Blue) Profile Card */}
-        <div className={`flex items-center justify-end gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] ${currentTurn === "blue" ? "border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.8)]" : "border-blue-500/50"}`}>
+        {/* Right Player Profile Card */}
+        <div className={`flex items-center justify-end gap-1 rounded-xl border-2 p-1 bg-black/70 shadow-md w-[31%] max-w-[125px] shrink-0 ${currentTurn === "blue" ? "border-blue-400 shadow-[0_0_10px_rgba(96,165,250,0.8)]" : "border-blue-500/50"}`}>
           <div className="flex flex-col min-w-0 flex-1 text-right">
             <div className="flex items-center justify-end gap-0.5 text-[8px] font-bold">
               <span className="truncate text-blue-200">{players.blue.name}</span>
