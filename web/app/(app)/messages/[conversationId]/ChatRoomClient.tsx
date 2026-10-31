@@ -1407,7 +1407,7 @@ export default function ChatRoomClient({
    * `visualViewport` is feature-detected: desktop browsers that lack it simply
    * never open a soft keyboard, so the no-op early return is correct there. */
   useEffect(() => {
-    const viewport =w indow.visualViewport;
+    const viewport = window.visualViewport;
     if (!viewport) return;
 
     const handleViewportResize = () => {
