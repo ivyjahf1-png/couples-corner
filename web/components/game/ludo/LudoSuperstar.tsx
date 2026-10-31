@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot } from "lucide-react";
+import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot, Award, CheckCircle2 } from "lucide-react";
 
 export type Color = "red" | "green" | "yellow" | "blue";
 type LudoMode = "CLASSIC" | "AERO" | "TALLY" | "SLAY";
@@ -24,9 +24,9 @@ interface LudoSuperstarProps {
 }
 
 const RANDOM_NAMES = [
-  { name: "Zainab", flag: "🇳🇬", avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100" },
-  { name: "Kofi", flag: "🇬🇭", avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100" },
-  { name: "Chidi", flag: "🇳🇬", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100" },
+  { name: "Manish", flag: "🇮🇳", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100" },
+  { name: "Miray", flag: "🇹🇷", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100" },
+  { name: "Azeel", flag: "🇸🇦", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100" },
 ];
 
 function getRandomOpponents() {
@@ -64,15 +64,14 @@ function Dice3DFace({ value, isRolling }: { value: number; isRolling: boolean })
 
 export default function LudoSuperstar({
   balance = 223890000,
-  userName = "Player One",
+  userName = "busybrai...",
   userAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
   userFlag = "🇳🇬"
 }: LudoSuperstarProps) {
-  const [screen, setScreen] = useState<"lobby" | "game">("game");
+  const [screen, setScreen] = useState<"lobby" | "game" | "win">("lobby");
 
   const [selectedMode, setSelectedMode] = useState<LudoMode>("CLASSIC");
-  const [betAmount] = useState<number>(10000000);
-
+  const [betAmount, setBetAmount] = useState<number>(10000000);
   const [opponents, setOpponents] = useState(() => getRandomOpponents());
 
   const players: Record<Color, Player> = {
@@ -88,10 +87,11 @@ export default function LudoSuperstar({
 
   const [diceValue, setDiceValue] = useState<number>(4);
   const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [turnTimer, setTurnTimer] = useState<number>(30);
+  const [turnTimer, setTurnTimer] = useState<number>(20); // 20 seconds strict timer
   const [aiAssistActive, setAiAssistActive] = useState<boolean>(false);
+  const [winner, setWinner] = useState<Color | null>(null);
 
-  // Seed states: tracks board positions/status for each player's 4 seeds
+  // Seed board positions (-1 = yard, 0 = gate, 1-56 = track/home)
   const [playerSeeds, setPlayerSeeds] = useState<Record<Color, number[]>>({
     red: [-1, -1, -1, -1],
     green: [-1, -1, -1, -1],
@@ -104,8 +104,8 @@ export default function LudoSuperstar({
     const timer = setInterval(() => {
       setTurnTimer((prev) => {
         if (prev <= 1) {
-          triggerAiAssist();
-          return 30;
+          triggerAiAction();
+          return 20;
         }
         return prev - 1;
       });
@@ -113,18 +113,20 @@ export default function LudoSuperstar({
     return () => clearInterval(timer);
   }, [screen, turnIndex]);
 
-  const triggerAiAssist = () => {
-    setAiAssistActive(true);
+  const triggerAiAction = () => {
+    if (currentTurn !== "red") {
+      setAiAssistActive(true);
+    }
     handleRollDice();
     setTimeout(() => {
       setAiAssistActive(false);
       passTurn();
-    }, 1500);
+    }, 1200);
   };
 
   const passTurn = () => {
     setTurnIndex((prev) => (prev + 1) % turnOrder.length);
-    setTurnTimer(30);
+    setTurnTimer(20);
   };
 
   const handleRollDice = () => {
@@ -136,33 +138,42 @@ export default function LudoSuperstar({
       setDiceValue(rolled);
       setIsRolling(false);
 
-      // Seed movement logic following exact rules:
-      // 6 = bring out seed to gate (position 0)
-      // 1-5 = count and advance active seed forward by rolled steps
       setPlayerSeeds((prev) => {
         const seeds = [...prev[currentTurn]];
         if (rolled === 6) {
-          const yardIndex = seeds.findIndex((s) => s === -1);
-          if (yardIndex !== -1) {
-            seeds[yardIndex] = 0; // Gate position
+          const yardIdx = seeds.findIndex((s) => s === -1);
+          if (yardIdx !== -1) {
+            seeds[yardIdx] = 0; // Bring out to gate
           }
         } else {
-          const activeIndex = seeds.findIndex((s) => s >= 0);
-          if (activeIndex !== -1) {
-            seeds[activeIndex] += rolled;
+          const activeIdx = seeds.findIndex((s) => s >= 0);
+          if (activeIdx !== -1) {
+            seeds[activeIdx] += rolled;
+            // Aero Mode shortcut jump logic if landing on shortcut tiles
+            if (selectedMode === "AERO" && seeds[activeIdx] === 9) {
+              seeds[activeIdx] = 16; // Skyrocket shortcut
+            }
           }
         }
+
+        // Check win condition
+        if (seeds.every((s) => s >= 50)) {
+          setWinner(currentTurn);
+          setScreen("win");
+        }
+
         return { ...prev, [currentTurn]: seeds };
       });
 
       setTimeout(() => {
         passTurn();
-      }, 1200);
+      }, 1000);
     }, 400);
   };
 
   const handleStartMatch = () => {
     setOpponents(getRandomOpponents());
+    setWinner(null);
     setScreen("game");
   };
 
@@ -181,30 +192,60 @@ export default function LudoSuperstar({
         </div>
 
         <div className="flex flex-col items-center my-2">
-          <span className="text-[11px] font-bold text-indigo-300 tracking-wider">Win</span>
+          <span className="text-[11px] font-bold text-indigo-300 tracking-wider">Win Stake Reward</span>
           <div className="flex items-center gap-2 text-2xl font-black text-cyan-300 drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]">
-            <Trophy className="h-6 w-6 text-amber-400" />
+            <Trophy className="h-6 w-6 text-amber-400 animate-bounce" />
             <span>{(betAmount * 2).toLocaleString()} Coins</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-4 gap-2 my-2">
-          {(["CLASSIC", "AERO", "TALLY", "SLAY"] as LudoMode[]).map((mode) => (
+        {/* Game Mode Selection: Classic vs Aero */}
+        <div className="grid grid-cols-2 gap-3 my-2">
+          {(["CLASSIC", "AERO"] as LudoMode[]).map((mode) => (
             <button
               key={mode}
               onClick={() => setSelectedMode(mode)}
-              className={`flex flex-col items-center justify-center p-2 rounded-2xl border-2 transition-all ${
+              className={`flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all ${
                 selectedMode === mode ? "border-amber-400 bg-gradient-to-b from-indigo-900 to-indigo-950 shadow-[0_0_15px_rgba(251,191,36,0.5)] scale-105" : "border-indigo-500/30 bg-indigo-950/40 opacity-70"
               }`}
             >
-              <div className="text-xs font-black text-amber-300 mb-1">🎲</div>
-              <span className="text-[10px] font-extrabold tracking-wider">{mode}</span>
+              <div className="text-lg mb-1">{mode === "CLASSIC" ? "🏆" : "🚀"}</div>
+              <span className="text-xs font-extrabold tracking-wider text-amber-300">{mode} MODE</span>
+              <span className="text-[9px] text-indigo-300 mt-0.5">{mode === "CLASSIC" ? "Standard Circuit" : "Shortcut Arrows"}</span>
             </button>
           ))}
         </div>
 
-        <button onClick={handleStartMatch} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-black font-black text-sm tracking-wider shadow-lg active:scale-95 transition">
-          START A MATCH
+        <button onClick={handleStartMatch} className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-black font-black text-sm tracking-wider shadow-lg active:scale-95 transition">
+          START MATCH ({betAmount / 1000000}M COINS)
+        </button>
+      </div>
+    );
+  }
+
+  if (screen === "win") {
+    return (
+      <div className="flex h-screen w-full max-w-md mx-auto flex-col items-center justify-center bg-[#0A071B]/95 p-6 text-white select-none text-center">
+        <div className="relative animate-bounce mb-4">
+          <Trophy className="h-24 w-24 text-amber-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.8)]" />
+          <Award className="absolute -bottom-2 -right-2 h-10 w-10 text-cyan-400" />
+        </div>
+        <h1 className="text-3xl font-black text-amber-300 tracking-wider mb-1">CONGRATULATIONS! 🎉</h1>
+        <p className="text-sm font-bold text-indigo-200 mb-6">Player <span className="text-emerald-400 uppercase">{winner}</span> Won the Match!</p>
+        
+        <div className="bg-indigo-950/80 border border-amber-400/40 rounded-2xl p-4 w-full mb-6 shadow-xl">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-xs text-indigo-300">Reward Earned:</span>
+            <span className="text-amber-400 font-black text-base">+{(betAmount * 2).toLocaleString()} Coins</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-xs text-indigo-300">Mode Played:</span>
+            <span className="text-cyan-300 font-bold text-xs uppercase">{selectedMode}</span>
+          </div>
+        </div>
+
+        <button onClick={() => setScreen("lobby")} className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-600 text-black font-black text-sm tracking-wider shadow-lg active:scale-95 transition">
+          PLAY AGAIN
         </button>
       </div>
     );
@@ -255,17 +296,23 @@ export default function LudoSuperstar({
       {aiAssistActive && (
         <div className="mx-auto flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-0.5 text-[9px] font-black text-amber-300 animate-pulse">
           <Bot className="h-3 w-3" />
-          <span>AI ASSIST PLAYING...</span>
+          <span>AI DECIDING ({turnTimer}s)...</span>
         </div>
       )}
 
-      {/* Main 15x15 Board Grid */}
+      {/* Main 15x15 Board Grid with Star Safe House at 9th tile & Aero arrows */}
       <div className="relative flex flex-1 items-center justify-center w-full my-auto overflow-hidden">
         <div className="aspect-square w-full max-w-[85vw] max-h-[44vh] rounded-2xl border border-indigo-500/30 bg-[#120B2E] p-1 shadow-2xl">
           <div 
-            className="grid h-full w-full gap-0.5 rounded-xl overflow-hidden bg-indigo-950/40"
+            className="grid h-full w-full gap-0.5 rounded-xl overflow-hidden bg-indigo-950/40 relative"
             style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))", gridTemplateRows: "repeat(15, minmax(0, 1fr))" }}
           >
+            {selectedMode === "AERO" && (
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 opacity-40">
+                <span className="text-[10px] font-black text-cyan-300 tracking-widest bg-black/60 px-2 py-0.5 rounded">🚀 AERO MODE ACTIVE</span>
+              </div>
+            )}
+
             {/* Green Yard */}
             <div className="col-span-6 row-span-6 rounded-tl-xl border-2 border-emerald-500 bg-gradient-to-br from-emerald-950/90 to-emerald-900/40 p-1.5 flex items-center justify-center">
               <div className="grid h-full w-full grid-cols-2 grid-rows-2 gap-1.5 rounded-lg border border-emerald-400/40 bg-black/40 p-1">
@@ -277,18 +324,19 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Top Track (Yellow): Shield at gate, Star at the 5th tile pointed by fingers */}
+            {/* Top Track (Yellow) */}
             <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 3);
                 const col = idx % 3;
                 const isHomePath = col === 1 && row > 0;
                 const isStartTile = row === 1 && col === 2; // Gate/Shield
-                const isSafeStar = row === 4 && col === 0;   // 5th tile star position per user finger pointer
+                const isSafeStar = row === 3 && col === 0;   // 9th tile equivalent star safe house
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-amber-500/80 border border-amber-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-amber-400 text-[8px]">🛡️</span>}
                     {isSafeStar && <span className="text-amber-300 text-[9px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 4 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -305,18 +353,19 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Left Track (Green): Shield at gate, Star at the 5th tile pointed by fingers */}
+            {/* Left Track (Green) */}
             <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 6);
                 const col = idx % 6;
                 const isHomePath = row === 1 && col > 0;
                 const isStartTile = row === 0 && col === 1; // Gate/Shield
-                const isSafeStar = row === 2 && col === 4;   // 5th tile star position per user finger pointer
+                const isSafeStar = row === 2 && col === 2;   // 9th tile equivalent star safe house
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-emerald-500/80 border border-emerald-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-emerald-400 text-[8px]">🛡️</span>}
                     {isSafeStar && <span className="text-emerald-300 text-[9px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 7 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -332,18 +381,19 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Right Track (Blue): Shield at gate, Star at the 5th tile pointed by fingers */}
+            {/* Right Track (Blue) */}
             <div className="col-span-6 row-span-3 grid grid-cols-6 grid-rows-3 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 6);
                 const col = idx % 6;
                 const isHomePath = row === 1 && col < 5;
                 const isStartTile = row === 2 && col === 4; // Gate/Shield
-                const isSafeStar = row === 0 && col === 1;   // 5th tile star position per user finger pointer
+                const isSafeStar = row === 0 && col === 3;   // 9th tile equivalent star safe house
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-blue-500/80 border border-blue-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-blue-400 text-[8px]">🛡️</span>}
                     {isSafeStar && <span className="text-blue-300 text-[9px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 10 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -360,18 +410,19 @@ export default function LudoSuperstar({
               </div>
             </div>
 
-            {/* Bottom Track (Red): Shield at gate, Star at the 5th tile pointed by fingers */}
+            {/* Bottom Track (Red) */}
             <div className="col-span-3 row-span-6 grid grid-cols-3 grid-rows-6 gap-0.5 bg-black/30 p-0.5">
               {Array.from({ length: 18 }).map((_, idx) => {
                 const row = Math.floor(idx / 3);
                 const col = idx % 3;
                 const isHomePath = col === 1 && row < 5;
                 const isStartTile = row === 4 && col === 0; // Gate/Shield
-                const isSafeStar = row === 1 && col === 2;   // 5th tile star position per user finger pointer
+                const isSafeStar = row === 2 && col === 2;   // 9th tile equivalent star safe house
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-red-500/80 border border-red-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-red-400 text-[8px]">🛡️</span>}
                     {isSafeStar && <span className="text-red-300 text-[9px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 13 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
