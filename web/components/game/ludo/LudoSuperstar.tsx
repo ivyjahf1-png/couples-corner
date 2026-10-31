@@ -1,9 +1,9 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot, Award, CheckCircle2 } from "lucide-react";
+import { Sparkles, RefreshCw, MessageSquare, Smile, Trophy, ArrowLeft, Bot, Award, Zap } from "lucide-react";
 
 export type Color = "red" | "green" | "yellow" | "blue";
-type LudoMode = "CLASSIC" | "AERO" | "TALLY" | "SLAY";
+type LudoMode = "CLASSIC" | "AERO";
 
 export interface Player {
   id: string;
@@ -16,8 +16,6 @@ export interface Player {
 
 interface LudoSuperstarProps {
   balance?: number;
-  onWin?: (n: number) => void;
-  onLose?: (n: number) => void;
   userName?: string;
   userAvatar?: string;
   userFlag?: string;
@@ -68,12 +66,12 @@ export default function LudoSuperstar({
   userAvatar = "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100",
   userFlag = "🇳🇬"
 }: LudoSuperstarProps) {
-  const [screen, setScreen] = useState<"lobby" | "game" | "win">("lobby");
-
+  const [screen, setScreen] = useState<"lobby" | "searching" | "game" | "win">("lobby");
   const [selectedMode, setSelectedMode] = useState<LudoMode>("CLASSIC");
   const [betAmount, setBetAmount] = useState<number>(10000000);
+  const [searchTimer, setSearchTimer] = useState<number>(3);
+  
   const [opponents, setOpponents] = useState(() => getRandomOpponents());
-
   const players: Record<Color, Player> = {
     red: { id: "3", name: userName, countryFlag: userFlag, avatarUrl: userAvatar, color: "red", score: 0 },
     green: opponents.green,
@@ -87,8 +85,7 @@ export default function LudoSuperstar({
 
   const [diceValue, setDiceValue] = useState<number>(4);
   const [isRolling, setIsRolling] = useState<boolean>(false);
-  const [turnTimer, setTurnTimer] = useState<number>(20); // 20 seconds strict timer
-  const [aiAssistActive, setAiAssistActive] = useState<boolean>(false);
+  const [turnTimer, setTurnTimer] = useState<number>(20); // 20-second strict turn timer
   const [winner, setWinner] = useState<Color | null>(null);
 
   // Seed board positions (-1 = yard, 0 = gate, 1-56 = track/home)
@@ -99,12 +96,29 @@ export default function LudoSuperstar({
     blue: [-1, -1, -1, -1],
   });
 
+  // Searching matchmaking timer effect
+  useEffect(() => {
+    if (screen !== "searching") return;
+    const interval = setInterval(() => {
+      setSearchTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setScreen("game");
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [screen]);
+
+  // Turn timer & AI Bot automation effect (20s countdown for all players)
   useEffect(() => {
     if (screen !== "game") return;
     const timer = setInterval(() => {
       setTurnTimer((prev) => {
         if (prev <= 1) {
-          triggerAiAction();
+          executeTurnAction();
           return 20;
         }
         return prev - 1;
@@ -113,23 +127,7 @@ export default function LudoSuperstar({
     return () => clearInterval(timer);
   }, [screen, turnIndex]);
 
-  const triggerAiAction = () => {
-    if (currentTurn !== "red") {
-      setAiAssistActive(true);
-    }
-    handleRollDice();
-    setTimeout(() => {
-      setAiAssistActive(false);
-      passTurn();
-    }, 1200);
-  };
-
-  const passTurn = () => {
-    setTurnIndex((prev) => (prev + 1) % turnOrder.length);
-    setTurnTimer(20);
-  };
-
-  const handleRollDice = () => {
+  const executeTurnAction = () => {
     if (isRolling) return;
     setIsRolling(true);
 
@@ -149,9 +147,9 @@ export default function LudoSuperstar({
           const activeIdx = seeds.findIndex((s) => s >= 0);
           if (activeIdx !== -1) {
             seeds[activeIdx] += rolled;
-            // Aero Mode shortcut jump logic if landing on shortcut tiles
-            if (selectedMode === "AERO" && seeds[activeIdx] === 9) {
-              seeds[activeIdx] = 16; // Skyrocket shortcut
+            // Aero Mode shortcut jump from 4th to 5th tile and eliminate opponents
+            if (selectedMode === "AERO" && seeds[activeIdx] === 4) {
+              seeds[activeIdx] = 5;
             }
           }
         }
@@ -166,15 +164,17 @@ export default function LudoSuperstar({
       });
 
       setTimeout(() => {
-        passTurn();
+        setTurnIndex((prev) => (prev + 1) % turnOrder.length);
+        setTurnTimer(20);
       }, 1000);
-    }, 400);
+    }, 500);
   };
 
   const handleStartMatch = () => {
     setOpponents(getRandomOpponents());
     setWinner(null);
-    setScreen("game");
+    setSearchTimer(3);
+    setScreen("searching");
   };
 
   if (screen === "lobby") {
@@ -199,7 +199,7 @@ export default function LudoSuperstar({
           </div>
         </div>
 
-        {/* Game Mode Selection: Classic vs Aero */}
+        {/* Game Mode Selection */}
         <div className="grid grid-cols-2 gap-3 my-2">
           {(["CLASSIC", "AERO"] as LudoMode[]).map((mode) => (
             <button
@@ -211,14 +211,40 @@ export default function LudoSuperstar({
             >
               <div className="text-lg mb-1">{mode === "CLASSIC" ? "🏆" : "🚀"}</div>
               <span className="text-xs font-extrabold tracking-wider text-amber-300">{mode} MODE</span>
-              <span className="text-[9px] text-indigo-300 mt-0.5">{mode === "CLASSIC" ? "Standard Circuit" : "Shortcut Arrows"}</span>
+              <span className="text-[9px] text-indigo-300 mt-0.5">{mode === "CLASSIC" ? "Standard Circuit" : "Shortcut Arrows & Kills"}</span>
             </button>
           ))}
+        </div>
+
+        {/* Stake Adjustment */}
+        <div className="bg-indigo-950/60 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between my-2">
+          <span className="text-xs font-bold text-indigo-200">Stake Bet</span>
+          <div className="flex items-center gap-1.5 font-black text-amber-400">
+            <span>🪙</span>
+            <span>{(betAmount / 1000000).toFixed(1)}M</span>
+          </div>
         </div>
 
         <button onClick={handleStartMatch} className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-400 to-emerald-600 text-black font-black text-sm tracking-wider shadow-lg active:scale-95 transition">
           START MATCH ({betAmount / 1000000}M COINS)
         </button>
+      </div>
+    );
+  }
+
+  if (screen === "searching") {
+    return (
+      <div className="flex h-screen w-full max-w-md mx-auto flex-col items-center justify-center bg-[#0A071B] p-6 text-white select-none text-center">
+        <div className="relative mb-6 animate-pulse">
+          <div className="h-24 w-24 rounded-full border-4 border-amber-400 border-t-transparent animate-spin flex items-center justify-center mx-auto">
+            <Trophy className="h-10 w-10 text-amber-400" />
+          </div>
+        </div>
+        <h2 className="text-xl font-black text-amber-300 tracking-wider mb-2">Searching for Opponents...</h2>
+        <p className="text-xs text-indigo-300 mb-4">Mode: <span className="text-cyan-300 font-bold">{selectedMode}</span> | Bet: <span className="text-amber-400 font-bold">{betAmount / 1000000}M Coins</span></p>
+        <div className="bg-indigo-950/80 border border-indigo-500/40 px-6 py-2 rounded-full text-lg font-black text-amber-400">
+          00:0{searchTimer}
+        </div>
       </div>
     );
   }
@@ -293,14 +319,14 @@ export default function LudoSuperstar({
         </div>
       </div>
 
-      {aiAssistActive && (
+      {currentTurn !== "red" && (
         <div className="mx-auto flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/20 px-3 py-0.5 text-[9px] font-black text-amber-300 animate-pulse">
           <Bot className="h-3 w-3" />
-          <span>AI DECIDING ({turnTimer}s)...</span>
+          <span>AI BOT ({currentTurn.toUpperCase()}) PLAYING ({turnTimer}s)...</span>
         </div>
       )}
 
-      {/* Main 15x15 Board Grid with Star Safe House at 9th tile & Aero arrows */}
+      {/* Main 15x15 Board Grid with 9th Tile Star Safe House and Aero mode arrows */}
       <div className="relative flex flex-1 items-center justify-center w-full my-auto overflow-hidden">
         <div className="aspect-square w-full max-w-[85vw] max-h-[44vh] rounded-2xl border border-indigo-500/30 bg-[#120B2E] p-1 shadow-2xl">
           <div 
@@ -308,8 +334,8 @@ export default function LudoSuperstar({
             style={{ gridTemplateColumns: "repeat(15, minmax(0, 1fr))", gridTemplateRows: "repeat(15, minmax(0, 1fr))" }}
           >
             {selectedMode === "AERO" && (
-              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 opacity-40">
-                <span className="text-[10px] font-black text-cyan-300 tracking-widest bg-black/60 px-2 py-0.5 rounded">🚀 AERO MODE ACTIVE</span>
+              <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10 opacity-30">
+                <span className="text-[10px] font-black text-cyan-300 tracking-widest bg-black/60 px-2 py-0.5 rounded flex items-center gap-1"><Zap className="h-3 w-3"/> AERO ARROWS ACTIVE</span>
               </div>
             )}
 
@@ -331,12 +357,12 @@ export default function LudoSuperstar({
                 const col = idx % 3;
                 const isHomePath = col === 1 && row > 0;
                 const isStartTile = row === 1 && col === 2; // Gate/Shield
-                const isSafeStar = row === 3 && col === 0;   // 9th tile equivalent star safe house
+                const isSafeStar = row === 3 && col === 0;   // Exactly on 9th tile / cry emoji position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-amber-500/80 border border-amber-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-amber-400 text-[8px]">🛡️</span>}
-                    {isSafeStar && <span className="text-amber-300 text-[9px] font-bold drop-shadow">⭐</span>}
-                    {selectedMode === "AERO" && idx === 4 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
+                    {isSafeStar && <span className="text-amber-300 text-[10px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 3 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -360,12 +386,12 @@ export default function LudoSuperstar({
                 const col = idx % 6;
                 const isHomePath = row === 1 && col > 0;
                 const isStartTile = row === 0 && col === 1; // Gate/Shield
-                const isSafeStar = row === 2 && col === 2;   // 9th tile equivalent star safe house
+                const isSafeStar = row === 2 && col === 2;   // Exactly on 9th tile / cry emoji position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-emerald-500/80 border border-emerald-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-emerald-400 text-[8px]">🛡️</span>}
-                    {isSafeStar && <span className="text-emerald-300 text-[9px] font-bold drop-shadow">⭐</span>}
-                    {selectedMode === "AERO" && idx === 7 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
+                    {isSafeStar && <span className="text-emerald-300 text-[10px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 3 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -388,12 +414,12 @@ export default function LudoSuperstar({
                 const col = idx % 6;
                 const isHomePath = row === 1 && col < 5;
                 const isStartTile = row === 2 && col === 4; // Gate/Shield
-                const isSafeStar = row === 0 && col === 3;   // 9th tile equivalent star safe house
+                const isSafeStar = row === 0 && col === 3;   // Exactly on 9th tile / cry emoji position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-blue-500/80 border border-blue-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-blue-400 text-[8px]">🛡️</span>}
-                    {isSafeStar && <span className="text-blue-300 text-[9px] font-bold drop-shadow">⭐</span>}
-                    {selectedMode === "AERO" && idx === 10 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
+                    {isSafeStar && <span className="text-blue-300 text-[10px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 3 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -417,12 +443,12 @@ export default function LudoSuperstar({
                 const col = idx % 3;
                 const isHomePath = col === 1 && row < 5;
                 const isStartTile = row === 4 && col === 0; // Gate/Shield
-                const isSafeStar = row === 2 && col === 2;   // 9th tile equivalent star safe house
+                const isSafeStar = row === 2 && col === 2;   // Exactly on 9th tile / cry emoji position
                 return (
                   <div key={idx} className={`relative flex items-center justify-center rounded-xs text-[7px] ${isHomePath ? "bg-red-500/80 border border-red-300/40" : "bg-indigo-950/60 border border-indigo-500/20"}`}>
                     {isStartTile && <span className="text-red-400 text-[8px]">🛡️</span>}
-                    {isSafeStar && <span className="text-red-300 text-[9px] font-bold drop-shadow">⭐</span>}
-                    {selectedMode === "AERO" && idx === 13 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
+                    {isSafeStar && <span className="text-red-300 text-[10px] font-bold drop-shadow">⭐</span>}
+                    {selectedMode === "AERO" && idx === 3 && <span className="absolute text-[8px] text-cyan-300">↗</span>}
                   </div>
                 );
               })}
@@ -456,7 +482,7 @@ export default function LudoSuperstar({
             <span className="text-[7px] text-red-400 font-extrabold">{currentTurn === "red" ? "YOUR TURN" : "Waiting"}</span>
           </div>
           {currentTurn === "red" && (
-            <div className="absolute -top-11 left-6 z-20 cursor-pointer animate-bounce" onClick={handleRollDice}>
+            <div className="absolute -top-11 left-6 z-20 cursor-pointer animate-bounce" onClick={executeTurnAction}>
               <div className="flex flex-col items-center">
                 <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
                 <Dice3DFace value={diceValue} isRolling={isRolling} />
@@ -488,20 +514,12 @@ export default function LudoSuperstar({
             <span className="text-[7px] text-blue-400 font-extrabold">{currentTurn === "blue" ? "PLAYING" : "Waiting"}</span>
           </div>
           <img src={players.blue.avatarUrl} alt={players.blue.name} className="h-8 w-8 rounded-lg object-cover flex-shrink-0" />
-          {currentTurn === "blue" && (
-            <div className="absolute -top-11 right-6 z-20 cursor-pointer animate-bounce" onClick={handleRollDice}>
-              <div className="flex flex-col items-center">
-                <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
-                <Dice3DFace value={diceValue} isRolling={isRolling} />
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Floating Dice for Green/Yellow Turns */}
       {currentTurn === "green" && (
-        <div className="absolute top-14 left-16 z-20 cursor-pointer animate-bounce" onClick={handleRollDice}>
+        <div className="absolute top-14 left-16 z-20 animate-bounce">
           <div className="flex flex-col items-center">
             <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
             <Dice3DFace value={diceValue} isRolling={isRolling} />
@@ -510,7 +528,7 @@ export default function LudoSuperstar({
       )}
 
       {currentTurn === "yellow" && (
-        <div className="absolute top-14 right-16 z-20 cursor-pointer animate-bounce" onClick={handleRollDice}>
+        <div className="absolute top-14 right-16 z-20 animate-bounce">
           <div className="flex flex-col items-center">
             <span className="text-[9px] bg-amber-400 text-black px-1 rounded font-black">▼</span>
             <Dice3DFace value={diceValue} isRolling={isRolling} />
