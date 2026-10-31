@@ -2,16 +2,15 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Heart,
-  MessageCircle,
   Volume2,
   VolumeX,
+  Plus,
+  Heart,
+  MessageCircle,
   MoreVertical,
   Send,
   Trash2,
   Copy,
-  Plus,
-  MapPin,
 } from "lucide-react";
 
 interface MomentItem {
@@ -106,21 +105,6 @@ export default function MomentFeed({ moments, onDelete }: MomentFeedProps) {
        escapes the full-screen shell. */
     <div className="relative w-full h-[100dvh] bg-black text-white overflow-hidden select-none">
 
-      {/* ── 1. TOP HEADER — TRANSPARENT, NO DARK BACKDROP ─────────────────
-          The old bg-gradient-to-b from-black/80 via-black/40 is gone. Only
-          a per-text drop-shadow keeps the labels readable over bright videos.
-          pointer-events-none on the wrapper means the full-bleed video can
-          still receive taps in the empty header area; the one real control
-          ("Discover Nearby") re-enables pointer events on itself. */}
-      <div className="absolute top-0 left-0 right-0 z-30 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 flex items-center justify-between pointer-events-none">
-        <h1 className="text-lg font-bold tracking-wide drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
-          Moment
-        </h1>
-        <button className="pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-xs font-medium text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">
-          <MapPin size={14} />
-          <span>Discover Nearby</span>
-        </button>
-      </div>
 
       {/* ── 2. FULL-SCREEN VIDEO ──────────────────────────────────────────
           absolute inset-0 w-full h-full object-cover guarantees the video
@@ -134,7 +118,7 @@ export default function MomentFeed({ moments, onDelete }: MomentFeedProps) {
           key={currentMoment.id}
           ref={videoRef}
           src={currentMoment.videoUrl}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
           autoPlay
           loop={!autoScroll}
           muted={isMuted}

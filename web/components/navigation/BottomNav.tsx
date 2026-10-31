@@ -117,7 +117,7 @@ const RIGHT_TABS: DockTab[] = [
  * edge. Rides the Love / Heart glyph (NavIcon `match`) in the app's orange
  * accent theme.
  */
-const CENTRE_ACTION = { href: "/feed", label: "Match", navIcon: "match" } as const;
+const CENTRE_ACTION = { href: "/feed", label: "Feed", navIcon: "match" } as const;
 
 /**
  * Tab active-state check, same rules the sidebar/drawer `isActive` uses:
@@ -217,7 +217,7 @@ function DockTabItem({
 function CentreAction({ pathname }: { pathname: string }) {
   const active = isTabActive(pathname, CENTRE_ACTION);
   return (
-    <li className="flex items-center justify-center px-1.5">
+    <li className="flex flex-col items-center justify-center gap-0.5 px-1.5">
       {/* The elevation translate lives on the LINK (a plain element), never on
           the motion.span, so framer-motion's tap transform cannot override it. */}
       <Link
@@ -245,6 +245,7 @@ function CentreAction({ pathname }: { pathname: string }) {
           />
         </motion.span>
       </Link>
+      <span className="text-[10px] font-semibold text-slate-400">{CENTRE_ACTION.label}</span>
     </li>
   );
 }
