@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
- * LudoPrime — single-file responsive game UI.
+ * LudoPrime â€” single-file responsive game UI.
  *
  * Integration contract:
  * Pass a `backend` object from your app to connect real matchmaking, profiles,
@@ -82,7 +82,7 @@ const styles = `
 .lp-iconbtn,.lp-back{border:1px solid #334360;background:#111d34;color:#eaf0ff;border-radius:12px;width:42px;height:42px;display:grid;place-items:center;font-size:18px;cursor:pointer}
 .lp-content{flex:1;display:flex;flex-direction:column;gap:18px}
 .lp-hero{position:relative;overflow:hidden;border:1px solid #3a4d78;border-radius:26px;padding:clamp(20px,4vw,42px);background:linear-gradient(115deg,#18284a,#273b72 55%,#513d75);box-shadow:0 18px 50px #0005}
-.lp-hero:after{content:'🎲';position:absolute;right:6%;top:12%;font-size:clamp(72px,14vw,150px);opacity:.16;transform:rotate(-18deg)}
+.lp-hero:after{content:'ðŸŽ²';position:absolute;right:6%;top:12%;font-size:clamp(72px,14vw,150px);opacity:.16;transform:rotate(-18deg)}
 .lp-eyebrow{color:#ffcf76;font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
 .lp-h1{font-family:'Space Grotesk';font-size:clamp(30px,5vw,55px);line-height:1.03;letter-spacing:-2px;margin:10px 0 12px;max-width:620px}
 .lp-sub{color:#c1cce5;max-width:550px;line-height:1.55;font-size:14px}
@@ -125,7 +125,7 @@ const styles = `
 .lp-homeinner{width:68%;height:68%;border-radius:18%;background:#fffdf1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;place-items:center;padding:12%;gap:12%}
 .lp-homehole{width:76%;height:76%;border-radius:50%;background:var(--pawn);box-shadow:inset 0 4px 5px #0002,0 2px 3px #0002}
 .lp-center{grid-column:7/span 3;grid-row:7/span 3;position:relative;background:conic-gradient(from 45deg,#3688ee 0 25%,#ed5145 0 50%,#16b957 0 75%,#f4bd35 0);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);display:grid;place-items:center}
-.lp-center:after{content:'★';font-size:clamp(14px,3vw,28px);color:#fff;text-shadow:0 2px 6px #0007}
+.lp-center:after{content:'â˜…';font-size:clamp(14px,3vw,28px);color:#fff;text-shadow:0 2px 6px #0007}
 .lp-path{background:#fffdf3}
 .lp-path.safe{background:#f7e6aa}
 .lp-path .lp-token{position:absolute;width:83%;height:83%;z-index:2}
@@ -164,10 +164,10 @@ const styles = `
 }
 `;
 
-const face: Record<number, string> = { 1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5: "⚄", 6: "⚅" };
+const face: Record<number, string> = { 1: "âš€", 2: "âš", 3: "âš‚", 4: "âšƒ", 5: "âš„", 6: "âš…" };
 const cellKey = (r: number, c: number) => `${r}-${c}`;
 
-function Board({ match, currentUserId, selectedToken, onSelect }: {
+function Board({ match, currentUserId, selectedToken, onSelect, mode }: {
   match: Match; currentUserId?: string; selectedToken?: string | null; onSelect: (tokenId: string, destination: number) => void;
 }) {
   const cells = useMemo(() => {
@@ -222,11 +222,11 @@ function Board({ match, currentUserId, selectedToken, onSelect }: {
     squares.push(<div key={cellKey(r,c)} className={`lp-cell ${item?.type==="path"?"lp-path":""} ${item?.safe?"safe":""}`}
       style={{gridRow:r+1,gridColumn:c+1,...(playerForCell?{background:COLORS[playerForCell],boxShadow:"inset 0 0 0 2px #ffffff55"}:{})}}>
       {legalHere.map(({player,move})=><button key={move.tokenId} aria-label={`Move ${player.name}'s token`} onClick={()=>onSelect(move.tokenId,move.destination)}
-        className={`lp-token ${player.color} ${selectedToken===move.tokenId?"selected":""}`} title="Select legal move">●</button>)}
-      {item?.safe&&!legalHere.length?<span style={{fontSize:"clamp(7px,1.2vw,13px)",color:"#d6ad45"}}>★</span>:null}
+        className={`lp-token ${player.color} ${selectedToken===move.tokenId?"selected":""}`} title="Select legal move">â—</button>)}
+      {item?.safe&&!legalHere.length?<span style={{fontSize:"clamp(7px,1.2vw,13px)",color:"#d6ad45"}}>â˜…</span>:null}
     </div>);
   }
-  return <div className="lp-boardwrap"><div className="lp-board">{squares}</div></div>;
+  return <div className="lp-boardwrap lp-boardwrap--{$mode === "aero" ? "aero" : "classic"}"><div className="lp-board">{squares}</div></div>;
 }
 
 export default function LudoPrime({ backend, currentUser, onBack }: Props) {
@@ -297,18 +297,18 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const openStats=async()=>{setError("");if(!backend?.getStats){setStats(null);setPage("stats");return}setLoading(true);try{setStats(await backend.getStats());setPage("stats")}catch(e){setError(e instanceof Error?e.message:"Could not load statistics.")}finally{setLoading(false)}};
   const startAgain=async()=>{if(!backend?.playAgain||!match)return;setLoading(true);try{const next=await backend.playAgain(match.id);setMatch(next);setPage("match")}catch(e){setError(e instanceof Error?e.message:"Could not start another match.")}finally{setLoading(false)}};
 
-  const Back=({to="home"}:{to?:Page})=><button className="lp-back" onClick={()=>go(to)} aria-label="Go back">←</button>;
+  const Back=({to="home"}:{to?:Page})=><button className="lp-back" onClick={()=>go(to)} aria-label="Go back">â†</button>;
   const PlayerCard=({p}:{p:Player})=><div className={`lp-player ${p.id===match?.currentPlayerId?"active":""}`}>
     <div className="lp-avatar" style={{border:`2px solid ${COLORS[p.color]}`}}>{p.avatarUrl?<img src={p.avatarUrl} alt=""/>:(p.isYou||p.id===me?.id?"YOU":p.name.slice(0,1).toUpperCase())}</div>
-    <div style={{minWidth:0}}><div className="lp-playername">{p.id===me?.id||p.isYou?"YOU":p.name}</div><div className="lp-playerstatus">{p.id===match?.currentPlayerId?"● Playing":p.isReady?"Ready":"Connected"}</div></div>
+    <div style={{minWidth:0}}><div className="lp-playername">{p.id===me?.id||p.isYou?"YOU":p.name}</div><div className="lp-playerstatus">{p.id===match?.currentPlayerId?"â— Playing":p.isReady?"Ready":"Connected"}</div></div>
   </div>;
 
   return <main className="lp-root"><div className="lp-shell">
     <header className="lp-top">
-      <div className="lp-brand"><div className="lp-logo">♟</div><span>LUDO<span style={{color:"#ffc75e"}}>PRIME</span></span></div>
+      <div className="lp-brand"><div className="lp-logo">â™Ÿ</div><span>LUDO<span style={{color:"#ffc75e"}}>PRIME</span></span></div>
       <div className="lp-topright">
         {me?<div className="lp-pill">{me.name}</div>:<div className="lp-pill">Guest session</div>}
-        <button className="lp-iconbtn" onClick={()=>go("settings")} aria-label="Settings">⚙</button>
+        <button className="lp-iconbtn" onClick={()=>go("settings")} aria-label="Settings">âš™</button>
       </div>
     </header>
 
@@ -320,75 +320,75 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
           <div className="lp-eyebrow">The next level of Ludo</div>
           <h1 className="lp-h1">ROLL BIG.<br/>PLAY LIKE A LEGEND.</h1>
           <p className="lp-sub">A premium Ludo arena built for real competition. Find opponents, make your moves and climb the leaderboard.</p>
-          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={()=>go("mode")}>Find a match&nbsp; →</button><button className="lp-btn lp-secondary" onClick={()=>go("leaderboard")}>Leaderboard</button></div>
+          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={()=>go("mode")}>Find a match&nbsp; â†’</button><button className="lp-btn lp-secondary" onClick={()=>go("leaderboard")}>Leaderboard</button></div>
         </section>
         <div className="lp-sectionhead"><h2>Game centre</h2><span className="lp-muted">Choose your destination</span></div>
         <div className="lp-grid">
-          <button className="lp-tile" onClick={()=>go("mode")}><div className="emoji">🎮</div><strong>Play Ludo</strong><span>Classic and Aero arenas</span></button>
-          <button className="lp-tile" onClick={()=>go("stake")}><div className="emoji">🏆</div><strong>Staking</strong><span>Separate match entry feature</span></button>
-          <button className="lp-tile" onClick={()=>go("leaderboard")}><div className="emoji">📊</div><strong>Rankings</strong><span>Compete with real players</span></button>
-          <button className="lp-tile" onClick={openStats}><div className="emoji">📈</div><strong>My statistics</strong><span>Your match history and results</span></button>
-          <button className="lp-tile" onClick={()=>go("settings")}><div className="emoji">🔊</div><strong>Settings</strong><span>Sound and game preferences</span></button>
-          <button className="lp-tile" onClick={()=>go("mode")}><div className="emoji">✨</div><strong>Quick match</strong><span>Join the next available game</span></button>
+          <button className="lp-tile" onClick={()=>go("mode")}><div className="emoji">ðŸŽ®</div><strong>Play Ludo</strong><span>Classic and Aero arenas</span></button>
+          <button className="lp-tile" onClick={()=>go("stake")}><div className="emoji">ðŸ†</div><strong>Staking</strong><span>Separate match entry feature</span></button>
+          <button className="lp-tile" onClick={()=>go("leaderboard")}><div className="emoji">ðŸ“Š</div><strong>Rankings</strong><span>Compete with real players</span></button>
+          <button className="lp-tile" onClick={openStats}><div className="emoji">ðŸ“ˆ</div><strong>My statistics</strong><span>Your match history and results</span></button>
+          <button className="lp-tile" onClick={()=>go("settings")}><div className="emoji">ðŸ”Š</div><strong>Settings</strong><span>Sound and game preferences</span></button>
+          <button className="lp-tile" onClick={()=>go("mode")}><div className="emoji">âœ¨</div><strong>Quick match</strong><span>Join the next available game</span></button>
         </div>
       </>}
 
       {page==="mode"&&<>
         <div className="lp-backrow"><Back/><div><h1>Choose your arena</h1><div className="lp-muted">Select a game mode before matchmaking</div></div></div>
         <div className="lp-modes">
-          <button className="lp-mode" onClick={()=>{setMode("classic");go("stake")}}><div className="modeicon">🎲</div><h3>Classic Ludo</h3><p>Traditional Ludo experience. Race your four pieces home with familiar rules.</p><div className="lp-actions"><span className="lp-eyebrow">STANDARD ARENA →</span></div></button>
-          <button className="lp-mode aero" onClick={()=>{setMode("aero");go("stake")}}><div className="modeicon">🚀</div><h3>Aero Ludo</h3><p>A faster, elevated arena. Distinct mode rules are supplied by the game server.</p><div className="lp-actions"><span className="lp-eyebrow">AERO ARENA →</span></div></button>
+          <button className="lp-mode" onClick={()=>{setMode("classic");go("stake")}}><div className="modeicon">ðŸŽ²</div><h3>Classic Ludo</h3><p>Traditional Ludo experience. Race your four pieces home with familiar rules.</p><div className="lp-actions"><span className="lp-eyebrow">STANDARD ARENA â†’</span></div></button>
+          <button className="lp-mode aero" onClick={()=>{setMode("aero");go("stake")}}><div className="modeicon">ðŸš€</div><h3>Aero Ludo</h3><p>A faster, elevated arena. Distinct mode rules are supplied by the game server.</p><div className="lp-actions"><span className="lp-eyebrow">AERO ARENA â†’</span></div></button>
         </div>
         <section className="lp-panel">
           <div className="lp-sectionhead"><h2>Play against computer</h2><span className="lp-muted">AI match</span></div>
           <p className="lp-note">Choose a separate computer-match flow with server-authoritative AI dice and moves.</p>
-          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={()=>{setMatchType("computer");go("computer")}}>Play computer match →</button></div>
+          <div className="lp-actions"><button className="lp-btn lp-primary" onClick={()=>{setMatchType("computer");go("computer")}}>Play computer match â†’</button></div>
         </section>
       </>}
 
       {page==="computer"&&<>
         <div className="lp-backrow"><Back to="mode"/><div><h1>Computer match</h1><div className="lp-muted">Choose your arena before entry configuration</div></div></div>
         <div className="lp-modes">
-          <button className="lp-mode" onClick={()=>{setMode("classic");setMatchType("computer");go("stake")}}><div className="modeicon">🤖</div><h3>Classic vs AI</h3><p>Play Classic Ludo against computer opponents.</p></button>
-          <button className="lp-mode aero" onClick={()=>{setMode("aero");setMatchType("computer");go("stake")}}><div className="modeicon">🚀</div><h3>Aero vs AI</h3><p>Play Aero Ludo against computer opponents.</p></button>
+          <button className="lp-mode" onClick={()=>{setMode("classic");setMatchType("computer");go("stake")}}><div className="modeicon">ðŸ¤–</div><h3>Classic vs AI</h3><p>Play Classic Ludo against computer opponents.</p></button>
+          <button className="lp-mode aero" onClick={()=>{setMode("aero");setMatchType("computer");go("stake")}}><div className="modeicon">ðŸš€</div><h3>Aero vs AI</h3><p>Play Aero Ludo against computer opponents.</p></button>
         </div>
       </>}
 
       {page==="stake"&&<>
-        <div className="lp-backrow"><Back to="mode"/><div><h1>Match entry</h1><div className="lp-muted">{mode==="classic"?"Classic":"Aero"} arena · {matchType==="computer"?"Computer match":"Online match"} · Staking is configured separately</div></div></div>
+        <div className="lp-backrow"><Back to="mode"/><div><h1>Match entry</h1><div className="lp-muted">{mode==="classic"?"Classic":"Aero"} arena Â· {matchType==="computer"?"Computer match":"Online match"} Â· Staking is configured separately</div></div></div>
         <section className="lp-panel">
           <div className="lp-sectionhead"><h2>Choose entry amount</h2><span className="lp-muted">Optional</span></div>
-          <div className="lp-stakes" style={{marginTop:16}}>
-            {[0,100,250,500].map(v=><button key={v} className={`lp-stake ${stake===v?"selected":""}`} onClick={()=>setStake(v)}>{v===0?"Free":`₦${v}`}</button>)}
+          <div className="lp-stakes" style={{marginTop:10,gap:6}}>
+            {[0,100,1000,10000,100000,1000000,10000000].map(v=><button key={v} className={`lp-stake ${stake===v?"selected":""}`} onClick={()=>setStake(v)}>{v===0?"Free":v>=1000000\?`â‚¦\$\{\(v/1000000\)\|0}M`:v>=1000\?`â‚¦\$\{\(v/1000\)\|0}K`:`â‚¦\$\{v}`}</button>)}
           </div>
           <p className="lp-note" style={{marginTop:15}}>Staking is handled before matchmaking and never appears on the gameplay board. Actual balance checks, escrow and settlement must be validated by your backend.</p>
           <div className="lp-actions">{matchType==="computer"
-              ?<button className="lp-btn lp-primary" onClick={findComputerMatch} disabled={loading}>{loading?"Preparing match…":"Start computer match →"}</button>
-              :<button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading?"Finding players…":"Find real players →"}</button>}<button className="lp-btn lp-secondary" onClick={()=>go("home")}>Cancel</button></div>
+              ?<button className="lp-btn lp-primary" onClick={findComputerMatch} disabled={loading}>{loading?"Preparing matchâ€¦":"Start computer match â†’"}</button>
+              :<button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading?"Finding playersâ€¦":"Find real players â†’"}</button>}<button className="lp-btn lp-secondary" onClick={()=>go("home")}>Cancel</button></div>
         </section>
       </>}
 
       {page==="match"&&match&&<>
         <div className="lp-gamehead">
-          <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{fontWeight:800,fontSize:14}}>Ludo arena</div><div className="lp-muted">{match.mode==="aero"?"Aero":"Classic"} · {matchType==="computer"?"Computer":"Online"} · Match {match.id.slice(0,8)}</div></div></div>
-          <div className="lp-topright"><div className="lp-pill">⏱ {Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</div><button className="lp-iconbtn" onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"♫":"♩"}</button></div>
+          <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>â†</button><div><div style={{fontWeight:800,fontSize:14}}>Ludo arena</div><div className="lp-muted">{match.mode==="aero"?"Aero":"Classic"} Â· {matchType==="computer"?"Computer":"Online"} Â· Match {match.id.slice(0,8)}</div></div></div>
+          <div className="lp-topright"><div className="lp-pill">â± {Math.floor(seconds/60)}:{String(seconds%60).padStart(2,"0")}</div><button className="lp-iconbtn" onClick={()=>setSound(!sound)} aria-label="Toggle sound">{sound?"â™«":"â™©"}</button></div>
         </div>
         <div className="lp-players">{match.players.map(p=><PlayerCard key={p.id} p={p}/>)}</div>
-        <Board match={match} currentUserId={me?.id} selectedToken={selectedToken} onSelect={(id,dest)=>{setSelectedToken(id);move(id,dest)}}/>
+        <Board match={match} currentUserId={me?.id} selectedToken={selectedToken} onSelect={(id,dest)=>{setSelectedToken(id);move(id,dest)}} mode={mode} />
         <div className="lp-gamebottom">
-          <div className="lp-dice">{dice?face[dice]:"⚄"}</div>
+          <div className="lp-dice">{dice?face[dice]:"âš„"}</div>
           <div className="lp-turn"><strong>{isMyTurn?"Your turn":activePlayer?`${activePlayer.name}'s turn`:"Waiting for turn"}</strong><div>{isMyTurn?"Roll the server dice to continue":"Waiting for the active player"}</div></div>
-          <button className="lp-btn lp-primary" onClick={roll} disabled={!isMyTurn||rolling||!backend}>{rolling?"Rolling…":"Roll dice"}</button>
+          <button className="lp-btn lp-primary" onClick={roll} disabled={!isMyTurn||rolling||!backend}>{rolling?"Rollingâ€¦":"Roll dice"}</button>
         </div>
-        {match.status==="waiting"&&<div className="lp-empty">Waiting for matchmaking to fill the room…</div>}
+        {match.status==="waiting"&&<div className="lp-empty">Waiting for matchmaking to fill the roomâ€¦</div>}
       </>}
 
       {page==="match"&&!match&&<><div className="lp-backrow"><Back/><h1>No active match</h1></div><div className="lp-empty">Start a match to enter the arena.</div></>}
 
       {page==="results"&&<>
         <div className="lp-backrow"><Back/><h1>Match results</h1></div>
-        <section className="lp-hero" style={{textAlign:"center"}}><div style={{fontSize:52}}>🏆</div><div className="lp-eyebrow">Match complete</div><h1 className="lp-h1" style={{fontSize:38,marginInline:"auto"}}>{match?.winnerId===me?.id?"VICTORY!":"GAME FINISHED"}</h1><p className="lp-sub" style={{margin:"auto"}}>Final standings are supplied by the match server.</p></section>
-        <section className="lp-panel">{(match?.players||[]).slice().sort((a,b)=>(a.rank??99)-(b.rank??99)).map((p,i)=><div className="lp-rankrow" key={p.id}><div className="lp-ranknum">#{p.rank??i+1}</div><div>{p.id===me?.id?"YOU":p.name}</div><strong>{p.score??"—"}</strong></div>)}</section>
+        <section className="lp-hero" style={{textAlign:"center"}}><div style={{fontSize:52}}>ðŸ†</div><div className="lp-eyebrow">Match complete</div><h1 className="lp-h1" style={{fontSize:38,marginInline:"auto"}}>{match?.winnerId===me?.id?"VICTORY!":"GAME FINISHED"}</h1><p className="lp-sub" style={{margin:"auto"}}>Final standings are supplied by the match server.</p></section>
+        <section className="lp-panel">{(match?.players||[]).slice().sort((a,b)=>(a.rank??99)-(b.rank??99)).map((p,i)=><div className="lp-rankrow" key={p.id}><div className="lp-ranknum">#{p.rank??i+1}</div><div>{p.id===me?.id?"YOU":p.name}</div><strong>{p.score??"â€”"}</strong></div>)}</section>
         <div className="lp-actions"><button className="lp-btn lp-primary" onClick={startAgain} disabled={!backend?.playAgain}>Play again</button><button className="lp-btn lp-secondary" onClick={exitMatch}>Return to lobby</button></div>
       </>}
 
@@ -400,16 +400,19 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
       {page==="stats"&&<>
         <div className="lp-backrow"><Back/><div><h1>Match statistics</h1><div className="lp-muted">Your verified game history</div></div></div>
         {stats?<div className="lp-statgrid">
-          <div className="lp-stat"><span>Matches played</span><strong>{stats.matches}</strong></div><div className="lp-stat"><span>Wins</span><strong>{stats.wins}</strong></div><div className="lp-stat"><span>Win rate</span><strong>{stats.winRate}%</strong></div><div className="lp-stat"><span>Net earnings</span><strong>₦{stats.earnings}</strong></div>
+          <div className="lp-stat"><span>Matches played</span><strong>{stats.matches}</strong></div><div className="lp-stat"><span>Wins</span><strong>{stats.wins}</strong></div><div className="lp-stat"><span>Win rate</span><strong>{stats.winRate}%</strong></div><div className="lp-stat"><span>Net earnings</span><strong>â‚¦{stats.earnings}</strong></div>
         </div>:<div className="lp-empty">Statistics will appear here when your backend provides your verified match history.</div>}
       </>}
 
       {page==="settings"&&<>
         <div className="lp-backrow"><Back/><div><h1>Settings</h1><div className="lp-muted">Game preferences</div></div></div>
-        <div className="lp-panel"><div className="lp-sectionhead"><div><strong>Sound effects</strong><div className="lp-muted">Game audio preference</div></div><button className="lp-btn lp-secondary" onClick={()=>setSound(!sound)}>{sound?"On ♫":"Off ♩"}</button></div></div>
+        <div className="lp-panel"><div className="lp-sectionhead"><div><strong>Sound effects</strong><div className="lp-muted">Game audio preference</div></div><button className="lp-btn lp-secondary" onClick={()=>setSound(!sound)}>{sound?"On â™«":"Off â™©"}</button></div></div>
         <div className="lp-panel"><strong>Account and backend</strong><p className="lp-note">Player identity, balances, matchmaking and match state are provided by your connected application backend. This component does not create placeholder accounts.</p><div className="lp-muted">{me?`Signed in as ${me.name}`:"No authenticated user supplied"}</div></div>
       </>}
     </div>
-    <footer className="lp-footer"><span>LUDOPRIME</span><span>REAL PLAYERS · FAIR PLAY</span><span>© {new Date().getFullYear()}</span></footer>
+    <footer className="lp-footer"><span>LUDOPRIME</span><span>REAL PLAYERS Â· FAIR PLAY</span><span>Â© {new Date().getFullYear()}</span></footer>
   </div></main>;
 }
+
+
+
