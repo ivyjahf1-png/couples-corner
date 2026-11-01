@@ -158,7 +158,7 @@ function Board({ match, selectedToken, onSelect }: {
     ];
     
     // Standard safe star/colored indices on standard ludo board
-    const safeIndices = [0, 8, 13, 21, 26, 34, 39, 47];
+    const safeIndices = [0, 8, 13, 21, 26, 34, 39, 47]; // Standard entry/safe squares and star safe-houses.
     path.forEach(([r, c], i) => map.set(cellKey(r, c), { type: "path", safe: safeIndices.includes(i), step: i }));
 
     // Home yards
@@ -267,6 +267,10 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [opponentType, setOpponentType] = useState<OpponentType>("online");
   const [localUserPosition, setLocalUserPosition] = useState(0);
   const [localBotPosition, setLocalBotPosition] = useState(0);
+  const [computerName] = useState(() => {
+    const names = ["Bella", "Aisha", "David", "Maya", "Tunde", "Amir", "Zara", "Leo", "Nina", "Omar"];
+    return names[Math.floor(Math.random() * names.length)];
+  });
   const [localTurnHasRolled, setLocalTurnHasRolled] = useState(false);
   const [stake, setStake] = useState(0); // in coins
   const [match, setMatch] = useState<Match | null>(null);
@@ -323,22 +327,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
     return () => window.clearTimeout(timer);
   }, [isComputerMatch, match?.currentPlayerId, match?.status, localBotPosition, me?.id]);
 
-  useEffect(() => {
-    if (!isComputerMatch || !match || match.currentPlayerId !== "computer-ai" || match.status !== "active") return;
-    const timer = window.setTimeout(() => {
-      const value = Math.floor(Math.random() * 6) + 1;
-      const destination = Math.min(51, localBotPosition + value);
-      setDice(value);
-      setLocalBotPosition(destination);
-      setMatch(prev => prev ? {
-        ...prev,
-        currentPlayerId: me?.id ?? "local-player",
-        diceValue: null,
-        legalMoves: []
-      } : prev);
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [isComputerMatch, match?.currentPlayerId, match?.status, localBotPosition, me?.id]);
+
 
   const go = (p: Page) => { setError(""); setPage(p); };
   const requireBackend = () => {
@@ -362,7 +351,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
         legalMoves: [],
         players: [
           { id: playerId, name: currentUser?.name ?? "You", color: "green", isYou: true, isReady: true },
-          { id: "computer-ai", name: "Computer", color: "blue", isReady: true }
+          { id: "computer-ai", name: computerName, color: "blue", isReady: true }
         ]
       };
       setLocalUserPosition(0);
