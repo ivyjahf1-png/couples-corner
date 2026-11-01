@@ -1,4 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+/** @jsxRuntime classic */
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+}
+
+type CSSProperties = Record<string, any>;
+type ReactNode = any;
+
+declare const React: {
+  useState: <S>(initialState: S | (() => S)) => [S, (value: S | ((prev: S) => S)) => void];
+  useEffect: (effect: () => void | (() => void), deps?: any[]) => void;
+  useMemo: <T>(factory: () => T, deps?: any[]) => T;
+  useCallback: <T extends (...args: any[]) => any>(callback: T, deps?: any[]) => T;
+};
+
+const { useCallback, useEffect, useMemo, useState } = React;
 
 /**
  * LudoPrime — single-file responsive game UI.
@@ -187,7 +206,7 @@ function Board({ match, selectedToken, onSelect }: {
     return legal.map(m => ({ player: p, move: m }));
   });
 
-  const squares: React.ReactNode[] = [];
+  const squares: ReactNode[] = [];
   for (let r = 0; r < 15; r++) {
     for (let c = 0; c < 15; c++) {
       const item = cells.get(cellKey(r, c));
@@ -210,7 +229,7 @@ function Board({ match, selectedToken, onSelect }: {
           <div key={cellKey(r, c)} className="lp-homeyard" style={{ gridRow: `${r + 1} / span 6`, gridColumn: `${c + 1} / span 6`, background: COLORS[col] }}>
             <div className="lp-homeinner">
               {[0, 1, 2, 3].map(n => (
-                <div key={n} className="lp-homehole" style={{ "--yard-color": COLORS[col] } as React.CSSProperties}>
+                <div key={n} className="lp-homehole" style={{ "--yard-color": COLORS[col] } as CSSProperties}>
                   <div className={`lp-token ${col}`} style={{ background: COLORS[col] }}>●</div>
                 </div>
               ))}
