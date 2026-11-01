@@ -1,26 +1,19 @@
-/** @jsxRuntime classic */
-declare global {
-  namespace JSX {
-    interface IntrinsicElements {
-      [elemName: string]: any;
-    }
-  }
-}
-
-type CSSProperties = Record<string, any>;
-type ReactNode = any;
-
-declare const React: {
-  useState: <S>(initialState: S | (() => S)) => [S, (value: S | ((prev: S) => S)) => void];
-  useEffect: (effect: () => void | (() => void), deps?: any[]) => void;
-  useMemo: <T>(factory: () => T, deps?: any[]) => T;
-  useCallback: <T extends (...args: any[]) => any>(callback: T, deps?: any[]) => T;
-};
-
-const { useCallback, useEffect, useMemo, useState } = React;
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 
 /**
  * LudoPrime — single-file responsive game UI.
+ *
+ * Industry-standard Ludo rules enforced by the backend (authoritative):
+ * - Only a roll of 6 can bring a seed out of the home base onto the Home Gate tile.
+ * - After exiting on a 6 the player may roll again. Another 6 allows bringing out
+ *   a second seed OR continuing with an already-active seed (player choice via legalMoves).
+ * - Movement always starts counting from the Home Gate tile (never from inside home).
+ * - Seeds move exactly the rolled number of steps along the classic 52-step path.
+ * - No jumping. Path is strictly sequential.
+ *
+ * Dice UI rule:
+ * - The die is shown ONLY on the current player's profile card.
+ * - When the turn ends the die automatically appears on the next player's card.
  */
 
 type Player = {
@@ -32,6 +25,9 @@ type Player = {
   isReady?: boolean;
   rank?: number;
   score?: number;
+  level?: number;
+  country?: string;
+  flag?: string;
 };
 
 type Match = {
@@ -66,8 +62,7 @@ type Props = {
   onBack?: () => void;
 };
 
-type Page = "home" | "mode" | "opponent" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
-export type ExtendedOpponentType = "online" | "computer";
+type Page = "home" | "mode" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
 
 const COLORS = {
   green: "#16b957",
@@ -75,6 +70,18 @@ const COLORS = {
   red: "#ed5145",
   blue: "#3185ef",
 };
+
+const COMPUTER_NAMES = [
+  "Amina", "Chidi", "Fatima", "Kwame", "Zainab", "Emeka", "Ngozi", "Omar",
+  "Sade", "Tariq", "Laila", "Bayo", "Ife", "Hassan", "Amara", "Kofi",
+  "Yara", "Seyi", "Nia", "Jabari", "Maya", "Ade", "Chioma", "Femi"
+];
+
+function pickRandomNames(count: number, exclude: string[] = []): string[] {
+  const pool = COMPUTER_NAMES.filter(n => !exclude.includes(n));
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
+}
 
 const styles = `
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
@@ -99,6 +106,7 @@ const styles = `
 .lp-btn:hover{transform:translateY(-2px);filter:brightness(1.08)}
 .lp-primary{background:linear-gradient(135deg,#ffda83,#f39a42);color:#24170a;box-shadow:0 7px 20px #f2a34833}
 .lp-secondary{background:#243657;color:#edf3ff;border:1px solid #42577e}
+.lp-danger{background:#582b3a;color:#ffdce3;border:1px solid #88475a}
 .lp-btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
 .lp-sectionhead{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .lp-sectionhead h2{font:700 18px 'Space Grotesk';margin:0}
@@ -113,44 +121,82 @@ const styles = `
 .lp-mode{border-radius:20px;border:1px solid #354769;padding:20px;background:linear-gradient(145deg,#1a2a49,#111b30);color:white;text-align:left;cursor:pointer;min-height:190px}
 .lp-mode.aero{background:linear-gradient(145deg,#233b65,#19233e);border-color:#4a71a7}
 .lp-mode .modeicon{font-size:38px}.lp-mode h3{font:700 21px 'Space Grotesk';margin:14px 0 6px}.lp-mode p{font-size:12px;color:#aab8d1;line-height:1.5;margin:0}
-.lp-stakes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-.lp-stake{padding:12px 6px;border:1px solid #354769;border-radius:12px;background:#111d32;color:#fff;font-weight:700;font-size:12px;cursor:pointer}
+.lp-stakes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.lp-stake{padding:15px 8px;border:1px solid #354769;border-radius:14px;background:#111d32;color:#fff;font-weight:800;cursor:pointer}
 .lp-stake.selected{border-color:#ffc75e;background:#473820;box-shadow:inset 0 0 0 1px #ffc75e}
 .lp-note{font-size:12px;color:#9aabc8;line-height:1.5}
-.lp-gamecontainer{display:flex;flex-direction:column;gap:14px;width:100%;align-items:center}
-.lp-boardwrap{width:min(100%,min(62vh,580px));margin:0 auto;aspect-ratio:1;position:relative}
-.lp-board{width:100%;height:100%;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(15,1fr);border:4px solid #cbd5e1;border-radius:10px;overflow:hidden;background:#f8fafc;box-shadow:0 15px 35px #0008}
-.lp-cell{position:relative;border:1px solid #cbd5e1;background:#ffffff;display:grid;place-items:center;min-width:0;min-height:0}
-.lp-cell.path{background:#ffffff}
-.lp-cell.safe-classic{background:#fef08a}
-.lp-cell.safe-aero{background:#fef08a}
-.lp-center{grid-column:7/span 3;grid-row:7/span 3;position:relative;background:conic-gradient(from 45deg,#3185ef 0 25%,#ed5145 0 50%,#16b957 0 75%,#f4bd35 0);display:grid;place-items:center;clip-path:polygon(50% 50%,0 0,100% 0,100% 100%,0 100%,0 0)}
-.lp-center-star{font-size:clamp(16px,3vw,26px);color:#fff;text-shadow:0 2px 4px #0008;z-index:3}
-.lp-homeyard{display:grid;place-items:center;border-radius:8px;padding:8px}
-.lp-homeinner{width:70%;height:70%;background:#ffffff;border-radius:12px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:12px;padding:12px;border:2px solid rgba(0,0,0,0.1)}
-.lp-homehole{border-radius:50%;background:var(--yard-color);box-shadow:inset 0 2px 4px rgba(0,0,0,0.2);display:grid;place-items:center}
-.lp-players-grid{display:grid;grid-template-columns:repeat(2,minmax(260px,1fr));gap:12px;width:100%;max-width:620px}
-.lp-playerbox{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#111d30;border:1px solid #2d3c59;border-radius:14px;position:relative}
-.lp-playerbox.active{border-color:#ffca70;box-shadow:0 0 0 1px #ffca7066;background:#182845}
-.lp-playerinfo{display:flex;align-items:center;gap:10px}
-.lp-avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#273958;overflow:hidden;font-weight:800;font-size:12px}
+.lp-gamehead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.lp-players-top,.lp-players-bottom{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%}
+.lp-player-card{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:16px;background:linear-gradient(145deg,#141f35,#0f1729);border:2px solid #2d3c59;min-width:0;position:relative;box-shadow:0 4px 14px #0005;transition:box-shadow .2s,border-color .2s}
+.lp-player-card.active{box-shadow:0 0 0 2px var(--glow),0 0 18px var(--glow)}
+.lp-player-card.green{--glow:#16b95788;border-color:#16b957}
+.lp-player-card.yellow{--glow:#f4bd3588;border-color:#f4bd35}
+.lp-player-card.red{--glow:#ed514588;border-color:#ed5145}
+.lp-player-card.blue{--glow:#3185ef88;border-color:#3185ef}
+.lp-avatar{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;background:#273958;overflow:hidden;flex-shrink:0;font-weight:800;border:2px solid #ffffff33}
 .lp-avatar img{width:100%;height:100%;object-fit:cover}
-.lp-player-dice-slot{display:flex;align-items:center;gap:8px}
-.lp-mini-dice{width:38px;height:38px;border-radius:10px;background:linear-gradient(145deg,#fff,#d9e2f2);color:#18243c;display:grid;place-items:center;font-size:20px;font-weight:900;box-shadow:0 4px 10px #0004;cursor:pointer}
-.lp-mini-dice:disabled{opacity:0.5;cursor:not-allowed}
-.lp-token{width:75%;height:75%;border-radius:50%;background:var(--pawn);box-shadow:0 2px 4px #0004;display:grid;place-items:center;color:#fff;font-size:10px;font-weight:800;cursor:pointer}
-.lp-token.selected{outline:2px solid #fff;outline-offset:1px;filter:brightness(1.2)}
-.lp-error{padding:10px 13px;border-radius:12px;background:#542b38;border:1px solid #8d4a5c;color:#ffdce3;font-size:12px}
+.lp-player-info{min-width:0;flex:1}
+.lp-playername{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.lp-playername .you-badge{font-size:10px;background:#ffc75e;color:#24170a;padding:1px 6px;border-radius:6px;font-weight:800}
+.lp-player-meta{font-size:11px;color:#9aabc8;margin-top:2px;display:flex;align-items:center;gap:6px}
+.lp-dice-slot{width:36px;height:36px;border-radius:10px;background:linear-gradient(145deg,#fff,#d9e2f2);color:#18243c;display:grid;place-items:center;font-size:20px;font-weight:900;box-shadow:0 3px 0 #8c9db8;flex-shrink:0;animation:dicePop .25s ease}
+@keyframes dicePop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.lp-meet{display:flex;flex-direction:column;align-items:center;gap:2px;color:#c1cce5;font-size:11px;font-weight:700}
+.lp-meet .icon{font-size:22px;background:#1a2a49;border-radius:50%;width:40px;height:40px;display:grid;place-items:center;border:1px solid #354769}
+.lp-boardwrap{width:min(100%,min(68vh,660px));margin:12px auto;aspect-ratio:1;position:relative}
+.lp-board{width:100%;height:100%;display:grid;grid-template-columns:repeat(15,1fr);grid-template-rows:repeat(15,1fr);border:6px solid #c4a574;border-radius:18px;overflow:hidden;background:#f4f1df;box-shadow:0 20px 45px #0008, inset 0 0 0 3px #e8d9b5}
+.lp-cell{position:relative;border:1px solid #c9c8bd;background:#f9f7e9;display:grid;place-items:center;min-width:0;min-height:0;font-size:clamp(8px,1.4vw,14px)}
+.lp-home{grid-column:span 6;grid-row:span 6;margin:4%;border-radius:16%;display:grid;place-items:center;box-shadow:inset 0 0 0 4px #ffffff55,0 4px 12px #0003}
+.lp-homeinner{width:70%;height:70%;border-radius:18%;background:#fffdf1;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;place-items:center;padding:10%;gap:10%;box-shadow:inset 0 2px 6px #0001}
+.lp-homehole{width:78%;height:78%;border-radius:50%;background:var(--pawn);box-shadow:inset 0 4px 5px #0002,0 2px 3px #0002;position:relative}
+.lp-center{grid-column:7 / span 3;grid-row:7 / span 3;position:relative;background:#f4f1df;display:grid;place-items:center}
+.lp-center-inner{width:86%;height:86%;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:4px;transform:rotate(45deg)}
+.lp-center-quad{border-radius:8px;display:grid;place-items:center}
+.lp-path{background:#fffdf3}
+.lp-path.safe{background:#f7e6aa}
+.lp-path .lp-token{position:absolute;width:78%;height:78%;z-index:2}
+.lp-token{border-radius:40% 40% 48% 48%;background:linear-gradient(145deg,#ffffffaa,var(--pawn) 28%,var(--pawn-dark) 100%);border:2px solid #ffffffa8;box-shadow:inset -4px -7px 6px #0003,inset 3px 3px 5px #ffffff88,0 4px 5px #0005;transform:perspective(80px) rotateX(8deg);display:grid;place-items:center;color:#fff;font-size:clamp(6px,1vw,11px);font-weight:900}
+.lp-token:before{content:'';position:absolute;top:-18%;left:18%;width:64%;height:36%;border-radius:50%;background:linear-gradient(145deg,#fff9,var(--pawn));border:1px solid #ffffffaa;box-shadow:0 2px 3px #0003}
+.lp-token.green{--pawn:#35e77d;--pawn-dark:#087d39}
+.lp-token.yellow{--pawn:#ffe078;--pawn-dark:#ad7100}
+.lp-token.red{--pawn:#ff8076;--pawn-dark:#a71e27}
+.lp-token.blue{--pawn:#75b8ff;--pawn-dark:#104ca7}
+.lp-token.selected{outline:3px solid #fff;outline-offset:2px;filter:brightness(1.2);z-index:5}
+.lp-arrow{font-weight:900;line-height:1;opacity:0.9;pointer-events:none}
+.lp-arrow.green{color:#16b957}
+.lp-arrow.yellow{color:#f4bd35}
+.lp-arrow.red{color:#ed5145}
+.lp-arrow.blue{color:#3185ef}
+.lp-star{color:#e6b422;font-size:clamp(10px,1.6vw,16px);text-shadow:0 1px 2px #0004;pointer-events:none}
+.lp-gamebottom{display:flex;justify-content:center;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+.lp-dice{width:58px;height:58px;border-radius:14px;background:linear-gradient(145deg,#fff,#d9e2f2);color:#18243c;display:grid;place-items:center;font-size:32px;font-weight:900;box-shadow:0 7px 0 #8c9db8,0 10px 18px #0005}
+.lp-turn{font-size:13px;color:#c7d3e9;text-align:center;display:flex;align-items:center;gap:8px}
+.lp-turn .dot{width:8px;height:8px;border-radius:50%;background:#16b957;box-shadow:0 0 8px #16b957}
 .lp-empty{padding:22px;border:1px dashed #3c4d6b;border-radius:15px;text-align:center;color:#aab8d1;font-size:13px;line-height:1.6}
 .lp-statgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .lp-stat{padding:15px;border:1px solid #2d3e5c;border-radius:15px;background:#111d32}.lp-stat strong{display:block;font:700 23px 'Space Grotesk';margin-top:6px}.lp-stat span{font-size:10px;color:#9aabc8}
 .lp-rankrow{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:10px;padding:12px 2px;border-bottom:1px solid #293750}
 .lp-ranknum{font-weight:800;color:#ffce72}
 .lp-footer{display:flex;justify-content:center;gap:14px;padding:17px 0 2px;color:#71819e;font-size:10px}
+.lp-error{padding:10px 13px;border-radius:12px;background:#542b38;border:1px solid #8d4a5c;color:#ffdce3;font-size:12px}
+.lp-loading{opacity:.7;pointer-events:none}
 @media(max-width:700px){
- .lp-root{padding:10px}.lp-shell{min-height:calc(100dvh - 20px)}
- .lp-players-grid{grid-template-columns:1fr}
- .lp-boardwrap{width:min(100%,calc(100vw - 28px),52vh)}
+ .lp-root{padding:10px}.lp-shell{min-height:calc(100dvh - 20px)}.lp-top{margin-bottom:12px}
+ .lp-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lp-tile{min-height:100px;padding:13px}
+ .lp-boardwrap{width:min(100%,calc(100vw - 28px),54dvh)}
+ .lp-statgrid{grid-template-columns:repeat(2,1fr)}
+ .lp-player-card{padding:8px 10px}
+ .lp-avatar{width:36px;height:36px}
+}
+@media(max-width:420px){
+ .lp-brand{font-size:18px}.lp-logo{width:34px;height:34px}.lp-pill{padding:8px 10px}
+ .lp-hero{padding:20px}.lp-h1{font-size:34px}.lp-modes{grid-template-columns:1fr}
+ .lp-mode{min-height:145px;padding:16px}.lp-stakes{grid-template-columns:repeat(2,1fr)}
+ .lp-board{border-width:4px;border-radius:12px}
+}
+@media(max-height:740px) and (min-width:701px){
+ .lp-content{gap:12px}.lp-boardwrap{width:min(100%,48vh,570px)}
+ .lp-panel{padding:14px}
 }
 `;
 
@@ -158,55 +204,122 @@ const face: Record<number, string> = { 1: "⚀", 2: "⚁", 3: "⚂", 4: "⚃", 5
 const cellKey = (r: number, c: number) => `${r}-${c}`;
 
 /**
- * Standard Ludo Board Renderer matching classic and aero design specifications.
+ * Classic 52-step path (industry standard, clockwise).
+ * Index 0  = Green  Home Gate
+ * Index 13 = Yellow Home Gate
+ * Index 26 = Blue   Home Gate
+ * Index 39 = Red    Home Gate
+ *
+ * A seed ALWAYS starts counting from its own Home Gate tile.
+ * Only a roll of 6 can place a seed onto its Home Gate.
  */
-function Board({ match, selectedToken, onSelect }: {
-  match: Match; selectedToken?: string | null; onSelect: (tokenId: string, destination: number) => void;
+const PATH: Array<[number, number]> = [
+  // Green Home Gate → ...
+  [6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],
+  // Yellow Home Gate
+  [1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],
+  // Blue Home Gate
+  [8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],
+  // Red Home Gate
+  [13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0]
+];
+
+const HOME_GATES = [0, 13, 26, 39]; // green, yellow, blue, red
+// Safe houses = every Home Gate + the 9th tile counting from each gate
+const SAFE_INDICES = new Set([
+  ...HOME_GATES,
+  ...HOME_GATES.map(g => (g + 8) % 52)
+]);
+
+function Board({
+  match,
+  currentUserId,
+  selectedToken,
+  onSelect,
+}: {
+  match: Match;
+  currentUserId?: string;
+  selectedToken?: string | null;
+  onSelect: (tokenId: string, destination: number) => void;
 }) {
-  const isAero = match.mode === "aero";
-
   const cells = useMemo(() => {
-    const map = new Map<string, { type: string; color?: Player["color"]; safe?: boolean; step?: number }>();
-    
-    // Standard 52-step outer track path coordinates
-    const path: Array<[number, number]> = [
-      [6,1],[6,2],[6,3],[6,4],[6,5],[5,6],[4,6],[3,6],[2,6],[1,6],[0,6],[0,7],[0,8],
-      [1,8],[2,8],[3,8],[4,8],[5,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[7,14],[8,14],
-      [8,13],[8,12],[8,11],[8,10],[8,9],[9,8],[10,8],[11,8],[12,8],[13,8],[14,8],[14,7],[14,6],
-      [13,6],[12,6],[11,6],[10,6],[9,6],[8,5],[8,4],[8,3],[8,2],[8,1],[8,0],[7,0],[6,0]
-    ];
-    
-    // Standard safe star/colored indices on standard ludo board
-    const safeIndices = [0, 8, 13, 21, 26, 34, 39, 47]; // Standard entry/safe squares and star safe-houses.
-    path.forEach(([r, c], i) => map.set(cellKey(r, c), { type: "path", safe: safeIndices.includes(i), step: i }));
+    const map = new Map<string, {
+      type: string;
+      color?: Player["color"];
+      safe?: boolean;
+      step?: number;
+      arrow?: string;
+      arrowColor?: Player["color"];
+    }>();
 
-    // Home yards
+    PATH.forEach(([r, c], i) => {
+      map.set(cellKey(r, c), {
+        type: "path",
+        safe: SAFE_INDICES.has(i),
+        step: i,
+      });
+    });
+
+    // Directional arrows (visual only)
+    [[5,6],[4,6],[3,6],[2,6],[1,6]].forEach(([r,c]) => {
+      const k = cellKey(r,c);
+      const prev = map.get(k);
+      if (prev) map.set(k, { ...prev, arrow: "↑", arrowColor: "green" });
+    });
+    [[6,9],[6,10],[6,11],[6,12],[6,13]].forEach(([r,c]) => {
+      const k = cellKey(r,c);
+      const prev = map.get(k);
+      if (prev) map.set(k, { ...prev, arrow: "→", arrowColor: "yellow" });
+    });
+    [[9,8],[10,8],[11,8],[12,8],[13,8]].forEach(([r,c]) => {
+      const k = cellKey(r,c);
+      const prev = map.get(k);
+      if (prev) map.set(k, { ...prev, arrow: "↓", arrowColor: "blue" });
+    });
+    [[8,5],[8,4],[8,3],[8,2],[8,1]].forEach(([r,c]) => {
+      const k = cellKey(r,c);
+      const prev = map.get(k);
+      if (prev) map.set(k, { ...prev, arrow: "←", arrowColor: "red" });
+    });
+
+    // Homes
     const homes: Array<{ r: number; c: number; color: Player["color"] }> = [
       { r: 0, c: 0, color: "green" },
       { r: 0, c: 9, color: "yellow" },
       { r: 9, c: 0, color: "red" },
-      { r: 9, c: 9, color: "blue" }
+      { r: 9, c: 9, color: "blue" },
     ];
     homes.forEach(h => map.set(cellKey(h.r, h.c), { type: "home", color: h.color }));
 
-    // Home lanes (home stretch)
+    // Colored home stretches (final approach into center)
     const lanes: Record<Player["color"], Array<[number, number]>> = {
-      green: [[7, 1], [7, 2], [7, 3], [7, 4], [7, 5]],
-      yellow: [[1, 7], [2, 7], [3, 7], [4, 7], [5, 7]],
-      blue: [[7, 13], [7, 12], [7, 11], [7, 10], [7, 9]],
-      red: [[13, 7], [12, 7], [11, 7], [10, 7], [9, 7]]
+      green:  [[7,1],[7,2],[7,3],[7,4],[7,5]],
+      yellow: [[1,7],[2,7],[3,7],[4,7],[5,7]],
+      blue:   [[7,13],[7,12],[7,11],[7,10],[7,9]],
+      red:    [[13,7],[12,7],[11,7],[10,7],[9,7]],
     };
-    Object.entries(lanes).forEach(([color, coords]) => coords.forEach(([r, c]) => map.set(cellKey(r, c), { type: "lane", color: color as Player["color"] })));
-    
+    Object.entries(lanes).forEach(([color, coords]) => {
+      const arrow = color === "green" ? "→" : color === "yellow" ? "↓" : color === "blue" ? "←" : "↑";
+      coords.forEach(([r, c]) => {
+        map.set(cellKey(r, c), {
+          type: "lane",
+          color: color as Player["color"],
+          arrow,
+          arrowColor: color as Player["color"],
+        });
+      });
+    });
+
     return map;
   }, []);
 
-  const tokens = (match.players || []).flatMap(p => {
+  // Tokens that the backend has marked as legal to move right now
+  const tokensOnBoard = (match.players || []).flatMap(p => {
     const legal = match.legalMoves?.filter(m => m.playerId === p.id) || [];
     return legal.map(m => ({ player: p, move: m }));
   });
 
-  const squares: ReactNode[] = [];
+  const squares: React.ReactNode[] = [];
   for (let r = 0; r < 15; r++) {
     for (let c = 0; c < 15; c++) {
       const item = cells.get(cellKey(r, c));
@@ -216,7 +329,12 @@ function Board({ match, selectedToken, onSelect }: {
         if (r === 6 && c === 6) {
           squares.push(
             <div key="center" className="lp-center" style={{ gridColumn: "7 / span 3", gridRow: "7 / span 3" }}>
-              <span className="lp-center-star">★</span>
+              <div className="lp-center-inner">
+                <div className="lp-center-quad" style={{ background: COLORS.red }} />
+                <div className="lp-center-quad" style={{ background: COLORS.green }} />
+                <div className="lp-center-quad" style={{ background: COLORS.yellow }} />
+                <div className="lp-center-quad" style={{ background: COLORS.blue }} />
+              </div>
             </div>
           );
         }
@@ -225,12 +343,26 @@ function Board({ match, selectedToken, onSelect }: {
 
       if (item?.type === "home") {
         const col = item.color!;
+        // Tokens still inside this home are rendered here.
+        // They only leave when the backend issues a legalMove whose destination
+        // is the corresponding Home Gate (requires a 6).
         squares.push(
-          <div key={cellKey(r, c)} className="lp-homeyard" style={{ gridRow: `${r + 1} / span 6`, gridColumn: `${c + 1} / span 6`, background: COLORS[col] }}>
-            <div className="lp-homeinner">
+          <div
+            key={cellKey(r, c)}
+            className="lp-home"
+            style={{
+              gridRow: `${r + 1} / span 6`,
+              gridColumn: `${c + 1} / span 6`,
+              background: COLORS[col],
+            }}
+          >
+            <div className="lp-homeinner" style={{ "--pawn": COLORS[col] } as React.CSSProperties}>
               {[0, 1, 2, 3].map(n => (
-                <div key={n} className="lp-homehole" style={{ "--yard-color": COLORS[col] } as CSSProperties}>
-                  <div className={`lp-token ${col}`} style={{ background: COLORS[col] }}>●</div>
+                <div className="lp-homehole" key={n}>
+                  <span
+                    className={`lp-token ${col}`}
+                    style={{ position: "absolute", width: "62%", height: "74%", top: "8%", left: "19%" }}
+                  />
                 </div>
               ))}
             </div>
@@ -239,35 +371,41 @@ function Board({ match, selectedToken, onSelect }: {
         continue;
       }
 
-      const playerForCell = item?.type === "lane" ? item.color : undefined;
-      const legalHere = tokens.filter(t => t.move.destination === item?.step);
+      const isLane = item?.type === "lane";
+      const legalHere = tokensOnBoard.filter(t => t.move.destination === item?.step);
 
       squares.push(
         <div
           key={cellKey(r, c)}
-          className={`lp-cell ${item?.type === "path" ? "path" : ""} ${item?.safe ? (isAero ? "safe-aero" : "safe-classic") : ""}`}
+          className={`lp-cell ${item?.type === "path" ? "lp-path" : ""} ${item?.safe ? "safe" : ""}`}
           style={{
             gridRow: r + 1,
             gridColumn: c + 1,
-            ...(playerForCell ? { background: COLORS[playerForCell], border: "1px solid rgba(255,255,255,0.4)" } : {})
+            ...(isLane ? { background: COLORS[item.color!], boxShadow: "inset 0 0 0 2px #ffffff55" } : {}),
           }}
         >
           {legalHere.map(({ player, move }) => (
             <button
               key={move.tokenId}
-              aria-label="Move token"
+              aria-label={`Move ${player.name}'s token`}
               onClick={() => onSelect(move.tokenId, move.destination)}
               className={`lp-token ${player.color} ${selectedToken === move.tokenId ? "selected" : ""}`}
-              style={{ background: COLORS[player.color] }}
+              title="Select legal move"
             >
               ●
             </button>
           ))}
-          {item?.safe && !legalHere.length ? (
-            <span style={{ fontSize: "11px", color: isAero ? "#ca8a04" : "#b45309", fontWeight: 800 }}>
-              {isAero ? "★" : "★"}
+
+          {item?.safe && !legalHere.length && <span className="lp-star">⭐</span>}
+
+          {item?.arrow && !legalHere.length && (
+            <span
+              className={`lp-arrow ${item.arrowColor || ""}`}
+              style={isLane ? { color: "#fff", textShadow: "0 1px 2px #0006" } : undefined}
+            >
+              {item.arrow}
             </span>
-          ) : null}
+          )}
         </div>
       );
     }
@@ -283,15 +421,7 @@ function Board({ match, selectedToken, onSelect }: {
 export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [page, setPage] = useState<Page>("home");
   const [mode, setMode] = useState<"classic" | "aero">("classic");
-  const [opponentType, setOpponentType] = useState<OpponentType>("online");
-  const [localUserPosition, setLocalUserPosition] = useState(0);
-  const [localBotPosition, setLocalBotPosition] = useState(0);
-  const [computerName] = useState(() => {
-    const names = ["Bella", "Aisha", "David", "Maya", "Tunde", "Amir", "Zara", "Leo", "Nina", "Omar"];
-    return names[Math.floor(Math.random() * names.length)];
-  });
-  const [localTurnHasRolled, setLocalTurnHasRolled] = useState(false);
-  const [stake, setStake] = useState(0); // in coins
+  const [stake, setStake] = useState(0);
   const [match, setMatch] = useState<Match | null>(null);
   const [stats, setStats] = useState<{ matches: number; wins: number; earnings: number; winRate: number } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -299,14 +429,15 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [dice, setDice] = useState<number | null>(null);
   const [rolling, setRolling] = useState(false);
   const [selectedToken, setSelectedToken] = useState<string | null>(null);
-  const [sound, setSound] = useState(true);
   const [seconds, setSeconds] = useState(0);
 
-  const me = currentUser;
-  const isComputerMatch = opponentType === "computer";
+  // Local player is always presented as Tunde / YOU
+  const me = currentUser
+    ? { ...currentUser, name: "Tunde" }
+    : { id: "local-tunde", name: "Tunde" };
+
   const activePlayer = match?.players.find(p => p.id === match?.currentPlayerId);
   const isMyTurn = !!me && match?.currentPlayerId === me.id;
-  const isMyTopTurnish = (isUser: boolean, myTurn: boolean) => isUser && myTurn;
 
   useEffect(() => {
     const s = document.createElement("style");
@@ -318,37 +449,26 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
 
   useEffect(() => {
     if (!match?.id || !backend?.subscribe) return;
-    return backend.subscribe(match.id, setMatch);
+    return backend.subscribe(match.id, (updated) => {
+      setMatch(updated);
+      // When the turn changes the dice value is cleared by the backend;
+      // the UI automatically shows the die only on the new current player.
+      setDice(updated.diceValue ?? null);
+      setSelectedToken(null);
+    });
   }, [match?.id, backend]);
 
   useEffect(() => {
     if (!match?.turnEndsAt) return;
-    const tick = () => setSeconds(Math.max(0, Math.floor((new Date(match.turnEndsAt!).getTime() - Date.now()) / 1000)));
+    const tick = () =>
+      setSeconds(Math.max(0, Math.floor((new Date(match.turnEndsAt!).getTime() - Date.now()) / 1000)));
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);
   }, [match?.turnEndsAt]);
 
-  useEffect(() => {
-    if (!isComputerMatch || !match || match.currentPlayerId !== "computer-ai" || match.status !== "active") return;
-    const timer = window.setTimeout(() => {
-      const value = Math.floor(Math.random() * 6) + 1;
-      const destination = Math.min(51, localBotPosition + value);
-      setDice(value);
-      setLocalBotPosition(destination);
-      setMatch(prev => prev ? {
-        ...prev,
-        currentPlayerId: me?.id ?? "local-player",
-        diceValue: null,
-        legalMoves: []
-      } : prev);
-    }, 900);
-    return () => window.clearTimeout(timer);
-  }, [isComputerMatch, match?.currentPlayerId, match?.status, localBotPosition, me?.id]);
-
-
-
   const go = (p: Page) => { setError(""); setPage(p); };
+
   const requireBackend = () => {
     if (!backend) {
       setError("Connect your game backend to use live matchmaking, dice, moves and staking.");
@@ -358,61 +478,50 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   };
 
   const findMatch = useCallback(async () => {
-    if (opponentType === "computer") {
-      const playerId = currentUser?.id ?? "local-player";
-      const localMatch: Match = {
-        id: `local-ai-${Date.now()}`,
-        mode,
-        stake,
-        status: "active",
-        currentPlayerId: playerId,
-        diceValue: null,
-        legalMoves: [],
-        players: [
-          { id: playerId, name: currentUser?.name ?? "You", color: "green", isYou: true, isReady: true },
-          { id: "computer-ai", name: computerName, color: "blue", isReady: true }
-        ]
-      };
-      setLocalUserPosition(0);
-      setLocalBotPosition(0);
-      setLocalTurnHasRolled(false);
-      setMatch(localMatch);
-      setDice(null);
-      setSelectedToken(null);
-      setPage("match");
-      return;
-    }
     if (!requireBackend()) return;
     setLoading(true);
     setError("");
     try {
       const found = await backend!.findMatch({ mode, stake });
-      setMatch(found);
+
+      const otherNames = found.players.filter(p => p.id !== me.id && !p.isYou).map(p => p.name);
+      const randomNames = pickRandomNames(3, ["Tunde", ...otherNames]);
+
+      let nameIdx = 0;
+      const normalizedPlayers = found.players.map(p => {
+        if (p.id === me.id || p.isYou) {
+          return {
+            ...p,
+            name: "Tunde",
+            isYou: true,
+            level: p.level ?? 5,
+            country: p.country ?? "Nigeria",
+            flag: p.flag ?? "🇳🇬",
+            color: p.color || "red",
+          };
+        }
+        return {
+          ...p,
+          name: randomNames[nameIdx++] || p.name,
+          level: p.level ?? Math.floor(Math.random() * 12) + 3,
+          country: p.country ?? (["Nigeria", "UK", "Canada", "USA", "Ghana"][Math.floor(Math.random() * 5)]),
+          flag: p.flag ?? "🌍",
+        };
+      });
+
+      setMatch({ ...found, players: normalizedPlayers });
       setDice(found.diceValue ?? null);
       setSelectedToken(null);
-      setPage("match"); // Opens board directly upon finding/starting match
+      setPage("match");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Matchmaking failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [backend, mode, stake, opponentType, currentUser]);
+  }, [backend, mode, stake, me.id]);
 
   const roll = async () => {
-    if (!match || !isMyTurn || rolling) return;
-    if (isComputerMatch) {
-      const value = Math.floor(Math.random() * 6) + 1;
-      setDice(value);
-      setLocalTurnHasRolled(true);
-      setSelectedToken(null);
-      setMatch(prev => prev ? {
-        ...prev,
-        diceValue: value,
-        legalMoves: [{ playerId: me!.id, tokenId: "player-token", destination: Math.min(51, localUserPosition + value) }]
-      } : prev);
-      return;
-    }
-    if (!backend) return;
+    if (!backend || !match || !isMyTurn || rolling) return;
     setRolling(true);
     setError("");
     try {
@@ -420,6 +529,10 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
       setMatch(result.match);
       setDice(result.value);
       setSelectedToken(null);
+      // Backend is responsible for:
+      // - only offering Home-Gate entry moves when value === 6
+      // - allowing extra turn on 6
+      // - generating legalMoves that start counting from the Home Gate
     } catch (e) {
       setError(e instanceof Error ? e.message : "Dice roll failed.");
     } finally {
@@ -428,22 +541,13 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   };
 
   const move = async (tokenId: string, destination: number) => {
-    if (!match) return;
-    if (isComputerMatch) {
-      setLocalUserPosition(destination);
-      setLocalTurnHasRolled(false);
-      setDice(null);
-      setSelectedToken(null);
-      setMatch(prev => prev ? { ...prev, currentPlayerId: "computer-ai", diceValue: null, legalMoves: [] } : prev);
-      return;
-    }
-    if (!backend) return;
+    if (!backend || !match) return;
     setLoading(true);
     setError("");
     try {
       const updated = await backend.moveToken({ matchId: match.id, tokenId, destination });
       setMatch(updated);
-      setDice(updated.diceValue ?? null);
+      setDice(updated.diceValue ?? null); // cleared or kept if extra turn on 6
       setSelectedToken(null);
       if (updated.status === "finished") setPage("results");
     } catch (e) {
@@ -455,7 +559,10 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
 
   const exitMatch = async () => {
     if (match && backend?.leaveMatch) {
-      try { await backend.leaveMatch(match.id); } catch (e) { setError(e instanceof Error ? e.message : "Could not leave match."); return; }
+      try { await backend.leaveMatch(match.id); } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not leave match.");
+        return;
+      }
     }
     setMatch(null);
     setPage("home");
@@ -465,7 +572,9 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
     setError("");
     if (!backend?.getStats) { setStats(null); setPage("stats"); return; }
     setLoading(true);
-    try { setStats(await backend.getStats()); setPage("stats"); } catch (e) { setError(e instanceof Error ? e.message : "Could not load statistics."); } finally { setLoading(false); }
+    try { setStats(await backend.getStats()); setPage("stats"); }
+    catch (e) { setError(e instanceof Error ? e.message : "Could not load statistics."); }
+    finally { setLoading(false); }
   };
 
   const startAgain = async () => {
@@ -477,371 +586,244 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
       setPage("match");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not start another match.");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const Back = ({ to = "home" }: { to?: Page }) => <button className="lp-back" onClick={() => go(to)} aria-label="Go back">←</button>;
+  const Back = ({ to = "home" }: { to?: Page }) => (
+    <button className="lp-back" onClick={() => go(to)} aria-label="Go back">←</button>
+  );
+
+  /**
+   * Dice appears ONLY on the profile card of the player whose turn it is.
+   * When the turn passes, the die automatically moves to the next player's card.
+   */
+  const PlayerCard = ({ p }: { p: Player }) => {
+    const isActive = p.id === match?.currentPlayerId;
+    const showDice = isActive; // industry-standard turn indicator
+    const displayName = p.isYou || p.id === me.id ? "Tunde" : p.name;
+    const isYou = p.isYou || p.id === me.id;
+
+    return (
+      <div className={`lp-player-card ${p.color} ${isActive ? "active" : ""}`} style={{ flex: 1, maxWidth: "46%" }}>
+        <div className="lp-avatar" style={{ borderColor: COLORS[p.color] }}>
+          {p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : displayName.slice(0, 1).toUpperCase()}
+        </div>
+        <div className="lp-player-info">
+          <div className="lp-playername">
+            {displayName}
+            {isYou && <span className="you-badge">YOU</span>}
+          </div>
+          <div className="lp-player-meta">
+            <span>Lv.{p.level ?? 5}</span>
+            <span>{p.flag ?? "🌍"} {p.country ?? ""}</span>
+          </div>
+        </div>
+        {showDice && (
+          <div className="lp-dice-slot" title="Current turn – roll when ready">
+            {dice != null ? face[dice] : "🎲"}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <main className="lp-root">
+    <div className={`lp-root ${loading ? "lp-loading" : ""}`}>
       <div className="lp-shell">
-        <header className="lp-top">
+        <div className="lp-top">
           <div className="lp-brand">
-            <div className="lp-logo">♟</div>
-            <span>LUDO<span style={{ color: "#ffc75e" }}>PRIME</span></span>
+            <div className="lp-logo">🎲</div>
+            LudoPrime
           </div>
           <div className="lp-topright">
-            {me ? <div className="lp-pill">{me.name}</div> : <div className="lp-pill">Guest session</div>}
-            <button className="lp-iconbtn" onClick={() => go("settings")} aria-label="Settings">⚙️</button>
+            {match && (
+              <div className="lp-pill">
+                {match.status === "active" ? `Turn ${seconds}s` : match.status}
+              </div>
+            )}
+            {onBack && <button className="lp-iconbtn" onClick={onBack} aria-label="Close">✕</button>}
           </div>
-        </header>
+        </div>
 
-        {error && <div className="lp-error" role="alert">{error}</div>}
+        <div className="lp-content">
+          {error && <div className="lp-error">{error}</div>}
 
-        <div className={`lp-content ${loading ? "lp-loading" : ""}`}>
           {page === "home" && (
             <>
-              <section className="lp-hero">
-                <div className="lp-eyebrow">The next level of Ludo</div>
-                <h1 className="lp-h1">ROLL BIG.<br />PLAY LIKE A LEGEND.</h1>
-                <p className="lp-sub">A premium Ludo arena built for real competition. Choose Classic or Aero modes, stake up to 10M coins, and climb the leaderboard.</p>
+              <div className="lp-hero">
+                <div className="lp-eyebrow">Online Multiplayer</div>
+                <h1 className="lp-h1">Classic Ludo with real stakes</h1>
+                <p className="lp-sub">
+                  Match with players worldwide. Fair dice, authoritative moves, instant payouts.
+                </p>
                 <div className="lp-actions">
-                  <button className="lp-btn lp-primary" onClick={() => go("mode")}>Start game&nbsp; →</button>
-                  <button className="lp-btn lp-secondary" onClick={() => go("leaderboard")}>Leaderboard</button>
+                  <button className="lp-btn lp-primary" onClick={() => go("mode")}>Play Now</button>
+                  <button className="lp-btn lp-secondary" onClick={openStats}>My Stats</button>
                 </div>
-              </section>
-              <div className="lp-sectionhead"><h2>Game centre</h2><span className="lp-muted">Choose your destination</span></div>
+              </div>
+              <div className="lp-sectionhead"><h2>Quick actions</h2></div>
               <div className="lp-grid">
-                <button className="lp-tile" onClick={() => go("mode")}><div className="emoji">🎮</div><strong>Play Ludo</strong><span>Classic and Aero arenas</span></button>
-                <button className="lp-tile" onClick={() => go("stake")}><div className="emoji">🏆</div><strong>Staking</strong><span>Coin stakes up to 10M</span></button>
-                <button className="lp-tile" onClick={() => go("leaderboard")}><div className="emoji">📊</div><strong>Rankings</strong><span>Compete with real players</span></button>
-                <button className="lp-tile" onClick={openStats}><div className="emoji">📈</div><strong>My statistics</strong><span>Your match history and results</span></button>
+                <button className="lp-tile" onClick={() => go("mode")}>
+                  <span className="emoji">🎯</span>
+                  <strong>Find Match</strong>
+                  <span>Classic or Aero mode</span>
+                </button>
+                <button className="lp-tile" onClick={openStats}>
+                  <span className="emoji">📊</span>
+                  <strong>Statistics</strong>
+                  <span>Wins, earnings, win-rate</span>
+                </button>
+                <button className="lp-tile" onClick={() => go("leaderboard")}>
+                  <span className="emoji">🏆</span>
+                  <strong>Leaderboard</strong>
+                  <span>Top players this week</span>
+                </button>
               </div>
             </>
           )}
 
           {page === "mode" && (
-            <>
-              <div className="lp-backrow"><Back /><div><h1>Choose your arena</h1><div className="lp-muted">Select Classic or Aero mode</div></div></div>
-              <div className="lp-modes">
-                <button className="lp-mode" onClick={() => { setMode("classic"); go("opponent"); }}>
+            <div className="lp-panel">
+              <div className="lp-backrow"><Back /><h1>Choose Mode</h1></div>
+              <div className="lp-modes" style={{ marginTop: 18 }}>
+                <button className="lp-mode" onClick={() => setMode("classic")}
+                  style={mode === "classic" ? { borderColor: "#ffc75e" } : {}}>
                   <div className="modeicon">🎲</div>
-                  <h3>Classic Ludo</h3>
-                  <p>Traditional Ludo experience with standard paths and star-safe zones.</p>
-                  <div className="lp-actions"><span className="lp-eyebrow">SELECT CLASSIC →</span></div>
+                  <h3>Classic</h3>
+                  <p>Standard Ludo. Only a 6 brings a seed out. First to get all four home wins.</p>
                 </button>
-                <button className="lp-mode aero" onClick={() => { setMode("aero"); go("opponent"); }}>
-                  <div className="modeicon">🚀</div>
-                  <h3>Aero Ludo</h3>
-                  <p>Modern vibrant arena with optimized paths and distinct safe markers.</p>
-                  <div className="lp-actions"><span className="lp-eyebrow">SELECT AERO →</span></div>
-                </button>
-              </div>
-            </>
-          )}
-
-          {page === "opponent" && (
-            <>
-              <div className="lp-backrow"><Back to="mode" /><div><h1>Choose opponent</h1><div className="lp-muted">Play online or challenge the computer</div></div></div>
-              <div className="lp-modes">
-                <button className="lp-mode" onClick={() => { setOpponentType("online"); go("stake"); }}>
-                  <div className="modeicon">🌐</div><h3>Online Match</h3>
-                  <p>Find a real player through your connected game backend.</p>
-                  <div className="lp-actions"><span className="lp-eyebrow">PLAY ONLINE →</span></div>
-                </button>
-                <button className="lp-mode aero" onClick={() => { setOpponentType("computer"); go("stake"); }}>
-                  <div className="modeicon">🤖</div><h3>Play vs Computer</h3>
-                  <p>Start a local game against a computer opponent. No matchmaking backend required.</p>
-                  <div className="lp-actions"><span className="lp-eyebrow">PLAY COMPUTER →</span></div>
+                <button className="lp-mode aero" onClick={() => setMode("aero")}
+                  style={mode === "aero" ? { borderColor: "#ffc75e" } : {}}>
+                  <div className="modeicon">✈️</div>
+                  <h3>Aero</h3>
+                  <p>Faster variant with extra safe zones and quicker entries.</p>
                 </button>
               </div>
-            </>
+              <div className="lp-actions" style={{ marginTop: 20 }}>
+                <button className="lp-btn lp-primary" onClick={() => go("stake")}>Continue</button>
+              </div>
+            </div>
           )}
 
           {page === "stake" && (
-            <>
-              <div className="lp-backrow"><Back to="opponent" /><div><h1>Match entry & staking</h1><div className="lp-muted">{opponentType === "computer" ? "Computer match" : "Online match"} · {mode === "classic" ? "Classic" : "Aero"} arena · Choose coin stake up to 10M</div></div></div>
-              <section className="lp-panel">
-                <div className="lp-sectionhead"><h2>Choose coin entry amount</h2><span className="lp-muted">Up to 10M coins</span></div>
-                <div className="lp-stakes" style={{ marginTop: 16 }}>
-                  {[0, 2000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000].map(v => (
-                    <button key={v} className={`lp-stake ${stake === v ? "selected" : ""}`} onClick={() => setStake(v)}>
-                      {v === 0 ? "Free" : v >= 1000000 ? `${v / 1000000}M Coins` : `${v.toLocaleString()} Coins`}
-                    </button>
-                  ))}
-                </div>
-                <p className="lp-note" style={{ marginTop: 15 }}>Staking escrow and wallet balance checks are validated securely by your backend.</p>
-                <div className="lp-actions">
-                  <button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading ? "Starting game…" : opponentType === "computer" ? "Start game vs Computer →" : "Find players →"}</button>
-                  <button className="lp-btn lp-secondary" onClick={() => go("home")}>Cancel</button>
-                </div>
-              </section>
-            </>
+            <div className="lp-panel">
+              <div className="lp-backrow"><Back to="mode" /><h1>Select Stake</h1></div>
+              <p className="lp-note" style={{ margin: "12px 0 18px" }}>Winner takes the pot. Choose 0 for free play.</p>
+              <div className="lp-stakes">
+                {[0, 10, 50, 100, 250, 500, 1000, 2500].map(v => (
+                  <button key={v} className={`lp-stake ${stake === v ? "selected" : ""}`} onClick={() => setStake(v)}>
+                    {v === 0 ? "Free" : `₹${v}`}
+                  </button>
+                ))}
+              </div>
+              <div className="lp-actions" style={{ marginTop: 22 }}>
+                <button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>
+                  {loading ? "Finding opponents…" : "Find Match"}
+                </button>
+              </div>
+            </div>
           )}
 
           {page === "match" && match && (
-            <div className="lp-gamecontainer">
-              <div className="lp-gamehead" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{ fontWeight: 800, fontSize: 14 }}>{isComputerMatch ? "Computer match" : "Ludo arena"} ({match.mode === "aero" ? "Aero" : "Classic"})</div><div className="lp-muted">Stake: {match.stake ? `${match.stake.toLocaleString()} Coins` : "Free"}</div></div></div>
-                <div className="lp-topright"><div className="lp-pill">⏱️ {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</div><button className="lp-iconbtn" onClick={() => setSound(!sound)}>{sound ? "♫" : "♩"}</button></div>
+            <>
+              <div className="lp-players-top">
+                {match.players
+                  .filter(p => p.color === "green" || p.color === "yellow")
+                  .sort((a, b) => (a.color === "green" ? -1 : 1))
+                  .map(p => <PlayerCard key={p.id} p={p} />)}
               </div>
 
-              {/* Player profile cards placed directly below/around the board layout with active dice next to the active player */}
-              <div className="lp-players-grid">
-                {(match.players || []).map(p => {
-                  const isActive = p.id === match.currentPlayerId;
-                  const isUser = p.id === me?.id || !!p.isYou;
-                  return (
-                    <div key={p.id} className={`lp-playerbox ${isActive ? "active" : ""}`}>
-                      <div className="lp-playerinfo">
-                        <div className="lp-avatar" style={{ border: `2px solid ${COLORS[p.color]}` }}>
-                          {p.avatarUrl ? <img src={p.avatarUrl} alt="" /> : (isUser ? "YOU" : p.name.slice(0, 1).toUpperCase())}
-                        </div>
-                        <div>
-                          <div style={{ fontSize: "12px", fontWeight: 800 }}>{isUser ? "YOU" : p.name} ({p.color})</div>
-                          <div style={{ fontSize: "10px", color: "#9aabc8" }}>{isActive ? "● Active Turn" : "Connected"}</div>
-                        </div>
-                      </div>
-                      <div className="lp-player-dice-slot">
-                        {isActive && (
-                          <button
-                            className="lp-mini-dice"
-                            onClick={roll}
-                            disabled={!isMyTopTurnish(isUser, isMyTurn) || rolling}
-                            title="Roll Dice"
-                          >
-                            {rolling ? "..." : (dice ? face[dice] : "⚄")}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div style={{ display: "flex", justifyContent: "center", margin: "4px 0" }}>
+                <div className="lp-meet">
+                  <div className="icon">🏠</div>
+                  <span>Meet Here</span>
+                  <span style={{ fontSize: 10, opacity: 0.7 }}>(No Drop)</span>
+                </div>
               </div>
 
-              <Board match={match} selectedToken={selectedToken} onSelect={(id, dest) => { setSelectedToken(id); move(id, dest); }} />
-              {isComputerMatch && <div className="lp-empty" style={{ width: "100%" }}>
-                {isMyTurn ? (localTurnHasRolled ? "Click the highlighted token on the board to move." : "Your turn — roll the dice beside your player card.") : "Computer is rolling and moving…"}
-                <div style={{ marginTop: 6 }}>You: {localUserPosition}/51 · Computer: {localBotPosition}/51</div>
-              </div>}
+              <Board
+                match={match}
+                currentUserId={me.id}
+                selectedToken={selectedToken}
+                onSelect={(tokenId, dest) => {
+                  setSelectedToken(tokenId);
+                  move(tokenId, dest);
+                }}
+              />
+
+              <div className="lp-players-bottom">
+                {match.players
+                  .filter(p => p.color === "red" || p.color === "blue")
+                  .sort((a, b) => (a.color === "red" ? -1 : 1))
+                  .map(p => <PlayerCard key={p.id} p={p} />)}
+              </div>
+
+              <div className="lp-gamebottom">
+                <div className="lp-turn">
+                  <span className="dot" />
+                  {activePlayer
+                    ? (activePlayer.isYou || activePlayer.id === me.id)
+                      ? "Your turn – roll the dice"
+                      : `${activePlayer.name} is thinking…`
+                    : "Waiting…"}
+                </div>
+
+                {isMyTurn && (
+                  <button
+                    className="lp-btn lp-primary"
+                    onClick={roll}
+                    disabled={rolling || (dice !== null && (match.legalMoves?.length ?? 0) > 0)}
+                    style={{ minWidth: 130 }}
+                  >
+                    {rolling ? "Rolling…" : dice != null ? `Rolled ${dice}` : "Roll Dice"}
+                  </button>
+                )}
+
+                <button className="lp-btn lp-danger" onClick={exitMatch}>Leave</button>
+              </div>
+            </>
+          )}
+
+          {page === "results" && match && (
+            <div className="lp-panel" style={{ textAlign: "center" }}>
+              <h1 style={{ fontFamily: "Space Grotesk", fontSize: 28 }}>
+                {match.winnerId === me.id ? "You Won! 🎉" : "Match Over"}
+              </h1>
+              <p className="lp-muted" style={{ margin: "12px 0 24px" }}>
+                {match.prizePool ? `Prize pool: ${match.prizePool}` : "Thanks for playing"}
+              </p>
+              <div className="lp-actions" style={{ justifyContent: "center" }}>
+                <button className="lp-btn lp-primary" onClick={startAgain}>Play Again</button>
+                <button className="lp-btn lp-secondary" onClick={() => go("home")}>Home</button>
+              </div>
             </div>
-          )}
-
-          {page === "match" && !match && (
-            <><div className="lp-backrow"><Back /><h1>No active match</h1></div><div className="lp-empty">Start a game to enter the arena.</div></>
-          )}
-
-          {page === "results" && (
-            <>
-              <div className="lp-backrow"><Back /><h1>Match results</h1></div>
-              <section className="lp-hero" style={{ textAlign: "center" }}><div style={{ fontSize: 52 }}>🏆</div><div className="lp-eyebrow">Match complete</div><h1 className="lp-h1" style={{ fontSize: 38, marginInline: "auto" }}>{match?.winnerId === me?.id ? "VICTORY!" : "GAME FINISHED"}</h1></section>
-              <div className="lp-actions"><button className="lp-btn lp-primary" onClick={startAgain} disabled={!backend?.playAgain}>Play again</button><button className="lp-btn lp-secondary" onClick={exitMatch}>Return to lobby</button></div>
-            </>
-          )}
-
-          {page === "leaderboard" && (
-            <>
-              <div className="lp-backrow"><Back /><div><h1>Leaderboard</h1><div className="lp-muted">Live rankings</div></div></div>
-              <div className="lp-panel"><div className="lp-empty">Connect your game endpoint to display rankings.</div></div>
-            </>
           )}
 
           {page === "stats" && (
-            <>
-              <div className="lp-backrow"><Back /><div><h1>Match statistics</h1></div></div>
-              {stats ? <div className="lp-statgrid"><div className="lp-stat"><span>Matches</span><strong>{stats.matches}</strong></div><div className="lp-stat"><span>Wins</span><strong>{stats.wins}</strong></div></div> : <div className="lp-empty">No statistics recorded yet.</div>}
-            </>
+            <div className="lp-panel">
+              <div className="lp-backrow"><Back /><h1>Your Stats</h1></div>
+              {stats ? (
+                <div className="lp-statgrid" style={{ marginTop: 18 }}>
+                  <div className="lp-stat"><span>Matches</span><strong>{stats.matches}</strong></div>
+                  <div className="lp-stat"><span>Wins</span><strong>{stats.wins}</strong></div>
+                  <div className="lp-stat"><span>Win Rate</span><strong>{(stats.winRate * 100).toFixed(1)}%</strong></div>
+                  <div className="lp-stat"><span>Earnings</span><strong>${stats.earnings}</strong></div>
+                </div>
+              ) : (
+                <div className="lp-empty">Connect a backend that implements getStats() to see live numbers.</div>
+              )}
+            </div>
           )}
 
-          {page === "settings" && (
-            <>
-              <div className="lp-backrow"><Back /><div><h1>Settings</h1></div></div>
-              <div className="lp-panel"><strong>Preferences</strong><div className="lp-muted">Sound and account settings</div></div>
-            </>
+          {page === "leaderboard" && (
+            <div className="lp-panel">
+              <div className="lp-backrow"><Back /><h1>Leaderboard</h1></div>
+              <div className="lp-empty" style={{ marginTop: 18 }}>Leaderboard data is supplied by your backend.</div>
+            </div>
           )}
         </div>
-        <footer className="lp-footer"><span>LUDOPRIME</span><span>REAL PLAYERS · FAIR PLAY</span><span>© {new Date().getFullYear()}</span></footer>
-      </div>
-    </main>
-  );
-}
 
-
-// ─────────────────────────────────────────────────────────────────────────────
-// NEW FEATURES EXTENSION MODULE (Paste into your project or integrate with LudoPrime)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// 1. Updated Interfaces & Backend Interface with AI / Computer Support
-export type LudoGameMode = "classic" | "aero";
-export type OpponentType = "online" | "computer";
-
-export interface ExtendedMatchBackend {
-  findMatch: (args: { mode: LudoGameMode; stake: number; isComputer: boolean }) => Promise<any>;
-  rollDice: (matchId: string) => Promise<{ value: number; match: any }>;
-  moveToken: (args: { matchId: string; tokenId: string; destination: number }) => Promise<any>;
-  leaveMatch?: (matchId: string) => Promise<void>;
-  subscribe?: (matchId: string, onMatch: (match: any) => void) => (() => void);
-}
-
-// 2. Separate Opponent-Selection Component Page
-export function OpponentSelectionView({
-  onSelectOpponent,
-  onBack,
-}: {
-  onSelectOpponent: (type: OpponentType) => void;
-  onBack: () => void;
-}) {
-  return (
-    <div className="lp-panel">
-      <div className="lp-backrow">
-        <button className="lp-back" onClick={onBack}>←</button>
-        <div>
-          <h1>Select Opponent Type</h1>
-          <div className="lp-muted">Choose whether to play online or against server AI</div>
-        </div>
-      </div>
-      <div className="lp-modes" style={{ marginTop: 20 }}>
-        <button className="lp-mode" onClick={() => onSelectOpponent("online")}>
-          <div className="modeicon">🌐</div>
-          <h3>Online Match</h3>
-          <p>Match with real human players across the network.</p>
-          <div className="lp-actions"><span className="lp-eyebrow">SELECT ONLINE →</span></div>
-        </button>
-        <button className="lp-mode aero" onClick={() => onSelectOpponent("computer")}>
-          <div className="modeicon">🤖</div>
-          <h3>Computer AI Match</h3>
-          <p>Play against server-controlled intelligent bot opponents.</p>
-          <div className="lp-actions"><span className="lp-eyebrow">SELECT AI BOT →</span></div>
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// 3. Pre-Gameplay Entry & Coin Staking Configuration (Supports up to 10M coins)
-export function CoinStakingConfigView({
-  opponentType,
-  mode,
-  onStartGame: handleStartMatch,
-  onBack,
-}: {
-  opponentType: OpponentType;
-  mode: LudoGameMode;
-  onStartGame: (stake: number) => void;
-  onBack: () => void;
-}) {
-  const [selectedStake, setSelectedStake] = useState<number>(0);
-  const coinOptions = [0, 2000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000];
-
-  return (
-    <div className="lp-panel">
-      <div className="lp-backrow">
-        <button className="lp-back" onClick={onBack}>←</button>
-        <div>
-          <h1>Match Entry & Staking</h1>
-          <div className="lp-muted">
-            {opponentType === "computer" ? "Computer AI" : "Online"} · {mode.toUpperCase()} Arena
-          </div>
-        </div>
-      </div>
-      <div style={{ marginTop: 20 }}>
-        <div className="lp-sectionhead">
-          <h2>Choose entry amount</h2>
-          <span className="lp-muted">Up to 10M coins selection</span>
-        </div>
-        <div className="lp-stakes" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-          {coinOptions.map((v) => (
-            <button
-              key={v}
-              className={`lp-stake ${selectedStake === v ? "selected" : ""}`}
-              onClick={() => setSelectedStake(v)}
-              style={{ padding: "12px", border: "1px solid #354769", borderRadius: "12px", background: selectedStake === v ? "#473820" : "#111d32", color: "#fff", fontWeight: 700, cursor: "pointer" }}
-            >
-              {v === 0 ? "Free" : v >= 1000000 ? `${v / 1000000}M Coins` : `${v.toLocaleString()} Coins`}
-            </button>
-          ))}
-        </div>
-        <p className="lp-note" style={{ marginTop: 15, color: "#9aabc8", fontSize: "12px" }}>
-          Staking escrow and wallet balances are verified and managed securely via the backend server.
-        </p>
-        <div className="lp-actions" style={{ marginTop: 20 }}>
-          <button className="lp-btn lp-primary" onClick={() => handleStartMatch(selectedStake)}>
-            Start Game Board →
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// 4. Shared Gameplay Board UI with Per-Player Dice Placement
-export function SharedMatchGameplayView({
-  match,
-  currentUserId,
-  diceValue,
-  rolling,
-  onRollDice,
-  onSelectToken,
-  selectedToken,
-  onExit,
-}: {
-  match: any;
-  currentUserId?: string;
-  diceValue: number | null;
-  rolling: boolean;
-  onRollDice: () => void;
-  onSelectToken: (tokenId: string, dest: number) => void;
-  selectedToken: string | null;
-  onExit: () => void;
-}) {
-  const activePlayer = match?.players?.find((p: any) => p.id === match?.currentPlayerId);
-  const isMyTurn = !!currentUserId && match?.currentPlayerId === currentUserId;
-
-  return (
-    <div className="lp-gamecontainer" style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", alignItems: "center" }}>
-      <div className="lp-gamehead" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div className="lp-backrow">
-          <button className="lp-back" onClick={onExit}>←</button>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 14 }}>
-              {match.isComputerMatch ? "Computer AI Arena" : "Online Arena"} ({match.mode?.toUpperCase()})
-            </div>
-            <div className="lp-muted">Stake: {match.stake ? `${match.stake.toLocaleString()} Coins` : "Free"}</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Players cards placed with temporary dice beside active player profile */}
-      <div className="lp-players-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px, 1fr))", gap: 12, width: "100%", maxWidth: 620 }}>
-        {(match.players || []).map((p: any) => {
-          const isActive = p.id === match.currentPlayerId;
-          const isUser = p.id === currentUserId || p.isYou;
-          return (
-            <div key={p.id} className={`lp-playerbox ${isActive ? "active" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: isActive ? "#182845" : "#111d30", border: "1px solid #2d3c59", borderRadius: "14px" }}>
-              <div className="lp-playerinfo" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div className="lp-avatar" style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "#273958", border: "2px solid var(--p-color)" }}>
-                  {p.avatarUrl ? <img src={p.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (isUser ? "YOU" : p.name.slice(0, 1))}
-                </div>
-                <div>
-                  <div style={{ fontSize: "12px", fontWeight: 800 }}>{isUser ? "YOU" : p.name} {p.isBot ? "🤖" : ""}</div>
-                  <div style={{ fontSize: "10px", color: "#9aabc8" }}>{isActive ? (p.isBot ? "● AI Thinking..." : "● Active Turn") : "Connected"}</div>
-                </div>
-              </div>
-              <div className="lp-player-dice-slot">
-                {isActive && !p.isBot && (
-                  <button className="lp-mini-dice" onClick={onRollDice} disabled={!isMyTurn || rolling} style={{ width: 38, height: 38, borderRadius: 10, background: "#fff", color: "#18243c", fontWeight: 900, cursor: "pointer" }}>
-                    {rolling ? "..." : (diceValue ? diceValue : "⚄")}
-                  </button>
-                )}
-                {isActive && p.isBot && (
-                  <div style={{ fontSize: "18px" }} title="Server AI is rolling dice and making moves">🤖</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        <div className="lp-footer">LudoPrime · Fair play · Authoritative server · Industry-standard rules</div>
       </div>
     </div>
   );
