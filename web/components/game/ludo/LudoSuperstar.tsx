@@ -47,7 +47,8 @@ type Props = {
   onBack?: () => void;
 };
 
-type Page = "home" | "mode" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
+type Page = "home" | "mode" | "opponent" | "stake" | "match" | "results" | "leaderboard" | "stats" | "settings";
+export type ExtendedOpponentType = "online" | "computer";
 
 const COLORS = {
   green: "#16b957",
@@ -263,6 +264,10 @@ function Board({ match, selectedToken, onSelect }: {
 export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [page, setPage] = useState<Page>("home");
   const [mode, setMode] = useState<"classic" | "aero">("classic");
+  const [opponentType, setOpponentType] = useState<OpponentType>("online");
+  const [localUserPosition, setLocalUserPosition] = useState(0);
+  const [localBotPosition, setLocalBotPosition] = useState(0);
+  const [localTurnHasRolled, setLocalTurnHasRolled] = useState(false);
   const [stake, setStake] = useState(0); // in coins
   const [match, setMatch] = useState<Match | null>(null);
   const [stats, setStats] = useState<{ matches: number; wins: number; earnings: number; winRate: number } | null>(null);
@@ -275,6 +280,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const [seconds, setSeconds] = useState(0);
 
   const me = currentUser;
+  const isComputerMatch = opponentType === "computer";
   const activePlayer = match?.players.find(p => p.id === match?.currentPlayerId);
   const isMyTurn = !!me && match?.currentPlayerId === me.id;
   const isMyTopTurnish = (isUser: boolean, myTurn: boolean) => isUser && myTurn;
@@ -300,6 +306,40 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
     return () => window.clearInterval(id);
   }, [match?.turnEndsAt]);
 
+  useEffect(() => {
+    if (!isComputerMatch || !match || match.currentPlayerId !== "computer-ai" || match.status !== "active") return;
+    const timer = window.setTimeout(() => {
+      const value = Math.floor(Math.random() * 6) + 1;
+      const destination = Math.min(51, localBotPosition + value);
+      setDice(value);
+      setLocalBotPosition(destination);
+      setMatch(prev => prev ? {
+        ...prev,
+        currentPlayerId: me?.id ?? "local-player",
+        diceValue: null,
+        legalMoves: []
+      } : prev);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [isComputerMatch, match?.currentPlayerId, match?.status, localBotPosition, me?.id]);
+
+  useEffect(() => {
+    if (!isComputerMatch || !match || match.currentPlayerId !== "computer-ai" || match.status !== "active") return;
+    const timer = window.setTimeout(() => {
+      const value = Math.floor(Math.random() * 6) + 1;
+      const destination = Math.min(51, localBotPosition + value);
+      setDice(value);
+      setLocalBotPosition(destination);
+      setMatch(prev => prev ? {
+        ...prev,
+        currentPlayerId: me?.id ?? "local-player",
+        diceValue: null,
+        legalMoves: []
+      } : prev);
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [isComputerMatch, match?.currentPlayerId, match?.status, localBotPosition, me?.id]);
+
   const go = (p: Page) => { setError(""); setPage(p); };
   const requireBackend = () => {
     if (!backend) {
@@ -310,6 +350,30 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   };
 
   const findMatch = useCallback(async () => {
+    if (opponentType === "computer") {
+      const playerId = currentUser?.id ?? "local-player";
+      const localMatch: Match = {
+        id: `local-ai-${Date.now()}`,
+        mode,
+        stake,
+        status: "active",
+        currentPlayerId: playerId,
+        diceValue: null,
+        legalMoves: [],
+        players: [
+          { id: playerId, name: currentUser?.name ?? "You", color: "green", isYou: true, isReady: true },
+          { id: "computer-ai", name: "Computer", color: "blue", isReady: true }
+        ]
+      };
+      setLocalUserPosition(0);
+      setLocalBotPosition(0);
+      setLocalTurnHasRolled(false);
+      setMatch(localMatch);
+      setDice(null);
+      setSelectedToken(null);
+      setPage("match");
+      return;
+    }
     if (!requireBackend()) return;
     setLoading(true);
     setError("");
@@ -324,10 +388,23 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [backend, mode, stake]);
+  }, [backend, mode, stake, opponentType, currentUser]);
 
   const roll = async () => {
-    if (!backend || !match || !isMyTurn || rolling) return;
+    if (!match || !isMyTurn || rolling) return;
+    if (isComputerMatch) {
+      const value = Math.floor(Math.random() * 6) + 1;
+      setDice(value);
+      setLocalTurnHasRolled(true);
+      setSelectedToken(null);
+      setMatch(prev => prev ? {
+        ...prev,
+        diceValue: value,
+        legalMoves: [{ playerId: me!.id, tokenId: "player-token", destination: Math.min(51, localUserPosition + value) }]
+      } : prev);
+      return;
+    }
+    if (!backend) return;
     setRolling(true);
     setError("");
     try {
@@ -343,7 +420,16 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   };
 
   const move = async (tokenId: string, destination: number) => {
-    if (!backend || !match) return;
+    if (!match) return;
+    if (isComputerMatch) {
+      setLocalUserPosition(destination);
+      setLocalTurnHasRolled(false);
+      setDice(null);
+      setSelectedToken(null);
+      setMatch(prev => prev ? { ...prev, currentPlayerId: "computer-ai", diceValue: null, legalMoves: [] } : prev);
+      return;
+    }
+    if (!backend) return;
     setLoading(true);
     setError("");
     try {
@@ -432,13 +518,13 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
             <>
               <div className="lp-backrow"><Back /><div><h1>Choose your arena</h1><div className="lp-muted">Select Classic or Aero mode</div></div></div>
               <div className="lp-modes">
-                <button className="lp-mode" onClick={() => { setMode("classic"); go("stake"); }}>
+                <button className="lp-mode" onClick={() => { setMode("classic"); go("opponent"); }}>
                   <div className="modeicon">🎲</div>
                   <h3>Classic Ludo</h3>
                   <p>Traditional Ludo experience with standard paths and star-safe zones.</p>
                   <div className="lp-actions"><span className="lp-eyebrow">SELECT CLASSIC →</span></div>
                 </button>
-                <button className="lp-mode aero" onClick={() => { setMode("aero"); go("stake"); }}>
+                <button className="lp-mode aero" onClick={() => { setMode("aero"); go("opponent"); }}>
                   <div className="modeicon">🚀</div>
                   <h3>Aero Ludo</h3>
                   <p>Modern vibrant arena with optimized paths and distinct safe markers.</p>
@@ -448,9 +534,27 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
             </>
           )}
 
+          {page === "opponent" && (
+            <>
+              <div className="lp-backrow"><Back to="mode" /><div><h1>Choose opponent</h1><div className="lp-muted">Play online or challenge the computer</div></div></div>
+              <div className="lp-modes">
+                <button className="lp-mode" onClick={() => { setOpponentType("online"); go("stake"); }}>
+                  <div className="modeicon">🌐</div><h3>Online Match</h3>
+                  <p>Find a real player through your connected game backend.</p>
+                  <div className="lp-actions"><span className="lp-eyebrow">PLAY ONLINE →</span></div>
+                </button>
+                <button className="lp-mode aero" onClick={() => { setOpponentType("computer"); go("stake"); }}>
+                  <div className="modeicon">🤖</div><h3>Play vs Computer</h3>
+                  <p>Start a local game against a computer opponent. No matchmaking backend required.</p>
+                  <div className="lp-actions"><span className="lp-eyebrow">PLAY COMPUTER →</span></div>
+                </button>
+              </div>
+            </>
+          )}
+
           {page === "stake" && (
             <>
-              <div className="lp-backrow"><Back to="mode" /><div><h1>Match entry & staking</h1><div className="lp-muted">{mode === "classic" ? "Classic" : "Aero"} arena · Choose coin stake up to 10M</div></div></div>
+              <div className="lp-backrow"><Back to="opponent" /><div><h1>Match entry & staking</h1><div className="lp-muted">{opponentType === "computer" ? "Computer match" : "Online match"} · {mode === "classic" ? "Classic" : "Aero"} arena · Choose coin stake up to 10M</div></div></div>
               <section className="lp-panel">
                 <div className="lp-sectionhead"><h2>Choose coin entry amount</h2><span className="lp-muted">Up to 10M coins</span></div>
                 <div className="lp-stakes" style={{ marginTop: 16 }}>
@@ -462,7 +566,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
                 </div>
                 <p className="lp-note" style={{ marginTop: 15 }}>Staking escrow and wallet balance checks are validated securely by your backend.</p>
                 <div className="lp-actions">
-                  <button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading ? "Finding players…" : "Start game →"}</button>
+                  <button className="lp-btn lp-primary" onClick={findMatch} disabled={loading}>{loading ? "Starting game…" : opponentType === "computer" ? "Start game vs Computer →" : "Find players →"}</button>
                   <button className="lp-btn lp-secondary" onClick={() => go("home")}>Cancel</button>
                 </div>
               </section>
@@ -472,7 +576,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
           {page === "match" && match && (
             <div className="lp-gamecontainer">
               <div className="lp-gamehead" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{ fontWeight: 800, fontSize: 14 }}>Ludo arena ({match.mode === "aero" ? "Aero" : "Classic"})</div><div className="lp-muted">Stake: {match.stake ? `${match.stake.toLocaleString()} Coins` : "Free"}</div></div></div>
+                <div className="lp-backrow"><button className="lp-back" onClick={exitMatch}>←</button><div><div style={{ fontWeight: 800, fontSize: 14 }}>{isComputerMatch ? "Computer match" : "Ludo arena"} ({match.mode === "aero" ? "Aero" : "Classic"})</div><div className="lp-muted">Stake: {match.stake ? `${match.stake.toLocaleString()} Coins` : "Free"}</div></div></div>
                 <div className="lp-topright"><div className="lp-pill">⏱️ {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")}</div><button className="lp-iconbtn" onClick={() => setSound(!sound)}>{sound ? "♫" : "♩"}</button></div>
               </div>
 
@@ -510,6 +614,10 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
               </div>
 
               <Board match={match} selectedToken={selectedToken} onSelect={(id, dest) => { setSelectedToken(id); move(id, dest); }} />
+              {isComputerMatch && <div className="lp-empty" style={{ width: "100%" }}>
+                {isMyTurn ? (localTurnHasRolled ? "Click the highlighted token on the board to move." : "Your turn — roll the dice beside your player card.") : "Computer is rolling and moving…"}
+                <div style={{ marginTop: 6 }}>You: {localUserPosition}/51 · Computer: {localBotPosition}/51</div>
+              </div>}
             </div>
           )}
 
