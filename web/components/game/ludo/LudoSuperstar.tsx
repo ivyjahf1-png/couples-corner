@@ -277,6 +277,7 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   const me = currentUser;
   const activePlayer = match?.players.find(p => p.id === match?.currentPlayerId);
   const isMyTurn = !!me && match?.currentPlayerId === me.id;
+  const isMyTopTurnish = (isUser: boolean, myTurn: boolean) => isUser && myTurn;
 
   useEffect(() => {
     const s = document.createElement("style");
@@ -551,6 +552,181 @@ export default function LudoPrime({ backend, currentUser, onBack }: Props) {
   );
 }
 
-function isMyTopTurnish(isUser: boolean, isMyTurn: boolean) {
-  return isUser && isMyTurn;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NEW FEATURES EXTENSION MODULE (Paste into your project or integrate with LudoPrime)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// 1. Updated Interfaces & Backend Interface with AI / Computer Support
+export type LudoGameMode = "classic" | "aero";
+export type OpponentType = "online" | "computer";
+
+export interface ExtendedMatchBackend {
+  findMatch: (args: { mode: LudoGameMode; stake: number; isComputer: boolean }) => Promise<any>;
+  rollDice: (matchId: string) => Promise<{ value: number; match: any }>;
+  moveToken: (args: { matchId: string; tokenId: string; destination: number }) => Promise<any>;
+  leaveMatch?: (matchId: string) => Promise<void>;
+  subscribe?: (matchId: string, onMatch: (match: any) => void) => (() => void);
+}
+
+// 2. Separate Opponent-Selection Component Page
+export function OpponentSelectionView({
+  onSelectOpponent,
+  onBack,
+}: {
+  onSelectOpponent: (type: OpponentType) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="lp-panel">
+      <div className="lp-backrow">
+        <button className="lp-back" onClick={onBack}>←</button>
+        <div>
+          <h1>Select Opponent Type</h1>
+          <div className="lp-muted">Choose whether to play online or against server AI</div>
+        </div>
+      </div>
+      <div className="lp-modes" style={{ marginTop: 20 }}>
+        <button className="lp-mode" onClick={() => onSelectOpponent("online")}>
+          <div className="modeicon">🌐</div>
+          <h3>Online Match</h3>
+          <p>Match with real human players across the network.</p>
+          <div className="lp-actions"><span className="lp-eyebrow">SELECT ONLINE →</span></div>
+        </button>
+        <button className="lp-mode aero" onClick={() => onSelectOpponent("computer")}>
+          <div className="modeicon">🤖</div>
+          <h3>Computer AI Match</h3>
+          <p>Play against server-controlled intelligent bot opponents.</p>
+          <div className="lp-actions"><span className="lp-eyebrow">SELECT AI BOT →</span></div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 3. Pre-Gameplay Entry & Coin Staking Configuration (Supports up to 10M coins)
+export function CoinStakingConfigView({
+  opponentType,
+  mode,
+  onStartGame: handleStartMatch,
+  onBack,
+}: {
+  opponentType: OpponentType;
+  mode: LudoGameMode;
+  onStartGame: (stake: number) => void;
+  onBack: () => void;
+}) {
+  const [selectedStake, setSelectedStake] = useState<number>(0);
+  const coinOptions = [0, 2000, 10000, 50000, 100000, 500000, 1000000, 5000000, 10000000];
+
+  return (
+    <div className="lp-panel">
+      <div className="lp-backrow">
+        <button className="lp-back" onClick={onBack}>←</button>
+        <div>
+          <h1>Match Entry & Staking</h1>
+          <div className="lp-muted">
+            {opponentType === "computer" ? "Computer AI" : "Online"} · {mode.toUpperCase()} Arena
+          </div>
+        </div>
+      </div>
+      <div style={{ marginTop: 20 }}>
+        <div className="lp-sectionhead">
+          <h2>Choose entry amount</h2>
+          <span className="lp-muted">Up to 10M coins selection</span>
+        </div>
+        <div className="lp-stakes" style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+          {coinOptions.map((v) => (
+            <button
+              key={v}
+              className={`lp-stake ${selectedStake === v ? "selected" : ""}`}
+              onClick={() => setSelectedStake(v)}
+              style={{ padding: "12px", border: "1px solid #354769", borderRadius: "12px", background: selectedStake === v ? "#473820" : "#111d32", color: "#fff", fontWeight: 700, cursor: "pointer" }}
+            >
+              {v === 0 ? "Free" : v >= 1000000 ? `${v / 1000000}M Coins` : `${v.toLocaleString()} Coins`}
+            </button>
+          ))}
+        </div>
+        <p className="lp-note" style={{ marginTop: 15, color: "#9aabc8", fontSize: "12px" }}>
+          Staking escrow and wallet balances are verified and managed securely via the backend server.
+        </p>
+        <div className="lp-actions" style={{ marginTop: 20 }}>
+          <button className="lp-btn lp-primary" onClick={() => handleStartMatch(selectedStake)}>
+            Start Game Board →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 4. Shared Gameplay Board UI with Per-Player Dice Placement
+export function SharedMatchGameplayView({
+  match,
+  currentUserId,
+  diceValue,
+  rolling,
+  onRollDice,
+  onSelectToken,
+  selectedToken,
+  onExit,
+}: {
+  match: any;
+  currentUserId?: string;
+  diceValue: number | null;
+  rolling: boolean;
+  onRollDice: () => void;
+  onSelectToken: (tokenId: string, dest: number) => void;
+  selectedToken: string | null;
+  onExit: () => void;
+}) {
+  const activePlayer = match?.players?.find((p: any) => p.id === match?.currentPlayerId);
+  const isMyTurn = !!currentUserId && match?.currentPlayerId === currentUserId;
+
+  return (
+    <div className="lp-gamecontainer" style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", alignItems: "center" }}>
+      <div className="lp-gamehead" style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="lp-backrow">
+          <button className="lp-back" onClick={onExit}>←</button>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>
+              {match.isComputerMatch ? "Computer AI Arena" : "Online Arena"} ({match.mode?.toUpperCase()})
+            </div>
+            <div className="lp-muted">Stake: {match.stake ? `${match.stake.toLocaleString()} Coins` : "Free"}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Players cards placed with temporary dice beside active player profile */}
+      <div className="lp-players-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(260px, 1fr))", gap: 12, width: "100%", maxWidth: 620 }}>
+        {(match.players || []).map((p: any) => {
+          const isActive = p.id === match.currentPlayerId;
+          const isUser = p.id === currentUserId || p.isYou;
+          return (
+            <div key={p.id} className={`lp-playerbox ${isActive ? "active" : ""}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: isActive ? "#182845" : "#111d30", border: "1px solid #2d3c59", borderRadius: "14px" }}>
+              <div className="lp-playerinfo" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div className="lp-avatar" style={{ width: 36, height: 36, borderRadius: "50%", display: "grid", placeItems: "center", background: "#273958", border: "2px solid var(--p-color)" }}>
+                  {p.avatarUrl ? <img src={p.avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} /> : (isUser ? "YOU" : p.name.slice(0, 1))}
+                </div>
+                <div>
+                  <div style={{ fontSize: "12px", fontWeight: 800 }}>{isUser ? "YOU" : p.name} {p.isBot ? "🤖" : ""}</div>
+                  <div style={{ fontSize: "10px", color: "#9aabc8" }}>{isActive ? (p.isBot ? "● AI Thinking..." : "● Active Turn") : "Connected"}</div>
+                </div>
+              </div>
+              <div className="lp-player-dice-slot">
+                {isActive && !p.isBot && (
+                  <button className="lp-mini-dice" onClick={onRollDice} disabled={!isMyTurn || rolling} style={{ width: 38, height: 38, borderRadius: 10, background: "#fff", color: "#18243c", fontWeight: 900, cursor: "pointer" }}>
+                    {rolling ? "..." : (diceValue ? diceValue : "⚄")}
+                  </button>
+                )}
+                {isActive && p.isBot && (
+                  <div style={{ fontSize: "18px" }} title="Server AI is rolling dice and making moves">🤖</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
