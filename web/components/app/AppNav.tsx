@@ -341,10 +341,12 @@ export function AppMain({ children }: { children: React.ReactNode }) {
 export function BottomNavRegion(props: AppMobileNavProps) {
   const pathname = usePathname();
 
-  // /messages/<id> -> hidden. /messages or anything else -> visible.
+  // /messages/<id> -> hidden. /messages or anything else -> visible. So is
+  // the full-screen Moments player.
   const inActiveConversation = isActiveConversationPath(pathname);
+  const isFullScreenViewer = pathname?.startsWith("/moments/view");
 
-  if (inActiveConversation) return null;
+  if (inActiveConversation || isFullScreenViewer) return null;
 
   return <AppMobileNav {...props} />;
 }

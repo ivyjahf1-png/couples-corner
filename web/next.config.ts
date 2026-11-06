@@ -2,6 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   // NOTE: turbopack root disabled — it hung `next build` on Windows.
+  // Setting turbopack.root to the web directory so Next.js can locate
+  // package-lock.json for Turbopack caching.
+  turbopack: {
+    root: __dirname,
+  },
   // Legacy route aliases: /home and /main never existed as pages and 404'd.
   // They now route smoothly to the active user screen (/dashboard). These are
   // checked before filesystem routes, so they only affect unmatched paths.

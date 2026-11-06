@@ -22,6 +22,7 @@ import {
   MessageSquare,
   ShoppingBag,
   ShoppingCart,
+  Shield,
   Sparkles,
   Settings,
   Star,
@@ -85,7 +86,8 @@ export type ProfileIconName =
      require reading five labels to tell the rows apart. */
   | "certification"
   | "support"
-  | "feedback";
+  | "feedback"
+  | "shield";
 
 const ICONS: Record<ProfileIconName, LucideIcon> = {
   "chevron-right": ChevronRight,
@@ -116,6 +118,7 @@ const ICONS: Record<ProfileIconName, LucideIcon> = {
   certification: Check,
   support: Headset,
   feedback: MessageSquare,
+  shield: Shield,
 };
 
 /**

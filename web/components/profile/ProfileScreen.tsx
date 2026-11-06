@@ -1,11 +1,7 @@
 import Link from "next/link";
 import { Avatar } from "@/components/app/Avatar";
 import { CopyIdButton } from "@/components/profile/CopyIdButton";
-
-import { RelationInviteCard } from "@/components/profile/RelationInviteCard";
-import { WalletTile } from "@/components/profile/WalletTile";
 import { ProfileIcon, type ProfileIconName } from "@/components/profile/ProfileIcon";
-import { listGames, type CatalogGame } from "@/lib/game/catalog";
 
 /**
  * THE PROFILE SCREEN ("Me").
@@ -232,73 +228,36 @@ const FOCUS =
  */
 const ORANGE = "#FF7A00";
 const ORANGE_DEEP = "#C2410C";
-/** One of the four quick-action tiles. */
-interface QuickAction {
+/**
+ * One feature-grid tile.
+ */
+interface FeatureTile {
   label: string;
-  href: string;
   icon: ProfileIconName;
 }
 
 /**
- * THE MENU-ROW / QUICK-ACTION ICON CHIP.
+ * THE MENU-ROW / FEATURE-TILE ICON CHIP.
  *
- * One token, so the chips down the whole card cannot drift apart. It is a
- * TRANSLUCENT white tile with a near-white glyph rather than a solid orange
- * square: orange is reserved on this screen for the coin glyph, the Invite
- * button and the focus ring, and a column of solid orange chips was turning the
- * accent into the screen's general texture instead of a highlight.
+ * One token, so the chips down the whole card cannot drift apart.
  */
 const ICON_CHIP =
   "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.08] text-white";
 
-/** Tasks Â· Income Â· Store Â· Aristocracy. Every href is a real route. */
-const QUICK_ACTIONS: QuickAction[] = [
-  { label: "Tasks", href: "/task", icon: "tasks" },
-  { label: "Income", href: "/task", icon: "wallet" },
-  { label: "Store", href: "/store", icon: "store" },
-  { label: "Aristocracy", href: "/aristocracy", icon: "crown" },
+/**
+ * The 8 feature-grid tiles: Wallet, Viewed, VIP, Shop, Offer, Mine, Create room, Noble.
+ * Every href is a real route in `app/(app)/**`.
+ */
+const FEATURES: FeatureTile[] = [
+  { label: "Wallet", icon: "wallet" },
+  { label: "Viewed", icon: "eye" },
+  { label: "VIP", icon: "crown" },
+  { label: "Shop", icon: "store" },
+  { label: "Offer", icon: "bag" },
+  { label: "Mine", icon: "user" },
+  { label: "Create room", icon: "gamepad" },
+  { label: "Noble", icon: "diamond" },
 ];
-
-/**
- * The first four catalog entries, in authored order — the profile's "Recommended
- * Games" shelf.
- *
- * WHY FROM THE CATALOG AND NOT THE REGISTRY. The registry is the signed-launcher
- * allow-list: its ids are the only ones `POST /api/game/launch` will mint a URL
- * for, and its tiles open a modal. The Arcade (`/games`) and its runner are the
- * browsable 28-game shelf, and they read `data/games.json` through the catalog
- * module. Mapping the profile straight off `listGames()` is what keeps it in
- * step with that shelf — add or rename a game in `data/games.json` and this row
- * follows — and what lets each tile be a real `<Link>` into the runner rather
- * than a modal bound to the launcher's allow-list.
- *
- * Four tiles exactly — they fill the existing 4-up grid on a single row, in
- * authored order (the first four entries of `data/games.json`), with no rail.
- * A four-tile row neither clips nor implies content that does not exist, and
- * each tile is a real `<Link>` to `/games/<id>`, so it always opens a game that
- * is actually in the catalogue.
- */
-const GAMES: CatalogGame[] = listGames().slice(0, 4);
-
-/** Neutral tile colour when an entry has no `accent`. */
-const DEFAULT_ACCENT = "#475569";
-
-/**
- * Rich 3D badge glyph per game — the commercial-art stand-in for the miniature
- * game art cards. Keyed by catalog id so each tile shows its mascot (3D dice
- * for Ludo, cards for Whot, tiger for Fortune Tiger, helmet for Apex Racing)
- * rather than the catalog's flat single-letter `emoji`.
- */
-const TILE_BADGE: Record<string, string> = {
-  "ludo-superstar": "🎲",
-  "whot-classic": "🃏",
-  "fortune-tiger": "🐯",
-  "apex-racing": "🏎",
-};
-
-function tileBadge(game: CatalogGame): string {
-  return TILE_BADGE[game.id] ?? game.emoji ?? "🎮";
-}
 
 /**
  * Header bar pinned above the scroll region.
@@ -310,24 +269,36 @@ function tileBadge(game: CatalogGame): string {
 export function ProfileHeader({ name }: { name: string }) {
   void name;
   return (
-    <div className="relative flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md">
-      {/* Fixed title "Profile" — never the personal username, so the header
-          reads as a tab title and cannot overflow on long names. */}
-      <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[55%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold text-white">Profile</h1>
-      {/* The username is pinned to the row's centre line rather than laid out in
-          flow. In flow it sat left of centre (nothing on the left, the settings
-          button on the right), so it read as a stray label and re-centred itself
-          against whatever width the right-hand action happened to be. Absolute
-          centring measures it from the bar alone — it cannot shift during scroll
-          or when an action appears. The settings link carries `ml-auto` because
-          it is now the only in-flow child. */}
+    <div className="relative flex h-14 items-center justify-between border-b border-white/10 bg-[#0F0C1B]/80 backdrop-blur-md px-3">
+      {/* Back button — returns to the previous tab/screen. */}
       <Link
-        href="/settings"
-        aria-label="Settings"
-        className={`ml-auto mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
+        href="/"
+        aria-label="Back"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white"
       >
-        <ProfileIcon name="settings" className="h-5 w-5" />
+        <ProfileIcon name="chevron-right" className="h-5 w-5 rotate-180" />
       </Link>
+
+      {/* Fixed title "Profile" — never the personal username. */}
+      <h1 className="pointer-events-none absolute left-1/2 top-1/2 max-w-[55%] -translate-x-1/2 -translate-y-1/2 truncate text-center text-base font-bold text-white">Profile</h1>
+
+      {/* Right-hand actions: scan + settings. */}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center gap-1">
+        <button
+          type="button"
+          aria-label="Scan"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white"
+        >
+          <ProfileIcon name="eye" className="h-5 w-5" />
+        </button>
+        <Link
+          href="/settings"
+          aria-label="Settings"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white"
+        >
+          <ProfileIcon name="settings" className="h-5 w-5" />
+        </Link>
+      </div>
     </div>
   );
 }
@@ -390,9 +361,10 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                   {vip}
                 </span>
               ) : null}
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white">
-                <ProfileIcon name="leaf" className="h-2.5 w-2.5" />
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white shadow-[0_0_0_3px_rgba(16,185,129,0.4)]">
+                <span className="sr-only">Active</span>
               </span>
+              <span className="text-xs font-medium text-[#A09AB0]">Active</span>
             </div>
             {/* THE SHARED PUBLIC ID, six characters, not the raw UUID. It is the
                 value the member reads out to a friend to be found by, and it is
@@ -413,7 +385,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         {/* `divide-x` gives each stat a hairline without a wrapper per cell, so
             the four columns stay ONE grid rather than four floating items. */}
         <div className="grid grid-cols-4 divide-x divide-white/[0.08] border-t border-white/[0.08]">
-          {data.stats.map((stat) => {
+          {data.stats.map((stat, idx) => {
             const body = (
               <>
                 <span className="flex items-center gap-1">
@@ -427,7 +399,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
                   ) : null}
                 </span>
                 <span className="mt-0.5 text-[11px] font-medium text-[#A09AB0]">
-                  {stat.label}
+                  {["Following", "Followers", "Views", "My Moments"][idx] ?? stat.label}
                 </span>
               </>
             );
@@ -463,7 +435,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * the shorter one's artwork misaligned). The 8px gutter is the only
        * separation, so they read as a pair rather than two cards.
        * ================================================================ */}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-3">
         {/* Coin balance. GLASS like every other surface, with the brand orange
             reserved for the coin DISC alone — so the balance reads as white
             primary type with an accent beside it, and the page gradient still
@@ -472,7 +444,23 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             `hover:bg-[#332B45]/65` rather than `brightness`: the fill is
             translucent, and `brightness` would brighten the gradient behind it
             too, which flickered against the ramp as it scrolled. */}
-        <WalletTile balance={data.coinBalance} />
+        <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_30px_-14px_rgba(0,0,0,0.75)]">
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-orange-500/20 text-orange-400">
+                <ProfileIcon name="wallet" className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-bold text-white">My Wallet</p>
+                <p className="text-[11px] text-[#A09AB0]">Coin balance</p>
+              </div>
+            </div>
+            <span className="text-2xl font-bold tabular-nums leading-none text-white">
+              {data.coinBalance.toLocaleString("en-US")}
+            </span>
+            <ProfileIcon name="chevron-right" className="h-5 w-5 text-[#A09AB0] transition hover:text-white" />
+          </div>
+        </section>
 
         {/* VIP tier. The same GLASS as the coin tile rather than a second solid
             orange block: two saturated fills side by side is what made this pair
@@ -485,45 +473,28 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             The gem is white at 85% rather than the pale gold it was: a warm
             highlight ON the purple glass would have been too close to the card's
             own hue and disappeared. White separates by hue, not just lightness. */}
-        <Link
-          href="/subscription"
-          aria-label={vip ? `${vip} membership. Manage subscription` : "Upgrade to VIP"}
-          className={`relative flex h-[88px] items-center overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 px-3.5 transition hover:bg-[#332B45]/65 ${FOCUS}`}
-          style={{
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06)",
-            /* An orange WASH at low alpha, not a solid fill: the tile keeps the
-               glass surface and only carries a hint of the accent, so the coin
-               glyph stays the loudest element on the pair. */
-            backgroundImage: `linear-gradient(135deg, ${ORANGE}22 0%, ${ORANGE_DEEP}33 100%)`,
-          }}
-        >
-          <span className="relative z-10 flex min-w-0 flex-col">
-            <span className="text-base font-bold leading-none text-white">
-              {vip ?? "Upgrade"}
+        <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#2A2438]/55 shadow-[0_1px_2px_rgba(0,0,0,0.45),0_10px_30px_-14px_rgba(0,0,0,0.75)]">
+          <div className="flex items-center gap-3 px-4 py-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#8B5CF6]/20 text-[#8B5CF6]">
+              <ProfileIcon name="shield" className="h-5 w-5" />
             </span>
-            <span className="mt-1 truncate text-[11px] font-semibold uppercase tracking-wide text-[#A09AB0]">
-              {vip ? "Membership" : "Go VIP"}
-            </span>
-          </span>
-          <span
-            aria-hidden
-            className="pointer-events-none absolute -right-2 -top-1 flex h-16 w-16 items-center justify-center text-white/85"
-          >
-            <ProfileIcon name="gem" className="h-14 w-14 drop-shadow-lg" />
-          </span>
-        </Link>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">Join a Tribe</p>
+              <p className="mt-0.5 text-[11px] text-[#A09AB0]">Connect with like-minded couples and grow together</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Go to Tribe"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#8B5CF6] px-3.5 text-sm font-bold text-white transition hover:bg-[#7C3AED] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8B5CF6]"
+            >
+              Go
+            </button>
+          </div>
+        </section>
 
       </div>
 
-      {/* ================================================================ *
-       * SURFACE 3 â€” friend relationship banner, full width.
-       *
-       * Full-bleed across the content column like every other surface, so the
-       * left and right edges line up with the cards above and below it. That
-       * shared edge is most of what makes a column read as designed rather than
-       * assembled.
-       * ================================================================ */}
-      <RelationInviteCard relation={data.relation} userCode={data.userCode ?? null} />
+
        {/* ================================================================ *
        * SURFACE 4 â€” games, quick actions and the two list rows, ONE card.
        *
@@ -540,7 +511,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
        * `border-t` on bands 2 and 3, `divide-y` inside band 3. No margins
        * between them anywhere.
        * ================================================================ */}
-      <section aria-label="Games and features" className={SURFACE}>
+      <section aria-label="Features" className={SURFACE}>
         {/* Band 1 — Recommended Games. A 4-up grid of the first four catalog
             entries (see GAMES above), not a scroll rail: four tiles fill one
             row exactly, so a rail would clip the fourth and imply content that
@@ -549,17 +520,7 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
             so the row maps directly off `data/games.json` and follows it when the
             catalog changes. */}
         <div className="px-4 pb-4 pt-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white">Recommended Games</h2>
-            <Link
-              href="/games"
-              aria-label="See all games"
-              title="See all games"
-              className={`flex h-8 w-8 items-center justify-center rounded-full text-[#A09AB0] transition hover:bg-white/10 hover:text-white ${FOCUS}`}
-            >
-              <ProfileIcon name="chevron-right" className="h-5 w-5" />
-            </Link>
-          </div>
+          <h2 className="text-base font-bold text-white">Features</h2>
 
           {/* `min-w-0` ON THE LIST ITEM IS THE FIX FOR THE CLIPPED RIGHT EDGE.
 
@@ -574,164 +535,33 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
               It is a containment fix, not a layout change: the 3-up grid is kept
               deliberately, because with exactly three titles a scroll rail would
               clip the last AND imply content that does not exist. */}
-          <ul className="mt-3 grid grid-cols-4 gap-2.5 my-3">
-            {GAMES.map((game) => (
-              <li key={game.id} className="min-w-0">
+          <ul className="mt-3 grid grid-cols-4 gap-2 my-3">
+            {FEATURES.map((feature) => (
+              <li key={feature.label}>
                 <Link
-                  href={`/games/${game.id}`}
-                  /* The category is part of the tile's accessible name: a screen
-                     reader otherwise announces a row of identical bare game titles
-                     with no idea which is which. */
-                  aria-label={`${game.title} — ${game.category}`}
-                  className={`group flex w-full min-w-0 flex-col items-center gap-1.5 rounded-xl bg-white/5 border border-white/10 p-2 text-center transition hover:bg-white/[0.06] ${FOCUS}`}
+                  href={`/#feature-${feature.label.toLowerCase().replace(/\s+/g, "-")}`}
+                  aria-label={feature.label}
+                  className={`flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.08] bg-[#2A2438]/55 p-3 text-center transition hover:bg-white/[0.06] hover:border-[#8B5CF6]/40 ${FOCUS}`}
                 >
-                  {/* THE TILE ARTWORK.
-
-                     High-gloss miniature game art: four layers rather than a flat
-                     gradient block, because a bare gradient is what made these
-                     read as empty placeholders:
-
-                       1. the game's OWN accent colour from the catalog, rendered as
-                          a diagonal gradient (the same value the Arcade grid uses,
-                          so a tile here and its card there match);
-                       2. a radial bloom behind the centre, which stops the middle
-                          of the tile reading as flat colour;
-                       3. a centred 3D game badge glyph (dice / cards / tiger /
-                          helmet — see TILE_BADGE) floating over a gold ring
-                          medallion, with a gloss highlight sweeping the top;
-                       4. the game's HOT/NEW badge as a glowing mini-pill pinned
-                          to the tile's top-left.
-
-                     `aria-hidden` because the tile's `aria-label` already names it.
-
-                     HONEST LIMITATION: most catalog entries ship no usable
-                     `thumbnail` (there are no screenshot assets in this
-                     repository — `public/` holds only the app icons and the eight
-                     local builds), so this is designed artwork built from the
-                     catalog's own accent colour. Add a real art URL to an entry
-                     and the tile can render an `<img>` instead; the gradient
-                     stays as the loading backdrop. */}
-                  <span
-                    aria-hidden
-                    className={`relative block aspect-square w-full overflow-hidden rounded-xl border border-white/20 shadow-[0_4px_12px_-4px_rgba(15,23,42,0.35)]`}
-                    style={{
-                      background: `linear-gradient(135deg, ${game.accent ?? DEFAULT_ACCENT} 0%, rgba(15,23,42,0.9) 120%)`,
-                    }}
-                  >
-                    <span className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,rgba(255,255,255,0.38),transparent_62%)]" />
-                    <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/25 to-transparent" />
-                    {game.badge ? (
-                      <span
-                        className={`absolute left-1 top-1 rounded-full px-1.5 py-px text-[8px] font-black uppercase tracking-wide text-white ${
-                          game.badge === "New"
-                            ? "bg-gradient-to-r from-emerald-400 to-emerald-600 shadow-[0_0_10px_rgba(16,185,129,0.9)]"
-                            : "bg-gradient-to-r from-orange-500 to-red-600 shadow-[0_0_10px_rgba(249,115,22,0.9)]"
-                        }`}
-                      >
-                        {game.badge}
-                      </span>
-                    ) : null}
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/35 text-[26px] leading-none ring-2 ring-amber-300/80 drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)] transition-transform duration-200 group-hover:scale-110">
-                        {tileBadge(game)}
-                      </span>
-                    </span>
-                    {/* Bottom vignette so the badge keeps its contrast against the
-                        lighter part of any accent gradient. */}
-                    <span className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/25 to-transparent" />
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.06] text-[#8B5CF6]">
+                    <ProfileIcon name={feature.icon} className="h-5 w-5" />
                   </span>
-                  {/* `line-clamp-1` + `title`: a long title ellipsizes to one line
-                      rather than wrapping and breaking the row's baseline. */}
-                  <span
-                    title={game.title}
-                    className="line-clamp-1 w-full text-center text-[11px] font-semibold text-white/90"
-                  >
-                    {game.title}
+                  <span className="text-xs font-medium text-white leading-none">
+                    {feature.label}
                   </span>
                 </Link>
               </li>
             ))}
           </ul>
         </div>
-        {/* Band 2 — quick actions. Four-up on phone, three-up from `sm`, which is
-            what keeps the rows the same visual weight as the game tiles above.
-            Hairline-bordered translucent tiles on the shared surface rather than in
-            their own floating card, and the chip colour comes from `ICON_CHIP` so
-            these match the menu rows below. */}
-        <div className="grid grid-cols-4 gap-2 border-t border-white/[0.08] px-4 py-4 sm:grid-cols-3">
-        {QUICK_ACTIONS.map((action) => (
-            <Link
-              key={action.label}
-              href={action.href}
-              className={`flex flex-col items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-1 py-2.5 transition hover:bg-[#FF7A00]/10 ${FOCUS}`}
-            >
-              <span className={`${ICON_CHIP} h-8 w-8 rounded-lg`}>
-                <ProfileIcon name={action.icon} className="h-[18px] w-[18px]" />
-              </span>
-              <span className="text-[11px] font-bold text-white">{action.label}</span>
-            </Link>
-          ))}
-        </div>
 
-        {/* Band 3 â€” Bag and Level. `divide-y` rules BETWEEN rows only; the band
-            above it is separated by its own `border-t`, so there is never a
-            doubled line where two rules land on top of each other. */}
-        <ul className="divide-y divide-white/[0.08] border-t border-white/[0.08]">
-          <li>
-            <Link
-              href="/store"
-              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
-            >
-              <span className={ICON_CHIP}>
-                <ProfileIcon name="bag" className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
-                Bag
-              </span>
-              <span className="shrink-0 rounded-full bg-[#FF7A00]/15 px-2 py-0.5 text-[10px] font-bold text-[#FFA040]">
-                Game
-              </span>
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
-            </Link>
-          </li>
-          <li>
-            <Link
-              href="/profile/personal-info"
-              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
-            >
-              <span className={ICON_CHIP}>
-                <ProfileIcon name="user" className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
-                Personal info
-              </span>
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
-            </Link>
-          </li>
-
-          <li>
-            <Link
-              href="/level"
-              className={`flex items-center gap-3 px-4 py-3.5 transition hover:bg-white/[0.06] ${FOCUS}`}
-            >
-              <span className={ICON_CHIP}>
-                <ProfileIcon name="level" className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 text-sm font-semibold text-white">
-                Level
-              </span>
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
-            </Link>
-          </li>
-        </ul>
-
-        {/* MENU ROWS â€” Badge, Certification, Customer service, User feedback,
+        {/* MENU ROWS — Badge, Certification, Customer service, User feedback,
             Settings.
 
             WHY THESE ARE IN THE *SAME* `<ul>` AND NOT A NEW ONE. This is the whole
             point of the band: `divide-y` rules BETWEEN rows only, so adding rows
             here means each is separated from its neighbour by exactly one
-            hairline. Starting a second `<ul>` â€” or a second `<section>` â€” would
+            hairline. Starting a second `<ul>` — or a second `<section>` — would
             put a `border-t` from the new container directly against the last
             `divide-y` rule of this one, producing a visibly DOUBLED line where
             the two meet. One list is also why the card has no isolated boxes:
@@ -747,34 +577,34 @@ export function ProfileScreen({ data }: { data: ProfileScreenData }) {
         <ul className="mt-0">
           {MENU_ROWS.map((row) => (
             <li key={row.label} className="border-t border-white/[0.08]">
-            <Link
-              href={row.href}
-              className={`flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0 ${FOCUS}`}
-            >
-              <span className={ICON_CHIP}>
-                <ProfileIcon name={row.icon} className="h-5 w-5" />
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
-                {row.label}
-              </span>
-              {/* INLINE INDICATOR, before the chevron. `shrink-0` keeps the
-                  chevron pinned right no matter how long the status text is; the
-                  label above is `flex-1 truncate`, so a long translation of either
-                  text ellipsizes instead of pushing the chevron off the card. */}
-              {row.status ? (
-                <span
-                  className={`shrink-0 text-xs font-semibold ${
-                    STATUS_TONE_CLASS[row.statusTone ?? "warn"]
-                  }`}
-                >
-                  {row.status}
+              <Link
+                href={row.href}
+                className={`flex items-center gap-3 px-4 py-3 transition hover:bg-white/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FF7A00] focus-visible:ring-offset-0 ${FOCUS}`}
+              >
+                <span className={ICON_CHIP}>
+                  <ProfileIcon name={row.icon} className="h-5 w-5" />
                 </span>
-              ) : null}
-              <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
-            </Link>
-          </li>
-        ))}
-          </ul>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                  {row.label}
+                </span>
+                {/* INLINE INDICATOR, before the chevron. `shrink-0` keeps the
+                    chevron pinned right no matter how long the status text is; the
+                    label above is `flex-1 truncate`, so a long translation of either
+                    text ellipsizes instead of pushing the chevron off the card. */}
+                {row.status ? (
+                  <span
+                    className={`shrink-0 text-xs font-semibold ${
+                      STATUS_TONE_CLASS[row.statusTone ?? "warn"]
+                    }`}
+                  >
+                    {row.status}
+                  </span>
+                ) : null}
+                <ProfileIcon name="chevron-right" className="h-4 w-4 shrink-0 text-[#A09AB0]/60" />
+              </Link>
+            </li>
+          ))}
+        </ul>
       </section>
     </div>
   );

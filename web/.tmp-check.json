@@ -1,0 +1,39 @@
+{
+  "files": [
+    "lib/theme.ts",
+    "lib/moments.ts",
+    "components/ThemeColorSync.tsx",
+    "components/app/MomentsUploadFab.tsx",
+    "components/app/MomentCard.tsx",
+    "app/(app)/moments/page.tsx",
+    "app/(app)/moments/view/page.tsx",
+    "lib/server/tasks.ts",
+    "lib/server/profiles.ts",
+    "lib/server/profile-lookup.ts",
+    "next.config.ts"
+  ],
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": false,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  }
+}

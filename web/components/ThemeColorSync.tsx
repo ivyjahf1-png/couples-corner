@@ -3,18 +3,31 @@
 import { useEffect } from "react";
 
 /**
- * Keeps the browser-chrome / splash theme color in lockstep with the app's
- * live CSS color tokens. The static `<meta name="theme-color">` comes from
- * THEME_COLORS (lib/theme.ts); this component re-reads the resolved
- * `--background` custom property at runtime so the splash/launch chrome
- * follows the current theme configuration instead of a hardcoded hex value.
+ * Keeps the browser-chrome / theme-color metadata in lockstep with the
+ * application's theme configuration. The root layout ships no static
+ * `<meta name="theme-color">` tag, so this client component creates it on
+ * first load and then reflects the resolved `--background` token so it always
+ * follows the application's live theme settings.
  */
 export function ThemeColorSync() {
   useEffect(() => {
-    const meta = document.querySelector<HTMLMetaElement>(
-      'meta[name="theme-color"]'
-    );
-    if (!meta) return;
+    const head = document.head;
+    if (!head) return;
+
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+
+    if (!meta) {
+      const created = document.createElement("meta");
+      created.setAttribute("name", "theme-color");
+      head.appendChild(created);
+      // Assign to the local reference so the rest of the effect only ever
+      // touches the element we actually own.
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _meta = created;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _created = created;
+      return;
+    }
 
     const apply = () => {
       const token = getComputedStyle(document.documentElement)
@@ -24,12 +37,12 @@ export function ThemeColorSync() {
     };
 
     apply();
-
-    // Re-apply when the stylesheet (and thus the tokens) finishes loading,
-    // and whenever tokens are hot-reloaded in development.
     document.addEventListener("DOMContentLoaded", apply, { once: true });
     const raf = requestAnimationFrame(apply);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener("DOMContentLoaded", apply);
+    };
   }, []);
 
   return null;

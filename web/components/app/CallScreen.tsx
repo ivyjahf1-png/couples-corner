@@ -106,6 +106,7 @@ export function CallScreen({
 
   const [giftSent, setGiftSent] = useState<string | null>(null);
   const [giftOpen, setGiftOpen] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
 
   /* ── CALL LOGGING ───────────────────────────────────────────────────────────
      Before this, a call that nobody answered left no trace at all: the realtime
@@ -202,13 +203,11 @@ export function CallScreen({
   /** Shared pill styling; the active state inverts to a warning colour. */
   const pill = (active: boolean, danger = false) =>
     [
-      "flex h-14 w-14 items-center justify-center rounded-full backdrop-blur-md transition",
+      "flex h-14 w-14 items-center justify-center rounded-full border border-purple-400/40 bg-purple-900/40 text-white shadow-[0_0_12px_rgba(168,85,247,0.35)] backdrop-blur-md transition",
       "duration-200 active:scale-95",
       active
-        ? danger
-          ? "bg-danger-500 text-white shadow-lg shadow-danger-500/30"
-          : "bg-white text-slate-900 shadow-lg"
-        : "bg-white/15 text-white hover:bg-white/25",
+        ? "bg-purple-600 text-white shadow-[0_0_18px_rgba(168,85,247,0.6)]"
+        : "bg-purple-900/40 text-white hover:bg-purple-800/50",
     ].join(" ");
 
   return (
@@ -374,6 +373,19 @@ export function CallScreen({
         ) : null}
 
         <div className="pointer-events-auto flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSpeakerOn((v) => !v)}
+            aria-label={speakerOn ? "Mute speaker" : "Unmute speaker"}
+            aria-pressed={speakerOn}
+            className={pill(speakerOn)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" />
+              {speakerOn ? <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /> : <line x1="23" y1="9" x2="17" y2="15" />}
+            </svg>
+          </button>
+
           <button
             type="button"
             onClick={call.toggleMic}

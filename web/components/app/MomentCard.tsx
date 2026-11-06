@@ -20,6 +20,9 @@
  * what keeps a long timeline from opening dozens of streams at once.
  */
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Play } from "lucide-react";
 import type { MomentView } from "@/lib/moments";
 import { parseMediaUrl } from "@/lib/media/embedParser";
 
@@ -60,32 +63,43 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
       ? parsed.embedUrl
       : null;
 
-  // Normalise both shapes onto one video/image decision.
-  const videoSource =
-    !embedUrl &&
-    (isMomentView(post)
+  // Normalise both shapes onto one video/image decision. `embedUrl` short-
+  // circuits the native video path so the value is never `false` for an image
+  // card; that keeps the JSX `src` prop strictly `string | null`.
+  const videoSource = embedUrl
+    ? null
+    : isMomentView(post)
       ? post.mediaType === "video"
         ? post.mediaUrl
         : null
-      : (post.video_url ?? (post.media_type === "video" ? post.media_url : null) ?? null));
+      : (post.video_url ?? (post.media_type === "video" ? post.media_url : null) ?? null);
   const hasVideo = Boolean(videoSource);
+  const videoPosterSrc = videoSource ?? undefined;
   const imageSource = isMomentView(post)
     ? post.mediaType !== "video"
       ? post.mediaUrl
       : null
     : (post.image_url ?? null);
+  const imageSrc = imageSource ?? undefined;
   const body = isMomentView(post) ? post.content : post.body;
   // Portrait-first embeds (TikTok / Reels / Shorts) get a taller frame so the
   // player is not letterboxed into a sliver; landscape YouTube keeps 16:9.
   const isPortraitEmbed = parsed?.type === "tiktok" || parsed?.type === "instagram";
 
-  return (
-    <div className="rounded-xl bg-[#1F1A32] p-4 text-white">
-      {/* Post author and text content... */}
-      {body ? <p className="my-2 text-sm">{body}</p> : null}
+  // Navigation router - clicking the card navigates to full-screen viewer
+  const router = useRouter();
 
-      {/* Social embed (YouTube / Instagram / TikTok) */}
+  // Determines the moment id for navigation (both post shapes have an `id`)
+  const momentId = post.id;
+
+  return (
+    <Link
+      href={`/feed?moment=${momentId}`}
+      className="block rounded-2xl bg-gradient-to-b from-[#2a1a40] to-[#1f1a32] p-4 overflow-hidden relative group hover:opacity-95 transition-opacity"
+    >
+      {/* Media section - static thumbnail only, no video controls */}
       {embedUrl ? (
+        // Embedded videos (YouTube/Instagram/TikTok) - keep the iframe embed
         <div
           className={
             isPortraitEmbed
@@ -103,31 +117,57 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
             className="absolute inset-0 h-full w-full border-0"
           />
         </div>
-      ) : null}
-
-      {/* Render Video if available */}
-      {!embedUrl && hasVideo && videoSource ? (
-        <div className="relative mt-3 overflow-hidden rounded-xl bg-black">
-          <video
-            src={videoSource}
-            controls
-            playsInline
-            preload="metadata"
-            className="max-h-[400px] w-full object-cover"
+      ) : hasVideo ? (
+        // Native video - static thumbnail poster with ▶️ indicator badge in top-right
+        <div
+          className="relative aspect-video w-full rounded-xl overflow-hidden bg-black/40 group-hover:opacity-90 transition-opacity"
+        >
+          {/* Thumbnail image */}
+          <img
+            src={videoPosterSrc}
+            alt="Moment video preview"
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 w-full h-full object-cover"
           />
+          {/* Play indicator badge in top-right corner - purely visual */}
+          <div
+            className="absolute top-2 right-2 flex items-center gap-1.5 rounded-full bg-black/50 px-2 py-1 text-[10px] font-medium text-white/60"
+            aria-label="Video content"
+          >
+            <Play className="h-3.5 w-3.5" aria-hidden />
+            Video
+          </div>
+          {/* Dark overlay for contrast */}
+          <div className="absolute inset-0 bg-black/40"></div>
         </div>
-      ) : null}
-
-      {/* Render Image if available and no video */}
-      {!embedUrl && !hasVideo && imageSource ? (
+      ) : imageSource ? (
+        // Static image
         <img
           src={imageSource}
           alt="Moment media"
           loading="lazy"
           decoding="async"
-          className="mt-3 max-h-[400px] w-full rounded-xl object-cover"
+          className="relative w-full h-auto rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : null}
-    </div>
+
+      {/* Title, creator info, and type at the bottom */}
+      <div className="absolute bottom-0 left-0 right-0 p-2 flex items-baseline">
+        <div className="flex flex-col gap-1">
+          <h3
+            className="font-bold text-xs tracking-tight select-none line-clamp-1"
+            style={{ color: "white" }}
+          >
+            {body ? body.slice(0, 40) : "Untitled"}
+          </h3>
+          {hasVideo && (
+            <span className="text-[10px] text-white/60 capitalize">
+              {videoSource ? "Video" : "Moment"}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 }

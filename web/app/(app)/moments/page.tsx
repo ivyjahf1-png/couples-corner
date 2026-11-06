@@ -1,67 +1,85 @@
-import { ImmersiveFeed } from "@/components/app/ImmersiveFeed";
-import { requireUser } from "@/lib/auth/authorization";
+﻿import Link from "next/link";
+import { requireUser } from "../../../lib/auth/authorization";
+import { getOwnProfile } from "../../../lib/server/profiles";
+import { getRecentMoments } from "../../../lib/server/tasks";
+import type { MomentView } from "../../../lib/moments";
+import { MomentCard } from "../../../components/app/MomentCard";
+import { MomentsUploadFab } from "../../../components/app/MomentsUploadFab";
 
-/**
- * `/moments` — the "Moment" screen: the immersive vertical reel.
- *
- * ── DYNAMIC FEED, NOT A HARDCODED CLIP ──────────────────────────────────────
- * This screen used to render a single `MomentViewerCard` seeded with a
- * hardcoded demo video — and falling back to that clip whenever the table had
- * nothing — so "Moment" showed one static stream instead of the community's
- * uploads. That component is deleted.
- *
- * The page now renders `ImmersiveFeed`: the SAME scroll-snap reel the home
- * page (`/`) plays. It queries the public `moments` table newest-first — the
- * same table the Task Center upload form writes to, so anything a member
- * uploads is syndicated here immediately — and maps EVERY row into the reel
- * (photos and videos interleaved), with each moment's author stitched from
- * `profiles`.
- *
- * WHY THE AUTHOR IS NOT JOINED IN THE SELECT
- *   `supabase.from("moments").select("*, profiles(*)")` is NOT used
- *   deliberately: `moments.user_id` references `auth.users(id)` while
- *   `profiles.user_id` is only UNIQUE — there is no moments→profiles foreign
- *   key, so PostgREST rejects the embed and fails the ENTIRE query, and the
- *   rows read back as an empty array (the "I uploaded a video but the feed is
- *   empty" symptom). `getRecentMoments` (lib/server/tasks.ts) therefore
- *   selects the moment rows and fetches authors in their own query, stitching
- *   them in JS — see the long note above that function.
- *
- * EVERYTHING IS WIRED TO REAL ROWS: reactions (`setMomentReactionAction`),
- * comments (`addMomentCommentAction` / `getMomentCommentsAction`), share
- * (`shareOrCopy`), delete (`deleteMomentAction`) and the pinned upload FAB
- * (`/task/upload-moment`) all live in `MediaFeed` against the live
- * `moment_reactions` / `moment_comments` tables and storage buckets.
- * Reactions apply optimistically and reconcile against the server count.
- *
- * AUTHENTICATED: reactions, comments and deletion are member actions, so the
- * route is guarded like the rest of the app zone.
- */
-export default async function MomentsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ moment?: string }>;
-}) {
+export default async function MomentsPage() {
   const session = await requireUser();
-  const { moment } = await searchParams;
+  const result = await getOwnProfile(session.uid).catch(() => null);
+  const userProfile = result?.profile ?? null;
+  const user = result?.user ?? null;
 
-  /* LOCKED COLUMN, NOT A SECOND VIEWPORT. `h-full` fills the bounded box
-     `AppMain` hands down (see its `h-full` inner wrapper); a bare
-     `h-[100dvh]` here would measure the viewport a SECOND time and overflow
-     that box by the shell chrome, pushing the reel's bottom controls under
-     the fixed tab bar. `100dvh` survives only as `max-h`, the belt-and-braces
-     cap the feed page uses. `overflow-hidden` keeps containment structural:
-     this screen owns no page scroll — the only scroll region is `MediaFeed`'s
-     inner snap scroller, one level down. `dvh` (not `vh`) so the cap tracks
-     the VISUAL viewport when a mobile browser shrinks. */
+  const avatarUrl = userProfile?.photos?.[0]?.publicUrl ?? user?.avatarUrl ?? "/icon.png";
+  const displayName = userProfile?.displayName ?? user?.displayName ?? "You";
+
+  const rawMoments = (await getRecentMoments(120, session.uid).catch(
+    () => [] as MomentView[]
+  )) as MomentView[];
+  const videos = rawMoments.filter((moment) => moment.mediaType === "video");
+  const featured = videos[0];
+  const otherVideos = videos.slice(1);
+
   return (
-    <div className="relative flex h-full max-h-[100dvh] min-h-0 w-full flex-1 flex-col overflow-hidden bg-black/40">
-      {/* Deep link from a share link (`?moment=`): the reel opens scrolled to
-          that moment instead of whatever card happens to be first. */}
-      <ImmersiveFeed
-        viewerId={session.uid}
-        deepLinkMomentId={moment?.trim().slice(0, 64) || null}
-      />
+    <div className="flex h-full min-h-0 flex-1 flex-col pb-[calc(7rem+_env(safe-area-inset-bottom))]">
+      <header className="flex items-center gap-3 px-4 py-4">
+        <img
+          src={avatarUrl}
+          alt="avatar"
+          className="h-10 w-10 rounded-full object-cover"
+        />
+        <span className="font-semibold">{displayName}</span>
+      </header>
+
+      <div className="flex flex-1 flex-col gap-4 px-4 pt-3">
+        <h1 className="text-2xl font-bold">Welcome to Moments</h1>
+
+        {featured ? (
+          <div className="rounded-2xl bg-gradient-to-b from-[#2a1a40] to-[#1f1a32] p-4">
+            <Link
+              href={`/moments/view?moment=${featured.id}`}
+              className="block"
+              aria-label={`Open featured moment by ${displayName}`}
+            >
+              <MomentCard post={featured} />
+            </Link>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-2xl border border-white/20 bg-white/5 p-6 text-center text-sm text-white/60">
+            No featured moment yet. Tap the + button below to upload your first video.
+          </div>
+        )}
+
+        <section className="flex-1 flex-col gap-3">
+          <h2 className="text-lg font-semibold">Goal-driven dating</h2>
+
+          {videos.length === 0 ? (
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center text-sm text-white/60">
+              No video moments yet. Add one with the + button below.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {otherVideos.map((video) => (
+                <div
+                  key={video.id}
+                  className="rounded-2xl bg-gradient-to-b from-[#2a1a40] to-[#1f1a32] p-4"
+                >
+                  <Link
+                    href={`/moments/view?moment=${video.id}`}
+                    className="block cursor-pointer"
+                  >
+                    <MomentCard post={video} />
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
+
+      <MomentsUploadFab />
     </div>
   );
 }

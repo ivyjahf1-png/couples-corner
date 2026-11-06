@@ -99,24 +99,18 @@ interface DockTab {
   showBadge?: boolean;
 }
 
-/** LEFT GROUP — Explore leads because it is the core loop and the post-auth landing screen. */
+/** LEFT GROUP */
 const LEFT_TABS: DockTab[] = [
   { href: "/discover", label: "Explore", navIcon: "explore", alsoActiveFor: ["/explore"] },
   { href: "/moments", label: "Moments", navIcon: "moment" },
 ];
 
-/** RIGHT GROUP — Messages keeps the real unread badge; Profile closes the bar. */
+/** RIGHT GROUP */
 const RIGHT_TABS: DockTab[] = [
   { href: "/messages", label: "Messages", navIcon: "messages", showBadge: true },
   { href: "/profile", label: "Profile", navIcon: "me" },
 ];
 
-/**
- * THE CENTRE ACTION — Match / Game hub. Solid vibrant-orange circle
- * (bg-[#FF5722]) with a soft radial glow, elevated proud of the pill's top
- * edge. Rides the Love / Heart glyph (NavIcon `match`) in the app's orange
- * accent theme.
- */
 const CENTRE_ACTION = { href: "/feed", label: "Feed", navIcon: "match" } as const;
 
 /**
@@ -230,7 +224,7 @@ function CentreAction({ pathname }: { pathname: string }) {
           whileTap={{ scale: 0.92 }}
           transition={TAP_SPRING}
           className={[
-            "flex h-14 w-14 items-center justify-center rounded-full bg-[#FF5722] transition-shadow",
+            "flex h-14 w-14 items-center justify-center rounded-full bg-purple-600 transition-shadow",
             active
               /* ON /feed the radial glow intensifies so the centre reads as
                  the lit control without changing the shared orange. */
@@ -269,7 +263,7 @@ export function BottomNav({ unreadCount = 0 }: { unreadCount?: number }) {
             backdrop frost, hairline slate border, deep float shadow. It has NO
             overflow clipping, which is what lets the centre button stand proud
             of its top edge and the unread badge escape its icon. */}
-        <ul className="grid grid-cols-5 items-center rounded-full border border-slate-800/80 bg-[#0F172A]/90 px-2 py-1.5 shadow-2xl backdrop-blur-xl">
+        <ul className="grid grid-cols-5 items-center rounded-t-[2rem] rounded-b-full border border-purple-500/40 bg-[#0F172A]/90 px-2 py-1.5 shadow-[0_0_24px_rgba(168,85,247,0.35)] backdrop-blur-xl">
           {LEFT_TABS.map((tab) => (
             <DockTabItem key={tab.href} tab={tab} pathname={pathname} unreadCount={unreadCount} />
           ))}
