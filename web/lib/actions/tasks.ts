@@ -78,6 +78,7 @@ export async function publishMomentAction(input: {
   storagePath: string;
   content: string;
   mediaType: "image" | "video";
+  previewUrl?: string | null;
   taskSlug?: string | null;
 }): Promise<MomentResult> {
   try {
@@ -88,6 +89,7 @@ export async function publishMomentAction(input: {
       storagePath: input.storagePath,
       content: input.content,
       mediaType: input.mediaType,
+      previewUrl: input.previewUrl,
       taskSlug: input.taskSlug ?? null,
     });
 

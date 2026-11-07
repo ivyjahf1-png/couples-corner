@@ -29,6 +29,7 @@ export interface MomentView {
   content: string;
   mediaUrl: string;
   mediaType: MomentMediaType;
+  previewUrl?: string | null;
   authorName: string | null;
   authorAvatarUrl: string | null;
   createdAt: string;

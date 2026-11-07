@@ -571,6 +571,7 @@ export async function publishMomentFromStorage(
       user_id: userId,
       media_url: publicUrl,
       media_type: mediaType,
+      preview_url: mediaType === "video" ? null : null,
     };
     row[MOMENT_TEXT_COLUMN] = content;
 
@@ -665,7 +666,7 @@ export async function getRecentMoments(
   // pasted link vanish from the feed right after "Upload successful".
   const { data: momentRows, error: momentsError } = await supabase
     .from("moments")
-    .select("id, user_id, content, media_url, media_type, created_at")
+    .select("id, user_id, content, media_url, media_type, preview_url, created_at")
     .in("media_type", ["video", "link"])
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -750,6 +751,7 @@ export async function getRecentMoments(
       // see resolveStoredMediaUrl below.
       mediaUrl: resolveStoredMediaUrl(supabase, row.media_url),
       mediaType: row.media_type,
+      previewUrl: row.preview_url ?? null,
       authorName: author?.displayName ?? null,
       authorAvatarUrl: author?.avatarUrl ?? null,
       createdAt: row.created_at,

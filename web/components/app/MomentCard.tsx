@@ -74,7 +74,7 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
         : null
       : (post.video_url ?? (post.media_type === "video" ? post.media_url : null) ?? null);
   const hasVideo = Boolean(videoSource);
-  const videoPosterSrc = videoSource ?? undefined;
+  const videoPosterSrc = post.previewUrl ?? videoSource ?? undefined;
   const imageSource = isMomentView(post)
     ? post.mediaType !== "video"
       ? post.mediaUrl

@@ -3,10 +3,78 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Video, Send, Link as LinkIcon, Trash2 } from "lucide-react";
-import { parseVideoEmbedUrl, type ParsedEmbed, type ParsedEmbedResult } from "@/lib/utils/video-embed";
-import { uploadMediaDirect } from "@/lib/utils/direct-upload";
-import { getSupabaseClient } from "@/lib/supabase/client";
+import { createClient } from "@supabase/supabase-js";
+import { uploadMediaDirect } from "@/lib/utils/media-upload";
 import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
+
+declare const process: {
+  env: Record<string, string | undefined>;
+};
+
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseClient() {
+  if (!supabaseClient) {
+    supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+  }
+  return supabaseClient;
+}
+
+export type ParsedEmbed = {
+  platform: string;
+  normalizedUrl: string;
+  embedUrl: string;
+};
+
+export type ParsedEmbedResult =
+  | { ok: true; embedUrl: string; platform: string; normalizedUrl: string }
+  | { ok: false; error: string };
+
+function parseVideoEmbedUrl(rawValue: string): ParsedEmbedResult {
+  const value = rawValue.trim();
+  if (!value) {
+    return { ok: false, error: "Paste a link first." };
+  }
+
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+
+    if (host.includes("youtube.com") || host.includes("youtu.be")) {
+      return {
+        ok: true,
+        platform: "youtube",
+        normalizedUrl: value,
+        embedUrl: value,
+      };
+    }
+
+    if (host.includes("instagram.com")) {
+      return {
+        ok: true,
+        platform: "instagram",
+        normalizedUrl: value,
+        embedUrl: value,
+      };
+    }
+
+    if (host.includes("tiktok.com")) {
+      return {
+        ok: true,
+        platform: "tiktok",
+        normalizedUrl: value,
+        embedUrl: value,
+      };
+    }
+  } catch {
+    // ignore invalid raw values and surface the generic unsupported-link message
+  }
+
+  return { ok: false, error: "Unsupported link. We only support YouTube, Instagram and TikTok links." };
+}
 
 /**
  * MomentComposer — caption field + video upload button for the Moment screen.
@@ -83,7 +151,7 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
       // Step 1 — bytes straight to the `user-media` bucket, with byte-level
       // progress so a large upload shows real movement instead of a bare
       // "Uploading..." that is indistinguishable from a hang.
-      const uploaded = await uploadMediaDirect(uid, file, (percent) =>
+      const uploaded = await uploadMediaDirect(uid, file, (percent: number) =>
         setProgress(percent)
       );
       if (!uploaded.ok) {
@@ -100,6 +168,7 @@ export function MomentComposer({ onPublished }: { onPublished?: () => void }) {
         storagePath: uploaded.storagePath,
         content: body.trim(),
         mediaType: "video",
+        previewUrl: uploaded.previewUrl,
       });
       if (!result.ok) {
         setError(result.error ?? "Could not publish your moment. Please try again.");

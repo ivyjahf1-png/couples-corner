@@ -31,6 +31,7 @@
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getFreshAccessToken } from "@/lib/supabase/auth-client";
 import { validateMediaFile } from "@/lib/utils/media-upload";
+import { generateVideoPreview } from "@/lib/utils/video-preview";
 
 export const USER_MEDIA_BUCKET = "user-media";
 export const PROFILE_PHOTOS_BUCKET = "photos";
@@ -40,20 +41,17 @@ export type DirectUploadResult =
       ok: true;
       storagePath: string;
       mediaType: "image" | "video";
-      /**
-       * Public URL of the stored object.
-       *
-       * Added so a caller that only wants to REFERENCE an upload does not have to
-       * write a `user_media` row just to get a URL back. `getPublicUrl` is pure
-       * string construction — it performs no network call and issues no signed
-       * request — so deriving it here costs nothing.
-       *
-       * This is what lets the Moment feed publish straight to `posts`: before
-       * this field existed, `FeedUploadModal` had to call `recordUserMediaAction`
-       * purely for the `publicUrl` it returned, which silently appended every
-       * feed photo to the member's personal profile gallery as a side effect.
-       */
+      /** Public URL of the stored object. Added so a caller that only wants to
+       * REFERENCE an upload does not have to write a `user_media` row just to
+       * get a URL back. `getPublicUrl` is pure string construction — it performs
+       * no network call and issues no signed request — so deriving it here is
+       * cost-free. */
       publicUrl: string;
+      /** Preview/poster image URL for this media, if available. Generated
+       *  server-side from a video frame extraction (see
+       *  `generateVideoPreview` in `lib/utils/video-preview.ts`). Null until a
+       *  preview is available. */
+      previewUrl?: string | null;
     }
   | { ok: false; error: string };
 
@@ -266,6 +264,7 @@ export async function uploadFileDirect(
       storagePath: path,
       mediaType,
       publicUrl: client.storage.from(bucket).getPublicUrl(path).data.publicUrl,
+      previewUrl: mediaType === "video" ? generateVideoPreview(path) : null,
     };
   } catch (error) {
     // The XHR path rejects with an Error carrying a numeric `status` when the

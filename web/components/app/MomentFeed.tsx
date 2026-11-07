@@ -16,6 +16,7 @@ import {
 interface MomentItem {
   id: string;
   videoUrl: string;
+  previewUrl?: string | null;
   username: string;
   userAvatar: string;
   caption: string;
@@ -118,6 +119,7 @@ export default function MomentFeed({ moments, onDelete }: MomentFeedProps) {
           key={currentMoment.id}
           ref={videoRef}
           src={currentMoment.videoUrl}
+          poster={currentMoment.previewUrl ?? undefined}
           className="absolute inset-0 w-full h-full object-contain"
           autoPlay
           loop={!autoScroll}
