@@ -7,29 +7,29 @@
  * video wins over image: when a video source exists the card renders a
  * <video> element (never a static <img> of a video file), otherwise it falls
  * back to the image. Detection is explicit —
- * `video_url` wins outright, otherwise `media_type === "video"` plus a
- * `media_url` — so a row with a video flag but no URL renders no media
+ * video_url wins outright, otherwise media_type === "video" plus a
+ * media_url — so a row with a video flag but no URL renders no media
  * rather than a broken player.
  *
- * WHY `controls + playsInline + preload="metadata"` HERE. This card lives in
+ * WHY controls + playsInline + preload="metadata" HERE. This card lives in
  * a scrolling list where many players share the viewport, so unlike the
  * full-screen MomentViewer (autoPlay/muted/loop with an IntersectionObserver
- * driver) it must NOT autoplay: `controls` gives the member explicit play,
- * `playsInline` keeps iOS from hijacking to fullscreen, and
- * `preload="metadata"` fetches only dimensions/poster until tapped, which is
+ * driver) it must NOT autoplay: controls gives the member explicit play,
+ * playsInline keeps iOS from hijacking to fullscreen, and
+ * preload="metadata" fetches only dimensions/poster until tapped, which is
  * what keeps a long timeline from opening dozens of streams at once.
  */
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Play } from "lucide-react";
-import type { MomentView } from "@/lib/moments";
-import { parseMediaUrl } from "@/lib/media/embedParser";
+import type { MomentView } from "../../lib/moments";
+import { parseMediaUrl } from "../../lib/media/embedParser";
 
 /**
- * Minimal post shape this card accepts. `MomentView` (lib/moments.ts) is the
- * primary source — `mediaUrl` + `mediaType` — while `MomentPost` covers rows
- * that still use the legacy `video_url` / `image_url` column names, so both
+ * Minimal post shape this card accepts. MomentView (lib/moments.ts) is the
+ * primary source — mediaUrl + mediaType — while MomentPost covers rows
+ * that still use the legacy video_url / image_url column names, so both
  * callers get the same video-first rendering without a rewrite.
  */
 export interface MomentPost {
@@ -39,6 +39,7 @@ export interface MomentPost {
   media_url?: string | null;
   image_url?: string | null;
   media_type?: string | null;
+  previewUrl?: string | null;
 }
 
 type MomentCardPost = MomentPost | MomentView;
@@ -54,7 +55,7 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
     : (post.video_url ?? post.media_url ?? post.image_url ?? null);
 
   // Social links (YouTube / Instagram / TikTok) render as embeds; raw files
-  // keep the native <video>/<img> path. `parseMediaUrl` re-derives the
+  // keep the native <video>/<img> path. parseMediaUrl re-derives the
   // canonical embed URL from the video id, so a stored raw link can never
   // become an arbitrary iframe src.
   const parsed = rawMediaUrl ? parseMediaUrl(rawMediaUrl) : null;
@@ -63,9 +64,9 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
       ? parsed.embedUrl
       : null;
 
-  // Normalise both shapes onto one video/image decision. `embedUrl` short-
-  // circuits the native video path so the value is never `false` for an image
-  // card; that keeps the JSX `src` prop strictly `string | null`.
+  // Normalise both shapes onto one video/image decision. embedUrl short-
+  // circuits the native video path so the value is never false for an image
+  // card; that keeps the JSX src prop strictly string | null.
   const videoSource = embedUrl
     ? null
     : isMomentView(post)
@@ -89,7 +90,7 @@ export function MomentCard({ post }: { post: MomentCardPost }) {
   // Navigation router - clicking the card navigates to full-screen viewer
   const router = useRouter();
 
-  // Determines the moment id for navigation (both post shapes have an `id`)
+  // Determines the moment id for navigation (both post shapes have an id)
   const momentId = post.id;
 
   return (
