@@ -20,23 +20,21 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/": ["./"],
-      "@lib/": ["./lib/"],
-      "@components/": ["./components/"]
-    }
-  },
+      "@/*": ["./*"],
+      "@lib/*": ["./lib/*"],
+      "@components/*": ["./components/*"]
+    },
     "plugins": [
       {
         "name": "next"
       }
-    ],
+    ]
+  },
   "include": [
     "next-env.d.ts",
-    "*/.ts",
-    "*/.tsx",
-    ".next/types/*/.ts",
-    ".next/dev/types/*/.ts",
-    "*/.mts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
