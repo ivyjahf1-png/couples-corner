@@ -25,3 +25,4 @@ export function validateMediaFile(file: { size: number; type: string }, profileP
   if (!Number.isFinite(file.size) || file.size <= 0) return "The selected file is empty.";
   return null;
 }
+

@@ -2,8 +2,8 @@
 
 import "server-only";
 import { revalidatePath } from "next/cache";
-import { getCurrentSessionUser } from "@/lib/server/session";
-import { rethrowIfNavigation } from "@/lib/utils/errors";
+import { getCurrentSessionUser } from "../server/session";
+import { rethrowIfNavigation } from "../utils/errors";
 import {
   claimTaskReward,
   getUserTasks,
@@ -17,8 +17,8 @@ import {
   type ClaimResult,
   type MomentResult,
   type TaskView,
-} from "@/lib/server/tasks";
-import type { MomentCommentView, ReactionKind, ReactionTally } from "@/lib/moments";
+} from "../server/tasks";
+import type { MomentCommentView, ReactionKind, ReactionTally } from "../moments";
 
 /** Today's task list for the signed-in user. */
 export async function getUserTasksAction(): Promise<TaskView[]> {
@@ -89,7 +89,6 @@ export async function publishMomentAction(input: {
       storagePath: input.storagePath,
       content: input.content,
       mediaType: input.mediaType,
-      previewUrl: input.previewUrl,
       taskSlug: input.taskSlug ?? null,
     });
 

@@ -4,9 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Video, Send, Link as LinkIcon, Trash2 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
-import { uploadMediaDirect } from "@/lib/utils/media-upload";
-import { publishMomentAction, publishLinkMomentAction } from "@/lib/actions/tasks";
-
+import { uploadMediaDirect } from "../../lib/utils/direct-upload";
+import { publishMomentAction, publishLinkMomentAction } from "../../lib/actions/tasks";
 declare const process: {
   env: Record<string, string | undefined>;
 };
