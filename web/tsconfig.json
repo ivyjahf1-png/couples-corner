@@ -20,7 +20,9 @@
     "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
-      "@/": ["./"]
+      "@/": ["./"],
+      "@lib/": ["./lib/"],
+      "@components/": ["./components/"]
     }
   },
     "plugins": [
